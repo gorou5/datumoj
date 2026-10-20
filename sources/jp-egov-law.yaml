@@ -1,0 +1,28 @@
+id: jp-egov-law
+name: e-Gov 法令 API v2
+country: jp
+kind: egov_law
+base_url: https://laws.e-gov.go.jp/api/2
+allowed_hosts:
+  - laws.e-gov.go.jp
+rate_per_sec: 1
+max_total_bytes: 5368709120
+max_files: 10000
+schedule: daily
+license:
+  name: null
+  url: null
+  attribution: null
+  usage_scope: internal_only
+  redistribution: unverified
+  verified_at: null
+  notes: 法令検索及び法令APIの利用条件尚未逐项核对；核对前仅内部使用
+scope:
+  endpoints:
+    - /laws
+    - /law_data/{law_id}
+    - /law_revisions/{law_id}
+  law_data_version: current
+  revision_check: per_law
+needs_key: null
+retention_note: null
