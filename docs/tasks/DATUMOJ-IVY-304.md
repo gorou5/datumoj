@@ -41,7 +41,8 @@ max_attempts: 2
 5. 新增 `sources/jp-stat-dashboard.yaml`（约 10 个精选指标：人口、世帯数、出生、死亡、転入転出、県内総生産、就業者数等，指标码从样本里取）。
 6. 测试：规划器边界（正好 5/50、超出、空）、转换后的数值和样本逐条一致、地区码正确。
 7. （H1 实测）带 `modifiedFrom` 的请求可能仍返回全部数据，增量逻辑不能假设结果一定变少，要按记录自身的更新时间或内容哈希去重；响应里参数回显为 `ModifiedFrom`（大写开头）。部分指标在部分地区没有数据（样本 b2 的社会増減数只有全国），要原样表现为缺失，不能补零。
-8. （契约二对齐）实现 `Crawler` 和 `Parser` 协议，测试用 `drive_crawler` 驱动；观测值经 `ParseResult.observations` 交出，指标目录经 `ParseResult.datasets` 交出。
+8. （审查多轮后明确）指标目录**全量**抓取：目录请求不带 `Category` 参数（或先取类别列表再逐类全部抓取），不能只抓 `sources` 里写死的几个类别；`scope.indicators` 只决定 getData 抓哪些指标，不限制目录。录制样本里只有 6 个按类别过滤的目录响应（录样本时为控制体积做的），没有不带过滤的全量响应：测试请新建一个人工构造的小样本 `tests/fixtures/stat_dashboard/getIndicatorInfo_all.synthetic.json`（结构照抄已有的 getIndicatorInfo 样本，几十条即可），用它验证全量请求和解析。
+9. （契约二对齐）实现 `Crawler` 和 `Parser` 协议，测试用 `drive_crawler` 驱动；观测值经 `ParseResult.observations` 交出，指标目录经 `ParseResult.datasets` 交出。
 
 # 不做
 - 不改 scope 以外的文件。
