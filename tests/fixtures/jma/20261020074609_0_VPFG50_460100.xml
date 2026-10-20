@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Report xmlns="http://xml.kishou.go.jp/jmaxml1/" xmlns:jmx="http://xml.kishou.go.jp/jmaxml1/" xmlns:jmx_add="http://xml.kishou.go.jp/jmaxml1/addition1/">
+<Control>
+<Title>府県天気概況</Title>
+<DateTime>2026-10-20T07:46:09Z</DateTime>
+<Status>通常</Status>
+<EditorialOffice>鹿児島地方気象台</EditorialOffice>
+<PublishingOffice>鹿児島地方気象台</PublishingOffice>
+</Control>
+<Head xmlns="http://xml.kishou.go.jp/jmaxml1/informationBasis1/">
+<Title>天気概況</Title>
+<ReportDateTime>2026-10-20T16:46:00+09:00</ReportDateTime>
+<TargetDateTime>2026-10-20T16:46:00+09:00</TargetDateTime>
+<EventID/>
+<InfoType>発表</InfoType>
+<Serial/>
+<InfoKind>平文情報</InfoKind>
+<InfoKindVersion>1.0_0</InfoKindVersion>
+<Headline>
+<Text/>
+</Headline>
+</Head>
+<Body xmlns="http://xml.kishou.go.jp/jmaxml1/body/meteorology1/">
+<TargetArea xmlns:jmx_eb="http://xml.kishou.go.jp/jmaxml1/elementBasis1/" codeType="気象情報／府県予報区・細分区域等">
+<Name>鹿児島県</Name>
+<Code>460000</Code>
+</TargetArea>
+<Notice/>
+<Comment>
+<Text type="本文">　薩摩、大隅、種子島・屋久島地方は、高気圧に覆われておおむね晴れています。２０日は、高気圧に覆われて晴れますが、湿った空気の影響により曇りとなる所があるでしょう。２１日は、前線や湿った空気の影響によりおおむね曇りで雨が降る所がある見込みです。
+
+　奄美地方は、高気圧に覆われておおむね晴れています。２０日は、高気圧に覆われて晴れとなりますが、湿った空気の影響により雨が降る所があるでしょう。２１日は、高気圧に覆われて晴れとなりますが、湿った空気の影響により次第に曇りとなり雨や雷雨となる所がある見込みです。
+
+＜天気変化等の留意点＞
+　薩摩地方の２１日は、前線や湿った空気の影響によりおおむね曇りで雨が降る所があるでしょう。薩摩地方の２１日１８時までに予想される２４時間降水量は多い所で１５ミリの見込みです。</Text>
+</Comment>
+</Body>
+</Report>

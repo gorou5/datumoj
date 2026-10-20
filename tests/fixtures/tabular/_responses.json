@@ -1,0 +1,170 @@
+{
+  "estat_ecensus2016_t2_osaka.csv": {
+    "origin": "old-project-evidence",
+    "source_path": "digital-assets/plugin-prototype/evidence/277d8706-e93e-463b-bfb7-84c776201dd5/trade-area-2/official.csv",
+    "bytes": 328049,
+    "sha256": "bda4a4467ca86dd32b7d695005ac1d0d21b3459c8b890b3376bd04fc42bc1c13",
+    "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031721271&fileKind=1",
+    "status": 200,
+    "headers": {
+      "content-type": "text/csv;charset=UTF-8",
+      "connection": "close",
+      "strict-transport-security": "max-age=0",
+      "content-disposition": "attachment; filename*=UTF-8''02000.csv",
+      "cache-control": "private",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "SAMEORIGIN",
+      "x-cache": "MISS",
+      "date": "Thu, 15 Oct 2026 16:05:31 GMT",
+      "server": "ZENEDGE",
+      "accept-ranges": "bytes",
+      "x-xss-protection": "1; mode=block",
+      "content-length": "328049",
+      "x-cache-status": "NOTCACHED",
+      "x-zen-fury": "ae2b8c5495c525fb0c0a5620d4eef5fccb873388",
+      "x-cdn": "Served-By-Zenedge"
+    },
+    "http_record": "digital-assets/plugin-prototype/evidence/277d8706-e93e-463b-bfb7-84c776201dd5/http-2.json"
+  },
+  "estat_eisei_gyosei_r6_t10.csv": {
+    "origin": "old-project-evidence",
+    "source_path": "digital-assets/plugin-prototype/evidence/4d436e64-4012-4790-88dd-47151ca30221/trade-area-5/official.csv",
+    "bytes": 8126,
+    "sha256": "9c2c7022558a53179f60c0a409817fdcbf28abd91953a51983887816d7802b95",
+    "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040359178&fileKind=1",
+    "status": 200,
+    "headers": {
+      "content-type": "text/csv;charset=UTF-8",
+      "connection": "close",
+      "date": "Fri, 16 Oct 2026 13:49:52 GMT",
+      "accept-ranges": "bytes",
+      "x-cache-status": "NOTCACHED",
+      "content-length": "8126",
+      "x-zen-fury": "2fdd9f9237cfa06ae03814d6281ad8fa846dddbc",
+      "server": "ZENEDGE",
+      "strict-transport-security": "max-age=0",
+      "x-xss-protection": "1; mode=block",
+      "x-content-type-options": "nosniff",
+      "content-disposition": "attachment; filename*=UTF-8''mr_hd0100.csv",
+      "x-frame-options": "SAMEORIGIN",
+      "cache-control": "private",
+      "x-cache": "MISS",
+      "x-cdn": "Served-By-Zenedge"
+    },
+    "http_record": "digital-assets/plugin-prototype/evidence/4d436e64-4012-4790-88dd-47151ca30221/http-5.json"
+  },
+  "bodik_mukou_population.xlsx": {
+    "origin": "old-project-evidence",
+    "source_path": "digital-assets/plugin-prototype/evidence/b38f059e-1297-44df-90b0-3c152414b66c/file-20-xlsx/raw/evidence/raw/bodik.file.xlsx-3.xlsx",
+    "bytes": 370834,
+    "sha256": "65e927fcd31892ca0d3395d01e8b46c6e5cbbfed0f9dc91ff2314de0dd11aee5",
+    "url": "https://data.bodik.jp/dataset/000d6f71-c569-442c-bf8c-98ddc2c375a3/resource/50f27e3f-3ca4-40cc-9927-ed685e345db9/download/262081_population.xlsx",
+    "status": 200,
+    "headers": {
+      "server": "nginx",
+      "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "content-length": "370834",
+      "connection": "close",
+      "content-disposition": "inline; filename=262081_population.xlsx",
+      "last-modified": "Wed, 03 Jun 2026 02:19:54 GMT",
+      "cache-control": "no-cache, public, max-age=0, must-revalidate",
+      "etag": "\"1780453194.7724707-370834-1145181656\"",
+      "date": "Sat, 10 Oct 2026 09:40:51 GMT",
+      "vary": "Cookie",
+      "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options": "nosniff",
+      "x-xss-protection": "1; mode=block",
+      "referrer-policy": "strict-origin-when-cross-origin"
+    },
+    "http_record": "digital-assets/plugin-prototype/evidence/b38f059e-1297-44df-90b0-3c152414b66c/http-22.json"
+  },
+  "estat_chiho_kyoikuhi_h28_t7-1.xlsx": {
+    "origin": "recorded-this-session",
+    "bytes": 12239,
+    "sha256": "5aec1926c6a0e75360d8ac6fa663d9721b7d8d3b3246c7c960874fa280859c56",
+    "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031591672&fileKind=0",
+    "status": 200,
+    "fetched_at": "2026-10-20T21:06:05+09:00",
+    "headers": {
+      "content-type": "application/octet-stream",
+      "transfer-encoding": "chunked",
+      "connection": "keep-alive",
+      "x-content-type-options": "nosniff",
+      "cache-control": "private",
+      "server": "ZENEDGE",
+      "content-disposition": "attachment; filename*=UTF-8''8ksqfy2015_0701.xlsx",
+      "date": "Tue, 20 Oct 2026 12:06:06 GMT",
+      "accept-ranges": "bytes",
+      "strict-transport-security": "max-age=0",
+      "x-cache-status": "NOTCACHED",
+      "x-cache": "MISS",
+      "content-encoding": "gzip",
+      "x-xss-protection": "1; mode=block",
+      "x-frame-options": "SAMEORIGIN",
+      "x-zen-fury": "79edc753a03c6fad07b7af0c906dabd49ef7896d",
+      "x-cdn": "Served-By-Zenedge"
+    }
+  },
+  "estat_hogosha_r2_t1-1.xlsx": {
+    "origin": "recorded-this-session",
+    "bytes": 23361,
+    "sha256": "502b3ea4bc0460d7f9f9991dae1acb94f9018a05bd69e795dfb2d219156abd5b",
+    "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032172576&fileKind=0",
+    "status": 200,
+    "fetched_at": "2026-10-20T21:05:54+09:00",
+    "headers": {
+      "content-type": "application/octet-stream",
+      "transfer-encoding": "chunked",
+      "connection": "keep-alive",
+      "server": "ZENEDGE",
+      "x-xss-protection": "1; mode=block",
+      "x-cache-status": "NOTCACHED",
+      "content-encoding": "gzip",
+      "date": "Tue, 20 Oct 2026 12:05:55 GMT",
+      "x-frame-options": "SAMEORIGIN",
+      "cache-control": "private",
+      "accept-ranges": "bytes",
+      "x-cache": "MISS",
+      "content-disposition": "attachment; filename*=UTF-8''2020_hou0001a.xlsx",
+      "x-content-type-options": "nosniff",
+      "x-zen-fury": "2bc30037f93ca28d9b0fee2993e34ee0000d89a5",
+      "strict-transport-security": "max-age=0",
+      "x-cdn": "Served-By-Zenedge"
+    }
+  },
+  "ksj_s12_mixed_encoding.synthetic.zip": {
+    "origin": "synthetic",
+    "derived_from": "digital-assets/plugin-prototype/evidence/277d8706-e93e-463b-bfb7-84c776201dd5/trade-area-6/official.zip",
+    "bytes": 3422,
+    "sha256": "a21ec6fdbc919295314c767e09edb1a9aca1f7e4dad42f6cedcb13b1bba1a063"
+  },
+  "zip_not_xlsx_content_types.synthetic.zip": {
+    "origin": "synthetic",
+    "bytes": 434,
+    "sha256": "7c66beef9c27a80c8672b5bfea1a1714482febb984afdc342d392cb6d089fbe5"
+  },
+  "stat_merged_header_notes.synthetic.xlsx": {
+    "origin": "synthetic",
+    "bytes": 6202,
+    "sha256": "0d4e5e69b0aa132644b544a50c26d2315edff046c157adcadce581390bc13736"
+  },
+  "zip_bomb_high_ratio.synthetic.zip": {
+    "origin": "synthetic",
+    "uncompressed_bytes": 209715200,
+    "bytes": 203958,
+    "sha256": "06cc62420dc5868e63d52565051d0a268318010bced5808ac3f7a67b34d5c3bc"
+  },
+  "zip_bomb_many_members.synthetic.zip": {
+    "origin": "synthetic",
+    "members": 10000,
+    "bytes": 900022,
+    "sha256": "d82329e8ee266a81fa993bdc79075050162c3fcc2486b698fca73fc35e569a00"
+  },
+  "zip_bomb_declared_size.synthetic.zip": {
+    "origin": "synthetic",
+    "declared_uncompressed_bytes": 4294967280,
+    "actual_uncompressed_bytes": 10,
+    "bytes": 126,
+    "sha256": "baec27f7be7f6ce2f10c048feac2fb1375717b279f87d6bd67eabde94a448b06"
+  }
+}

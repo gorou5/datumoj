@@ -1,0 +1,203 @@
+{
+  "indicator": {
+    "GET_META_INDICATOR_INF": {
+      "RESULT": {
+        "status": "0",
+        "errorMsg": "正常に終了しました。",
+        "date": "Thu Oct 01 13:11:20 JST 2026"
+      },
+      "PARAMETER": {
+        "lang": "JP",
+        "IndicatorCode": [
+          "0201010000000010000"
+        ]
+      },
+      "METADATA_INF": {
+        "CLASS_INF": {
+          "CLASS_OBJ": [
+            {
+              "@name": "総人口（総数）",
+              "@code": "0201010000000010000",
+              "details": {
+                "detail": [
+                  {
+                    "@code": "0201010001",
+                    "@name": "総人口",
+                    "$": "\"本邦に常住する人口（当該住居に3か月以上にわたって住んでいるか、又は住むことになっている者）。人口推計は国勢調査による人口を基準人口とし、その後の人口動向を他の人口関連資料から得て、毎月１日現在の人口を算出したもの。\n各国のデータについては出典参照。\""
+                  }
+                ]
+              },
+              "annotations": [
+                {
+                  "@cycle": "3",
+                  "@regionalRank": "4",
+                  "@isSeasonal": "1",
+                  "@annotation": "日本人・外国人の別不詳及び年齢不詳を含む。"
+                },
+                {
+                  "@cycle": "3",
+                  "@regionalRank": "3",
+                  "@isSeasonal": "1",
+                  "@annotation": "日本人・外国人の別不詳及び年齢不詳を含む。"
+                },
+                {
+                  "@cycle": "3",
+                  "@regionalRank": "1",
+                  "@isSeasonal": "1",
+                  "@annotation": "各年7月1日現在の推計人口。;各国の注記については出典参照。"
+                }
+              ],
+              "CLASS": [
+                {
+                  "@name": "総人口（総数）",
+                  "@sname": "総人口",
+                  "@fromDate": "19751000",
+                  "@toDate": "99991200",
+                  "cycle": {
+                    "@code": "1",
+                    "@name": "月"
+                  },
+                  "RegionalRank": {
+                    "@code": "2",
+                    "@name": "全国（日本）"
+                  },
+                  "IsSeasonal": {
+                    "@code": "1",
+                    "@name": "原数値"
+                  },
+                  "@statName": "国勢調査／人口推計",
+                  "@unit": "人"
+                },
+                {
+                  "@name": "総人口（総数）",
+                  "@sname": "総人口",
+                  "@fromDate": "1950CY00",
+                  "@toDate": "9999CY00",
+                  "cycle": {
+                    "@code": "3",
+                    "@name": "年"
+                  },
+                  "RegionalRank": {
+                    "@code": "1",
+                    "@name": "国"
+                  },
+                  "IsSeasonal": {
+                    "@code": "1",
+                    "@name": "原数値"
+                  },
+                  "@statName": "World Population Prospects（世界推計人口）",
+                  "@unit": "人"
+                },
+                {
+                  "@name": "総人口（総数）",
+                  "@sname": "総人口",
+                  "@fromDate": "1920CY00",
+                  "@toDate": "9999CY00",
+                  "cycle": {
+                    "@code": "3",
+                    "@name": "年"
+                  },
+                  "RegionalRank": {
+                    "@code": "2",
+                    "@name": "全国（日本）"
+                  },
+                  "IsSeasonal": {
+                    "@code": "1",
+                    "@name": "原数値"
+                  },
+                  "@statName": "国勢調査／人口推計",
+                  "@unit": "人"
+                },
+                {
+                  "@name": "総人口（総数）",
+                  "@sname": "総人口",
+                  "@fromDate": "1975CY00",
+                  "@toDate": "9999CY00",
+                  "cycle": {
+                    "@code": "3",
+                    "@name": "年"
+                  },
+                  "RegionalRank": {
+                    "@code": "3",
+                    "@name": "都道府県"
+                  },
+                  "IsSeasonal": {
+                    "@code": "1",
+                    "@name": "原数値"
+                  },
+                  "@statName": "国勢調査／人口推計",
+                  "@unit": "人"
+                },
+                {
+                  "@name": "総人口（総数）",
+                  "@sname": "総人口",
+                  "@fromDate": "1980CY00",
+                  "@toDate": "9999CY00",
+                  "cycle": {
+                    "@code": "3",
+                    "@name": "年"
+                  },
+                  "RegionalRank": {
+                    "@code": "4",
+                    "@name": "市区町村"
+                  },
+                  "IsSeasonal": {
+                    "@code": "1",
+                    "@name": "原数値"
+                  },
+                  "@statName": "国勢調査",
+                  "@unit": "人"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "region": {
+    "GET_META_REGION_INF": {
+      "RESULT": {
+        "status": "0",
+        "errorMsg": "正常に終了しました。",
+        "date": "Thu Oct 01 13:11:20 JST 2026"
+      },
+      "PARAMETER": {
+        "Lang": "JP",
+        "RegionCode": [
+          "13000",
+          "27000"
+        ]
+      },
+      "METADATA_INF": {
+        "CLASS_INF": {
+          "CLASS_OBJ": [
+            {
+              "@parentRegionCode": "00000",
+              "@name": "全国",
+              "@hiragana": "ぜんこく",
+              "CLASS": [
+                {
+                  "@regionCode": "13000",
+                  "@name": "東京都",
+                  "@level": "3",
+                  "@hiragana": "とうきょうと",
+                  "@fromDate": "190001",
+                  "@toDate": "999912"
+                },
+                {
+                  "@regionCode": "27000",
+                  "@name": "大阪府",
+                  "@level": "3",
+                  "@hiragana": "おおさかふ",
+                  "@fromDate": "190001",
+                  "@toDate": "999912"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}

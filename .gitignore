@@ -1,6 +1,6 @@
 .orch/
 .DS_Store
-data/
+/data/
 .secrets/
 .venv/
 __pycache__/

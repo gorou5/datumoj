@@ -41,6 +41,7 @@ max_attempts: 2
 5. `RawTable`：单元格（行、列、原始字符串、locator）、sheet、`member`（ZIP 内路径）。
 6. `detect_header`：识别 2–4 行的多行表头，拼接列名；识别表尾注记行（“注：”“資料：”）。
 7. 测试覆盖每一条，含 ZIP 炸弹被拒。
+8. （H1 实测）真实样本里没有带真正合并单元格表头和 `x`、`秘匿`、`△`、`資料：` 的统计表，这些用 `tests/fixtures/tabular/stat_merged_header_notes.synthetic.xlsx` 覆盖；真实样本（e-Stat cp932 CSV、e-Stat XLSX）覆盖多行表头、`-`、`…`、注 行。ZIP 炸弹有三种（高压缩比、成员数、声明大小），都要拒绝。
 
 # 不做
 - 不做统计口径映射。不支持 .xls（只识别并标记 unsupported）。

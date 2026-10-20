@@ -36,9 +36,11 @@ max_attempts: 2
 # 要求
 1. 采集器插件 `kind=estat_files`：清单写在新增的 `sources/jp-estat-files.yaml` 的 `scope.tables`，每项含 `stat_inf_id`、`survey`、`title`、`layout`、`expected_area_level`。
 2. 下载后核对表题、调查名、地区是否和清单一致，不一致记为失败（旧项目踩过“下载 ID 实际属于别的县”）。
-3. 解析器插件：版式转换器至少两种 `wide_area_by_year`、`long_with_dims`；只认清单指定的版式，认不出就报错，不猜。
+3. 解析器插件：版式转换器两种 `wide_area_by_year`、`census_area_by_measure`（详见下面的实测说明）；只认清单指定的版式，认不出就报错，不猜。
 4. 注记存进 `note`，`value` 为空；`survey` 必填。
 5. 测试：两种版式各至少一个真实样本，逐个核对 10 个以上数值；地区不符报失败；未知版式报错。
+6. （H1 实测）两种版式的真实结构：`wide_area_by_year`（人口推計 XLSX，行是地区、列是年份，2015 年在两组工作表里重复出现，要去重并记录来源工作表）和 `census_area_by_measure`（経済センサス cp932 CSV，每行带地区码和产业码，列方向按“经营组织 × 测度”展开，表头 13 行）。e-Stat 那种一行一个值的纯长表本次没有样本，不做。
+7. （H1 实测）东京都和大阪府两个文件下载名都是 `02000.csv`，正好用来测“文件实际属于哪个地区要从内容核对，不能信文件名”；两个 CSV 的响应头都写 UTF-8 但实际是 cp932；XLSX 下载用 `fileKind=4`。
 
 # 不做
 - 不用 e-Stat API。

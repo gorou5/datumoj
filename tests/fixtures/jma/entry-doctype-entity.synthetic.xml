@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SYNTHETIC / 人工构造的恶意样本，不是气象厅数据。用于测试解析器必须拒绝 DTD / 实体声明。 -->
+<!DOCTYPE Report [
+  <!ENTITY lol "lol">
+  <!ENTITY lol1 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
+  <!ENTITY lol2 "&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;">
+  <!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;">
+  <!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+<Report xmlns="http://xml.kishou.go.jp/jmaxml1/" xmlns:jmx="http://xml.kishou.go.jp/jmaxml1/" xmlns:jmx_add="http://xml.kishou.go.jp/jmaxml1/addition1/">
+<Control>
+<Title>府県天気概況</Title>
+<DateTime>2026-10-20T07:46:09Z</DateTime>
+<Status>通常</Status>
+<EditorialOffice>&lol3;</EditorialOffice>
+<PublishingOffice>&xxe;</PublishingOffice>
+</Control>
+<Head xmlns="http://xml.kishou.go.jp/jmaxml1/informationBasis1/">
+<Title>天気概況</Title>
+<ReportDateTime>2026-10-20T16:46:00+09:00</ReportDateTime>
+<TargetDateTime>2026-10-20T16:46:00+09:00</TargetDateTime>
+<EventID/>
+<InfoType>発表</InfoType>
+<Serial/>
+<InfoKind>平文情報</InfoKind>
+<InfoKindVersion>1.0_0</InfoKindVersion>
+<Headline>
+<Text>&lol3;</Text>
+</Headline>
+</Head>
+<Body xmlns="http://xml.kishou.go.jp/jmaxml1/body/meteorology1/">
+<Comment>
+<Text type="本文">&xxe;</Text>
+</Comment>
+</Body>
+</Report>
