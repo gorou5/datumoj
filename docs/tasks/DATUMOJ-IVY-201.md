@@ -44,6 +44,7 @@ max_attempts: 2
 8. （H1 实测）判断现行版不能只看修订历史的状态字段：有的法令（公文書管理法、番号法）没有 `CurrentEnforced` 条目，最新施行版被标成 `PreviousEnforced`。要用施行日和 asof 比较。
 9. （H1 实测）议员立法的法令 ID 是 `AC1` 形式（如 `428AC1000000103`），不能按 `AC0` 拼；`law_data` 的 404 错误码是 404004，`law_revisions` 是 404001，两种都要识别成“不存在”。
 10. （契约二对齐）施行基准日和未施行修改放进 `FetchTask.meta`（由执行器存进 manifest，解析器经 `meta` 参数拿到），不要另建存储。测试用 `datumoj.testing.fakes.drive_crawler` 驱动，不必等 105。
+11. （法令 meta 格式，201 与 202 共用）现行版全文任务的 `FetchTask.meta` 固定为 `{"task": "law_data", "law_id": "<法令ID>", "asof": "YYYY-MM-DD", "pending_amendments": [{"amendment_law_num": str|null, "promulgate_date": "YYYY-MM-DD"|null, "enforcement_date": "YYYY-MM-DD"|null, "enforcement_comment": str|null}]}`；没有未施行修改时 `pending_amendments` 为空列表；施行日未定（如“政令で定める日”）时 `enforcement_date` 为 null，原文放在 `enforcement_comment`。
 
 # 不做
 - 不解析法令结构（DATUMOJ-IVY-202）。
