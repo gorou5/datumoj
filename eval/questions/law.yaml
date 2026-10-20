@@ -1,0 +1,264 @@
+questions:
+  # ---- 日文（12） ----
+  - id: law-appi-third-party
+    question: 取引先に顧客リストを渡したいんですが、お客さん本人の同意は要りますか？
+    lang: ja
+    kind: retrieval
+    queries:
+      - 個人データ 第三者提供 本人の同意
+      - 顧客名簿 第三者に提供 同意 個人情報取扱事業者
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:415AC0000000057
+          locator_prefix: art=27
+    notes: 個人情報保護法第27条（第三者提供の制限）。原則としてあらかじめ本人の同意が必要で、例外が各号に列挙されている。
+  - id: law-appi-breach-report
+    question: うちの会員データが流出してしまった。どこかに報告しないといけない？
+    lang: ja
+    kind: retrieval
+    queries:
+      - 個人データ 漏えい 報告 個人情報保護委員会
+      - 個人情報 漏洩 事態 通知 義務
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:415AC0000000057
+          locator_prefix: art=26
+    notes: 個人情報保護法第26条（漏えい等の報告等）。個人情報保護委員会への報告と本人通知。「流出」は条文の「漏えい」の言い換え。
+  - id: law-appi-disclosure
+    question: 自分の個人情報を会社がどう持っているか見せてほしいと請求できますか
+    lang: ja
+    kind: retrieval
+    queries:
+      - 保有個人データ 開示請求 本人
+      - 本人 開示 個人情報取扱事業者 請求
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:415AC0000000057
+          locator_prefix: art=33
+    notes: 民間事業者に対する本人の開示請求権は第33条。第76条（行政機関等への開示請求）と取り違えやすい。
+  - id: law-appi-pseudonymized
+    question: 仮名加工情報ってどういう基準で作ればいいの？
+    lang: ja
+    kind: retrieval
+    queries:
+      - 仮名加工情報 作成 基準
+      - 仮名加工情報 加工 個人情報保護委員会規則
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:415AC0000000057
+          locator_prefix: art=41
+    notes: 個人情報保護法第41条（仮名加工情報の作成等）。作成基準は委員会規則で定める旨。
+  - id: law-lsa-dismissal-notice
+    question: 社員を辞めさせるとき、何日前に言っておかないといけませんか
+    lang: ja
+    kind: retrieval
+    queries:
+      - 解雇の予告 三十日前
+      - 解雇 予告 平均賃金 三十日分
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:322AC0000000049
+          locator_prefix: art=20
+    notes: 労働基準法第20条（解雇の予告）。30日前の予告、または30日分以上の平均賃金。
+  - id: law-lsa-closure-allowance
+    question: 会社の都合で急に仕事が休みになったら、給料は出るの？
+    lang: ja
+    kind: retrieval
+    queries:
+      - 使用者の責に帰すべき事由 休業 手当
+      - 休業手当 平均賃金 百分の六十
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:322AC0000000049
+          locator_prefix: art=26
+    notes: 労働基準法第26条（休業手当）。平均賃金の6割以上。
+  - id: law-lsa-annual-leave
+    question: 入社して半年たちました。有給って何日もらえますか？
+    lang: ja
+    kind: retrieval
+    queries:
+      - 年次有給休暇 六箇月継続勤務 八割以上出勤
+      - 有給休暇 付与日数 雇入れの日から起算
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:322AC0000000049
+          locator_prefix: art=39
+    notes: 労働基準法第39条（年次有給休暇）。6箇月継続勤務・8割以上出勤で10労働日。
+  - id: law-lsa-break
+    question: 8時間を超えて働く日は休憩を何分とらせてもらえる？
+    lang: ja
+    kind: retrieval
+    queries:
+      - 労働時間 休憩時間 八時間を超える 一時間
+      - 休憩 与えなければならない 労働時間の途中
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:322AC0000000049
+          locator_prefix: art=34
+    notes: 労働基準法第34条（休憩）。6時間超で45分、8時間超で1時間。
+  - id: law-consumer-misrepresentation
+    question: 営業の人に嘘を言われて契約してしまいました。取り消せますか？
+    lang: ja
+    kind: retrieval
+    queries:
+      - 消費者契約 勧誘 不実告知 取消し
+      - 重要事項 事実と異なることを告げる 誤認 意思表示の取消し
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:412AC0000000061
+          locator_prefix: art=4
+    notes: 消費者契約法第4条（誤認による取消し）。「嘘」は条文の「事実と異なることを告げる（不実告知）」。
+  - id: law-foia-deadline
+    question: 役所に情報公開を請求したら、結果は何日以内に返ってくるの？
+    lang: ja
+    kind: retrieval
+    queries:
+      - 開示決定等 期限 三十日以内
+      - 行政文書 開示請求 決定 期限 延長
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:411AC0000000042
+          locator_prefix: art=10
+    notes: 情報公開法第10条（開示決定等の期限）。請求日から30日以内、事務処理上の困難等で延長可。
+  - id: law-unauth-access-penalty
+    question: 他人のIDとパスワードで勝手にログインしたら、どんな罰を受けますか
+    lang: ja
+    kind: retrieval
+    queries:
+      - 不正アクセス行為 罰則 拘禁刑 罰金
+      - 他人の識別符号 ログイン 不正アクセス 処罰
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:411AC0000000128
+          locator_prefix: art=11
+    notes: 不正アクセス禁止法第11条（罰則）。第3条違反は3年以下の拘禁刑又は100万円以下の罰金。禁止規定の第3条ではなく罰則を問う。
+  - id: law-whistleblower-dismissal
+    question: 会社の不正を内部告発したらクビにされた。この解雇は有効ですか
+    lang: ja
+    kind: retrieval
+    queries:
+      - 公益通報 解雇 無効
+      - 公益通報者 公益通報をしたことを理由 解雇
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:416AC0000000122
+          locator_prefix: art=3
+    notes: 公益通報者保護法第3条（解雇の無効）。「内部告発」は「公益通報」の言い換え。降格等は第5条なので混同に注意。
+  # ---- 中文（4） ----
+  - id: law-zh-my-number-request
+    question: 别的公司可以随便要求我提供个人编号（My Number）吗？
+    lang: zh
+    kind: retrieval
+    queries:
+      - 個人番号 提供の求めの制限
+      - 他人に対し 個人番号の提供を求めてはならない
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:425AC0000000027
+          locator_prefix: art=15
+    notes: 番号法第15条（提供の求めの制限）。第19条各号に該当する場合を除き、他人に個人番号の提供を求めてはならない。
+  - id: law-zh-appeal-period
+    question: 对行政机关的处分不服，最晚要在多久之内提出审查请求？
+    lang: zh
+    kind: retrieval
+    queries:
+      - 審査請求期間 処分があったことを知った日の翌日から起算して三月
+      - 行政不服審査 審査請求 期限
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:426AC0000000068
+          locator_prefix: art=18
+    notes: 行政不服審査法第18条（審査請求期間）。処分を知った日の翌日から3か月。
+  - id: law-zh-overtime-premium
+    question: 加班和节假日上班，工资要加多少？
+    lang: zh
+    kind: retrieval
+    queries:
+      - 時間外 休日 深夜 割増賃金
+      - 時間外労働 割増賃金 二割五分以上
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:322AC0000000049
+          locator_prefix: art=37
+    notes: 労働基準法第37条（時間外、休日及び深夜の割増賃金）。第36条（三六協定）は残業の上限側なので別。
+  - id: law-zh-freedom-of-expression
+    question: 日本宪法保障言论和出版自由吗？
+    lang: zh
+    kind: retrieval
+    queries:
+      - 日本国憲法 表現の自由 言論 出版
+      - 集会 結社 言論 出版 検閲の禁止
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:321CONSTITUTION
+          locator_prefix: art=21
+    notes: 憲法第21条（集会・結社・言論・出版その他一切の表現の自由、検閲の禁止）。
+  # ---- English（4） ----
+  - id: law-en-refusal-reasons
+    question: If a government agency rejects my permit application, does it have to tell me why?
+    lang: en
+    kind: retrieval
+    queries:
+      - 申請を拒否する処分 理由の提示
+      - 許認可等 拒否 処分の理由を示さなければならない
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:405AC0000000088
+          locator_prefix: art=8
+    notes: 行政手続法第8条（申請拒否処分の理由の提示）。不利益処分の第14条と区別する。
+  - id: law-en-adverse-disposition-reasons
+    question: Must the authorities state a reason when they take adverse action against me, such as revoking a license?
+    lang: en
+    kind: retrieval
+    queries:
+      - 不利益処分 理由の提示
+      - 不利益処分をする場合 名あて人 同時に 理由を示す
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:405AC0000000088
+          locator_prefix: art=14
+    notes: 行政手続法第14条（不利益処分の理由の提示）。差し迫った必要がある場合は処分後相当期間内に示す例外あり。
+  - id: law-en-foia-who-may-request
+    question: Who is allowed to request disclosure of administrative documents held by national government agencies?
+    lang: en
+    kind: retrieval
+    queries:
+      - 行政文書の開示請求 何人も 行政機関の長
+      - 開示請求権 行政機関の保有する行政文書
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:411AC0000000042
+          locator_prefix: art=3
+    notes: 情報公開法第3条（開示請求権）。「何人も」＝国籍や居住地を問わず誰でも。
+  - id: law-en-consumer-liability-waiver
+    question: Is a clause in a consumer contract that fully exempts the business from liability for damages valid?
+    lang: en
+    kind: retrieval
+    queries:
+      - 事業者の損害賠償責任を免除する条項 無効 消費者契約
+      - 債務不履行 損害賠償 責任の全部を免除 条項
+    source_ids: [jp-egov-law]
+    expect:
+      hits:
+        - doc_key: jp-egov-law:412AC0000000061
+          locator_prefix: art=8
+    notes: 消費者契約法第8条（事業者の損害賠償の責任を免除する条項等の無効）。第10条（一方的に害する条項）や第9条（違約金）ではない。
