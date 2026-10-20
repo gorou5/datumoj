@@ -1,6 +1,6 @@
 # DATUMOJ 的计划
 
-> 版本 v0.2（2026-10-20）：第 13 节的待定问题已按默认答案定下，任务拆分见 `docs/TASKS.md`。任务前缀 `IVY-`，由调度器（orchestrator）派给 agent 执行。
+> 计划第 3 版（2026-10-20）：改为**契约先行、7 条开发线并行**，每个版本用家纹作代号（第 8 节）。第 2 版起，第 13 节的待定问题已按默认答案定下。任务拆分见 `docs/TASKS.md`。任务前缀 `IVY-`，由调度器（orchestrator）派给 agent 执行。
 > 输入资料：`handoff/digital-assets-20261020/`（旧项目 Digital Assets 0.9.1 的交接包）。旧代码在 `/Users/aaron/codex_workspace/digital-assets`，**只作参考，不迁移**。
 
 ---
@@ -36,7 +36,7 @@
 4. 回答里附上出处：来源、URL、抓取时间、快照哈希、定位信息（第几条、第几页或第几行）；
 5. 能定期输出“变化分析”，例如本周新增的采购公告、修订的法令、更新的统计表。
 
-**第一阶段完成的标准**（M3 结束时）：
+**第一阶段完成的标准**（M3 结束时，即 Diamond 版本）：
 - 日本至少 4 类来源已入库并能增量更新：法令、e-Gov 数据目录、统计（Dashboard 和精选的 e-Stat 表）、采购公告
 - 有一套离线评测集（至少 60 题），检索命中率和数值准确率达到第 10 节的门槛
 - 在 Claude Code 或 Claude Desktop 里通过 MCP 提问，能拿到带出处的回答；不支持的问题会说清缺口
@@ -175,34 +175,80 @@ datumoj/
 └── .secrets/                # API Key（不进 git）
 ```
 
-## 7. 怎么用调度器协作
+## 7. 怎么并行开发
 
-调度器把 `IVY-xxx` 任务派给 claude 或 codex 的 agent，完成后由另一家模型交叉审查再合并。为了让任务能被**自动验收**，有几条规则：
+### 7.1 原则
 
-1. **验收全部离线**：agent 在全新的 checkout 里工作，可用的命令只有 pytest。所以每个采集器或解析器的任务都要带上 `tests/fixtures/` 下的录制样本，测试不访问网络。
-2. **真实抓取不在任务里做**：真实抓取是“运行”，不是“开发”，由人（或主对话）执行 `make crawl SOURCE=...`。每个里程碑结束时做一次真实抓取，并记录结果（见第 8 节）。
-3. **依赖统一管理**：agent 不能运行 `uv`。M0 一次性把预计要用的依赖写进 `pyproject.toml` 并锁定；之后要新增依赖，在主对话里加好并提交，再派任务。
-4. **验收命令**统一写成：`/opt/homebrew/bin/uv run --frozen pytest -q tests/<...>`（在任务的 checkout 里运行，自动使用锁定的依赖）。
-5. **scope 要窄**：一个任务只动一个模块和它的测试，`results/IVY-xxx/**` 用来写完成说明。
-6. **接口先行**：M0 先定好 `core/` 里的数据模型和接口（抽象 crawler、parser、chunk）。之后的采集器和解析器任务可以并行，互不冲突。
-7. **审查方式**：默认 `other_family`（异源自动审查）。涉及架构和数据模型的任务用 `human`。
+1. **契约先行**。第一步只定两样东西：
+   - 数据模型（`core/models.py`，导出 JSON Schema 到 `schemas/`）；
+   - 接口协议（`core/contracts.py`），每个协议配一个假实现和一套“合格测试”（`datumoj/testing/`）。
 
-## 8. 里程碑
+   契约由人审查。契约定下之后，各条线**只依赖契约，不 import 其他线的实现**。
 
-| 里程碑 | 人能看到什么 | 主要任务（暂定，确认后写成任务文件） |
-|---|---|---|
-| **M0 地基** | `make test` 全部通过；用录制样本回放，能完整走一遍“计划→抓取→存 raw→写 manifest”，失败和超上限都有记录 | 项目骨架和依赖；数据模型与 manifest；按内容寻址的 raw 存储；礼貌 HTTP 客户端（限速、条件请求、重试、录制回放）；来源注册表 schema 与校验 |
-| **M1 第一条链路：法令** | 真实抓取 200 部法令，重复抓取不会重复下载；`datumoj search "個人情報の第三者提供"` 返回相关条文，并附上法令名、第几条、快照出处 | 法令采集器；法令 XML 按条解析；日文文本归一化；chunk 存储；FTS5 关键词索引；CLI search；首批评测题（法令 20 题） |
-| **M2 目录与统计** | 能搜到 e-Gov 目录里的数据集；能用 SQL 查“都道府県別の人口推移”并附出处；JMA 开始每小时轮询并积累历史 | CKAN 采集器（e-Gov Data）；Dashboard 采集器（分批规划器）；e-Stat 精选表文件；表格解析（cp932、和历、单位、注记）；地区码表（总务省全国地方公共団体コード，新建）；DuckDB 观测值模型；query_sql 工具；JMA 长期 feed 轮询采集器 |
-| **M3 AI 分析入口** | 在 Claude 里通过 MCP 问“東京都と大阪府の人口推移を比較して、関連する法改正もあれば”，得到带出处的回答；评测达标 | 向量索引 spike 和嵌入模型选型；混合检索（RRF）；查询改写（翻译成日文、拆成子查询）；MCP 服务器（search_docs、search_catalog、query_sql、get_chunk、cite）；评测执行器；评测集扩到 60 题以上；回答规则文档（skill） |
-| **M4 日本扩面与增量** | KKJ、BODIK 和省厅、自治体政策网页入库；定时增量更新；每周生成一份“变化报告”；能回答“大阪市の AI スタートアップ支援策” | KKJ 按日期分段采集，PDF 解析（含脱敏）；BODIK 复用 CKAN；jp-gov-web 定向采集（种子清单、深度和域名限制）；增量调度与变化检测；变化报告生成 |
-| **M5 欧美** | data.europa.eu、Eurostat、英德法荷门户、Federal Register 入库；能做日欧比较 | CKAN 适配多语言；SDMX 解析；Federal Register 采集器；多语言检索评测 |
+2. **假实现解耦**。各线开发时用假实现替代别人的模块。例如入口线可以先用 FakeRetriever 把工具层和 MCP 做通，不用等检索线完成。真实实现必须通过和假实现同一套合格测试，这样替换时不会出意外。
 
-每个里程碑结束时做一次**人工验收**：真实抓取一次，再用 5–10 个真实问题现场问答。结果记录到 `docs/acceptance/M*.md`。
+3. **插件自动发现，没有共享登记文件**。采集器和解析器各自一个文件，声明自己的 `kind`，由 `discover_crawlers()` 和 `discover_parsers()` 扫描加载。新增来源只是新建文件，两条线不会改到同一个文件。
+
+4. **集成任务单独做**。每个版本有一个集成任务，负责把真实实现接起来（只改 `wiring.py`、`cli.py`、`sources/`），并在 fixture 语料上跑评测门槛。集成时发现的模块 bug，开修复任务交回对应的开发线，不在集成任务里顺手改。
+
+5. **调度器配置**。本项目的并发上限是 3（`max_concurrent: 3`），每个任务预留 2GB 内存。
+
+### 7.2 七条开发线与负责人
+
+团队按 3–4 人设计。每条线有一位**负责人（owner）**，职责有三项：
+- 审本线需要人审查的任务；
+- 录制本线来源的测试样本（H1）；
+- 跑本线的真实抓取和验收。
+
+具体人选待定，先用甲乙丙丁占位：
+
+| 线 | 内容 | 拥有的目录 | 负责人（4 人时） | 3 人时 |
+|---|---|---|---|---|
+| 契约 | 数据模型、接口协议、假实现、日文文本工具 | `core/models.py`、`core/contracts.py`、`testing/`、`text/` | 项目负责人（Aaron） | 同左 |
+| A 抓取基础 | raw 存储、manifest、HTTP、注册表、执行器 | `core/` 其余文件 | 甲 | 甲 |
+| B 文档线 | 法令、JMA（M4 起加 KKJ、PDF、网页） | `crawlers/` 和 `parsers/` 下的对应文件 | 甲 | 甲 |
+| C 统计线 | 表格、地区码、观测值库、Dashboard、e-Stat | `tabular/`、`reference/`、`store/observations.py` | 乙 | 乙 |
+| D 目录线 | CKAN、目录存储与检索 | `crawlers/ckan.py`、`store/catalog.py` | 乙 | 乙 |
+| E 检索线 | FTS、向量、混合检索、缺口状态 | `index/`、`store/chunks.py` | 丙 | 丙 |
+| F 入口线 | 流水线、CLI、工具层、MCP | `pipeline.py`、`cli.py`、`analysis/`、`mcp_server.py` | 丙 | 丙 |
+| G 评测线 | 评测框架、题库、回答规则 skill | `eval/`、`skills/` | 丁 | 项目负责人 |
+
+评测线最好由**不写检索代码的人**负责。出题的人和被考的代码分开，题目才不会无意中迁就实现。
+
+### 7.3 调度器规则（不变）
+
+1. **验收全部离线**：agent 在全新的 checkout 里只能运行 pytest，测试用 `tests/fixtures/` 下的录制样本。
+2. **真实抓取不在任务里做**，由负责人在主对话里执行，结果记录到验收文档。
+3. **依赖统一管理**：agent 不能运行 `uv`。依赖在 H0 一次锁定；之后新增依赖，在主对话里改好、提交，再派任务。
+4. **验收命令**：`/opt/homebrew/bin/uv run --frozen pytest -q tests/<...>`。
+5. **scope 要窄**：契约文件对所有开发线任务都是 protected；需要改契约就停下来问，由人开契约修订任务。
+6. **审查**：默认 `other_family`。契约、观测值库、工具层、评测题和集成任务由人审查。
+
+### 7.4 团队怎么审核
+
+- **计划和任务**：任务文件的副本在 `docs/tasks/`，通过 GitHub PR 审核。审核通过后，主对话把它们复制到 `.orch/tasks/` 并同步给调度器。
+- **任务结果**：调度器跑在项目负责人的机器上。需要人审查的任务进入 review 状态后，主对话把该任务的分支推到 GitHub，由对应线的负责人在 PR 里审核；审核结论回传后，由项目负责人执行 `bin/orch approve` 或 `reject`。
+
+## 8. 版本与里程碑（代号用家纹）
+
+版本代号取家纹的英文名，**按首字母顺序排列**，看代号就知道版本先后。代号同时用作 git tag，格式为 `v<版本>-<代号>`。
+
+| 版本 | tag | 家纹 | 对应里程碑 | 人能看到什么 | 集成任务 |
+|---|---|---|---|---|---|
+| 0.1 | `v0.1.0-aoi` | 葵 Aoi | M0 契约与地基 | 契约审查通过；`make test` 全部通过；用回放样本完整走一遍“计划→抓取→存 raw→写 manifest”，失败和超上限都有记录 | （A 线 IVY-105 即集成） |
+| 0.2 | `v0.2.0-bellflower` | 桔梗 Bellflower | M1 法令链路 | 真实抓取 200 部法令，重复抓取不会重复下载；`datumoj search "個人情報の第三者提供"` 返回条文和出处；法令题 Recall@10 ≥ 0.85 | IVY-901 |
+| 0.3 | `v0.3.0-chrysanthemum` | 菊 Chrysanthemum | M2 目录与统计 | 能搜到 e-Gov 目录的数据集；`datumoj sql` 查都道府县人口并附出处；JMA 开始每小时轮询 | IVY-902 |
+| 0.4 | `v0.4.0-diamond` | 菱 Diamond（Hishi） | M3 AI 分析入口 | 在 Claude 里通过 MCP 问“東京都と大阪府の人口推移を比較して、関連する法改正もあれば”，得到带出处的回答；60 题全部达标。**第一阶段完成** | IVY-903 |
+| 0.5 | `v0.5.0-feather` | 鷹の羽 Feather | M4 日本扩面与增量 | KKJ、BODIK 和省厅、自治体政策网页入库；定时增量；每周变化报告；能回答“大阪市の AI スタートアップ支援策” | 到时再拆 |
+| 0.6 | `v0.6.0-gentian` | 竜胆 Gentian | M5 欧美 | data.europa.eu、Eurostat、英德法荷门户、Federal Register 入库；能做日欧比较 | 到时再拆 |
+
+后续可用的代号：Katabami（片喰）、Myoga（茗荷）、Paulownia（桐）、Wisteria（藤）。I 不用，因为 IVY（蔦）已经是任务前缀。
+
+**打 tag 的条件**：该版本的集成任务合并，加上人工验收通过。人工验收是指真实抓取一次，再用 5–10 个真实问题现场问答，结果记录到 `docs/acceptance/v<版本>-<代号>.md`。tag 打在 `main` 上，由项目负责人推送。
 
 ### 8.1 任务拆分
 
-M0–M3 已拆成 28 个开发任务（IVY-001 到 IVY-028）和 7 个主对话步骤（H0 到 H6），详见 `docs/TASKS.md`。M4 和 M5 只列了方向，等 M3 验收后再细拆。
+Aoi 到 Diamond 共 32 个开发任务，另有 7 个主对话步骤（H0–H6），详见 `docs/TASKS.md`。任务按开发线分号段：契约 001–003，A 线 1xx，B 线 2xx，C 线 3xx，D 线 4xx，E 线 5xx，F 线 6xx，G 线 7xx，集成 9xx。Feather 和 Gentian 等 Diamond 验收后再细拆。
 
 ## 9. 旧项目可复用的东西（只借鉴，不迁移代码）
 
@@ -210,7 +256,7 @@ M0–M3 已拆成 28 个开发任务（IVY-001 到 IVY-028）和 7 个主对话�
 
 | 可借鉴的 | 位置（旧仓库 `repo/plugin-prototype/` 下） | 在新项目里的用法 |
 |---|---|---|
-| 只读 HTTP 客户端的安全设计：公网地址白名单、逐跳校验重定向、容量和时长预算、记录 sha256 | `runtime/src/adapters/http-readonly.ts` | 照着它写 IVY-003，**另外补上限速和重试**（旧版故意没有） |
+| 只读 HTTP 客户端的安全设计：公网地址白名单、逐跳校验重定向、容量和时长预算、记录 sha256 | `runtime/src/adapters/http-readonly.ts` | 照着它写 IVY-103，**另外补上限速和重试**（旧版故意没有） |
 | “原始字节 + 回执”的保存方式 | `live-sources.mjs`、`local-runtime-evidence/` | 就是新 raw 存储 + manifest 的雏形 |
 | 安全的 XML 解析（禁用 DTD 和实体、限制大小） | `runtime/src/adapters/jma/secure-xml.ts` | 法令和 JMA 解析器都按这个原则用 lxml（`resolve_entities=False` 等） |
 | CSV / XLSX / GeoJSON 解析的边界处理（严格的 cp932、不计算公式、不转换坐标） | `runtime/src/adapters/bodik/{text-files,excel,geojson}.ts` | 表格解析器的测试用例清单 |
