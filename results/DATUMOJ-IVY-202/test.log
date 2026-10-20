@@ -1,0 +1,4 @@
+$ make check T=tests/parsers/test_xml_law.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+..........                                                               [100%]
+10 passed in 0.34s
