@@ -1,0 +1,42 @@
+{
+  "additionalProperties": false,
+  "description": "统计期间；label 保留原文（如“令和2年度”“2020年10月1日現在”）。",
+  "properties": {
+    "start": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Start"
+    },
+    "end": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "End"
+    },
+    "label": {
+      "minLength": 1,
+      "title": "Label",
+      "type": "string"
+    }
+  },
+  "required": [
+    "label"
+  ],
+  "title": "Period",
+  "type": "object"
+}

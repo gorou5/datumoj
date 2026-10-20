@@ -1,0 +1,199 @@
+{
+  "$defs": {
+    "TimeGranularity": {
+      "description": "观测值的时间粒度（地区粒度由 area_code 体现）。",
+      "enum": [
+        "year",
+        "fiscal_year",
+        "half_year",
+        "quarter",
+        "month",
+        "week",
+        "day",
+        "other"
+      ],
+      "title": "TimeGranularity",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "一个观测值。注记（“-”“…”“x”“秘匿”）进 note，value 为空，绝不补零。",
+  "properties": {
+    "obs_id": {
+      "minLength": 1,
+      "title": "Obs Id",
+      "type": "string"
+    },
+    "source_id": {
+      "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+      "title": "Source Id",
+      "type": "string"
+    },
+    "dataset_key": {
+      "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+:\\S(?:.*\\S)?$",
+      "title": "Dataset Key",
+      "type": "string"
+    },
+    "table_key": {
+      "minLength": 1,
+      "title": "Table Key",
+      "type": "string"
+    },
+    "survey": {
+      "minLength": 1,
+      "title": "Survey",
+      "type": "string"
+    },
+    "indicator": {
+      "minLength": 1,
+      "title": "Indicator",
+      "type": "string"
+    },
+    "indicator_code": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Indicator Code"
+    },
+    "area_code": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Area Code"
+    },
+    "area_label": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Area Label"
+    },
+    "time_start": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Time Start"
+    },
+    "time_end": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Time End"
+    },
+    "time_label": {
+      "minLength": 1,
+      "title": "Time Label",
+      "type": "string"
+    },
+    "granularity": {
+      "$ref": "#/$defs/TimeGranularity"
+    },
+    "dims": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Dims",
+      "type": "object"
+    },
+    "unit": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Unit"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Value"
+    },
+    "note": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Note"
+    },
+    "snapshot_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Snapshot Sha256",
+      "type": "string"
+    },
+    "locator": {
+      "pattern": "^(?:art|para|item|suppl|table|page|sheet|cell|row|entry|section|feature|member)=(?:[^%;=\\x00-\\x1f\\x7f]|%(?:25|3B|3D))+(?:;(?:art|para|item|suppl|table|page|sheet|cell|row|entry|section|feature|member)=(?:[^%;=\\x00-\\x1f\\x7f]|%(?:25|3B|3D))+)*$",
+      "title": "Locator",
+      "type": "string"
+    },
+    "fetched_at": {
+      "format": "date-time",
+      "title": "Fetched At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "obs_id",
+    "source_id",
+    "dataset_key",
+    "table_key",
+    "survey",
+    "indicator",
+    "time_label",
+    "granularity",
+    "unit",
+    "value",
+    "snapshot_sha256",
+    "locator",
+    "fetched_at"
+  ],
+  "title": "Observation",
+  "type": "object"
+}

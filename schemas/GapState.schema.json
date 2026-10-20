@@ -1,0 +1,12 @@
+{
+  "description": "查不到时是哪种缺口（PLAN 4.3 第 5 条）。",
+  "enum": [
+    "ok",
+    "zero_hits",
+    "not_ingested",
+    "fetch_failed",
+    "out_of_scope"
+  ],
+  "title": "GapState",
+  "type": "string"
+}

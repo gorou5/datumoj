@@ -1,0 +1,96 @@
+{
+  "$defs": {
+    "Redistribution": {
+      "enum": [
+        "allowed",
+        "forbidden",
+        "unverified"
+      ],
+      "title": "Redistribution",
+      "type": "string"
+    },
+    "UsageScope": {
+      "enum": [
+        "internal_only",
+        "redistributable"
+      ],
+      "title": "UsageScope",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "许可。核对之前一律 unverified / internal_only；可再分发必须先确认 redistribution=allowed。",
+  "properties": {
+    "name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Name"
+    },
+    "url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Url"
+    },
+    "attribution": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Attribution"
+    },
+    "usage_scope": {
+      "$ref": "#/$defs/UsageScope",
+      "default": "internal_only"
+    },
+    "redistribution": {
+      "$ref": "#/$defs/Redistribution",
+      "default": "unverified"
+    },
+    "verified_at": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Verified At"
+    },
+    "notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Notes"
+    }
+  },
+  "title": "LicenseInfo",
+  "type": "object"
+}

@@ -1,0 +1,8 @@
+{
+  "enum": [
+    "internal_only",
+    "redistributable"
+  ],
+  "title": "UsageScope",
+  "type": "string"
+}

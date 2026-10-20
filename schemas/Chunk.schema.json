@@ -1,0 +1,79 @@
+{
+  "additionalProperties": false,
+  "description": "检索单元。text 是来源正文，交给模型前必须包进 SourceText。",
+  "properties": {
+    "chunk_id": {
+      "minLength": 1,
+      "title": "Chunk Id",
+      "type": "string"
+    },
+    "doc_key": {
+      "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+:\\S(?:.*\\S)?$",
+      "title": "Doc Key",
+      "type": "string"
+    },
+    "locator": {
+      "pattern": "^(?:art|para|item|suppl|table|page|sheet|cell|row|entry|section|feature|member)=(?:[^%;=\\x00-\\x1f\\x7f]|%(?:25|3B|3D))+(?:;(?:art|para|item|suppl|table|page|sheet|cell|row|entry|section|feature|member)=(?:[^%;=\\x00-\\x1f\\x7f]|%(?:25|3B|3D))+)*$",
+      "title": "Locator",
+      "type": "string"
+    },
+    "text": {
+      "minLength": 1,
+      "title": "Text",
+      "type": "string"
+    },
+    "title_path": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Title Path",
+      "type": "array"
+    },
+    "snapshot_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Snapshot Sha256",
+      "type": "string"
+    },
+    "lang": {
+      "pattern": "^[a-z]{2,3}(?:-[A-Za-z0-9]{1,8})*$",
+      "title": "Lang",
+      "type": "string"
+    },
+    "published_at": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Published At"
+    },
+    "effective_at": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Effective At"
+    }
+  },
+  "required": [
+    "chunk_id",
+    "doc_key",
+    "locator",
+    "text",
+    "snapshot_sha256",
+    "lang"
+  ],
+  "title": "Chunk",
+  "type": "object"
+}

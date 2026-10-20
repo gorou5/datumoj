@@ -1,0 +1,99 @@
+{
+  "$defs": {
+    "Freshness": {
+      "additionalProperties": false,
+      "description": "数据新鲜度。as_of 是结果所用快照里最新的抓取时间，即“数据截止时间”。",
+      "properties": {
+        "as_of": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "As Of"
+        },
+        "oldest_fetched_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Oldest Fetched At"
+        },
+        "by_source": {
+          "patternProperties": {
+            "^[a-z]{2,4}(?:-[a-z0-9]+)+$": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          "title": "By Source",
+          "type": "object"
+        }
+      },
+      "title": "Freshness",
+      "type": "object"
+    },
+    "GapState": {
+      "description": "查不到时是哪种缺口（PLAN 4.3 第 5 条）。",
+      "enum": [
+        "ok",
+        "zero_hits",
+        "not_ingested",
+        "fetch_failed",
+        "out_of_scope"
+      ],
+      "title": "GapState",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "所有分析工具的返回外壳。\n\ndata 里的来源正文必须是 SourceText；不能直接放 Chunk（其 text 未标注）。\nwarnings 和 gap_detail 是说明性文字，不得拼接来源正文。",
+  "properties": {
+    "data": {
+      "title": "Data"
+    },
+    "gap_state": {
+      "$ref": "#/$defs/GapState"
+    },
+    "freshness": {
+      "$ref": "#/$defs/Freshness"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
+    "gap_detail": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gap Detail"
+    }
+  },
+  "required": [
+    "data",
+    "gap_state",
+    "freshness"
+  ],
+  "title": "ToolResult",
+  "type": "object"
+}

@@ -1,0 +1,137 @@
+{
+  "$defs": {
+    "LicenseInfo": {
+      "additionalProperties": false,
+      "description": "许可。核对之前一律 unverified / internal_only；可再分发必须先确认 redistribution=allowed。",
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "attribution": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attribution"
+        },
+        "usage_scope": {
+          "$ref": "#/$defs/UsageScope",
+          "default": "internal_only"
+        },
+        "redistribution": {
+          "$ref": "#/$defs/Redistribution",
+          "default": "unverified"
+        },
+        "verified_at": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verified At"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        }
+      },
+      "title": "LicenseInfo",
+      "type": "object"
+    },
+    "Redistribution": {
+      "enum": [
+        "allowed",
+        "forbidden",
+        "unverified"
+      ],
+      "title": "Redistribution",
+      "type": "string"
+    },
+    "UsageScope": {
+      "enum": [
+        "internal_only",
+        "redistributable"
+      ],
+      "title": "UsageScope",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "source_id": {
+      "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+      "title": "Source Id",
+      "type": "string"
+    },
+    "name": {
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "country": {
+      "pattern": "^[a-z]{2,4}$",
+      "title": "Country",
+      "type": "string"
+    },
+    "kind": {
+      "minLength": 1,
+      "title": "Kind",
+      "type": "string"
+    },
+    "base_url": {
+      "title": "Base Url",
+      "type": "string"
+    },
+    "license": {
+      "$ref": "#/$defs/LicenseInfo"
+    }
+  },
+  "required": [
+    "source_id",
+    "name",
+    "country",
+    "kind",
+    "base_url"
+  ],
+  "title": "Source",
+  "type": "object"
+}

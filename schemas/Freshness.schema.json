@@ -1,0 +1,44 @@
+{
+  "additionalProperties": false,
+  "description": "数据新鲜度。as_of 是结果所用快照里最新的抓取时间，即“数据截止时间”。",
+  "properties": {
+    "as_of": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "As Of"
+    },
+    "oldest_fetched_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Oldest Fetched At"
+    },
+    "by_source": {
+      "patternProperties": {
+        "^[a-z]{2,4}(?:-[a-z0-9]+)+$": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "title": "By Source",
+      "type": "object"
+    }
+  },
+  "title": "Freshness",
+  "type": "object"
+}
