@@ -14,7 +14,7 @@ out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "pyproject.toml", "uv.lock", 
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
   automated:
-    - cmd: /opt/homebrew/bin/uv run --frozen pytest -q tests/tabular/
+    - cmd: make check T=tests/tabular/
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-IVY-301/summary.md 完成说明"]
   review: {by: other_family, checklist: ["是否有地方信任了扩展名或 Content-Type", "ZIP 解压是否有上限", "是否越界"]}
   human: sampled

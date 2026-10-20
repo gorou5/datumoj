@@ -52,14 +52,16 @@ agent 只能跑 pytest，不能联网、不能装依赖。所以凡是要**联�
    - 开发组：`pytest`、`pytest-httpserver`、`ruff`
 3. pytest：`--import-mode=importlib`，`testpaths = ["tests"]`。
 4. 空包：`src/datumoj/{core,crawlers,parsers,store,index,analysis,eval,reference,text,tabular,testing}/__init__.py`；`tests/` 各子目录；`schemas/`、`sources/`、`eval/questions/`、`skills/datumoj/`。
-5. `Makefile`：`test`、`lint`、`crawl SOURCE= LIMIT=`、`parse`、`index`、`eval`、`mcp`。
+5. `Makefile`：`check T=`（任务验收用，等价于 `uv run --frozen pytest -q $(T)`）、`test`、`lint`、`crawl SOURCE= LIMIT=`、`parse`、`index`、`eval`、`mcp`。`UV` 变量先在 PATH 里找 `uv`，找不到再退回 `/opt/homebrew/bin/uv`，可以用环境变量覆盖。
 6. `.gitignore` 追加 `data/`、`.secrets/`、`.venv/`、`handoff/**/*.zip`、`handoff/**/*.xlsx`。
 7. 执行 `uv lock` 和 `uv run --frozen pytest -q`，确认依赖缓存已经就位，agent 的 checkout 才能离线安装。
 8. 提交并推送（PR）。
 
 ### H1 录制测试样本（各线负责人并行，派第 3 层任务之前完成）
 
-每个目录都写 README.md，说明每个文件的来源 URL（去掉 Key）、抓取时间、用途。真实请求一律有限次数，1 请求/秒。
+每个目录都写 README.md，说明每个文件的来源 URL（去掉 Key）、抓取时间、用途、许可。真实请求一律有限次数，1 请求/秒。
+
+**注意：本仓库是公开仓库**，fixture 一旦提交就等于再分发。只提交许可允许再分发的样本（附署名），个人信息必须先脱敏；不确定的先问项目负责人。外部团队提供的资料先放在 `docs/references/`（规范见该目录 README），再从中挑选。
 
 | 负责人 | 目录 | 内容 |
 |---|---|---|
@@ -81,21 +83,23 @@ agent 只能跑 pytest，不能联网、不能装依赖。所以凡是要**联�
 
 ### H4 M2 验收（乙）
 - 真实抓取 e-Gov 目录（先限 1000 个数据集）、Dashboard 精选指标、e-Stat 精选表；`datumoj sql` 查都道府县人口，核对 3 个数值和原表一致。
-- **开始 JMA 定时轮询**：用 launchd 每小时执行 `datumoj crawl jp-jma`，日志写到 `data/logs/`。
+- **开始 JMA 定时轮询**：每小时执行 `datumoj crawl jp-jma`，日志写到 `data/logs/`。在项目负责人的 Mac 上用 launchd；`make schedule` 同时能生成 cron 配置，方便以后换到 Linux。
 - 记录到 `docs/acceptance/v0.1.0-ivy-m2.md`，打 tag。
 
 ### H5 嵌入模型选型（丙，M1 之后随时可做）
 - 经同意后在本机安装 Ollama，拉取 `bge-m3`（约 1.2GB）。
 - 在法令语料上比较“纯关键词”和“关键词 + bge-m3”的 Recall@10，结论写进 `docs/adr/0001-embedding.md`；估算全量嵌入耗时。
+- 同时在全量法令（约 100 万块）上测两个字以下短查询的耗时（这类查询退回 LIKE 全表扫描），据此调整结果上限和超时。
 
 ### H6 M3 与 IVY 版本验收（全体）
 - 把 `datumoj mcp` 注册进 Claude Code，第一步先调用 `version` 核对加载的版本。
 - 现场问 10 个问题：交接包 06 号文档里适用的验收问题改写版，加上 PLAN 第 8 节的示例问题。逐条记录问题、工具调用、回答、出处是否属实。
+- **人工抽查引用支持率**：从回答里抽 20 条引用，检查原文是否真的支持对应结论，目标 ≥ 0.95，结果写进验收文档。
 - 记录到 `docs/acceptance/v0.1.0-ivy.md`，打 tag `v0.1.0-ivy-m3` 和 `v0.1.0-ivy`。IVY 版本完成，第一阶段完成。
 
 ## 4. 开发任务总表（共 32 个）
 
-验收命令统一是 `/opt/homebrew/bin/uv run --frozen pytest -q <下表的测试路径>`，全部离线。所有任务的 `protected` 都包含 `tests/fixtures/**`；契约以外的任务还把契约文件列为 protected。
+验收命令统一是 `make check T=<下表的测试路径>`，全部离线。所有任务的 `protected` 都包含 `tests/fixtures/**`；契约以外的任务还把契约文件列为 protected。
 
 | ID | 标题 | 依赖 | runner / 难度 | 审查 | 验收 |
 |---|---|---|---|---|---|

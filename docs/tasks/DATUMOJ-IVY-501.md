@@ -14,7 +14,7 @@ out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "pyproject.toml", "uv.lock", 
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
   automated:
-    - cmd: /opt/homebrew/bin/uv run --frozen pytest -q tests/index/test_fts.py
+    - cmd: make check T=tests/index/test_fts.py
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-IVY-501/summary.md 完成说明"]
   review: {by: other_family, checklist: ["是否越界", "测试是否覆盖每条要求", "是否通过了对应的契约合格测试", "是否有联网的测试", "是否只依赖契约而没有 import 其他线的实现"]}
   human: sampled
@@ -36,7 +36,7 @@ Chunk 存进 SQLite，用日文关键词（不分词）检索到。
 # 要求
 1. 实现 `ChunkStore` 和 `KeywordIndex` 协议：同一 `doc_key` 新快照替换旧块，旧快照记录保留以便引用旧版本。
 2. FTS5 `tokenize='trigram'`；索引 `title_path` 和 `text`；SQLite 不支持 trigram 时报错。
-3. `search(query, k, source_ids=None) -> list[Hit]`；查询先 `normalize`；两个字以下退回 LIKE 并标注。
+3. `search(query, k, source_ids=None) -> list[Hit]`；查询先 `normalize`；两个字以下退回 LIKE 并标注。LIKE 是全表扫描，所以要设结果上限和超时（可配置），超时就返回“查询过短”的提示而不是卡住；大语料下的实际耗时在 H5 测量。
 4. 继承两套合格测试，再补 30 条以上日文块的命中、排序（标题命中优先）、过滤、替换。
 
 # 不做

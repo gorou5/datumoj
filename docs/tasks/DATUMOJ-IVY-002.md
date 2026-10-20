@@ -14,7 +14,7 @@ out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "pyproject.toml", "uv.lock", 
 protected: ["tests/fixtures/**"]
 acceptance:
   automated:
-    - cmd: /opt/homebrew/bin/uv run --frozen pytest -q tests/core/test_contracts.py
+    - cmd: make check T=tests/core/test_contracts.py
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-IVY-002/summary.md 完成说明"]
   review: {by: human, checklist: ["协议是否足够让各线独立开发", "合格测试是否真的约束了行为而不只是签名", "插件发现是否会因为一个坏模块拖垮全部（应报清楚的错误）", "是否越界"]}
   human: required

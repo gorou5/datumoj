@@ -14,7 +14,7 @@ out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "pyproject.toml", "uv.lock", 
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
   automated:
-    - cmd: /opt/homebrew/bin/uv run --frozen pytest -q tests/crawlers/test_egov_law.py
+    - cmd: make check T=tests/crawlers/test_egov_law.py
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-IVY-201/summary.md 完成说明"]
   review: {by: other_family, checklist: ["是否越界", "测试是否覆盖每条要求", "是否通过了对应的契约合格测试", "是否有联网的测试", "是否只依赖契约而没有 import 其他线的实现"]}
   human: sampled
@@ -37,8 +37,9 @@ max_attempts: 2
 1. `plan`：法令列表逐页抓取，为每部法令生成“现行版全文（XML 格式）”任务。
 2. 纯函数 `extract_law_xml(raw_json_bytes) -> bytes`：从 JSON 里取出 base64 编码的 XML；损坏输入报清楚的错误。
 3. 增量：比对列表里每部法令的修订信息和 manifest 里上次的记录，没变的不抓正文。
-4. `limit` 限制法令部数。
-5. 测试：分页、增量跳过、单部 404 不影响其他、`extract_law_xml` 正常和损坏输入。
+4. 时间口径：抓取现行版时记录“按哪天的施行状态”（施行基准日）；同时抓取修订历史，纯函数 `pending_amendments(revisions, asof)` 找出**已公布但在基准日尚未施行**的修改（附公布日和施行日）。这两项随快照一起保存，供解析器和回答使用。
+5. `limit` 限制法令部数。
+6. 测试：分页、增量跳过、单部 404 不影响其他、`extract_law_xml` 正常和损坏输入。
 
 # 不做
 - 不解析法令结构（DATUMOJ-IVY-202）。

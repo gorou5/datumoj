@@ -14,7 +14,7 @@ out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "pyproject.toml", "uv.lock", 
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
   automated:
-    - cmd: /opt/homebrew/bin/uv run --frozen pytest -q tests/integration/test_stats_e2e.py
+    - cmd: make check T=tests/integration/test_stats_e2e.py
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-IVY-902/summary.md 完成说明"]
   review: {by: human, checklist: ["是否只改了接线", "数值是否与原表一致", "是否越界"]}
   human: required

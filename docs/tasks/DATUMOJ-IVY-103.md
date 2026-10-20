@@ -14,7 +14,7 @@ out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "pyproject.toml", "uv.lock", 
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
   automated:
-    - cmd: /opt/homebrew/bin/uv run --frozen pytest -q tests/core/test_http.py
+    - cmd: make check T=tests/core/test_http.py
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-IVY-103/summary.md 完成说明"]
   review: {by: other_family, checklist: ["回放未登记 URL 是否一定报错", "Key 是否在所有输出里都被去掉", "超限是否边下边判", "是否越界"]}
   human: sampled

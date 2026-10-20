@@ -14,7 +14,7 @@ out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "pyproject.toml", "uv.lock", 
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
   automated:
-    - cmd: /opt/homebrew/bin/uv run --frozen pytest -q tests/eval/test_framework.py
+    - cmd: make check T=tests/eval/test_framework.py
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-IVY-701/summary.md 完成说明"]
   review: {by: other_family, checklist: ["是否越界", "测试是否覆盖每条要求", "是否通过了对应的契约合格测试", "是否有联网的测试", "是否只依赖契约而没有 import 其他线的实现"]}
   human: sampled
@@ -36,9 +36,9 @@ max_attempts: 2
 # 要求
 1. 题库格式写进 `eval/README.md`：`id`、`question`、`lang`、`kind`（retrieval/numeric/gap/time/injection/cross_source）、`queries`（改写后的日文查询）、`expect.hits`（`doc_key` + 可选 locator 前缀）、`expect.value`（sql + equals + 容差）、`expect.gap_state`、`must_not`、`notes`。
 2. `load_questions(dir)` 校验格式，报错指出文件和题号。
-3. 指标：Recall@k、MRR、数值精确率（执行 SQL）、缺口状态正确率、时间语义（出处带统计期间或发布日）、注入（注入文本只出现在 `SourceText.content`）、引用可还原率（前 3 条调用 `cite`）。
+3. 指标：Recall@k、MRR、数值精确率（执行 SQL）、缺口状态正确率、时间语义（出处带统计期间或发布日）、注入（注入文本只出现在 `SourceText.content`）、引用可还原率（前 3 条调用 `cite`）、数值出现率（数值题的期望值必须原样出现在引用的原文片段或数据行里，按规范化后的数字比较）。“引用是否真的支持结论”离线无法可靠地机器判断，不在这里做，改为 H6 人工抽查。
 4. Markdown 和 JSON 报告：总体、按来源、按语言、失败题列表。
-5. `check_gate(report, thresholds)`；默认门槛：Recall@10 ≥ 0.85、数值 100%、缺口 100%、引用可还原 ≥ 0.95。
+5. `check_gate(report, thresholds)`；默认门槛：Recall@10 ≥ 0.85、数值精确 100%、数值出现率 100%、缺口 100%、引用可还原 ≥ 0.95。
 6. 测试用假实现和十几道假题覆盖每类指标和门槛判断。
 
 # 不做

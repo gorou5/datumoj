@@ -14,7 +14,7 @@ out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "pyproject.toml", "uv.lock", 
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
   automated:
-    - cmd: /opt/homebrew/bin/uv run --frozen pytest -q tests/eval/test_questions_law.py
+    - cmd: make check T=tests/eval/test_questions_law.py
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-IVY-702/summary.md 完成说明"]
   review: {by: human, checklist: ["问法是否像真实用户", "期望答案是否真的正确", "有没有挑简单题", "是否越界"]}
   human: required

@@ -14,7 +14,7 @@ out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "pyproject.toml", "uv.lock", 
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
   automated:
-    - cmd: /opt/homebrew/bin/uv run --frozen pytest -q tests/analysis/test_tools.py
+    - cmd: make check T=tests/analysis/test_tools.py
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-IVY-603/summary.md 完成说明"]
   review: {by: human, checklist: ["每个结果是否都带可还原的出处", "来源文本是否都标注为数据", "query_sql 是否仍然只读", "是否越界"]}
   human: required
@@ -38,7 +38,8 @@ MCP 和 CLI 共用的一组工具函数，输入输出都是可序列化的 dict
 2. `search_catalog`、`query_sql`（附 `describe()` 说明和出处）、`get_chunk(chunk_id, context=1)`、`cite(snapshot_sha256, locator)`（回到 raw 重新定位，定位不到返回 `not_found`）、`version()`（包版本、git 提交、数据目录、索引构建时间）、`coverage()`（全部来源、状态、新鲜度）。
 3. `glossary.yaml` + `expand_terms(query)`：中英政务常用词到日文的对照，约 100 条，不调用 LLM。
 4. 来源文本一律放在 `SourceText` 里；说明性字段不能拼接来源文本。
-5. 测试覆盖每个工具的正常、空结果、错误输入。
+5. 每条出处都带完整的时间口径（`time_basis` 和对应日期）和许可署名；来源是 `internal_only` 时在结果里标注“仅供内部使用”；法令结果带施行基准日，有未施行修改时给出提示。
+6. 测试覆盖每个工具的正常、空结果、错误输入。
 
 # 不做
 - 不调用 LLM，不写 MCP 协议层。

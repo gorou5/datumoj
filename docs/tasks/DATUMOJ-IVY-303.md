@@ -14,7 +14,7 @@ out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "pyproject.toml", "uv.lock", 
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
   automated:
-    - cmd: /opt/homebrew/bin/uv run --frozen pytest -q tests/store/test_observations.py
+    - cmd: make check T=tests/store/test_observations.py
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-IVY-303/summary.md 完成说明"]
   review: {by: human, checklist: ["只读拦截能否被绕过", "空值和注记是否被当成 0", "是否越界"]}
   human: required
@@ -36,9 +36,10 @@ max_attempts: 2
 # 要求
 1. 实现 `ObservationStore` 协议：按 `source_id/table_key` 写 Parquet，DuckDB 视图 `observations`；重写同一张表时整体替换。
 2. `query_readonly(sql, max_rows=1000, timeout_s=10)`：只允许单条 SELECT/WITH，只读打开；拒绝 INSERT、ATTACH、COPY、PRAGMA、多语句和 `read_csv` 等文件函数；超时和超行数返回清楚的错误。
-3. 结果附带涉及行的去重出处（查询需保留 `obs_id`，或用 `with_provenance` 包装）。
-4. `describe()`：列出调查、指标、地区范围、时间范围，给模型看。
-5. 继承 `ObservationStoreSuite` 跑合格测试，再补只读拦截的绕过尝试、空值和注记保留。
+3. SQL 白名单之外再加一层：查询连接设置 `enable_external_access=false`，然后 `lock_configuration=true`，使查询里无法再把它改回来。测试要包含“用 SET 重新打开外部访问”被拒绝。
+4. 结果附带涉及行的去重出处（查询需保留 `obs_id`，或用 `with_provenance` 包装）。
+5. `describe()`：列出调查、指标、地区范围、时间范围，给模型看。
+6. 继承 `ObservationStoreSuite` 跑合格测试，再补只读拦截的绕过尝试、空值和注记保留。
 
 # 不做
 - 不写具体统计来源的转换。

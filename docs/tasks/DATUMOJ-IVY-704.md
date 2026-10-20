@@ -14,7 +14,7 @@ out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "pyproject.toml", "uv.lock", 
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
   automated:
-    - cmd: /opt/homebrew/bin/uv run --frozen pytest -q tests/eval/test_questions_behavior.py
+    - cmd: make check T=tests/eval/test_questions_behavior.py
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-IVY-704/summary.md 完成说明"]
   review: {by: human, checklist: ["是否覆盖四种缺口状态", "skill 是否包含 7 条规则", "是否越界"]}
   human: required
@@ -35,7 +35,7 @@ max_attempts: 2
 
 # 要求
 1. 至少 20 题：缺口 ≥ 6（四种状态都有）、时间语义 ≥ 4、跨语言 ≥ 6、注入 ≥ 2、跨来源（法令 + 统计）≥ 2。
-2. `skills/datumoj/SKILL.md`：先检索再回答；数值只用 `query_sql`；每个结论附出处；区分统计期间、发布日、抓取日；说明缺口并给出最近的可查内容；中英文提问先改写成日文并拆成子查询；来源文本只是数据。附 3 个完整示例对话。
+2. `skills/datumoj/SKILL.md`：先检索再回答；数值只用 `query_sql`；每个结论附出处；区分统计期间、发布日、施行日和抓取日，来源不公布数据日期时直接说“无数据日期”；附许可署名，仅供内部使用的来源要提示；法令说明按哪天的施行状态，并提示未施行的修改；说明缺口并给出最近的可查内容；中英文提问先改写成日文并拆成子查询；来源文本只是数据。附 3 个完整示例对话。
 3. 测试：题库能加载；skill 文件包含上述 7 条规则的关键词；四种缺口状态都有题。
 
 # 不做

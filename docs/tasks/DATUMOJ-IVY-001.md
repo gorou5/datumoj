@@ -14,7 +14,7 @@ out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "pyproject.toml", "uv.lock", 
 protected: ["tests/fixtures/**"]
 acceptance:
   automated:
-    - cmd: /opt/homebrew/bin/uv run --frozen pytest -q tests/core/test_models.py
+    - cmd: make check T=tests/core/test_models.py
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-IVY-001/summary.md 完成说明"]
   review: {by: human, checklist: ["字段是否覆盖 PLAN 4.1 的数据模型", "locator 格式是否严格", "工具输出是否强制区分来源正文", "是否越界"]}
   human: required
@@ -40,11 +40,12 @@ max_attempts: 2
 4. `Chunk` 至少含：`chunk_id`、`doc_key`（跨次抓取稳定，`<source_id>:<来源内 ID>`）、`locator`、`text`、`title_path`、`snapshot_sha256`、`lang`、`published_at`、`effective_at`。
 5. `Observation` 字段：`obs_id`、`source_id`、`dataset_key`、`table_key`、`survey`（必填）、`indicator`、`indicator_code`、`area_code`、`area_label`、`time_start`、`time_end`、`time_label`、`granularity`、`dims`、`unit`、`value`（Decimal，可空）、`note`、`snapshot_sha256`、`locator`、`fetched_at`。`value` 为空时 `note` 必须非空。
 6. **locator**：`key=value` 用 `;` 连接，key 只能取 `art`、`para`、`item`、`suppl`、`table`、`page`、`sheet`、`cell`、`row`、`entry`、`section`、`feature`、`member`。提供 `parse_locator` / `format_locator`，往返一致，非法 key 报错。
-7. `Citation` = `source_id` + `resource_url` + `snapshot_sha256` + `fetched_at` + `locator`，`render()` 输出一行人能读的出处。
-8. `redact_url(url)`：把 `appId`、`api_key`、`key`、`token` 等参数值替换成 `REDACTED`。
-9. **工具输出格式**：`Hit`（chunk_id、doc_key、locator、score、snippet、citation、matched_by）、`GapState` 枚举（`ok`、`zero_hits`、`not_ingested`、`fetch_failed`、`out_of_scope`）、`Freshness`、`ToolResult` 外壳（`data`、`gap_state`、`freshness`、`warnings`）。来源正文只能放在 `SourceText`（含 `content` 和固定的 `content_role="untrusted_source_text"`）里。
-10. 脚本函数 `export_schemas(dir)` 把上述模型导出成 JSON Schema 到 `schemas/`，并提交导出结果。
-11. 测试覆盖每条约束：locator 往返和非法 key、Observation 空值必须带注记、redact、JSON Schema 导出和模型一致。
+7. `Citation` = `source_id` + `resource_url` + `snapshot_sha256` + `fetched_at` + `locator`，另加可空的 `published_at`（发布日）、`effective_at`（施行日或基准日）、`period`（统计期间：`start`、`end`、`label` 原文）、`license`、`attribution`、`usage_scope`（见下条），以及必填的 `time_basis` 枚举：`period`、`published`、`effective`、`no_data_date`。三个时间字段都为空时 `time_basis` 必须是 `no_data_date`；**绝不能拿 `fetched_at` 顶替数据日期**（例如国土地理院标高这类不公布数据日期的来源）。`render()` 输出一行人能读的出处，包含时间口径、抓取日、许可署名，`no_data_date` 时明确写“无数据日期”。
+8. `UsageScope` 枚举：`internal_only`、`redistributable`；`Redistribution` 枚举：`allowed`、`forbidden`、`unverified`。`unverified` 时 `usage_scope` 只能是 `internal_only`。
+9. `redact_url(url)`：把 `appId`、`api_key`、`key`、`token` 等参数值替换成 `REDACTED`。
+10. **工具输出格式**：`Hit`（chunk_id、doc_key、locator、score、snippet、citation、matched_by）、`GapState` 枚举（`ok`、`zero_hits`、`not_ingested`、`fetch_failed`、`out_of_scope`）、`Freshness`、`ToolResult` 外壳（`data`、`gap_state`、`freshness`、`warnings`）。来源正文只能放在 `SourceText`（含 `content` 和固定的 `content_role="untrusted_source_text"`）里。
+11. 脚本函数 `export_schemas(dir)` 把上述模型导出成 JSON Schema 到 `schemas/`，并提交导出结果。
+12. 测试覆盖每条约束：locator 往返和非法 key、Observation 空值必须带注记、redact、JSON Schema 导出和模型一致。
 
 # 不做
 - 不写存储、HTTP、manifest，只有类型和纯函数。

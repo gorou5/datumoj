@@ -14,7 +14,7 @@ out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "pyproject.toml", "uv.lock", 
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
   automated:
-    - cmd: /opt/homebrew/bin/uv run --frozen pytest -q tests/core/test_registry.py
+    - cmd: make check T=tests/core/test_registry.py
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-IVY-104/summary.md 完成说明"]
   review: {by: other_family, checklist: ["是否越界", "测试是否覆盖每条要求", "是否通过了对应的契约合格测试", "是否有联网的测试", "是否只依赖契约而没有 import 其他线的实现"]}
   human: sampled
@@ -37,8 +37,9 @@ max_attempts: 2
 1. 实现 `Registry` 协议。`SourceSpec`：`id`（`^[a-z]{2,4}(-[a-z0-9]+)+$`）、`name`、`country`、`kind`、`base_url`、`allowed_hosts`、`rate_per_sec`、`max_total_bytes`、`max_files`、`schedule`、`license_default`、`attribution`、`scope`（非空 dict）、`needs_key`（只写环境变量名）、`retention_note`。
 2. `load_registry(dir)`：id 与文件名一致、不重复；报错指出文件和字段。
 3. 检测明文 Key：字段名含 key/token/secret 且值不是 `env:` 开头时报错。
-4. 写 `sources/jp-egov-law.yaml` 和 `sources/README.md`（字段说明和示例）。
-5. 测试：合法加载、id 不符、重复、缺字段、明文 Key、scope 为空。
+4. 许可字段：`license`（名称和 URL）、`attribution`（署名文本）、`usage_scope`（默认 `internal_only`）、`redistribution`（默认 `unverified`）、`license_verified_at`、`license_notes`。`redistribution` 不是 `allowed` 时 `usage_scope` 必须是 `internal_only`；不能假定所有日本来源都适用“公共データ利用規約”（例如国土地理院可能涉及測量法），逐个来源核对后才能放开。
+5. 写 `sources/jp-egov-law.yaml`（许可先填 `unverified` / `internal_only`）和 `sources/README.md`（字段说明和示例，含许可字段的核对方法）。
+6. 测试：合法加载、id 不符、重复、缺字段、明文 Key、scope 为空、未核对许可却标为可再分发。
 
 # 不做
 - 不写其他来源的 yaml。
