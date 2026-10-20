@@ -1,0 +1,31 @@
+id: jp-egov-data
+name: e-Gov データポータル（CKAN）
+country: jp
+kind: ckan
+base_url: https://data.e-gov.go.jp/data/api/action
+allowed_hosts:
+  - data.e-gov.go.jp
+  - "*.go.jp"
+  - "*.lg.jp"
+rate_per_sec: 0.5
+max_total_bytes: 2147483648
+max_files: 5000
+schedule: daily
+license:
+  name: null
+  url: https://data.e-gov.go.jp/info/terms
+  attribution: 出典：e-Govデータポータル（https://data.e-gov.go.jp/）
+  usage_scope: internal_only
+  redistribution: unverified
+  verified_at: null
+  notes: 利用規約尚未逐项核对；数据集级 license_id 全站为空，许可以资源级为准（记在资源快照 meta 的 license）；核对前仅内部使用
+# 目录元数据全量抓取；资源文件只下载白名单内的（不在白名单的只留元数据）。
+scope:
+  q: "*:*"
+  rows: 100
+  incremental: true
+  activity_limit: 100
+  formats: [csv, xlsx, xls, pdf, json, xml]
+  max_file_bytes: 52428800
+needs_key: null
+retention_note: null
