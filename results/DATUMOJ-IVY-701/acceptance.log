@@ -1,0 +1,6 @@
+$ make check T=tests/eval/test_framework.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+......                                                                   [100%]
+6 passed in 0.18s
+
+Earlier run exposed an assertion regex that did not match the multiline Pydantic error; the assertion was corrected and the final acceptance run above passed.
