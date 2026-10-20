@@ -1,14 +1,14 @@
-# DATUMOJ 任务拆分（并行版，Aoi → Diamond）
+# DATUMOJ 0.1（代号 IVY）任务拆分
 
-> 计划第 3 版（2026-10-20），配合 `docs/PLAN.md` 第 7、8 节使用。
-> 任务文件的审核副本在 `docs/tasks/IVY-*.md`（进 git，供团队审核）。审核通过后，再复制到调度器读取的 `.orch/tasks/`（不进 git）。
+> 计划第 3 版（2026-10-20），配合 `docs/PLAN.md` 第 7、8 节使用。任务编号 `DATUMOJ-IVY-<序号>`，下文表格里为简洁只写序号。
+> 任务文件的审核副本在 `docs/tasks/DATUMOJ-IVY-*.md`（进 git，供团队审核）。审核通过后，再复制到调度器读取的 `.orch/tasks/`（不进 git）。
 > 本文件是给人看的总表，**以任务文件为准**；两边不一致时先改任务文件，再同步这里。说明见 `docs/tasks/README.md`。
 
 ## 1. 两类工作
 
 | 类型 | 谁来做 | 例子 |
 |---|---|---|
-| **开发任务 IVY-xxx** | 调度器派给 agent，离线测试验收，审查后合并 | 写契约、采集器、解析器、索引、MCP、评测题 |
+| **开发任务 DATUMOJ-IVY-xxx** | 调度器派给 agent，离线测试验收，审查后合并 | 写契约、采集器、解析器、索引、MCP、评测题 |
 | **主对话步骤 H-x** | 人（各线负责人）在主对话里和 Claude 一起做 | 搭骨架、锁依赖、录制真实样本、真实抓取、验收、打 tag |
 
 agent 只能跑 pytest，不能联网、不能装依赖。所以凡是要**联网、装东西、改依赖、做判断**的事，都放在 H 步骤里。
@@ -24,16 +24,16 @@ agent 只能跑 pytest，不能联网、不能装依赖。所以凡是要**联�
 | 3 | 101–104（A 线 4 个）、202 法令解析、303 观测值库、402 目录库、501 FTS、502 向量、601 流水线、603 工具层、701 评测框架 | **最宽的一层，共 12 个**，7 条线全部在跑 |
 | 4 | 105 执行器、201 法令采集、203 JMA、304 Dashboard、305 e-Stat、401 CKAN、503 混合检索、604 MCP、702–704 题库 | 共 11 个 |
 | 5 | 602 CLI | |
-| 6 | 901 集成 Bellflower | 打 tag `v0.2.0-bellflower` |
-| 7 | 902 集成 Chrysanthemum | 打 tag `v0.3.0-chrysanthemum` |
-| 8 | 903 集成 Diamond | 打 tag `v0.4.0-diamond`，第一阶段完成 |
+| 6 | 901 检查点 M1 集成 | 打 tag `v0.1.0-ivy-m1` |
+| 7 | 902 检查点 M2 集成 | 打 tag `v0.1.0-ivy-m2` |
+| 8 | 903 检查点 M3 集成 | 打 tag `v0.1.0-ivy-m3`；H6 验收后打 `v0.1.0-ivy`，IVY 完成 |
 
 ```
          ┌─ A: 101 102 103 104 ─► 105 ─────────────────┐
          ├─ B: 202 ; 201 203 ──────────────────────────┤
 001 ─► 002 ┼─ C: 303 ; 304 305（另需 301 302）─────────────┤
 003 ─────┤ ├─ D: 402 ; 401 ───────────────────────────────┼─► 901 ─► 902 ─► 903
-         ├─ E: 501 502 ─► 503 ─────────────────────────┤   (Bell)  (Chrys)  (Diamond)
+         ├─ E: 501 502 ─► 503 ─────────────────────────┤    (M1)     (M2)    (M3)
          ├─ F: 601 ─► 602 ; 603 ─► 604 ────────────────┤
          └─ G: 701 ─► 702 703 704 ─────────────────────┘
 ```
@@ -71,27 +71,27 @@ agent 只能跑 pytest，不能联网、不能装依赖。所以凡是要**联�
 | 乙（C 线） | `tests/fixtures/area_codes/`、`src/datumoj/reference/data/` | 总务省“全国地方公共団体コード”最新版 |
 | 乙（D 线） | `tests/fixtures/ckan_egov/` | `package_search` 两页（每页缩成 5 条）、一次增量接口响应、两个资源文件 |
 
-### H2 契约审查与 Aoi 发布（项目负责人 + 全体）
-- IVY-001 和 IVY-002 进入 review 后，全体负责人一起审契约。契约决定了自己那条线怎么写，所以每个人都要看。
-- A 线完成（IVY-105 合并）后，用回放样本走一遍“计划→抓取→存 raw→写 manifest”，然后打 tag `v0.1.0-aoi`。
+### H2 契约审查与 M0 检查点（项目负责人 + 全体）
+- DATUMOJ-IVY-001 和 DATUMOJ-IVY-002 进入 review 后，全体负责人一起审契约。契约决定了自己那条线怎么写，所以每个人都要看。
+- A 线完成（DATUMOJ-IVY-105 合并）后，用回放样本走一遍“计划→抓取→存 raw→写 manifest”，然后打 tag `v0.1.0-ivy-m0`。
 
-### H3 Bellflower 验收（甲 + 丁）
+### H3 M1 验收（甲 + 丁）
 - `make crawl SOURCE=jp-egov-law LIMIT=200`，接着 `parse`、`index`；用 5–10 个真实问题执行 `datumoj search`；重复 crawl，确认没有重复下载。
-- 记录到 `docs/acceptance/v0.2.0-bellflower.md`，打 tag。然后决定是否全量抓取法令（约 9000 部，按 1 请求/秒约 3 小时）。
+- 记录到 `docs/acceptance/v0.1.0-ivy-m1.md`，打 tag。然后决定是否全量抓取法令（约 9000 部，按 1 请求/秒约 3 小时）。
 
-### H4 Chrysanthemum 验收（乙）
+### H4 M2 验收（乙）
 - 真实抓取 e-Gov 目录（先限 1000 个数据集）、Dashboard 精选指标、e-Stat 精选表；`datumoj sql` 查都道府县人口，核对 3 个数值和原表一致。
 - **开始 JMA 定时轮询**：用 launchd 每小时执行 `datumoj crawl jp-jma`，日志写到 `data/logs/`。
-- 记录到 `docs/acceptance/v0.3.0-chrysanthemum.md`，打 tag。
+- 记录到 `docs/acceptance/v0.1.0-ivy-m2.md`，打 tag。
 
-### H5 嵌入模型选型（丙，Bellflower 之后随时可做）
+### H5 嵌入模型选型（丙，M1 之后随时可做）
 - 经同意后在本机安装 Ollama，拉取 `bge-m3`（约 1.2GB）。
 - 在法令语料上比较“纯关键词”和“关键词 + bge-m3”的 Recall@10，结论写进 `docs/adr/0001-embedding.md`；估算全量嵌入耗时。
 
-### H6 Diamond 验收（全体）
+### H6 M3 与 IVY 版本验收（全体）
 - 把 `datumoj mcp` 注册进 Claude Code，第一步先调用 `version` 核对加载的版本。
 - 现场问 10 个问题：交接包 06 号文档里适用的验收问题改写版，加上 PLAN 第 8 节的示例问题。逐条记录问题、工具调用、回答、出处是否属实。
-- 记录到 `docs/acceptance/v0.4.0-diamond.md`，打 tag。第一阶段完成。
+- 记录到 `docs/acceptance/v0.1.0-ivy.md`，打 tag `v0.1.0-ivy-m3` 和 `v0.1.0-ivy`。IVY 版本完成，第一阶段完成。
 
 ## 4. 开发任务总表（共 32 个）
 
@@ -100,46 +100,46 @@ agent 只能跑 pytest，不能联网、不能装依赖。所以凡是要**联�
 | ID | 标题 | 依赖 | runner / 难度 | 审查 | 验收 |
 |---|---|---|---|---|---|
 | **契约** ||||||
-| IVY-001 | 契约一：数据模型、locator、工具输出格式 | — | claude / high | human | `tests/core/test_models.py` |
-| IVY-002 | 契约二：接口协议、插件自动发现、假实现与契约测试 | 001 | claude / high | human | `tests/core/test_contracts.py` |
-| IVY-003 | 日文文本工具：解码、归一化、和历、数字注记 | — | codex / medium | other_family | `tests/text/` |
+| DATUMOJ-IVY-001 | 契约一：数据模型、locator、工具输出格式 | — | claude / high | human | `tests/core/test_models.py` |
+| DATUMOJ-IVY-002 | 契约二：接口协议、插件自动发现、假实现与契约测试 | 001 | claude / high | human | `tests/core/test_contracts.py` |
+| DATUMOJ-IVY-003 | 日文文本工具：解码、归一化、和历、数字注记 | — | codex / medium | other_family | `tests/text/` |
 | **A 抓取基础**（负责人：甲） ||||||
-| IVY-101 | raw 存储：按内容寻址 | 002 | codex / medium | other_family | `tests/core/test_rawstore.py` |
-| IVY-102 | manifest：抓取记录库（SQLite） | 002 | claude / medium | other_family | `tests/core/test_manifest.py` |
-| IVY-103 | 礼貌 HTTP 客户端：限速、条件请求、重试、上限、回放 | 002 | claude / high | other_family | `tests/core/test_http.py` |
-| IVY-104 | 来源注册表 schema 与校验 | 002 | codex / medium | other_family | `tests/core/test_registry.py` |
-| IVY-105 | 采集执行器：计划→抓取→落库→记录，带上限 | 101, 102, 103, 104 | claude / high | other_family | `tests/core/test_runner.py` |
+| DATUMOJ-IVY-101 | raw 存储：按内容寻址 | 002 | codex / medium | other_family | `tests/core/test_rawstore.py` |
+| DATUMOJ-IVY-102 | manifest：抓取记录库（SQLite） | 002 | claude / medium | other_family | `tests/core/test_manifest.py` |
+| DATUMOJ-IVY-103 | 礼貌 HTTP 客户端：限速、条件请求、重试、上限、回放 | 002 | claude / high | other_family | `tests/core/test_http.py` |
+| DATUMOJ-IVY-104 | 来源注册表 schema 与校验 | 002 | codex / medium | other_family | `tests/core/test_registry.py` |
+| DATUMOJ-IVY-105 | 采集执行器：计划→抓取→落库→记录，带上限 | 101, 102, 103, 104 | claude / high | other_family | `tests/core/test_runner.py` |
 | **B 文档线**（负责人：甲） ||||||
-| IVY-201 | e-Gov 法令采集器 | 002, 104 | claude / medium | other_family | `tests/crawlers/test_egov_law.py` |
-| IVY-202 | 法令 XML 解析器：按条切分，带层级和 locator | 002, 003 | codex / medium | other_family | `tests/parsers/test_xml_law.py` |
-| IVY-203 | JMA 长期 feed 采集器与解析器 | 002, 003, 104 | codex / medium | other_family | `tests/crawlers/test_jma_feed.py` |
+| DATUMOJ-IVY-201 | e-Gov 法令采集器 | 002, 104 | claude / medium | other_family | `tests/crawlers/test_egov_law.py` |
+| DATUMOJ-IVY-202 | 法令 XML 解析器：按条切分，带层级和 locator | 002, 003 | codex / medium | other_family | `tests/parsers/test_xml_law.py` |
+| DATUMOJ-IVY-203 | JMA 长期 feed 采集器与解析器 | 002, 003, 104 | codex / medium | other_family | `tests/crawlers/test_jma_feed.py` |
 | **C 统计线**（负责人：乙） ||||||
-| IVY-301 | 表格读取：CSV / XLSX / ZIP，cp932，表头与注记 | 003 | codex / high | other_family | `tests/tabular/` |
-| IVY-302 | 地区码表：全国地方公共団体コード | 003 | codex / medium | other_family | `tests/reference/` |
-| IVY-303 | 观测值库：DuckDB + Parquet，只读 SQL 与出处回溯 | 002 | claude / high | human | `tests/store/test_observations.py` |
-| IVY-304 | 统计 Dashboard 采集器、分批规划与观测值转换 | 104, 302 | claude / medium | other_family | `tests/crawlers/test_stat_dashboard.py` |
-| IVY-305 | e-Stat 统计表文件采集器与两类版式转换 | 104, 301, 302 | claude / high | other_family | `tests/crawlers/test_estat_files.py` |
+| DATUMOJ-IVY-301 | 表格读取：CSV / XLSX / ZIP，cp932，表头与注记 | 003 | codex / high | other_family | `tests/tabular/` |
+| DATUMOJ-IVY-302 | 地区码表：全国地方公共団体コード | 003 | codex / medium | other_family | `tests/reference/` |
+| DATUMOJ-IVY-303 | 观测值库：DuckDB + Parquet，只读 SQL 与出处回溯 | 002 | claude / high | human | `tests/store/test_observations.py` |
+| DATUMOJ-IVY-304 | 统计 Dashboard 采集器、分批规划与观测值转换 | 104, 302 | claude / medium | other_family | `tests/crawlers/test_stat_dashboard.py` |
+| DATUMOJ-IVY-305 | e-Stat 统计表文件采集器与两类版式转换 | 104, 301, 302 | claude / high | other_family | `tests/crawlers/test_estat_files.py` |
 | **D 目录线**（负责人：乙） ||||||
-| IVY-401 | 通用 CKAN 采集器（e-Gov データポータル） | 002, 104 | claude / medium | other_family | `tests/crawlers/test_ckan.py` |
-| IVY-402 | 目录解析、目录存储与目录检索 | 002 | codex / medium | other_family | `tests/store/test_catalog.py` |
+| DATUMOJ-IVY-401 | 通用 CKAN 采集器（e-Gov データポータル） | 002, 104 | claude / medium | other_family | `tests/crawlers/test_ckan.py` |
+| DATUMOJ-IVY-402 | 目录解析、目录存储与目录检索 | 002 | codex / medium | other_family | `tests/store/test_catalog.py` |
 | **E 检索线**（负责人：丙） ||||||
-| IVY-501 | chunk 存储与 FTS5 trigram 关键词索引 | 002, 003 | claude / medium | other_family | `tests/index/test_fts.py` |
-| IVY-502 | 向量索引：嵌入接口与 LanceDB | 002 | claude / medium | other_family | `tests/index/test_vector.py` |
-| IVY-503 | 混合检索（RRF、多查询）与四种缺口状态 | 501, 502, 102, 104 | codex / high | other_family | `tests/index/test_hybrid.py` |
+| DATUMOJ-IVY-501 | chunk 存储与 FTS5 trigram 关键词索引 | 002, 003 | claude / medium | other_family | `tests/index/test_fts.py` |
+| DATUMOJ-IVY-502 | 向量索引：嵌入接口与 LanceDB | 002 | claude / medium | other_family | `tests/index/test_vector.py` |
+| DATUMOJ-IVY-503 | 混合检索（RRF、多查询）与四种缺口状态 | 501, 502, 102, 104 | codex / high | other_family | `tests/index/test_hybrid.py` |
 | **F 入口线**（负责人：丙） ||||||
-| IVY-601 | 解析与索引流水线（增量，基于插件发现） | 002 | claude / medium | other_family | `tests/test_pipeline.py` |
-| IVY-602 | 命令行：crawl / parse / index / search / sql / status | 601, 105 | claude / medium | other_family | `tests/test_cli.py` |
-| IVY-603 | 分析工具层：search / catalog / sql / chunk / cite / version / coverage | 002 | claude / high | human | `tests/analysis/test_tools.py` |
-| IVY-604 | MCP 服务器（stdio） | 603 | claude / medium | other_family | `tests/test_mcp_server.py` |
+| DATUMOJ-IVY-601 | 解析与索引流水线（增量，基于插件发现） | 002 | claude / medium | other_family | `tests/test_pipeline.py` |
+| DATUMOJ-IVY-602 | 命令行：crawl / parse / index / search / sql / status | 601, 105 | claude / medium | other_family | `tests/test_cli.py` |
+| DATUMOJ-IVY-603 | 分析工具层：search / catalog / sql / chunk / cite / version / coverage | 002 | claude / high | human | `tests/analysis/test_tools.py` |
+| DATUMOJ-IVY-604 | MCP 服务器（stdio） | 603 | claude / medium | other_family | `tests/test_mcp_server.py` |
 | **G 评测线**（负责人：丁） ||||||
-| IVY-701 | 评测框架：题库格式、全部指标、门槛 | 002 | codex / medium | other_family | `tests/eval/test_framework.py` |
-| IVY-702 | 法令评测题 20 道 | 701 | claude / medium | human | `tests/eval/test_questions_law.py` |
-| IVY-703 | 目录与统计评测题 20 道 | 701 | claude / medium | human | `tests/eval/test_questions_stats.py` |
-| IVY-704 | 缺口、时间、跨语言、注入评测题 + 回答规则 skill | 701 | claude / medium | human | `tests/eval/test_questions_behavior.py` |
+| DATUMOJ-IVY-701 | 评测框架：题库格式、全部指标、门槛 | 002 | codex / medium | other_family | `tests/eval/test_framework.py` |
+| DATUMOJ-IVY-702 | 法令评测题 20 道 | 701 | claude / medium | human | `tests/eval/test_questions_law.py` |
+| DATUMOJ-IVY-703 | 目录与统计评测题 20 道 | 701 | claude / medium | human | `tests/eval/test_questions_stats.py` |
+| DATUMOJ-IVY-704 | 缺口、时间、跨语言、注入评测题 + 回答规则 skill | 701 | claude / medium | human | `tests/eval/test_questions_behavior.py` |
 | **集成**（负责人：项目负责人） ||||||
-| IVY-901 | 集成 Bellflower：法令链路端到端，法令题达标 | 105, 201, 202, 501, 602, 702 | claude / high | human | `tests/integration/test_law_e2e.py` |
-| IVY-902 | 集成 Chrysanthemum：目录、统计、JMA 接入，统计题达标 | 901, 203, 303, 304, 305, 401, 402, 703 | claude / high | human | `tests/integration/test_stats_e2e.py` |
-| IVY-903 | 集成 Diamond：工具层接真实实现、MCP、60 题全部门槛 | 902, 502, 503, 603, 604, 704 | claude / high | human | `tests/integration/test_full_eval.py` |
+| DATUMOJ-IVY-901 | 检查点 M1 集成：法令链路端到端，法令题达标 | 105, 201, 202, 501, 602, 702 | claude / high | human | `tests/integration/test_law_e2e.py` |
+| DATUMOJ-IVY-902 | 检查点 M2 集成：目录、统计、JMA 接入，统计题达标 | 901, 203, 303, 304, 305, 401, 402, 703 | claude / high | human | `tests/integration/test_stats_e2e.py` |
+| DATUMOJ-IVY-903 | 检查点 M3 集成：工具层接真实实现、MCP、60 题全部门槛（IVY 完成线） | 902, 502, 503, 603, 604, 704 | claude / high | human | `tests/integration/test_full_eval.py` |
 
 **人审查的 10 个任务，按谁审分：**
 
@@ -176,11 +176,11 @@ agent 只能跑 pytest，不能联网、不能装依赖。所以凡是要**联�
 | 賃金 | 毎月勤労統計調査 | 全国、都道府県 / 月 |
 | 県民経済 | 県民経済計算 | 都道府県 / 年度 |
 
-## 7. Feather 和 Gentian（只列方向，Diamond 验收后再细拆）
+## 7. 0.2 和 0.3（只列方向，IVY 完成后再细拆）
 
-拆的时候沿用同样的开发线和号段，例如 KKJ 采集器归 B 线，编号 2xx。
+届时选定新代号，任务编号随之变为 `DATUMOJ-<新代号>-<序号>`；开发线和号段沿用，例如 KKJ 采集器归 B 线，编号 2xx。
 
 | 版本 | 预计任务 |
 |---|---|
-| v0.5.0-feather（日本扩面与增量） | B 线：KKJ 按日期分段采集、PDF 解析（按页 locator，扫描件标 `needs_ocr`）、个人信息脱敏、jp-gov-web 定向采集与 HTML 正文抽取。D 线：BODIK（复用 CKAN，加 DataStore）。A 线：增量调度（launchd 生成器）。F 线：变化检测与每周变化报告。G 线：M4 来源评测题 |
-| v0.6.0-gentian（欧美） | D 线：CKAN 多语言适配（data.europa.eu、英德法荷）。C 线：Eurostat SDMX、World Bank WDI。B 线：Federal Register 采集器。G 线：多语言检索评测 |
+| 0.2（代号待定，日本扩面与增量） | B 线：KKJ 按日期分段采集、PDF 解析（按页 locator，扫描件标 `needs_ocr`）、个人信息脱敏、jp-gov-web 定向采集与 HTML 正文抽取。D 线：BODIK（复用 CKAN，加 DataStore）。A 线：增量调度（launchd 生成器）。F 线：变化检测与每周变化报告。G 线：M4 来源评测题 |
+| 0.3（代号待定，欧美） | D 线：CKAN 多语言适配（data.europa.eu、英德法荷）。C 线：Eurostat SDMX、World Bank WDI。B 线：Federal Register 采集器。G 线：多语言检索评测 |

@@ -1,7 +1,7 @@
 # CLAUDE.md：DATUMOJ
 
 ## 项目
-- 项目名（调度器里）：`DATUMOJ`；任务 ID 前缀：`IVY-`
+- 项目名（调度器里）：`DATUMOJ`；任务 ID：`DATUMOJ-<版本代号>-<序号>`，当前版本 0.1 代号 `IVY`（蔦），即 `DATUMOJ-IVY-<序号>`。版本代号取家纹，规则见 `docs/PLAN.md` 第 8 节
 - 目标与计划：见 `docs/PLAN.md`
 - （在这里补充项目自己的规则：语言、目录结构、测试命令、编码约定……）
 

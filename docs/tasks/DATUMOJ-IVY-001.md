@@ -1,0 +1,50 @@
+---
+id: DATUMOJ-IVY-001
+title: 契约一：数据模型、locator、工具输出格式
+project: DATUMOJ
+status: todo
+priority: 1
+depends_on: []
+runner: claude
+model: null
+tier: high
+resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
+scope: ["src/datumoj/core/models.py", "tests/core/test_models.py", "schemas/**", "results/DATUMOJ-IVY-001/**"]
+out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**"]
+protected: ["tests/fixtures/**"]
+acceptance:
+  automated:
+    - cmd: /opt/homebrew/bin/uv run --frozen pytest -q tests/core/test_models.py
+  evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-IVY-001/summary.md 完成说明"]
+  review: {by: human, checklist: ["字段是否覆盖 PLAN 4.1 的数据模型", "locator 格式是否严格", "工具输出是否强制区分来源正文", "是否越界"]}
+  human: required
+max_attempts: 2
+---
+# 目标
+全项目共用的数据类型定下来并导出 JSON Schema。之后 7 条开发线都只依赖这里，可以同时开工。
+
+# 背景
+开发线：契约。这是并行开发的前提：类型一旦定下，各线按类型各写各的。改起来牵连最广，所以由人审查。见 PLAN 第 4.1 节、第 7 节。
+
+计划见 `docs/PLAN.md`，任务总表、开发线和跨任务约定见 `docs/TASKS.md`。
+- **只依赖契约**：数据模型在 `src/datumoj/core/models.py`，接口协议和插件发现在 `src/datumoj/core/contracts.py`，假实现和契约测试在 `src/datumoj/testing/`。不要 import 其他开发线的实现模块（集成任务除外）。
+- 测试全部离线：不访问网络，HTTP 一律用 `tests/fixtures/` 里的录制样本或本地假服务器。
+- 依赖已锁定在 `uv.lock`，不能新增依赖，也不能改 `pyproject.toml`。确实需要时写进 `results/DATUMOJ-IVY-001/summary.md` 并停下来问。
+- `tests/fixtures/` 下已有的样本只读；需要新样本就新建文件。
+- 需要改契约（models.py、contracts.py）时不要自己改，写进 summary 并停下来问。
+
+# 要求
+1. 用 pydantic v2 定义：`Source`、`Dataset`、`Resource`、`Snapshot`、`FetchOutcome`、`Document`、`Chunk`、`Observation`、`Citation`。
+2. `FetchOutcome` 枚举：`ok`、`not_modified`、`http_error`、`network_error`、`too_large`、`blocked_by_robots`、`empty_body`、`spa_shell`。
+3. `Snapshot` 至少含：`snapshot_id`、`source_id`、`resource_url`（已去 Key）、`fetched_at`（带时区）、`http_status`、`outcome`、`sha256`（失败时为空）、`size`、`content_type`、`etag`、`last_modified`、`license`、`error`。
+4. `Chunk` 至少含：`chunk_id`、`doc_key`（跨次抓取稳定，`<source_id>:<来源内 ID>`）、`locator`、`text`、`title_path`、`snapshot_sha256`、`lang`、`published_at`、`effective_at`。
+5. `Observation` 字段：`obs_id`、`source_id`、`dataset_key`、`table_key`、`survey`（必填）、`indicator`、`indicator_code`、`area_code`、`area_label`、`time_start`、`time_end`、`time_label`、`granularity`、`dims`、`unit`、`value`（Decimal，可空）、`note`、`snapshot_sha256`、`locator`、`fetched_at`。`value` 为空时 `note` 必须非空。
+6. **locator**：`key=value` 用 `;` 连接，key 只能取 `art`、`para`、`item`、`suppl`、`table`、`page`、`sheet`、`cell`、`row`、`entry`、`section`、`feature`、`member`。提供 `parse_locator` / `format_locator`，往返一致，非法 key 报错。
+7. `Citation` = `source_id` + `resource_url` + `snapshot_sha256` + `fetched_at` + `locator`，`render()` 输出一行人能读的出处。
+8. `redact_url(url)`：把 `appId`、`api_key`、`key`、`token` 等参数值替换成 `REDACTED`。
+9. **工具输出格式**：`Hit`（chunk_id、doc_key、locator、score、snippet、citation、matched_by）、`GapState` 枚举（`ok`、`zero_hits`、`not_ingested`、`fetch_failed`、`out_of_scope`）、`Freshness`、`ToolResult` 外壳（`data`、`gap_state`、`freshness`、`warnings`）。来源正文只能放在 `SourceText`（含 `content` 和固定的 `content_role="untrusted_source_text"`）里。
+10. 脚本函数 `export_schemas(dir)` 把上述模型导出成 JSON Schema 到 `schemas/`，并提交导出结果。
+11. 测试覆盖每条约束：locator 往返和非法 key、Observation 空值必须带注记、redact、JSON Schema 导出和模型一致。
+
+# 不做
+- 不写存储、HTTP、manifest，只有类型和纯函数。

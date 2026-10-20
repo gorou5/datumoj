@@ -1,0 +1,44 @@
+---
+id: DATUMOJ-IVY-305
+title: e-Stat 统计表文件采集器与两类版式转换
+project: DATUMOJ
+status: todo
+priority: 2
+depends_on: ["DATUMOJ-IVY-104", "DATUMOJ-IVY-301", "DATUMOJ-IVY-302"]
+runner: claude
+model: null
+tier: high
+resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
+scope: ["src/datumoj/crawlers/estat_files.py", "src/datumoj/parsers/estat_tables.py", "sources/jp-estat-files.yaml", "tests/crawlers/test_estat_files.py", "results/DATUMOJ-IVY-305/**"]
+out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**"]
+protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
+acceptance:
+  automated:
+    - cmd: /opt/homebrew/bin/uv run --frozen pytest -q tests/crawlers/test_estat_files.py
+  evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-IVY-305/summary.md 完成说明"]
+  review: {by: other_family, checklist: ["数值是否和原表逐个核对", "认不出的版式是否报错而不是猜", "是否越界"]}
+  human: sampled
+max_attempts: 2
+---
+# 目标
+精选的 e-Stat 统计表文件能按清单下载，并把两种常见版式转成 Observation。
+
+# 背景
+开发线：C 统计线。旧项目能用的是按 statInfId 下载文件。文件多为 cp932，响应头不可信。第一批主题见 `docs/TASKS.md`。样本在 `tests/fixtures/estat_files/`。
+
+计划见 `docs/PLAN.md`，任务总表、开发线和跨任务约定见 `docs/TASKS.md`。
+- **只依赖契约**：数据模型在 `src/datumoj/core/models.py`，接口协议和插件发现在 `src/datumoj/core/contracts.py`，假实现和契约测试在 `src/datumoj/testing/`。不要 import 其他开发线的实现模块（集成任务除外）。
+- 测试全部离线：不访问网络，HTTP 一律用 `tests/fixtures/` 里的录制样本或本地假服务器。
+- 依赖已锁定在 `uv.lock`，不能新增依赖，也不能改 `pyproject.toml`。确实需要时写进 `results/DATUMOJ-IVY-305/summary.md` 并停下来问。
+- `tests/fixtures/` 下已有的样本只读；需要新样本就新建文件。
+- 需要改契约（models.py、contracts.py）时不要自己改，写进 summary 并停下来问。
+
+# 要求
+1. 采集器插件 `kind=estat_files`：清单写在新增的 `sources/jp-estat-files.yaml` 的 `scope.tables`，每项含 `stat_inf_id`、`survey`、`title`、`layout`、`expected_area_level`。
+2. 下载后核对表题、调查名、地区是否和清单一致，不一致记为失败（旧项目踩过“下载 ID 实际属于别的县”）。
+3. 解析器插件：版式转换器至少两种 `wide_area_by_year`、`long_with_dims`；只认清单指定的版式，认不出就报错，不猜。
+4. 注记存进 `note`，`value` 为空；`survey` 必填。
+5. 测试：两种版式各至少一个真实样本，逐个核对 10 个以上数值；地区不符报失败；未知版式报错。
+
+# 不做
+- 不用 e-Stat API。

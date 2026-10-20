@@ -1,6 +1,6 @@
 # DATUMOJ 的计划
 
-> 计划第 3 版（2026-10-20）：改为**契约先行、7 条开发线并行**，每个版本用家纹作代号（第 8 节）。第 2 版起，第 13 节的待定问题已按默认答案定下。任务拆分见 `docs/TASKS.md`。任务前缀 `IVY-`，由调度器（orchestrator）派给 agent 执行。
+> 计划第 3 版（2026-10-20）：改为**契约先行、7 条开发线并行**，每个版本用家纹作代号，当前版本是 **0.1 IVY（蔦）**（第 8 节）。第 2 版起，第 13 节的待定问题已按默认答案定下。任务拆分见 `docs/TASKS.md`。任务编号 `DATUMOJ-IVY-<序号>`，由调度器（orchestrator）派给 agent 执行。
 > 输入资料：`handoff/digital-assets-20261020/`（旧项目 Digital Assets 0.9.1 的交接包）。旧代码在 `/Users/aaron/codex_workspace/digital-assets`，**只作参考，不迁移**。
 
 ---
@@ -36,7 +36,7 @@
 4. 回答里附上出处：来源、URL、抓取时间、快照哈希、定位信息（第几条、第几页或第几行）；
 5. 能定期输出“变化分析”，例如本周新增的采购公告、修订的法令、更新的统计表。
 
-**第一阶段完成的标准**（M3 结束时，即 Diamond 版本）：
+**第一阶段完成的标准**（M3 检查点，即 IVY 版本完成时）：
 - 日本至少 4 类来源已入库并能增量更新：法令、e-Gov 数据目录、统计（Dashboard 和精选的 e-Stat 表）、采购公告
 - 有一套离线评测集（至少 60 题），检索命中率和数值准确率达到第 10 节的门槛
 - 在 Claude Code 或 Claude Desktop 里通过 MCP 提问，能拿到带出处的回答；不支持的问题会说清缺口
@@ -229,26 +229,40 @@ datumoj/
 - **计划和任务**：任务文件的副本在 `docs/tasks/`，通过 GitHub PR 审核。审核通过后，主对话把它们复制到 `.orch/tasks/` 并同步给调度器。
 - **任务结果**：调度器跑在项目负责人的机器上。需要人审查的任务进入 review 状态后，主对话把该任务的分支推到 GitHub，由对应线的负责人在 PR 里审核；审核结论回传后，由项目负责人执行 `bin/orch approve` 或 `reject`。
 
-## 8. 版本与里程碑（代号用家纹）
+## 8. 版本、代号与里程碑
 
-版本代号取家纹的英文名，**按首字母顺序排列**，看代号就知道版本先后。代号同时用作 git tag，格式为 `v<版本>-<代号>`。
+### 8.1 规则
 
-| 版本 | tag | 家纹 | 对应里程碑 | 人能看到什么 | 集成任务 |
-|---|---|---|---|---|---|
-| 0.1 | `v0.1.0-aoi` | 葵 Aoi | M0 契约与地基 | 契约审查通过；`make test` 全部通过；用回放样本完整走一遍“计划→抓取→存 raw→写 manifest”，失败和超上限都有记录 | （A 线 IVY-105 即集成） |
-| 0.2 | `v0.2.0-bellflower` | 桔梗 Bellflower | M1 法令链路 | 真实抓取 200 部法令，重复抓取不会重复下载；`datumoj search "個人情報の第三者提供"` 返回条文和出处；法令题 Recall@10 ≥ 0.85 | IVY-901 |
-| 0.3 | `v0.3.0-chrysanthemum` | 菊 Chrysanthemum | M2 目录与统计 | 能搜到 e-Gov 目录的数据集；`datumoj sql` 查都道府县人口并附出处；JMA 开始每小时轮询 | IVY-902 |
-| 0.4 | `v0.4.0-diamond` | 菱 Diamond（Hishi） | M3 AI 分析入口 | 在 Claude 里通过 MCP 问“東京都と大阪府の人口推移を比較して、関連する法改正もあれば”，得到带出处的回答；60 题全部达标。**第一阶段完成** | IVY-903 |
-| 0.5 | `v0.5.0-feather` | 鷹の羽 Feather | M4 日本扩面与增量 | KKJ、BODIK 和省厅、自治体政策网页入库；定时增量；每周变化报告；能回答“大阪市の AI スタートアップ支援策” | 到时再拆 |
-| 0.6 | `v0.6.0-gentian` | 竜胆 Gentian | M5 欧美 | data.europa.eu、Eurostat、英德法荷门户、Federal Register 入库；能做日欧比较 | 到时再拆 |
+- **项目编号**固定为 `DATUMOJ`，以后不变。
+- **每个版本取一个家纹作代号**（英文名，调度器里登记为代号系列 `Kamon` / 家纹），不要求按首字母排序；进入新版本时，从没用过的家纹里挑一个。
+- **任务编号跟着版本走**：`DATUMOJ-<代号>-<序号>`。例如 0.1 版的任务是 `DATUMOJ-IVY-101`。序号按开发线分号段：
+  - 契约 001–009
+  - A 线 1xx、B 线 2xx、C 线 3xx、D 线 4xx、E 线 5xx、F 线 6xx、G 线 7xx
+  - 集成 9xx
+- **一个版本对应一整轮计划**。版本内部的里程碑只是检查点，不另起代号。
+- **tag**：
+  - 版本完成后打 `v<版本>-<代号小写>`，例如 `v0.1.0-ivy`；
+  - 版本内的检查点打 `v<版本>-<代号小写>-m<N>`，例如 `v0.1.0-ivy-m1`。
+  - 打 tag 的条件：对应的集成任务合并，并且人工验收通过（真实抓取一次，再用 5–10 个真实问题现场问答，记录到 `docs/acceptance/<tag>.md`）。tag 打在 `main` 上，由项目负责人推送。
 
-后续可用的代号：Katabami（片喰）、Myoga（茗荷）、Paulownia（桐）、Wisteria（藤）。I 不用，因为 IVY（蔦）已经是任务前缀。
+### 8.2 版本表
 
-**打 tag 的条件**：该版本的集成任务合并，加上人工验收通过。人工验收是指真实抓取一次，再用 5–10 个真实问题现场问答，结果记录到 `docs/acceptance/v<版本>-<代号>.md`。tag 打在 `main` 上，由项目负责人推送。
+| 版本 | 代号 | 范围 | 状态 |
+|---|---|---|---|
+| **0.1** | **IVY（蔦）** | 契约 → 法令链路 → 目录与统计 → AI 分析入口（第一阶段） | **当前版本**，32 个任务，见 `docs/TASKS.md` |
+| 0.2 | 待定（候选：片喰 Katabami） | 日本扩面与增量：KKJ、BODIK、省厅和自治体政策网页、定时增量、每周变化报告 | IVY 完成后再拆 |
+| 0.3 | 待定（候选：楓 Maple） | 欧美：data.europa.eu、Eurostat、英德法荷门户、Federal Register | 之后 |
 
-### 8.1 任务拆分
+其他候选代号：柏 Oak、桐 Paulownia、橘 Tachibana、藤 Wisteria、葵 Aoi、桔梗 Bellflower、菊 Chrysanthemum。
 
-Aoi 到 Diamond 共 32 个开发任务，另有 7 个主对话步骤（H0–H6），详见 `docs/TASKS.md`。任务按开发线分号段：契约 001–003，A 线 1xx，B 线 2xx，C 线 3xx，D 线 4xx，E 线 5xx，F 线 6xx，G 线 7xx，集成 9xx。Feather 和 Gentian 等 Diamond 验收后再细拆。
+### 8.3 IVY（0.1）内部的检查点
+
+| 检查点 | tag | 人能看到什么 | 集成任务 |
+|---|---|---|---|
+| M0 契约与地基 | `v0.1.0-ivy-m0` | 契约审查通过；`make test` 全部通过；用回放样本完整走一遍“计划→抓取→存 raw→写 manifest”，失败和超上限都有记录 | DATUMOJ-IVY-105 |
+| M1 法令链路 | `v0.1.0-ivy-m1` | 真实抓取 200 部法令，重复抓取不会重复下载；`datumoj search "個人情報の第三者提供"` 返回条文和出处；法令题 Recall@10 ≥ 0.85 | DATUMOJ-IVY-901 |
+| M2 目录与统计 | `v0.1.0-ivy-m2` | 能搜到 e-Gov 目录的数据集；`datumoj sql` 查都道府县人口并附出处；JMA 开始每小时轮询 | DATUMOJ-IVY-902 |
+| M3 AI 分析入口 | `v0.1.0-ivy-m3`，H6 验收后打 `v0.1.0-ivy` | 在 Claude 里通过 MCP 问“東京都と大阪府の人口推移を比較して、関連する法改正もあれば”，得到带出处的回答；60 题全部达标。**IVY 完成，第一阶段完成** | DATUMOJ-IVY-903 |
 
 ## 9. 旧项目可复用的东西（只借鉴，不迁移代码）
 
@@ -256,7 +270,7 @@ Aoi 到 Diamond 共 32 个开发任务，另有 7 个主对话步骤（H0–H6�
 
 | 可借鉴的 | 位置（旧仓库 `repo/plugin-prototype/` 下） | 在新项目里的用法 |
 |---|---|---|
-| 只读 HTTP 客户端的安全设计：公网地址白名单、逐跳校验重定向、容量和时长预算、记录 sha256 | `runtime/src/adapters/http-readonly.ts` | 照着它写 IVY-103，**另外补上限速和重试**（旧版故意没有） |
+| 只读 HTTP 客户端的安全设计：公网地址白名单、逐跳校验重定向、容量和时长预算、记录 sha256 | `runtime/src/adapters/http-readonly.ts` | 照着它写 DATUMOJ-IVY-103，**另外补上限速和重试**（旧版故意没有） |
 | “原始字节 + 回执”的保存方式 | `live-sources.mjs`、`local-runtime-evidence/` | 就是新 raw 存储 + manifest 的雏形 |
 | 安全的 XML 解析（禁用 DTD 和实体、限制大小） | `runtime/src/adapters/jma/secure-xml.ts` | 法令和 JMA 解析器都按这个原则用 lxml（`resolve_entities=False` 等） |
 | CSV / XLSX / GeoJSON 解析的边界处理（严格的 cp932、不计算公式、不转换坐标） | `runtime/src/adapters/bodik/{text-files,excel,geojson}.ts` | 表格解析器的测试用例清单 |
