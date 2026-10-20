@@ -44,6 +44,10 @@ max_attempts: 2
 8. `RobotsCache`：按 host 缓存 robots.txt，被禁止时 `blocked_by_robots`，不发请求。
 9. `ReplayTransport(mapping)`：URL（忽略 Key 参数、参数顺序无关）映射到 fixture 文件和状态码；未登记的 URL 直接报错。
 10. 测试用 pytest-httpserver 或 `httpx.MockTransport` 覆盖以上每条。
+11. （审查多轮后明确，必须有测试锁定，防止回退）回放匹配按 URL **原始路径**比较，不做百分号解码：`/a%2Fb` 和 `/a/b` 是两个不同的地址，只登记一个时请求另一个必须抛 `UnregisteredUrl`。参数比较只按**参数名**识别 Key（`appId`、`api_key` 等），不能按参数值（例如值恰好是 `REDACTED` 的普通参数不能被删掉）。
+12. （审查多轮后明确，必须有测试锁定）robots.txt 判定：匹配前先把路径里**非保留字符**的百分号编码解码（如 `%70` → `p`），保留字符（如 `%2F`）不解码；规则按 RFC 9309 取**最长匹配**，`Allow` 与 `Disallow` 等长时 `Allow` 优先，不能依赖 `urllib.robotparser` 的书写顺序语义；支持 `*` 和 `$`。
+13. （审查多轮后明确，必须有测试锁定）gzip 解码要处理多段（multi-member）流，上限按解压后的总字节数边解边判。日志、异常、结果里的 URL 一律去 Key，包括 httpx 自带的请求日志。
+14. 提交前对照以上三条以及历次打回理由（任务正文末尾）逐条自查，每条都有对应测试。
 
 # 不做
 - 不写 raw 存储和 manifest。
