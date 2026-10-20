@@ -1,2 +1,10 @@
 .orch/
 .DS_Store
+data/
+.secrets/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+handoff/
