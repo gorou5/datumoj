@@ -40,7 +40,7 @@ max_attempts: 2
 4. `doc_key` = `jp-egov-law:<法令ID>`；Document 记录法令番号、法令名、施行基准日（同时作为 Document 和每个 Chunk 的 `effective_at`），以及采集器给出的未施行修改列表（格式见下面的说明）。修订历史不说明影响哪几条，所以**不做逐条标记**，只在文档级记录。
 5. 测试：带章节的法令、条の二、附则、别表、含实体声明的恶意 XML 被拒。
 6. （契约二对齐）实现 `Parser` 协议：`parse(snapshot, data, meta=None)`，从 `meta` 读施行基准日和未施行修改；`chunk_id` 用 `<doc_key>#<locator>`，同一法令跨快照保持稳定；坏输入抛 `ParseError`。以 `ParserSuite` 为准。
-7. （法令 meta 格式，201 与 202 共用）`meta` 为 `{"task": "law_data", "law_id": "<法令ID>", "asof": "YYYY-MM-DD", "pending_amendments": [{"amendment_law_num": str|null, "promulgate_date": "YYYY-MM-DD"|null, "enforcement_date": "YYYY-MM-DD"|null, "enforcement_comment": str|null}]}`。解析器写入 `Document.metadata["asof"]`（日期字符串）和 `Document.metadata["pending_amendments"]`（上面列表的 JSON 字符串，`ensure_ascii=False`，没有时为 `"[]"`）；`meta` 缺失或没有 asof 时 `effective_at` 为空，不要猜。测试里自己构造 meta，不必等 201。
+7. （法令 meta 格式，201 与 202 共用）`meta` 为 `{"role": "law_data", "law_id": "<法令ID>", "asof": "YYYY-MM-DD", "pending_amendments": [{"amendment_law_num": str|null, "promulgate_date": "YYYY-MM-DD"|null, "enforcement_date": "YYYY-MM-DD"|null, "enforcement_comment": str|null}]}`（以上是必有的键，可以有其他键，例如 `law_revision_id`、`amendment_law_title`；解析器只依赖必有的键）。解析器写入 `Document.metadata["asof"]`（日期字符串）和 `Document.metadata["pending_amendments"]`（上面列表的 JSON 字符串，`ensure_ascii=False`，没有时为 `"[]"`）；`meta` 缺失或没有 asof 时 `effective_at` 为空，不要猜。测试里自己构造 meta，不必等 201。
 
 # 不做
 - 不改 scope 以外的文件。
