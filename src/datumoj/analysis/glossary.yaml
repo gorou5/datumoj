@@ -1,0 +1,174 @@
+# 中英政务常用词 → 日文（PLAN 4.3 第 6 条）。expand_terms 按 zh / en 匹配查询，给出 ja。
+# 每条：ja 必填；zh、en 至少一个。比较前做 NFKC + 小写；拉丁字母词按整词匹配。
+# 只放常用的政务、统计、法令词；地名只放评测和验收会问到的几个。
+
+# ---------- 人口与社会 ----------
+- {ja: [人口], zh: [人口], en: [population]}
+- {ja: [人口密度], zh: [人口密度], en: [population density]}
+- {ja: [世帯], zh: [家庭数, 住户, 户数], en: [household, households]}
+- {ja: [出生率, 合計特殊出生率], zh: [出生率, 生育率], en: [birth rate, birthrate, fertility rate]}
+- {ja: [死亡数, 死亡率], zh: [死亡人数, 死亡率], en: [deaths, mortality]}
+- {ja: [平均寿命], zh: [平均寿命, 预期寿命], en: [life expectancy]}
+- {ja: [高齢化], zh: [老龄化, 老齡化, 高龄化], en: [aging, ageing]}
+- {ja: [高齢者], zh: [老年人, 高龄者, 老人], en: [elderly, older people, senior citizens]}
+- {ja: [少子化], zh: [少子化, 低生育], en: [declining birthrate]}
+- {ja: [国勢調査], zh: [人口普查, 国势调查], en: [census, population census]}
+- {ja: [在留外国人], zh: [在日外国人, 外国居民], en: [foreign residents]}
+- {ja: [出入国管理, 入管], zh: [出入境管理, 移民], en: [immigration]}
+- {ja: [男女共同参画], zh: [性别平等, 男女平等], en: [gender equality]}
+- {ja: [障害者], zh: [残疾人, 残障人士], en: [persons with disabilities, disability, disabilities]}
+- {ja: [貧困, 相対的貧困率], zh: [贫困], en: [poverty]}
+- {ja: [自殺], zh: [自杀], en: [suicide]}
+- {ja: [犯罪], zh: [犯罪], en: [crime, crimes]}
+- {ja: [交通事故], zh: [交通事故, 车祸], en: [traffic accident, traffic accidents]}
+- {ja: [選挙], zh: [选举], en: [election, elections]}
+
+# ---------- 劳动与收入 ----------
+- {ja: [雇用, 就業], zh: [就业, 雇佣, 雇用], en: [employment]}
+- {ja: [完全失業率, 失業率], zh: [失业率, 失業率], en: [unemployment rate, unemployment]}
+- {ja: [賃金, 給与], zh: [工资, 薪资, 薪酬], en: [wage, wages, salary]}
+- {ja: [最低賃金], zh: [最低工资], en: [minimum wage]}
+- {ja: [労働], zh: [劳动, 勞動], en: [labor, labour]}
+- {ja: [外国人労働者], zh: [外国劳动者, 外籍劳工], en: [foreign workers]}
+- {ja: [所得, 収入], zh: [收入, 所得], en: [income]}
+- {ja: [消費支出, 家計], zh: [消费支出, 家庭支出], en: [consumption expenditure, household spending]}
+
+# ---------- 经济与产业 ----------
+- {ja: [国内総生産, GDP], zh: [国内生产总值], en: [gdp, gross domestic product]}
+- {ja: [県内総生産], zh: [地区生产总值, 县内生产总值], en: [gross prefectural product, prefectural gdp]}
+- {ja: [経済成長率], zh: [经济增长率], en: [economic growth, growth rate]}
+- {ja: [物価], zh: [物价], en: [price level, prices]}
+- {ja: [消費者物価指数], zh: [消费者物价指数], en: [consumer price index, cpi]}
+- {ja: [中小企業], zh: [中小企业], en: [small and medium enterprises, smes, sme]}
+- {ja: [創業, 起業, スタートアップ], zh: [创业, 初创企业], en: [startup, startups, entrepreneurship]}
+- {ja: [企業, 会社], zh: [企业, 公司], en: [company, companies, enterprise, enterprises, firms]}
+- {ja: [産業], zh: [产业, 行业], en: [industry, industries]}
+- {ja: [製造業], zh: [制造业], en: [manufacturing]}
+- {ja: [農業], zh: [农业], en: [agriculture, farming]}
+- {ja: [漁業], zh: [渔业], en: [fisheries, fishery]}
+- {ja: [貿易], zh: [贸易], en: [trade]}
+- {ja: [輸出], zh: [出口], en: [export, exports]}
+- {ja: [輸入], zh: [进口], en: [import, imports]}
+- {ja: [投資], zh: [投资], en: [investment, investments]}
+- {ja: [観光], zh: [旅游, 观光], en: [tourism, tourists]}
+- {ja: [訪日外国人, 訪日外客], zh: [访日外国人, 入境游客, 外国游客], en: [inbound visitors, foreign visitors]}
+- {ja: [経済センサス], zh: [经济普查], en: [economic census]}
+
+# ---------- 财政与税 ----------
+- {ja: [予算], zh: [预算], en: [budget, budgets]}
+- {ja: [財政], zh: [财政], en: [public finance, fiscal]}
+- {ja: [税, 税制], zh: [税收, 税金, 税制], en: [tax, taxes, taxation]}
+- {ja: [消費税], zh: [消费税], en: [consumption tax]}
+- {ja: [所得税], zh: [个人所得税, 所得税], en: [income tax]}
+- {ja: [法人税], zh: [企业所得税, 法人税], en: [corporate tax]}
+- {ja: [補助金, 助成金], zh: [补贴, 补助金, 补助], en: [subsidy, subsidies, grant, grants]}
+- {ja: [交付金], zh: [交付金, 转移支付], en: [grant-in-aid]}
+- {ja: [年度], zh: [财年, 会计年度], en: [fiscal year]}
+
+# ---------- 采购与公告 ----------
+- {ja: [調達, 入札], zh: [政府采购, 公共采购], en: [public procurement, government procurement]}
+- {ja: [入札], zh: [招标, 投标], en: [bid, bidding, tender, tenders]}
+- {ja: [契約], zh: [合同], en: [contract, contracts]}
+- {ja: [公告, 告示], zh: [公告], en: [public notice, announcement]}
+- {ja: [官報], zh: [官报, 政府公报], en: [official gazette]}
+- {ja: [白書], zh: [白皮书], en: [white paper]}
+- {ja: [パブリックコメント, 意見募集], zh: [公众意见征集, 征求意见], en: [public comment, public consultation]}
+
+# ---------- 法令 ----------
+- {ja: [法律], zh: [法律], en: [law, laws, statute]}
+- {ja: [政令], zh: [政令, 行政法规], en: [cabinet order]}
+- {ja: [省令], zh: [部门规章], en: [ministerial ordinance]}
+- {ja: [条例], zh: [条例, 地方法规], en: [ordinance, bylaw]}
+- {ja: [規則], zh: [规则, 规章], en: [regulation, regulations, rules]}
+- {ja: [改正], zh: [修订, 修改, 修正], en: [amendment, amendments, revision]}
+- {ja: [施行], zh: [施行, 生效], en: [enforcement, entry into force, effective date]}
+- {ja: [公布], zh: [颁布], en: [promulgation]}
+- {ja: [附則], zh: [附则], en: [supplementary provisions]}
+- {ja: [罰則, 罰金], zh: [罚则, 罚款, 处罚], en: [penalty, penalties, penal provisions]}
+- {ja: [許可, 認可, 許認可], zh: [许可, 审批, 行政许可], en: [permit, permits, authorization]}
+- {ja: [届出], zh: [申报, 备案], en: [notification, filing]}
+- {ja: [申請], zh: [申请], en: [application, applications]}
+- {ja: [行政手続], zh: [行政程序, 行政手续], en: [administrative procedure, administrative procedures]}
+- {ja: [規制緩和], zh: [放宽管制, 放松管制], en: [deregulation]}
+- {ja: [特区, 国家戦略特区], zh: [特区], en: [special zone, special zones]}
+
+# ---------- 信息与数字 ----------
+- {ja: [個人情報], zh: [个人信息, 個人資訊, 个人数据], en: [personal information, personal data]}
+- {ja: [個人情報保護], zh: [个人信息保护], en: [data protection, privacy protection]}
+- {ja: [プライバシー], zh: [隐私], en: [privacy]}
+- {ja: [第三者提供], zh: [向第三方提供, 第三方提供], en: [third-party provision, provision to third parties]}
+- {ja: [マイナンバー, 個人番号], zh: [个人编号], en: [my number, individual number]}
+- {ja: [情報公開], zh: [信息公开, 政府信息公开], en: [information disclosure, freedom of information, foia]}
+- {ja: [公文書], zh: [公文书, 政府文件], en: [public records, official documents]}
+- {ja: [著作権], zh: [著作权, 版权], en: [copyright]}
+- {ja: [特許], zh: [专利], en: [patent, patents]}
+- {ja: [知的財産], zh: [知识产权], en: [intellectual property]}
+- {ja: [サイバーセキュリティ], zh: [网络安全], en: [cybersecurity, cyber security]}
+- {ja: [人工知能, AI], zh: [人工智能], en: [artificial intelligence, ai]}
+- {ja: [デジタル化, DX], zh: [数字化, 数字转型], en: [digitalization, digital transformation, dx]}
+- {ja: [オープンデータ], zh: [开放数据], en: [open data]}
+- {ja: [統計], zh: [统计], en: [statistics, statistical]}
+- {ja: [世論調査], zh: [民意调查, 舆论调查], en: [opinion poll, public opinion survey]}
+
+# ---------- 福祉、医疗、教育 ----------
+- {ja: [医療], zh: [医疗], en: [medical care, healthcare, health care]}
+- {ja: [病院], zh: [医院], en: [hospital, hospitals]}
+- {ja: [介護], zh: [长期护理, 护理, 介护], en: [long-term care, nursing care]}
+- {ja: [年金], zh: [养老金, 年金], en: [pension, pensions]}
+- {ja: [社会保障], zh: [社会保障], en: [social security, social welfare]}
+- {ja: [生活保護], zh: [最低生活保障, 低保, 生活保护], en: [public assistance]}
+- {ja: [子育て支援, 子育て], zh: [育儿支援, 育儿补贴, 育儿], en: [childcare support, child-rearing support, childcare]}
+- {ja: [保育所, 保育園], zh: [托儿所, 保育园], en: [nursery, nurseries, daycare, day care]}
+- {ja: [感染症], zh: [传染病, 感染症], en: [infectious disease, infectious diseases]}
+- {ja: [新型コロナウイルス感染症, 新型コロナ], zh: [新冠, 新型冠状病毒], en: [covid-19, covid, coronavirus]}
+- {ja: [ワクチン, 予防接種], zh: [疫苗], en: [vaccine, vaccines, vaccination]}
+- {ja: [教育], zh: [教育], en: [education]}
+- {ja: [学校], zh: [学校], en: [school, schools]}
+- {ja: [大学], zh: [大学], en: [university, universities]}
+
+# ---------- 国土、交通、环境、防灾 ----------
+- {ja: [住宅], zh: [住房, 住宅], en: [housing]}
+- {ja: [空き家], zh: [空置房, 空房], en: [vacant house, vacant houses, vacant homes]}
+- {ja: [地価, 公示地価], zh: [地价, 土地价格], en: [land price, land prices]}
+- {ja: [交通], zh: [交通], en: [transport, transportation, traffic]}
+- {ja: [鉄道], zh: [铁路], en: [railway, railways, railroad]}
+- {ja: [道路], zh: [公路, 道路], en: [road, roads]}
+- {ja: [環境], zh: [环境], en: [environment, environmental]}
+- {ja: [温室効果ガス], zh: [温室气体], en: [greenhouse gas, greenhouse gases, ghg]}
+- {ja: [脱炭素, カーボンニュートラル], zh: [脱碳, 碳中和], en: [decarbonization, carbon neutral, carbon neutrality]}
+- {ja: [エネルギー], zh: [能源], en: [energy]}
+- {ja: [再生可能エネルギー, 再エネ], zh: [可再生能源], en: [renewable energy, renewables]}
+- {ja: [電力], zh: [电力], en: [electricity, electric power]}
+- {ja: [廃棄物, ごみ], zh: [废弃物, 垃圾], en: [waste]}
+- {ja: [防災], zh: [防灾], en: [disaster prevention, disaster risk reduction]}
+- {ja: [災害], zh: [灾害], en: [disaster, disasters]}
+- {ja: [地震], zh: [地震], en: [earthquake, earthquakes]}
+- {ja: [津波], zh: [海啸], en: [tsunami]}
+- {ja: [台風], zh: [台风], en: [typhoon, typhoons]}
+- {ja: [気象], zh: [气象, 天气], en: [weather, meteorological]}
+- {ja: [警報, 注意報], zh: [警报, 预警], en: [weather warning, alert]}
+- {ja: [気温], zh: [气温], en: [temperature]}
+- {ja: [降水量], zh: [降水量, 降雨量], en: [precipitation, rainfall]}
+
+# ---------- 行政机关与地区 ----------
+- {ja: [都道府県], zh: [都道府县], en: [prefecture, prefectures]}
+- {ja: [市区町村, 市町村], zh: [市町村, 市区町村], en: [municipality, municipalities]}
+- {ja: [地方自治体, 自治体], zh: [地方政府, 地方自治体], en: [local government, local governments]}
+- {ja: [内閣府], zh: [内阁府], en: [cabinet office]}
+- {ja: [総務省], zh: [总务省], en: [ministry of internal affairs and communications]}
+- {ja: [経済産業省], zh: [经济产业省, 经产省], en: ["ministry of economy, trade and industry", meti]}
+- {ja: [厚生労働省], zh: [厚生劳动省, 厚劳省], en: ["ministry of health, labour and welfare", mhlw]}
+- {ja: [国土交通省], zh: [国土交通省], en: ["ministry of land, infrastructure, transport and tourism", mlit]}
+- {ja: [財務省], zh: [财务省], en: [ministry of finance]}
+- {ja: [文部科学省], zh: [文部科学省, 文科省], en: [ministry of education, mext]}
+- {ja: [デジタル庁], zh: [数字厅], en: [digital agency]}
+- {ja: [東京都, 東京], zh: [东京都, 东京], en: [tokyo]}
+- {ja: [大阪府, 大阪], zh: [大阪府, 大阪], en: [osaka]}
+- {ja: [大阪市], zh: [大阪市], en: [osaka city]}
+- {ja: [北海道], zh: [北海道], en: [hokkaido]}
+- {ja: [愛知県], zh: [爱知县], en: [aichi]}
+- {ja: [福岡県], zh: [福冈县], en: [fukuoka]}
+
+# ---------- 分析用语 ----------
+- {ja: [推移], zh: [变化趋势, 趋势], en: [trend, trends]}
+- {ja: [前年比, 前年同期比], zh: [同比], en: [year-on-year, yoy]}
