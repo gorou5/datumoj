@@ -40,6 +40,7 @@ CKAN 门户的全部数据集元数据能抓下来并增量更新，资源文件
 4. 测试：分页、增量、白名单、单个资源 404 不影响整体。
 5. （H1 实测）e-Gov データポータル所有数据集的数据集级 `license_id` 都是空的，许可只能从资源级读取；`recently_changed_packages_activity_list` 没有总数字段，同一数据集会连续出现多次，要去重；登记的资源链接常失效（404，或 302 跳到 404 页），要记为抓取失败而不是成功。
 6. （契约二对齐）实现 `Crawler` 协议，测试用 `drive_crawler` 驱动。
+7. （契约二对齐）单文件大小上限：契约的 `HttpFetcher.fetch` 不接收每个任务的上限（下载中途中止由执行器按来源配置的抓取器上限兜底），所以本任务分两步落实：① 按 CKAN 声明的 `size` 预先跳过；② 实现 `Crawler.classify(task, result)`，实际正文超过 `task.meta` 里的单文件上限时返回 `FetchOutcome.too_large`，**不能记为成功**。测试要覆盖“声明的 size 很小、实际正文超限”的情况。
 
 # 不做
 - 不解析资源内容，不做 DataStore。
