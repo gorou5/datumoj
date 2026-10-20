@@ -41,7 +41,8 @@ MCP 和 CLI 共用的一组工具函数，输入输出都是可序列化的 dict
 5. 每条出处都带完整的时间口径（`time_basis` 和对应日期）和许可署名；来源是 `internal_only` 时在结果里标注“仅供内部使用”；法令结果带施行基准日，有未施行修改时给出提示。
 6. 测试覆盖每个工具的正常、空结果、错误输入。
 7. （契约二对齐）工具层只依赖 `datumoj.core.contracts` 的协议，测试用 `datumoj.testing.fakes` 的假实现；`search_catalog` 结果标注用 `ContentState`。
-8. 法令结果的施行基准日和未施行修改从 `Document.metadata` 的 `asof`、`pending_amendments`（JSON 字符串）读取；有未施行修改时在结果的 `warnings` 里提示。
+8. `query_sql` 的结果出处（provenance）里出现多个不同的 `survey` 时，在 `warnings` 里提示：不同调查的数据口径不同，不能直接相加，也不能直接算增长率（PLAN 第 12 节）。测试要覆盖单一调查不提示、两个调查提示两种情况。
+9. 法令结果的施行基准日和未施行修改从 `Document.metadata` 的 `asof`、`pending_amendments`（JSON 字符串）读取；有未施行修改时在结果的 `warnings` 里提示。
 
 # 不做
 - 不调用 LLM，不写 MCP 协议层。
