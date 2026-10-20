@@ -1,0 +1,15 @@
+{
+  "description": "一次抓取的结果。失败的抓取也要记录。",
+  "enum": [
+    "ok",
+    "not_modified",
+    "http_error",
+    "network_error",
+    "too_large",
+    "blocked_by_robots",
+    "empty_body",
+    "spa_shell"
+  ],
+  "title": "FetchOutcome",
+  "type": "string"
+}

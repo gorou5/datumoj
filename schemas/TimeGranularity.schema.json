@@ -1,0 +1,15 @@
+{
+  "description": "观测值的时间粒度（地区粒度由 area_code 体现）。",
+  "enum": [
+    "year",
+    "fiscal_year",
+    "half_year",
+    "quarter",
+    "month",
+    "week",
+    "day",
+    "other"
+  ],
+  "title": "TimeGranularity",
+  "type": "string"
+}

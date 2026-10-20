@@ -1,0 +1,11 @@
+{
+  "description": "出处的时间口径。来源不公布数据日期时用 no_data_date，绝不拿抓取日顶替。",
+  "enum": [
+    "period",
+    "published",
+    "effective",
+    "no_data_date"
+  ],
+  "title": "TimeBasis",
+  "type": "string"
+}

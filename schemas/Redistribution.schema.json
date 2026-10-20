@@ -1,0 +1,9 @@
+{
+  "enum": [
+    "allowed",
+    "forbidden",
+    "unverified"
+  ],
+  "title": "Redistribution",
+  "type": "string"
+}

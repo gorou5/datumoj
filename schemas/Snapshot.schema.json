@@ -1,0 +1,154 @@
+{
+  "$defs": {
+    "FetchOutcome": {
+      "description": "一次抓取的结果。失败的抓取也要记录。",
+      "enum": [
+        "ok",
+        "not_modified",
+        "http_error",
+        "network_error",
+        "too_large",
+        "blocked_by_robots",
+        "empty_body",
+        "spa_shell"
+      ],
+      "title": "FetchOutcome",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "一次抓取（成功或失败）。失败时 sha256 为空、error 必填。",
+  "properties": {
+    "snapshot_id": {
+      "minLength": 1,
+      "title": "Snapshot Id",
+      "type": "string"
+    },
+    "source_id": {
+      "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+      "title": "Source Id",
+      "type": "string"
+    },
+    "resource_url": {
+      "title": "Resource Url",
+      "type": "string"
+    },
+    "fetched_at": {
+      "format": "date-time",
+      "title": "Fetched At",
+      "type": "string"
+    },
+    "http_status": {
+      "anyOf": [
+        {
+          "maximum": 599,
+          "minimum": 100,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Http Status"
+    },
+    "outcome": {
+      "$ref": "#/$defs/FetchOutcome"
+    },
+    "sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sha256"
+    },
+    "size": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Size"
+    },
+    "content_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Content Type"
+    },
+    "etag": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Etag"
+    },
+    "last_modified": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Last Modified"
+    },
+    "license": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "License"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    }
+  },
+  "required": [
+    "snapshot_id",
+    "source_id",
+    "resource_url",
+    "fetched_at",
+    "outcome"
+  ],
+  "title": "Snapshot",
+  "type": "object"
+}

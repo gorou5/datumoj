@@ -1,0 +1,85 @@
+{
+  "additionalProperties": false,
+  "description": "一次快照解析出的一份文档（正文在 Chunk 里）。",
+  "properties": {
+    "doc_key": {
+      "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+:\\S(?:.*\\S)?$",
+      "title": "Doc Key",
+      "type": "string"
+    },
+    "source_id": {
+      "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+      "title": "Source Id",
+      "type": "string"
+    },
+    "snapshot_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Snapshot Sha256",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "lang": {
+      "pattern": "^[a-z]{2,3}(?:-[A-Za-z0-9]{1,8})*$",
+      "title": "Lang",
+      "type": "string"
+    },
+    "content_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Content Type"
+    },
+    "published_at": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Published At"
+    },
+    "effective_at": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Effective At"
+    },
+    "metadata": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "required": [
+    "doc_key",
+    "source_id",
+    "snapshot_sha256",
+    "title",
+    "lang"
+  ],
+  "title": "Document",
+  "type": "object"
+}

@@ -1,0 +1,8 @@
+{
+  "enum": [
+    "keyword",
+    "vector"
+  ],
+  "title": "MatchedBy",
+  "type": "string"
+}
