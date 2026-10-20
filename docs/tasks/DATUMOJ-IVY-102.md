@@ -38,6 +38,7 @@ max_attempts: 2
 2. 写入在事务里完成；同一个 `snapshot_id` 重复写入报错。
 3. 有 schema 版本表，版本不符时报清楚的错误。
 4. 继承 `ManifestSuite` 跑通合格测试，再补失败记录、并发写入（两个连接）、版本不符的测试。
+5. （契约二对齐）实现 `datumoj.core.contracts.Manifest` 协议的全部方法：除上面列的以外，还有 `record_snapshot(snapshot, meta=None)` 原样保存快照附加信息、`snapshot_meta(snapshot_id)`、`snapshots_by_sha256(sha256)`、`record_parse(ParseRecord)` / `get_parse(sha256, parser, version)`；没有匹配解析器时 parser 记为 `NO_PARSER`。以 `ManifestSuite` 为准。
 
 # 不做
 - 不改 scope 以外的文件。

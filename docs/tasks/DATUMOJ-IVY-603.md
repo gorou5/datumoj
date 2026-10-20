@@ -40,6 +40,7 @@ MCP 和 CLI 共用的一组工具函数，输入输出都是可序列化的 dict
 4. 来源文本一律放在 `SourceText` 里；说明性字段不能拼接来源文本。
 5. 每条出处都带完整的时间口径（`time_basis` 和对应日期）和许可署名；来源是 `internal_only` 时在结果里标注“仅供内部使用”；法令结果带施行基准日，有未施行修改时给出提示。
 6. 测试覆盖每个工具的正常、空结果、错误输入。
+7. （契约二对齐）工具层只依赖 `datumoj.core.contracts` 的协议，测试用 `datumoj.testing.fakes` 的假实现；`search_catalog` 结果标注用 `ContentState`。
 
 # 不做
 - 不调用 LLM，不写 MCP 协议层。

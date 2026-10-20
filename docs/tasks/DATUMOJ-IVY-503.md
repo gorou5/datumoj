@@ -38,6 +38,7 @@ max_attempts: 2
 2. 向量不可用时退回纯关键词，标注 `degraded=true`。
 3. `gap_state(source_ids, hits)`：`ok`、`zero_hits`、`not_ingested`（注册表有但没有成功快照）、`fetch_failed`（附原因）、`out_of_scope`（注册表没有）；给出最近的可查内容。
 4. 继承 `RetrieverSuite`，再补 RRF 计算、去重、降级、四种缺口各两个用例。
+5. （契约二对齐）实现 `Retriever` 协议：融合 `KeywordIndex` / `VectorIndex` 的 `IndexResult`，用 `Manifest.snapshots_by_sha256` 找回快照、用 `citation_for_chunk()` 组装 `Hit`；缺口状态的优先顺序按契约：out_of_scope → fetch_failed → not_ingested → zero_hits。以 `RetrieverSuite` 为准。
 
 # 不做
 - 不改 scope 以外的文件。

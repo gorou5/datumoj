@@ -38,6 +38,7 @@ Chunk 存进 SQLite，用日文关键词（不分词）检索到。
 2. FTS5 `tokenize='trigram'`；索引 `title_path` 和 `text`；SQLite 不支持 trigram 时报错。
 3. `search(query, k, source_ids=None) -> list[Hit]`；查询先 `normalize`；两个字以下退回 LIKE 并标注。LIKE 是全表扫描，所以要设结果上限和超时（可配置），超时就返回“查询过短”的提示而不是卡住；大语料下的实际耗时在 H5 测量。
 4. 继承两套合格测试，再补 30 条以上日文块的命中、排序（标题命中优先）、过滤、替换。
+5. （契约二对齐，覆盖上面第 3 条的返回类型）`KeywordIndex.search` 返回 `IndexResult`（chunk_id、分数、warnings），**不是** `list[Hit]`：单个索引拿不到快照 URL、抓取时间和许可，Hit 由检索器（503）用 `citation_for_chunk()` 统一组装。短查询退回 LIKE 的标注放进 `IndexResult.warnings`。以 `ChunkStoreSuite`、`KeywordIndexSuite` 为准。
 
 # 不做
 - 不做向量。

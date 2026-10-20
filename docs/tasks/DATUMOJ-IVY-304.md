@@ -41,6 +41,7 @@ max_attempts: 2
 5. 新增 `sources/jp-stat-dashboard.yaml`（约 10 个精选指标：人口、世帯数、出生、死亡、転入転出、県内総生産、就業者数等，指标码从样本里取）。
 6. 测试：规划器边界（正好 5/50、超出、空）、转换后的数值和样本逐条一致、地区码正确。
 7. （H1 实测）带 `modifiedFrom` 的请求可能仍返回全部数据，增量逻辑不能假设结果一定变少，要按记录自身的更新时间或内容哈希去重；响应里参数回显为 `ModifiedFrom`（大写开头）。部分指标在部分地区没有数据（样本 b2 的社会増減数只有全国），要原样表现为缺失，不能补零。
+8. （契约二对齐）实现 `Crawler` 和 `Parser` 协议，测试用 `drive_crawler` 驱动；观测值经 `ParseResult.observations` 交出，指标目录经 `ParseResult.datasets` 交出。
 
 # 不做
 - 不改 scope 以外的文件。

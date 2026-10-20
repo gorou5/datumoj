@@ -39,6 +39,7 @@ max_attempts: 2
 3. 解析失败记录原因并继续；最后汇总。
 4. `reindex(source_id=None)`：全量重建索引。
 5. 测试：跑两遍第二遍什么都不做、坏快照不影响其他、解析器版本升级触发重解析、没有匹配的解析器时记为 `no_parser`。
+6. （契约二对齐）用 `select_parser()` 选解析器，`Manifest.snapshot_meta()` 取出 meta 传给 `parse`；同一文档的快照按抓取时间顺序写入 `ChunkStore.put_document`（最近一次写入即“当前版本”）；解析出资源后调用 `CatalogStore.set_content_state(resource_url, state)` 更新入库程度；解析状态用 `record_parse` / `get_parse`。
 
 # 不做
 - 不改 scope 以外的文件。

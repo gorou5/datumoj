@@ -41,6 +41,7 @@ max_attempts: 2
 5. `plan` 可以是生成器，支持边抓边产出新任务（分页）；`after_fetch` 可以追加任务。
 6. `CrawlReport`：新增、未变化、失败（按原因计数）、停止原因、用时。`dry_run` 只列计划。
 7. 测试用真实的 101–104 实现和一个假采集器加 `ReplayTransport`：正常、304、失败落库、上限停止、dry_run、SPA 外壳。
+8. （契约二对齐）按 `datumoj.core.contracts` 的 `Crawler` / `FetchTask` / `CrawlContext` 实现：`FetchTask.meta` 要经 `Manifest.record_snapshot(snapshot, meta)` 原样保存；空正文和 SPA 外壳先调 `Crawler.classify`，返回 None 再用默认判断。可参考 `datumoj.testing.fakes.drive_crawler` 的行为（同一 URL 只抓一次、条件请求、`max_files` 停止、分页失控报错）。
 
 # 不做
 - 不改 scope 以外的文件。

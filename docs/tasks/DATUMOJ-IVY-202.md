@@ -39,6 +39,7 @@ max_attempts: 2
 3. 附则：locator 前加 `suppl=<修正法令番号或 0>`；别表：`table=<序号>`。条号用 `article_number`（`第二十七条の二` → `art=27_2`）。
 4. `doc_key` = `jp-egov-law:<法令ID>`；Document 记录法令番号、法令名、施行基准日（作为 Chunk 的 `effective_at`），以及采集器给出的未施行修改列表（有未施行修改时，每个受影响的 Chunk 都带上标记）。
 5. 测试：带章节的法令、条の二、附则、别表、含实体声明的恶意 XML 被拒。
+6. （契约二对齐）实现 `Parser` 协议：`parse(snapshot, data, meta=None)`，从 `meta` 读施行基准日和未施行修改；`chunk_id` 用 `<doc_key>#<locator>`，同一法令跨快照保持稳定；坏输入抛 `ParseError`。以 `ParserSuite` 为准。
 
 # 不做
 - 不改 scope 以外的文件。

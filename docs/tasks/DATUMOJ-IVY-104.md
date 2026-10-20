@@ -40,6 +40,7 @@ max_attempts: 2
 4. 许可字段：`license`（名称和 URL）、`attribution`（署名文本）、`usage_scope`（默认 `internal_only`）、`redistribution`（默认 `unverified`）、`license_verified_at`、`license_notes`。`redistribution` 不是 `allowed` 时 `usage_scope` 必须是 `internal_only`；不能假定所有日本来源都适用“公共データ利用規約”（例如国土地理院可能涉及測量法），逐个来源核对后才能放开。
 5. 写 `sources/jp-egov-law.yaml`（许可先填 `unverified` / `internal_only`）和 `sources/README.md`（字段说明和示例，含许可字段的核对方法）。
 6. 测试：合法加载、id 不符、重复、缺字段、明文 Key、scope 为空、未核对许可却标为可再分发。
+7. （契约二对齐）`SourceSpec` 已在 `datumoj.core.contracts` 定义（许可五项合成 `license: LicenseInfo`，`needs_key` 只接受 `env:NAME`），本任务**不要另定义一份**：`registry.py` 负责读 yaml、校验文件名与 id、检测明文 Key，然后构造 `SourceSpec`，并实现 `Registry` 协议（以 `RegistrySuite` 为准）。
 
 # 不做
 - 不写其他来源的 yaml。

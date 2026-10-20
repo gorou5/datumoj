@@ -38,6 +38,7 @@ Chunk 可以批量嵌入并存进 LanceDB 做向量检索；嵌入模型可替�
 2. 实现 `VectorIndex`：`add`（按 `chunk_id` + 文本哈希只嵌入新的或变了的）、`search`、`delete(doc_key)`；记录模型名和维度，换模型拒绝混用。
 3. 中途失败重跑时跳过已完成的块。
 4. 测试只用 `HashEmbedder` 和本地假 Ollama 服务。
+5. （契约二对齐）`VectorIndex.search` 返回 `IndexResult`；`add` 返回实际嵌入的块数；`chunk_id` 跨快照稳定（`<doc_key>#<locator>`），据此判断“没变就不重嵌”。以 `EmbedderSuite`、`VectorIndexSuite` 为准。
 
 # 不做
 - 不改 scope 以外的文件。

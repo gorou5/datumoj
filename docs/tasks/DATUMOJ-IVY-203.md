@@ -39,6 +39,7 @@ max_attempts: 2
 3. 新增 `sources/jp-jma.yaml`（每小时，`scope.feeds` 列出要轮询的 feed）。
 4. 测试：去重、新条目识别、可选字段缺失、恶意 XML 被拒。
 5. （H1 实测）长期 feed `regular_l.xml` 是固定条数（约 9383 条）的滑动窗口，约每小时第 51 分更新一次；两次快照大小和条数可能完全相同，判断有无更新只能比 `updated` 和 entry id，不能看大小或条数。feed 里 `<link rel="self">` 写的是 `regular.xml`，`<id>` 每次不同，都不能当作去重依据。样本 snapshot1/snapshot2 之间新增 6 条、滚出 6 条，详见 `tests/fixtures/jma/README.md`。VPFG50、VPWP50 没有 `TargetDuration`、`ValidDateTime`，部分元素为空，解析器不能报错。
+6. （契约二对齐）实现 `Crawler` 和 `Parser` 协议，测试用 `drive_crawler` 驱动；`chunk_id` 用 `<doc_key>#<locator>`。
 
 # 不做
 - 不做实时预报推送、不抓平年值。

@@ -39,6 +39,7 @@ CKAN 数据集元数据进入目录库，可以按关键词、组织、格式、
 3. `search_catalog(query, filters, k)`：FTS5 trigram 检索标题、说明、标签；过滤来源、组织、格式、更新时间；结果标注“仅目录 / 已抓取正文 / 已入观测值库”。
 4. 继承 `CatalogStoreSuite` 跑合格测试，再补转换、检索、过滤、许可缺失或矛盾时原样保留。
 5. （H1 实测）资源级许可值很乱（`cc-by`、`CC-BY`、`gjstu`、`政府標準利用規約（第 2.0 版）`、单个空格、空字符串），格式值也乱（全角 `ＣＳＶ`、`.CSV`、`"0"`、`" "`）：原值必须原样保存，另存一份规范化值用于过滤；空白和空字符串规范化为“未知”。资源登记的 `size` 不可信（和实际大小不符），只作参考。
+6. （契约二对齐）实现 `CatalogStore` 协议（含 `set_content_state` 和 `ContentState`）与 CKAN 元数据的 `Parser`；`search` 返回 `CatalogHit` 列表。以 `CatalogStoreSuite`、`ParserSuite` 为准。
 
 # 不做
 - 不改 scope 以外的文件。
