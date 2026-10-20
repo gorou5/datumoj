@@ -251,10 +251,10 @@ datumoj/
 | 版本 | 代号 | 范围 | 状态 |
 |---|---|---|---|
 | **0.1** | **IVY（蔦）** | 契约 → 法令链路 → 目录与统计 → AI 分析入口（第一阶段） | **当前版本**，32 个任务，见 `docs/TASKS.md` |
-| 0.2 | 待定（候选：片喰 Katabami） | 日本扩面与增量：KKJ、BODIK、省厅和自治体政策网页、定时增量、每周变化报告 | IVY 完成后再拆 |
+| 0.2 | **TACHIBANA（橘）** | 日本扩面与持续运营：KKJ 采购公告与 PDF、省厅和自治体政策网页、BODIK、定时增量、抓取监控、每周变化报告 | 计划见 `docs/plans/0.2-tachibana.md`；任务文件等 IVY 的契约二和执行器合并后再拆 |
 | 0.3 | 待定（候选：楓 Maple） | 欧美：data.europa.eu、Eurostat、英德法荷门户、Federal Register | 之后 |
 
-其他候选代号：柏 Oak、桐 Paulownia、橘 Tachibana、藤 Wisteria、葵 Aoi、桔梗 Bellflower、菊 Chrysanthemum。
+其他候选代号：片喰 Katabami、柏 Oak、桐 Paulownia、藤 Wisteria、葵 Aoi、桔梗 Bellflower、菊 Chrysanthemum。
 
 ### 8.3 IVY（0.1）内部的检查点
 
