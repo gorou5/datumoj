@@ -1,0 +1,40 @@
+id: jp-estat-files
+name: e-Stat 統計表ファイル（精選）
+country: jp
+kind: estat_files
+base_url: https://www.e-stat.go.jp/
+allowed_hosts:
+  - www.e-stat.go.jp
+rate_per_sec: 0.5
+max_total_bytes: 1073741824
+max_files: 100
+schedule: monthly
+license:
+  name: 政府標準利用規約（第2.0版）
+  url: https://www.e-stat.go.jp/terms-of-use
+  attribution: 出典：政府統計の総合窓口（e-Stat）
+  usage_scope: internal_only
+  redistribution: unverified
+  verified_at: null
+  notes: 利用条件尚未逐项核对；核对前仅内部使用
+# 每项：stat_inf_id、survey、title（文件里的表题须包含它）、layout（只认 wide_area_by_year /
+# census_area_by_measure）、expected_area_level；census_area_by_measure 另写 area_code（文件实际地区以内容核对）。
+scope:
+  tables:
+    - stat_inf_id: "000013168605"
+      survey: 人口推計
+      title: 第5表 都道府県別人口(各年10月1日現在)－ 総人口、日本人
+      layout: wide_area_by_year
+      expected_area_level: prefecture
+    - stat_inf_id: "000031720773"
+      survey: 平成28年経済センサス‐活動調査
+      title: 第２表　産業（細分類）、経営組織（４区分）別民営事業所数、男女別従業者数及び１事業所当たり従業者数―全国、都道府県
+      layout: census_area_by_measure
+      expected_area_level: prefecture
+      area_code: "13000"
+    - stat_inf_id: "000031721271"
+      survey: 平成28年経済センサス‐活動調査
+      title: 第２表　産業（細分類）、経営組織（４区分）別民営事業所数、男女別従業者数及び１事業所当たり従業者数―全国、都道府県
+      layout: census_area_by_measure
+      expected_area_level: prefecture
+      area_code: "27000"
