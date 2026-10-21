@@ -9,7 +9,7 @@ runner: claude
 model: null
 tier: medium
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/crawlers/stat_dashboard.py", "src/datumoj/parsers/stat_dashboard.py", "sources/jp-stat-dashboard.yaml", "tests/crawlers/test_stat_dashboard.py", "results/DATUMOJ-IVY-304/**"]
+scope: ["src/datumoj/crawlers/stat_dashboard.py", "src/datumoj/parsers/stat_dashboard.py", "sources/jp-stat-dashboard.yaml", "tests/crawlers/test_stat_dashboard.py", "tests/fixtures/stat_dashboard/getIndicatorInfo_all.synthetic.json", "results/DATUMOJ-IVY-304/**"]
 out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**"]
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
