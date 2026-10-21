@@ -1,0 +1,178 @@
+[
+  {
+    "path": "tests/fixtures/egov_law/law_data.321CONSTITUTION.asof2026-10-20.xml-in-json.json",
+    "sha256": "a9c5daba9d5756d6cae9ecad455462adb4e26df1f39a158b7d6c3db5718bc07d"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.321CONSTITUTION.json",
+    "sha256": "889a61b7c0431761f9edd8421c233d7d5caf2e155beb4535ba4052f9abf49ba8"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.322AC0000000049.asof2026-10-20.xml-in-json.json",
+    "sha256": "7ea4757f8d0e45d5a8326f94fb49292b06659838233a74cbdf4efd2822edcc74"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.322AC0000000049.json",
+    "sha256": "afe363b4c7fa967c51eeb3f1009f490efddab593838518bbe0d29e8506477bc5"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.330AC0000000179.asof2026-10-20.xml-in-json.json",
+    "sha256": "1790bbcbc541d4610b6a106116537ceecd88f50168e6122a2489296b5d438af5"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.330AC0000000179.json",
+    "sha256": "eb64b6b68a99815a4fec69d433a0cacc3a72f026e76e7d74d6feed7c9b331d27"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.331AC0000000120.asof2026-10-20.xml-in-json.json",
+    "sha256": "240a21aa282d25f6310ac013e689a5a77b1d028aee80316dc4a06886a19d994e"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.331AC0000000120.json",
+    "sha256": "dafca1d0b7fdebaea08ffbf35be756d100c5a3e9d9b9b9f07652589e276c6391"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.338AC0000000154.asof2026-10-20.xml-in-json.json",
+    "sha256": "4bcd1173ff03013f95c5ae4585e3315585e5eb90fd9dbf1e2f49514e9b59af6e"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.338AC0000000154.json",
+    "sha256": "e5edf5514cedd90ae8f45fd66dab156354eae02a4a5e8e3f775839abec2f6565"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.363CO0000000360.asof2026-10-20.xml-in-json.json",
+    "sha256": "8d4990adcc09f0648324cf0529c5250057a1913cccce5b1949b6fbaa744d3ce8"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.363CO0000000360.json",
+    "sha256": "73c9a77953e99c4edb832883aff3f45763cae3f1c25d9cbe11f1e5e0eb97e2b1"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.405AC0000000088.asof2026-10-20.xml-in-json.json",
+    "sha256": "6b8b84ce8bc212d9b6c0dfe37a5a46b05271e68b65da5fcef7942e50b790d4d8"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.405AC0000000088.json",
+    "sha256": "38659adb1d0004813e4df3fa180dfe379e230eaa46f424dc65be25d7d12a05d6"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.410AC0000000025.asof2026-10-20.xml-in-json.json",
+    "sha256": "79e44614c86fa1cf98d0ab7ea6397fe2420d8dc7168a033a8a72d9c71648ed73"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.410AC0000000025.json",
+    "sha256": "76ab6ed14d5933d030c5a5f39a9e3b52cebb3c44cf1abf561d185ab4077b3123"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.411AC0000000018.asof2026-10-20.xml-in-json.json",
+    "sha256": "8e7e8a9a6ba563fe8c31ee25ad7af33ab332114090f6b800c3ee408b5f2de74c"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.411AC0000000018.json",
+    "sha256": "4c6bd2b990e67c2e36d65771611da83e3d37f3d210111cdf2b3927f0a0bc5585"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.411AC0000000042.asof2026-10-20.xml-in-json.json",
+    "sha256": "98da10c93d6f79278e4e174aac2390fba930299c3fddbbf52d20eeeae7583b06"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.411AC0000000042.json",
+    "sha256": "3ae6e76d5cc492e4f7aafc10e5139cb9191114de8019d49f1b448a6ec00f064d"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.411AC0000000128.asof2026-10-20.xml-in-json.json",
+    "sha256": "cefb392d31e4e0b77fa394baff9f3d995d5a9d99947ae7616a751c7699db8a19"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.411AC0000000128.json",
+    "sha256": "1e8eae772125c439eaaef22753f17e8e0ccecd5b088bd10d83a8f0ae0d88c7c3"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.412AC0000000061.asof2026-10-20.xml-in-json.json",
+    "sha256": "54df65e30a41e4e08bd997a08fedc9ab55155102c56a99c4ea984f729755caa2"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.412AC0000000061.json",
+    "sha256": "a89ebc9f92bb9ada93bd3a1a8b658e6535a1e0f65e8bc60a5f2c2d47fe09d668"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.412AC0000000102.asof2026-10-20.xml-in-json.json",
+    "sha256": "b92a0fa46cb08e57dad68e9a9a68ca3867c515a3ec59fc2edbf4292ebc9198f5"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.412AC0000000102.json",
+    "sha256": "2b664a190f50e380d7c29107e279777fbbc0251112b618c6fae22217808179c7"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.414AC0000000151.asof2026-10-20.xml-in-json.json",
+    "sha256": "b91c62926385be98c8d62859ce4945a34c378faf29eaf7ab18299669700a35b9"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.414AC0000000151.json",
+    "sha256": "39b23bfd7403f53dd9fc491b81b38215cbc5470d2fdde306f470c1d4e65cf013"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.415AC0000000057.asof2026-10-20.xml-in-json.json",
+    "sha256": "037834fdc15e72dafd110f7f8bd2f1e1609369b0cfb4ba9f08a45e2a4e475374"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.415AC0000000057.json",
+    "sha256": "92c2c279ffdfdd0bace763a7ce2573e241adfdde4c7fab4a61d7a4ecdcd8e227"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.416AC0000000122.asof2026-10-20.xml-in-json.json",
+    "sha256": "193a58d77afa3c2f19534b9a65672421b744452b178595274a1f04040fae98c0"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.416AC0000000122.json",
+    "sha256": "534c43246df57a5719a88907c87e95ad2492f188e2c9f1d037f0cbdb28858803"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.419AC0000000053.asof2026-10-20.xml-in-json.json",
+    "sha256": "da76fff9831d31572ce12d932d3e6cd67b7b9ed0550c6115f55bfc27c7aa741d"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.419AC0000000053.json",
+    "sha256": "16753eac7356b4350e21e92c9fbbb5343f4b1ecfd72c5568996ad8188fc043b1"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.421AC0000000066.asof2026-10-20.xml-in-json.json",
+    "sha256": "3a144ca6384e9eb83d840f51c432ef289e5b0204dd2498ad6c12dcdf2630759c"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.421AC0000000066.json",
+    "sha256": "ceb35ba7f918b645a760c4b082463425e340bb26d42dedbca9d42f7885211e47"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.425AC0000000027.asof2026-10-20.xml-in-json.json",
+    "sha256": "d3fe6335c8536dd379783fcd7b37d9eab4da30e39313611fbedc419aac1e9428"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.425AC0000000027.json",
+    "sha256": "e027c7b89f0d551b3542fc1f3c210c1268889a6c5db7dcb6b498e2193dd2b8e0"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.426AC0000000068.asof2026-10-20.xml-in-json.json",
+    "sha256": "75d07ae60a3a1c22773be15d4253dc53af37abc7d16b9639e5c1094ba38cee9c"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.426AC0000000068.json",
+    "sha256": "0cc011a0f5022cadd330ac645bf78ad0333bd281aad5d1dd849325280334ebaa"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.428AC1000000103.asof2026-10-20.xml-in-json.json",
+    "sha256": "be7f6ea8f34bcc7a3b4f1178c654bc4bcd95b2b1611c3012f122257013d69ef8"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.428AC1000000103.json",
+    "sha256": "bec216b339627211779171b68971b23be8d5c70618c81e73bf32b71edc428be2"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_data.503AC0000000035.asof2026-10-20.xml-in-json.json",
+    "sha256": "bd5b945cfe6fdeccd92621e77b99c54f37da52d63b33dee87c90be8548135d22"
+  },
+  {
+    "path": "tests/fixtures/egov_law/law_revisions.503AC0000000035.json",
+    "sha256": "53bab8bd36b5fa4e72424c97f33a5c95e2889a4e5b2b453703bcf27dece69859"
+  }
+]
