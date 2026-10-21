@@ -118,32 +118,110 @@ class SqliteKeywordIndex:
         if source_ids is not None:
             where = f" AND e.source_id IN ({','.join('?' * len(source_ids))})"
             params = list(source_ids)
-        if len(q) < _MIN_FTS_CHARS:
-            return self._search_like(q, k, where, params)
-        phrase = '"' + q.replace('"', '""') + '"'
-        rows = self._db.execute(
-            "SELECT e.chunk_id, e.doc_key, -bm25(chunks_fts, ?, 1.0) AS score FROM chunks_fts "
-            "JOIN entries e ON e.id = chunks_fts.rowid "
-            f"WHERE chunks_fts MATCH ?{where} ORDER BY score DESC, e.chunk_id LIMIT ?",
-            [_TITLE_WEIGHT, phrase, *params, k],
-        ).fetchall()
-        return IndexResult(items=[ScoredChunk(chunk_id=r[0], doc_key=r[1], score=r[2]) for r in rows])
+        terms = list(dict.fromkeys(q.split()))
+        if len(terms) == 1:
+            term = terms[0]
+            if len(term) < _MIN_FTS_CHARS:
+                found, _, warnings = self._search_like([term], where, params, mixed=False)
+                items = sorted(found.values(), key=lambda h: (-h.score, h.chunk_id))
+                return IndexResult(items=items[:k], warnings=warnings)
+            phrase = '"' + term.replace('"', '""') + '"'
+            rows = self._db.execute(
+                "SELECT e.chunk_id, e.doc_key, -bm25(chunks_fts, ?, 1.0) AS score FROM chunks_fts "
+                "JOIN entries e ON e.id = chunks_fts.rowid "
+                f"WHERE chunks_fts MATCH ?{where} ORDER BY score DESC, e.chunk_id LIMIT ?",
+                [_TITLE_WEIGHT, phrase, *params, k],
+            ).fetchall()
+            return IndexResult(items=[ScoredChunk(chunk_id=r[0], doc_key=r[1], score=r[2]) for r in rows])
 
-    def _search_like(self, q: str, k: int, where: str, params: list[str]) -> IndexResult:
-        warnings = [f"查询少于 {_MIN_FTS_CHARS} 个字，已退回 LIKE 扫描"]
-        pattern = _like_pattern(q)
+        fts_terms = [term for term in terms if len(term) >= _MIN_FTS_CHARS]
+        like_terms = [term for term in terms if len(term) < _MIN_FTS_CHARS]
+        matches: dict[str, set[str]] = {}
+        found: dict[str, ScoredChunk] = {}
+
+        if fts_terms:
+            phrases = ['"' + term.replace('"', '""') + '"' for term in fts_terms]
+            rows = self._db.execute(
+                "SELECT e.chunk_id, e.doc_key, -bm25(chunks_fts, ?, 1.0) AS score FROM chunks_fts "
+                "JOIN entries e ON e.id = chunks_fts.rowid "
+                f"WHERE chunks_fts MATCH ?{where} ORDER BY score DESC, e.chunk_id",
+                [_TITLE_WEIGHT, " OR ".join(phrases), *params],
+            ).fetchall()
+            found.update({r[0]: ScoredChunk(chunk_id=r[0], doc_key=r[1], score=r[2]) for r in rows})
+            if len(fts_terms) == 1:
+                for r in rows:
+                    matches.setdefault(r[0], set()).add(fts_terms[0])
+            else:
+                for term, phrase in zip(fts_terms, phrases):
+                    hits = self._db.execute(
+                        "SELECT e.chunk_id FROM chunks_fts JOIN entries e ON e.id = chunks_fts.rowid "
+                        f"WHERE chunks_fts MATCH ?{where}",
+                        [phrase, *params],
+                    ).fetchall()
+                    for (chunk_id,) in hits:
+                        matches.setdefault(chunk_id, set()).add(term)
+
+        warnings: list[str] = []
+        if like_terms:
+            like_found, like_matches, warnings = self._search_like(
+                like_terms, where, params, mixed=bool(fts_terms)
+            )
+            for chunk_id, hit in like_found.items():
+                found.setdefault(chunk_id, hit)
+            for chunk_id, hit_terms in like_matches.items():
+                matches.setdefault(chunk_id, set()).update(hit_terms)
+
+        if not found:
+            return IndexResult(warnings=warnings)
+
+        # Expose the same primary ranking in ScoredChunk.score so callers see
+        # scores in result order; the original FTS/LIKE score breaks ties.
+        score_span = max(hit.score for hit in found.values()) - min(hit.score for hit in found.values()) + 1.0
+        items = [
+            ScoredChunk(
+                chunk_id=hit.chunk_id,
+                doc_key=hit.doc_key,
+                score=len(matches.get(chunk_id, ())) * score_span + hit.score,
+            )
+            for chunk_id, hit in found.items()
+        ]
+        items.sort(key=lambda hit: (-hit.score, hit.chunk_id))
+        return IndexResult(items=items[:k], warnings=warnings)
+
+    def _search_like(
+        self, queries: Sequence[str], where: str, params: list[str], *, mixed: bool
+    ) -> tuple[dict[str, ScoredChunk], dict[str, set[str]], list[str]]:
+        warning = (
+            f"查询含少于 {_MIN_FTS_CHARS} 个字的词，已退回 LIKE 扫描"
+            if mixed else f"查询少于 {_MIN_FTS_CHARS} 个字，已退回 LIKE 扫描"
+        )
+        warnings = [warning]
+        patterns = [_like_pattern(term) for term in queries]
+        conditions = " OR ".join(
+            "(f.title_path LIKE ? ESCAPE '\\' OR f.text LIKE ? ESCAPE '\\')" for _ in queries
+        )
         deadline = time.monotonic() + self.like_timeout
-        found: list[ScoredChunk] = []
+        found: dict[str, ScoredChunk] = {}
+        matches: dict[str, set[str]] = {}
         self._db.set_progress_handler(lambda: int(time.monotonic() > deadline), 1000)
         try:
             cur = self._db.execute(
                 "SELECT e.chunk_id, e.doc_key, f.title_path, f.text FROM chunks_fts f JOIN entries e ON e.id = f.rowid "
-                f"WHERE (f.title_path LIKE ? ESCAPE '\\' OR f.text LIKE ? ESCAPE '\\'){where}",
-                [pattern, pattern, *params],
+                f"WHERE ({conditions}){where}",
+                [value for pattern in patterns for value in (pattern, pattern)] + params,
             )
             for chunk_id, doc_key, title, text in cur:
-                found.append(ScoredChunk(chunk_id=chunk_id, doc_key=doc_key, score=float(
-                    text.casefold().count(q.casefold()) + _TITLE_WEIGHT * title.casefold().count(q.casefold()))))
+                folded_title, folded_text = title.casefold(), text.casefold()
+                hit_terms = {
+                    term for term in queries
+                    if term.casefold() in folded_title or term.casefold() in folded_text
+                }
+                score = sum(
+                    folded_text.count(term.casefold()) + _TITLE_WEIGHT * folded_title.count(term.casefold())
+                    for term in hit_terms
+                )
+                found[chunk_id] = ScoredChunk(chunk_id=chunk_id, doc_key=doc_key, score=float(score))
+                matches[chunk_id] = hit_terms
                 if len(found) >= self.like_limit:
                     warnings.append(f"查询过短，只扫描了前 {self.like_limit} 条命中，结果不完整")
                     break
@@ -153,5 +231,4 @@ class SqliteKeywordIndex:
             warnings.append("查询过短且超时，结果不完整")
         finally:
             self._db.set_progress_handler(None, 0)
-        found.sort(key=lambda h: (-h.score, h.chunk_id))
-        return IndexResult(items=found[:k], warnings=warnings)
+        return found, matches, warnings
