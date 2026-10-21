@@ -10,7 +10,7 @@ questions:
       hits:
         - doc_key: jp-stat-dashboard:0201010000000010000
       value:
-        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0201010000000010000' AND indicator_code = '0201010000000010000' AND area_code = '13000' AND time_start = '2023-01-01'"
+        sql: "SELECT obs_id, value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0201010000000010000' AND indicator_code = '0201010000000010000' AND area_code = '13000' AND time_start = '2023-01-01'"
         equals: 14086000
         tolerance: 0
     notes: "原表：tests/fixtures/stat_dashboard/getData_b1_pop5x48_2021-2023CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[110]，@indicator=0201010000000010000、@regionCode=13000、@time=2023CY00、@stat=20020101 的 VALUE.$。"
@@ -26,7 +26,7 @@ questions:
       hits:
         - doc_key: jp-stat-dashboard:0201010000000010000
       value:
-        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0201010000000010000' AND indicator_code = '0201010000000010000' AND area_code = '00000' AND time_start = '2023-01-01'"
+        sql: "SELECT obs_id, value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0201010000000010000' AND indicator_code = '0201010000000010000' AND area_code = '00000' AND time_start = '2023-01-01'"
         equals: 124352000
         tolerance: 0
     notes: "原表：tests/fixtures/stat_dashboard/getData_b1_pop5x48_2021-2023CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[97]，@indicator=0201010000000010000、@regionCode=00000、@time=2023CY00、@stat=20020101 的 VALUE.$。"
@@ -42,7 +42,7 @@ questions:
       hits:
         - doc_key: jp-stat-dashboard:0203010000000010000
       value:
-        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0203010000000010000' AND indicator_code = '0203010000000010000' AND area_code = '47000' AND time_start = '2022-01-01'"
+        sql: "SELECT obs_id, value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0203010000000010000' AND indicator_code = '0203010000000010000' AND area_code = '47000' AND time_start = '2022-01-01'"
         equals: 13594
         tolerance: 0
     notes: "原表：tests/fixtures/stat_dashboard/getData_b1_pop5x48_2021-2023CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[240]，@indicator=0203010000000010000、@regionCode=47000、@time=2022CY00、@stat=00450011 的 VALUE.$。"
@@ -58,7 +58,7 @@ questions:
       hits:
         - doc_key: jp-stat-dashboard:0203020000000010000
       value:
-        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0203020000000010000' AND indicator_code = '0203020000000010000' AND area_code = '01000' AND time_start = '2021-01-01'"
+        sql: "SELECT obs_id, value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0203020000000010000' AND indicator_code = '0203020000000010000' AND area_code = '01000' AND time_start = '2021-01-01'"
         equals: 69023
         tolerance: 0
     notes: "原表：tests/fixtures/stat_dashboard/getData_b1_pop5x48_2021-2023CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[290]，@indicator=0203020000000010000、@regionCode=01000、@time=2021CY00、@stat=00450011 的 VALUE.$。"
@@ -74,7 +74,7 @@ questions:
       hits:
         - doc_key: jp-stat-dashboard:0204010000000010020
       value:
-        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0204010000000010020' AND indicator_code = '0204010000000010020' AND area_code = '27000' AND time_start = '2023-01-01'"
+        sql: "SELECT obs_id, value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0204010000000010020' AND indicator_code = '0204010000000010020' AND area_code = '27000' AND time_start = '2023-01-01'"
         equals: 177874
         tolerance: 0
     notes: "原表：tests/fixtures/stat_dashboard/getData_b1_pop5x48_2021-2023CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[556]，@indicator=0204010000000010020、@regionCode=27000、@time=2023CY00、@stat=00200502 の VALUE.$。"
@@ -90,7 +90,7 @@ questions:
       hits:
         - doc_key: jp-stat-dashboard:0204020000000010020
       value:
-        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0204020000000010020' AND indicator_code = '0204020000000010020' AND area_code = '13000' AND time_start = '2023-01-01'"
+        sql: "SELECT obs_id, value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0204020000000010020' AND indicator_code = '0204020000000010020' AND area_code = '13000' AND time_start = '2023-01-01'"
         equals: 385848
         tolerance: 0
     notes: "原表：tests/fixtures/stat_dashboard/getData_b1_pop5x48_2021-2023CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[686]，@indicator=0204020000000010020、@regionCode=13000、@time=2023CY00、@stat=00200502 の VALUE.$。"
@@ -106,7 +106,7 @@ questions:
       hits:
         - doc_key: jp-stat-dashboard:0202000000000010000
       value:
-        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0202000000000010000' AND indicator_code = '0202000000000010000' AND area_code = '13000' AND time_start = '2020-01-01'"
+        sql: "SELECT obs_id, value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0202000000000010000' AND indicator_code = '0202000000000010000' AND area_code = '13000' AND time_start = '2020-01-01'"
         equals: 7227180
         tolerance: 0
     notes: "原表：tests/fixtures/stat_dashboard/getData_b2_census4x48_2020CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[14]，@indicator=0202000000000010000、@regionCode=13000、@time=2020CY00、@stat=00200521 的 VALUE.$。"
@@ -122,7 +122,7 @@ questions:
       hits:
         - doc_key: jp-stat-dashboard:0301100000010010000
       value:
-        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0301100000010010000' AND indicator_code = '0301100000010010000' AND area_code = '00000' AND time_start = '2020-01-01'"
+        sql: "SELECT obs_id, value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0301100000010010000' AND indicator_code = '0301100000010010000' AND area_code = '00000' AND time_start = '2020-01-01'"
         equals: 57643225
         tolerance: 0
     notes: "原表：tests/fixtures/stat_dashboard/getData_b2_census4x48_2020CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[98]，@indicator=0301100000010010000、@regionCode=00000、@time=2020CY00、@stat=00200502 の VALUE.$。"
@@ -138,7 +138,7 @@ questions:
       hits:
         - doc_key: jp-stat-dashboard:0203060000000010010
       value:
-        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0203060000000010010' AND indicator_code = '0203060000000010010' AND area_code = '27000' AND time_start = '2020-01-01'"
+        sql: "SELECT obs_id, value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0203060000000010010' AND indicator_code = '0203060000000010010' AND area_code = '27000' AND time_start = '2020-01-01'"
         equals: -29766
         tolerance: 0
     notes: "原表：tests/fixtures/stat_dashboard/getData_b2_census4x48_2020CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[76]，@indicator=0203060000000010010、@regionCode=27000、@time=2020CY00、@stat=00450011 の VALUE.$。"
@@ -155,7 +155,7 @@ questions:
         - doc_key: jp-estat-files:000031720773
           locator_prefix: cell=I977;row=977
       value:
-        sql: "SELECT value FROM observations WHERE source_id = 'jp-estat-files' AND table_key = '000031720773' AND indicator_code = 'jsyu102A.0001' AND area_code = '13000' AND dims LIKE '%sanD1.0963%' AND json_extract_string(dims, '$.legal_org_code') = 'keiso4A.0000'"
+        sql: "SELECT obs_id, value FROM observations WHERE source_id = 'jp-estat-files' AND table_key = '000031720773' AND indicator_code = 'jsyu102A.0001' AND area_code = '13000' AND dims LIKE '%sanD1.0963%' AND json_extract_string(dims, '$.legal_org_code') = 'keiso4A.0000'"
         equals: 849374
         tolerance: 0
     notes: "原表：tests/fixtures/estat_files/000031720773_ecensus2016_t02_tokyo.csv；单元格：CSV 第977行第9列（I977），sanD1.0963 信息通信業、従業者数(人)，indicator_code=jsyu102A.0001。经营组织维度会产生总数和五个分项，因此限定 keiso4A.0000（总数）。"

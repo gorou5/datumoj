@@ -15,8 +15,26 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
-from datumoj.core.contracts import Manifest, ObservationStore, Retriever, citation_for_observation
-from datumoj.core.models import Citation, DocKey, FetchOutcome, GapState, Hit, Lang, Observation, SourceId, SourceText
+from datumoj.core.contracts import (
+    CatalogFilter,
+    CatalogStore,
+    Manifest,
+    ObservationStore,
+    Retriever,
+    citation_for_observation,
+)
+from datumoj.core.models import (
+    Citation,
+    DocKey,
+    FetchOutcome,
+    GapState,
+    Hit,
+    Lang,
+    Observation,
+    SourceId,
+    SourceText,
+    TimeBasis,
+)
 
 
 QuestionKind = Literal["retrieval", "numeric", "gap", "time", "injection", "cross_source"]
@@ -206,6 +224,7 @@ def evaluate(
     observation_store: ObservationStore,
     cite: Callable[[Citation], Any] | None,
     manifest: Manifest | None = None,
+    catalog: CatalogStore | None = None,
     k: int = 10,
 ) -> EvaluationReport:
     """通过契约注入检索器、只读 SQL 库、可选快照清单及出处还原函数，离线计算题库指标。"""
@@ -221,6 +240,14 @@ def evaluate(
         reasons: list[str] = []
         result = retriever.search(question.queries, k=max(10, k, 3), source_ids=question.source_ids)
         hits = result.data
+        catalog_results = []
+        if catalog is not None:
+            filters = CatalogFilter(source_ids=question.source_ids) if question.source_ids is not None else None
+            catalog_results = [
+                [entry.dataset.dataset_key for entry in catalog.search(query, filters=filters, k=max(10, k, 3))]
+                for query in question.queries
+            ]
+        catalog_ranks = _catalog_ranks(catalog_results, k)
         metrics: dict[str, float | None] = {name: None for name in METRIC_NAMES}
         resolved: list[tuple[Hit, Any]] = []
         attempts = hits[:3]
@@ -238,14 +265,16 @@ def evaluate(
 
         expected_hits = question.expect.hits or []
         if expected_hits:
-            metrics["recall_at_10"], metrics["mrr"] = _retrieval_metrics(expected_hits, hits[:k])
+            metrics["recall_at_10"], metrics["mrr"] = _retrieval_metrics(
+                expected_hits, hits[:k], catalog_ranks
+            )
             if metrics["recall_at_10"] < 1.0:
                 reasons.append("预期命中未全部出现在前 k 条结果中")
 
         if question.expect.value is not None:
             try:
                 query_result = observation_store.query_readonly(question.expect.value.sql)
-                actual = _scalar(query_result.rows)
+                actual = _scalar(query_result.rows, query_result.columns)
                 expected = question.expect.value.equals
                 tolerance = question.expect.value.tolerance
                 numeric_ok = actual is not None and abs(actual - expected) <= tolerance
@@ -272,7 +301,10 @@ def evaluate(
         if question.kind == "time":
             relevant = [hit for hit in hits if _is_expected(hit, expected_hits)] if expected_hits else hits
             time_ok = any(
-                hit.citation.period is not None or hit.citation.published_at is not None for hit in relevant
+                hit.citation.period is not None
+                or hit.citation.published_at is not None
+                or (hit.citation.time_basis is TimeBasis.effective and hit.citation.effective_at is not None)
+                for hit in relevant
             )
             metrics["time_semantics_accuracy"] = float(time_ok)
             if not time_ok:
@@ -294,8 +326,11 @@ def evaluate(
             scoped = dict(metrics)
             source_expected = [h for h in expected_hits if h.doc_key.startswith(f"{source_id}:")]
             if source_expected:
+                source_catalog_ranks = _catalog_ranks(catalog_results, k, source_id)
                 scoped["recall_at_10"], scoped["mrr"] = _retrieval_metrics(
-                    source_expected, [hit for hit in hits[:k] if hit.citation.source_id == source_id]
+                    source_expected,
+                    [hit for hit in hits[:k] if hit.citation.source_id == source_id],
+                    source_catalog_ranks,
                 )
             source_resolved = [(hit, evidence) for hit, evidence in resolved if hit.citation.source_id == source_id]
             scoped["citation_recoverability"] = (
@@ -329,10 +364,32 @@ def evaluate(
     )
 
 
-def _retrieval_metrics(expected: Sequence[Any], hits: Sequence[Hit]) -> tuple[float, float]:
-    matched = [any(_matches(hit, item) for hit in hits) for item in expected]
+def _catalog_ranks(
+    results: Sequence[Sequence[str]], k: int, source_id: str | None = None
+) -> dict[str, int]:
+    ranks: dict[str, int] = {}
+    for result in results:
+        candidates = list(result[:k])
+        if source_id is not None:
+            candidates = [key for key in candidates if key.startswith(f"{source_id}:")]
+        for rank, dataset_key in enumerate(candidates, 1):
+            ranks[dataset_key] = min(rank, ranks.get(dataset_key, rank))
+    return ranks
+
+
+def _retrieval_metrics(
+    expected: Sequence[Any], hits: Sequence[Hit], catalog_ranks: Mapping[str, int] | None = None
+) -> tuple[float, float]:
+    catalog_ranks = catalog_ranks or {}
+    doc_ranks = [next((rank for rank, hit in enumerate(hits, 1) if _matches(hit, item)), None) for item in expected]
+    expected_ranks = []
+    for item, doc_rank in zip(expected, doc_ranks, strict=True):
+        catalog_rank = catalog_ranks.get(item.doc_key) if item.locator_prefix is None else None
+        ranks = [rank for rank in (doc_rank, catalog_rank) if rank is not None]
+        expected_ranks.append(min(ranks) if ranks else None)
+    matched = [rank is not None for rank in expected_ranks]
     recall = sum(matched) / len(expected)
-    rank = next((i for i, hit in enumerate(hits, 1) if _is_expected(hit, expected)), None)
+    rank = min((rank for rank in expected_ranks if rank is not None), default=None)
     return recall, 0.0 if rank is None else 1.0 / rank
 
 
@@ -348,10 +405,13 @@ def _is_expected(hit: Hit, expected: Sequence[Any]) -> bool:
     return any(_matches(hit, item) for item in expected)
 
 
-def _scalar(rows: Sequence[Sequence[Any]]) -> Decimal | None:
+def _scalar(rows: Sequence[Sequence[Any]], columns: Sequence[str] = ()) -> Decimal | None:
     if len(rows) != 1 or not rows[0]:
         return None
-    value = rows[0][0]
+    value_index = columns.index("value") if "value" in columns else 0
+    if value_index >= len(rows[0]):
+        return None
+    value = rows[0][value_index]
     if value is None or isinstance(value, bool):
         return None
     try:
