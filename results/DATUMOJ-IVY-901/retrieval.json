@@ -1,0 +1,1182 @@
+[
+  {
+    "id": "law-appi-third-party",
+    "queries": [
+      "個人データ 第三者提供 本人の同意",
+      "顧客名簿 第三者に提供 同意 個人情報取扱事業者"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=27;para=1",
+        "score": 0.03252247488101534
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=31",
+        "score": 0.03200204813108039
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=27;para=2",
+        "score": 0.03055037313432836
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "suppl=令和二年六月一二日法律第四四号;art=4",
+        "score": 0.01639344262295082
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "suppl=令和二年六月一二日法律第四四号;art=5",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=27;para=5",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=29",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=44",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=30",
+        "score": 0.015151515151515152
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=43",
+        "score": 0.015151515151515152
+      }
+    ]
+  },
+  {
+    "id": "law-appi-breach-report",
+    "queries": [
+      "個人データ 漏えい 報告 個人情報保護委員会",
+      "個人情報 漏洩 事態 通知 義務"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=26",
+        "score": 0.03278688524590164
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=68",
+        "score": 0.03225806451612903
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=35",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:425AC0000000027",
+        "locator": "art=29_4",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=41",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:425AC0000000027",
+        "locator": "table=1",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=23",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=27;para=3",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=29",
+        "score": 0.015151515151515152
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=38",
+        "score": 0.015151515151515152
+      }
+    ]
+  },
+  {
+    "id": "law-appi-disclosure",
+    "queries": [
+      "保有個人データ 開示請求 本人",
+      "本人 開示 個人情報取扱事業者 請求"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=33",
+        "score": 0.031754032258064516
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=77",
+        "score": 0.03125763125763126
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=37",
+        "score": 0.031099324975891997
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=76",
+        "score": 0.030776515151515152
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=78;para=1;item=1",
+        "score": 0.029631255487269532
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=32",
+        "score": 0.01639344262295082
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=35",
+        "score": 0.016129032258064516
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=34",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=91",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=99",
+        "score": 0.015151515151515152
+      }
+    ]
+  },
+  {
+    "id": "law-appi-pseudonymized",
+    "queries": [
+      "仮名加工情報 作成 基準",
+      "仮名加工情報 加工 個人情報保護委員会規則"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=41",
+        "score": 0.03278688524590164
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=99",
+        "score": 0.016129032258064516
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=73",
+        "score": 0.016129032258064516
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=43",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=54",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=42",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:419AC0000000053",
+        "locator": "art=6",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=171",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:419AC0000000053",
+        "locator": "art=28",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=89",
+        "score": 0.015151515151515152
+      }
+    ]
+  },
+  {
+    "id": "law-lsa-dismissal-notice",
+    "queries": [
+      "解雇の予告 三十日前",
+      "解雇 予告 平均賃金 三十日分"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=20",
+        "score": 0.03278688524590164
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=22",
+        "score": 0.03225806451612903
+      },
+      {
+        "doc_key": "jp-egov-law:363CO0000000360",
+        "locator": "suppl=0;art=7",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:416AC0000000122",
+        "locator": "art=3",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=79",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:363CO0000000360",
+        "locator": "suppl=0;art=16",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=32_4",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=80",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=26",
+        "score": 0.015151515151515152
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=91",
+        "score": 0.014925373134328358
+      }
+    ]
+  },
+  {
+    "id": "law-lsa-closure-allowance",
+    "queries": [
+      "使用者の責に帰すべき事由 休業 手当",
+      "休業手当 平均賃金 百分の六十"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=26",
+        "score": 0.03278688524590164
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=12",
+        "score": 0.031754032258064516
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=76",
+        "score": 0.031746031746031744
+      },
+      {
+        "doc_key": "jp-egov-law:425AC0000000027",
+        "locator": "table=1",
+        "score": 0.016129032258064516
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=20",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=78",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=79",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=39;para=10",
+        "score": 0.015151515151515152
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=80",
+        "score": 0.015151515151515152
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=89",
+        "score": 0.014925373134328358
+      }
+    ]
+  },
+  {
+    "id": "law-lsa-annual-leave",
+    "queries": [
+      "年次有給休暇 六箇月継続勤務 八割以上出勤",
+      "有給休暇 付与日数 雇入れの日から起算"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=39;para=1",
+        "score": 0.03278688524590164
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=39;para=5",
+        "score": 0.03200204813108039
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=39;para=8",
+        "score": 0.03149801587301587
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=39;para=10",
+        "score": 0.030776515151515152
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=39;para=6",
+        "score": 0.03076923076923077
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=41_2;para=3",
+        "score": 0.02964426877470356
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=36;para=10",
+        "score": 0.029211087420042643
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=39;para=2",
+        "score": 0.016129032258064516
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=39;para=4",
+        "score": 0.014925373134328358
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=39;para=7",
+        "score": 0.014705882352941176
+      }
+    ]
+  },
+  {
+    "id": "law-lsa-break",
+    "queries": [
+      "労働時間 休憩時間 八時間を超える 一時間",
+      "休憩 与えなければならない 労働時間の途中"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=34",
+        "score": 0.03278688524590164
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=32",
+        "score": 0.030834914611005692
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=38",
+        "score": 0.03036576949620428
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=40",
+        "score": 0.03007688828584351
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=39;para=7",
+        "score": 0.016129032258064516
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=39;para=1",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=35",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=67",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=39;para=5",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=41",
+        "score": 0.015384615384615385
+      }
+    ]
+  },
+  {
+    "id": "law-consumer-misrepresentation",
+    "queries": [
+      "消費者契約 勧誘 不実告知 取消し",
+      "重要事項 事実と異なることを告げる 誤認 意思表示の取消し"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=4;para=1",
+        "score": 0.03278688524590164
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=4;para=2",
+        "score": 0.03225806451612903
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=4;para=4",
+        "score": 0.031024531024531024
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=4;para=6",
+        "score": 0.031009615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=4;para=5",
+        "score": 0.030798389007344232
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=6",
+        "score": 0.030536130536130537
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=6_2",
+        "score": 0.029418126757516764
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=7",
+        "score": 0.029411764705882353
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=5",
+        "score": 0.02877846790890269
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=4;para=3",
+        "score": 0.015625
+      }
+    ]
+  },
+  {
+    "id": "law-foia-deadline",
+    "queries": [
+      "開示決定等 期限 三十日以内",
+      "行政文書 開示請求 決定 期限 延長"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:411AC0000000042",
+        "locator": "art=10",
+        "score": 0.03278688524590164
+      },
+      {
+        "doc_key": "jp-egov-law:411AC0000000042",
+        "locator": "art=11",
+        "score": 0.03200204813108039
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=83",
+        "score": 0.03200204813108039
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=102",
+        "score": 0.030776515151515152
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=94",
+        "score": 0.03076923076923077
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=84",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:411AC0000000042",
+        "locator": "art=9",
+        "score": 0.015151515151515152
+      },
+      {
+        "doc_key": "jp-egov-law:363CO0000000360",
+        "locator": "art=76;para=3;item=4",
+        "score": 0.014925373134328358
+      },
+      {
+        "doc_key": "jp-egov-law:411AC0000000042",
+        "locator": "art=12_2",
+        "score": 0.014925373134328358
+      },
+      {
+        "doc_key": "jp-egov-law:363CO0000000360",
+        "locator": "art=63_2",
+        "score": 0.014705882352941176
+      }
+    ]
+  },
+  {
+    "id": "law-unauth-access-penalty",
+    "queries": [
+      "不正アクセス行為 罰則 拘禁刑 罰金",
+      "他人の識別符号 ログイン 不正アクセス 処罰"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:411AC0000000128",
+        "locator": "art=12",
+        "score": 0.03149801587301587
+      },
+      {
+        "doc_key": "jp-egov-law:411AC0000000128",
+        "locator": "art=11",
+        "score": 0.030886196246139225
+      },
+      {
+        "doc_key": "jp-egov-law:411AC0000000128",
+        "locator": "art=6",
+        "score": 0.01639344262295082
+      },
+      {
+        "doc_key": "jp-egov-law:411AC0000000128",
+        "locator": "art=4",
+        "score": 0.016129032258064516
+      },
+      {
+        "doc_key": "jp-egov-law:425AC0000000027",
+        "locator": "art=51",
+        "score": 0.016129032258064516
+      },
+      {
+        "doc_key": "jp-egov-law:411AC0000000128",
+        "locator": "art=5",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=117",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:411AC0000000128",
+        "locator": "art=2",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:426AC0000000068",
+        "locator": "art=87",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:411AC0000000128",
+        "locator": "art=3",
+        "score": 0.015151515151515152
+      }
+    ]
+  },
+  {
+    "id": "law-whistleblower-dismissal",
+    "queries": [
+      "公益通報 解雇 無効",
+      "公益通報者 公益通報をしたことを理由 解雇"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:416AC0000000122",
+        "locator": "art=10",
+        "score": 0.03252247488101534
+      },
+      {
+        "doc_key": "jp-egov-law:416AC0000000122",
+        "locator": "art=7",
+        "score": 0.03252247488101534
+      },
+      {
+        "doc_key": "jp-egov-law:416AC0000000122",
+        "locator": "art=4",
+        "score": 0.031746031746031744
+      },
+      {
+        "doc_key": "jp-egov-law:416AC0000000122",
+        "locator": "art=5",
+        "score": 0.03125
+      },
+      {
+        "doc_key": "jp-egov-law:416AC0000000122",
+        "locator": "art=8",
+        "score": 0.03076923076923077
+      },
+      {
+        "doc_key": "jp-egov-law:416AC0000000122",
+        "locator": "art=9",
+        "score": 0.03007688828584351
+      },
+      {
+        "doc_key": "jp-egov-law:416AC0000000122",
+        "locator": "art=1",
+        "score": 0.02964426877470356
+      },
+      {
+        "doc_key": "jp-egov-law:416AC0000000122",
+        "locator": "art=6",
+        "score": 0.029418126757516764
+      },
+      {
+        "doc_key": "jp-egov-law:416AC0000000122",
+        "locator": "art=3",
+        "score": 0.029411764705882353
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=8",
+        "score": 0.014285714285714285
+      }
+    ]
+  },
+  {
+    "id": "law-zh-my-number-request",
+    "queries": [
+      "個人番号 提供の求めの制限",
+      "他人に対し 個人番号の提供を求めてはならない"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:425AC0000000027",
+        "locator": "art=15",
+        "score": 0.03278688524590164
+      },
+      {
+        "doc_key": "jp-egov-law:425AC0000000027",
+        "locator": "art=12",
+        "score": 0.016129032258064516
+      },
+      {
+        "doc_key": "jp-egov-law:425AC0000000027",
+        "locator": "art=17;para=10",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:425AC0000000027",
+        "locator": "art=17;para=9",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:425AC0000000027",
+        "locator": "art=17;para=11",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:425AC0000000027",
+        "locator": "art=17;para=7",
+        "score": 0.015151515151515152
+      },
+      {
+        "doc_key": "jp-egov-law:425AC0000000027",
+        "locator": "art=17;para=13",
+        "score": 0.014925373134328358
+      },
+      {
+        "doc_key": "jp-egov-law:425AC0000000027",
+        "locator": "art=17;para=6",
+        "score": 0.014705882352941176
+      },
+      {
+        "doc_key": "jp-egov-law:425AC0000000027",
+        "locator": "art=17;para=5",
+        "score": 0.014492753623188406
+      },
+      {
+        "doc_key": "jp-egov-law:425AC0000000027",
+        "locator": "art=17;para=3",
+        "score": 0.014285714285714285
+      }
+    ]
+  },
+  {
+    "id": "law-zh-appeal-period",
+    "queries": [
+      "審査請求期間 処分があったことを知った日の翌日から起算して三月",
+      "行政不服審査 審査請求 期限"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:426AC0000000068",
+        "locator": "art=62",
+        "score": 0.030621785881252923
+      },
+      {
+        "doc_key": "jp-egov-law:426AC0000000068",
+        "locator": "art=18",
+        "score": 0.01639344262295082
+      },
+      {
+        "doc_key": "jp-egov-law:426AC0000000068",
+        "locator": "art=27",
+        "score": 0.01639344262295082
+      },
+      {
+        "doc_key": "jp-egov-law:426AC0000000068",
+        "locator": "art=23",
+        "score": 0.016129032258064516
+      },
+      {
+        "doc_key": "jp-egov-law:426AC0000000068",
+        "locator": "art=10",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:426AC0000000068",
+        "locator": "art=54",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:426AC0000000068",
+        "locator": "art=20",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:426AC0000000068",
+        "locator": "art=60",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:426AC0000000068",
+        "locator": "art=2",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:426AC0000000068",
+        "locator": "art=50",
+        "score": 0.015384615384615385
+      }
+    ]
+  },
+  {
+    "id": "law-zh-overtime-premium",
+    "queries": [
+      "時間外 休日 深夜 割増賃金",
+      "時間外労働 割増賃金 二割五分以上"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=37",
+        "score": 0.03278688524590164
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=36;para=7",
+        "score": 0.03225806451612903
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=36;para=3",
+        "score": 0.031009615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=66",
+        "score": 0.03036576949620428
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=33",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=41_2;para=1",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "suppl=平成一〇年九月三〇日法律第一一二号;art=11",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=36;para=10",
+        "score": 0.015151515151515152
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "suppl=0;art=132",
+        "score": 0.015151515151515152
+      },
+      {
+        "doc_key": "jp-egov-law:322AC0000000049",
+        "locator": "art=32_4_2",
+        "score": 0.014925373134328358
+      }
+    ]
+  },
+  {
+    "id": "law-zh-freedom-of-expression",
+    "queries": [
+      "日本国憲法 表現の自由 言論 出版",
+      "集会 結社 言論 出版 検閲の禁止"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:321CONSTITUTION",
+        "locator": "art=21",
+        "score": 0.03278688524590164
+      },
+      {
+        "doc_key": "jp-egov-law:321CONSTITUTION",
+        "locator": "art=82",
+        "score": 0.03200204813108039
+      },
+      {
+        "doc_key": "jp-egov-law:321CONSTITUTION",
+        "locator": "art=54",
+        "score": 0.016129032258064516
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=149",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:321CONSTITUTION",
+        "locator": "art=65",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:363CO0000000360",
+        "locator": "art=6;para=1",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:321CONSTITUTION",
+        "locator": "art=52",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:321CONSTITUTION",
+        "locator": "art=23",
+        "score": 0.015151515151515152
+      },
+      {
+        "doc_key": "jp-egov-law:321CONSTITUTION",
+        "locator": "art=10",
+        "score": 0.014925373134328358
+      },
+      {
+        "doc_key": "jp-egov-law:321CONSTITUTION",
+        "locator": "art=48",
+        "score": 0.014705882352941176
+      }
+    ]
+  },
+  {
+    "id": "law-en-refusal-reasons",
+    "queries": [
+      "申請を拒否する処分 理由の提示",
+      "許認可等 拒否 処分の理由を示さなければならない"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:405AC0000000088",
+        "locator": "art=8",
+        "score": 0.03252247488101534
+      },
+      {
+        "doc_key": "jp-egov-law:405AC0000000088",
+        "locator": "art=14",
+        "score": 0.030798389007344232
+      },
+      {
+        "doc_key": "jp-egov-law:330AC0000000179",
+        "locator": "art=21_2",
+        "score": 0.01639344262295082
+      },
+      {
+        "doc_key": "jp-egov-law:405AC0000000088",
+        "locator": "art=2",
+        "score": 0.016129032258064516
+      },
+      {
+        "doc_key": "jp-egov-law:405AC0000000088",
+        "locator": "art=7",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:405AC0000000088",
+        "locator": "art=34",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:411AC0000000018",
+        "locator": "art=27",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:411AC0000000018",
+        "locator": "art=18",
+        "score": 0.015151515151515152
+      },
+      {
+        "doc_key": "jp-egov-law:405AC0000000088",
+        "locator": "art=10",
+        "score": 0.014705882352941176
+      },
+      {
+        "doc_key": "jp-egov-law:405AC0000000088",
+        "locator": "art=5",
+        "score": 0.014492753623188406
+      }
+    ]
+  },
+  {
+    "id": "law-en-adverse-disposition-reasons",
+    "queries": [
+      "不利益処分 理由の提示",
+      "不利益処分をする場合 名あて人 同時に 理由を示す"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:405AC0000000088",
+        "locator": "art=14",
+        "score": 0.03278688524590164
+      },
+      {
+        "doc_key": "jp-egov-law:405AC0000000088",
+        "locator": "art=28",
+        "score": 0.0315136476426799
+      },
+      {
+        "doc_key": "jp-egov-law:405AC0000000088",
+        "locator": "art=13",
+        "score": 0.03036576949620428
+      },
+      {
+        "doc_key": "jp-egov-law:405AC0000000088",
+        "locator": "art=30",
+        "score": 0.029857397504456328
+      },
+      {
+        "doc_key": "jp-egov-law:330AC0000000179",
+        "locator": "art=21_2",
+        "score": 0.016129032258064516
+      },
+      {
+        "doc_key": "jp-egov-law:405AC0000000088",
+        "locator": "art=8",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:321CONSTITUTION",
+        "locator": "art=48",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:405AC0000000088",
+        "locator": "art=26",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:425AC0000000027",
+        "locator": "art=17;para=6",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:405AC0000000088",
+        "locator": "art=27",
+        "score": 0.015151515151515152
+      }
+    ]
+  },
+  {
+    "id": "law-en-foia-who-may-request",
+    "queries": [
+      "行政文書の開示請求 何人も 行政機関の長",
+      "開示請求権 行政機関の保有する行政文書"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:411AC0000000042",
+        "locator": "art=3",
+        "score": 0.03278688524590164
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=76",
+        "score": 0.03225806451612903
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=90",
+        "score": 0.015873015873015872
+      },
+      {
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=98",
+        "score": 0.015625
+      },
+      {
+        "doc_key": "jp-egov-law:321CONSTITUTION",
+        "locator": "art=22",
+        "score": 0.015384615384615385
+      },
+      {
+        "doc_key": "jp-egov-law:321CONSTITUTION",
+        "locator": "art=16",
+        "score": 0.015151515151515152
+      },
+      {
+        "doc_key": "jp-egov-law:321CONSTITUTION",
+        "locator": "art=34",
+        "score": 0.014925373134328358
+      },
+      {
+        "doc_key": "jp-egov-law:321CONSTITUTION",
+        "locator": "art=38",
+        "score": 0.014705882352941176
+      },
+      {
+        "doc_key": "jp-egov-law:321CONSTITUTION",
+        "locator": "art=48",
+        "score": 0.014492753623188406
+      },
+      {
+        "doc_key": "jp-egov-law:321CONSTITUTION",
+        "locator": "art=32",
+        "score": 0.014285714285714285
+      }
+    ]
+  },
+  {
+    "id": "law-en-consumer-liability-waiver",
+    "queries": [
+      "事業者の損害賠償責任を免除する条項 無効 消費者契約",
+      "債務不履行 損害賠償 責任の全部を免除 条項"
+    ],
+    "hits": [
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=8_2",
+        "score": 0.032018442622950824
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=8",
+        "score": 0.03177805800756621
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=9",
+        "score": 0.03149801587301587
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=8_3",
+        "score": 0.031054405392392875
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=10",
+        "score": 0.031024531024531024
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=1",
+        "score": 0.030536130536130537
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=12_4",
+        "score": 0.016129032258064516
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=12",
+        "score": 0.014925373134328358
+      },
+      {
+        "doc_key": "jp-egov-law:412AC0000000061",
+        "locator": "art=35",
+        "score": 0.014705882352941176
+      },
+      {
+        "doc_key": "jp-egov-law:416AC0000000122",
+        "locator": "art=7",
+        "score": 0.014705882352941176
+      }
+    ]
+  }
+]
