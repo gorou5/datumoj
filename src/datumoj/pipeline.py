@@ -13,6 +13,7 @@ from pathlib import Path
 
 from datumoj.core.contracts import (
     NO_PARSER,
+    CatalogFilter,
     CatalogStore,
     ChunkStore,
     ContentState,
@@ -27,6 +28,7 @@ from datumoj.core.contracts import (
     Registry,
     VectorIndex,
     discover_parsers,
+    max_state,
     select_parser,
 )
 from datumoj.core.models import FetchOutcome, Observation, Snapshot
@@ -121,16 +123,20 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
 def _process(deps: PipelineDeps, parser: Parser, snap: Snapshot) -> list[str]:
     assert snap.sha256 is not None
     data = deps.raw.get(snap.sha256)
-    result = parser.parse(snap, data, deps.manifest.snapshot_meta(snap.snapshot_id))
+    meta = deps.manifest.snapshot_meta(snap.snapshot_id)
+    result = parser.parse(snap, data, meta)
     result.check_against(snap)
     vector_errors = _dispatch(deps, result, snap.snapshot_id)
-    if result.observations:
-        state = ContentState.observations_loaded
-    elif result.chunks:
-        state = ContentState.content_fetched
-    else:
-        return vector_errors
-    deps.catalog.set_content_state(snap.resource_url, state)
+    state = ContentState.observations_loaded if result.observations else ContentState.content_fetched
+    dataset_keys = {resource.dataset_key for resource in result.resources if resource.url == snap.resource_url}
+    dataset_id = meta.get("dataset_id")
+    if isinstance(dataset_id, str) and dataset_id:
+        dataset_keys.add(f"{snap.source_id}:{dataset_id}")
+    matched = False
+    for dataset_key in dataset_keys:
+        matched = _promote_catalog_content_state(deps, dataset_key, snap.resource_url, state) or matched
+    if not matched:
+        _promote_catalog_content_state_for_url(deps, snap.source_id, snap.resource_url, state)
     return vector_errors
 
 
@@ -138,6 +144,11 @@ def _dispatch(deps: PipelineDeps, result: ParseResult, snapshot_id: str) -> list
     vector_errors: list[str] = []
     if result.datasets or result.resources:
         deps.catalog.upsert(result.datasets, result.resources)
+        for resource in result.resources:
+            if deps.manifest.last_success(resource.url) is not None:
+                _promote_catalog_content_state(
+                    deps, resource.dataset_key, resource.url, ContentState.content_fetched
+                )
     by_doc = defaultdict(list)
     for c in result.chunks:
         by_doc[c.doc_key].append(c)
@@ -158,8 +169,40 @@ def _dispatch(deps: PipelineDeps, result: ParseResult, snapshot_id: str) -> list
     return vector_errors
 
 
+def _promote_catalog_content_state(
+    deps: PipelineDeps, dataset_key: str, resource_url: str, state: ContentState
+) -> bool:
+    entries = deps.catalog.resources_for(dataset_key)
+    matching = [entry for entry in entries if entry.resource.url == resource_url]
+    if matching:
+        deps.catalog.set_content_state(resource_url, max_state([state, *(entry.state for entry in matching)]))
+    return bool(matching)
+
+
+def _promote_catalog_content_state_for_url(
+    deps: PipelineDeps, source_id: str, resource_url: str, state: ContentState
+) -> None:
+    filters = CatalogFilter(source_ids=[source_id])
+    for hit in deps.catalog.search("", filters=filters, k=1_000_000):
+        if any(entry.resource.url == resource_url for entry in hit.resources):
+            _promote_catalog_content_state(deps, hit.dataset.dataset_key, resource_url, state)
+
+
+def _reconcile_catalog_content_state(deps: PipelineDeps, source_id: str | None) -> None:
+    filters = CatalogFilter(source_ids=[source_id]) if source_id is not None else None
+    for hit in deps.catalog.search("", filters=filters, k=1_000_000):
+        for entry in hit.resources:
+            resource = entry.resource
+            if deps.manifest.last_success(resource.url) is not None:
+                _promote_catalog_content_state(
+                    deps, resource.dataset_key, resource.url, ContentState.content_fetched
+                )
+
+
 def reindex(deps: PipelineDeps, source_id: str | None = None, *, vectors_only: bool = False) -> int:
     """从 ChunkStore 的当前版本重建索引；vectors_only 只重试已记录的向量暂缺文档。"""
+    if not vectors_only:
+        _reconcile_catalog_content_state(deps, source_id)
     source_ids = None if source_id is None else [source_id]
     chunks = list(deps.chunks.iter_chunks(source_ids))
     docs: dict[str, list] = defaultdict(list)
