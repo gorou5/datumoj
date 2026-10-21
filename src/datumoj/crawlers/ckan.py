@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import quote, urlencode, urlsplit
 
-from datumoj.core.contracts import CrawlContext, Crawler, FetchResult, FetchTask
+from datumoj.core.contracts import CrawlContext, Crawler, FetchResult, FetchTask, NotFoundError
 from datumoj.core.models import FetchOutcome
 
 DEFAULT_ROWS = 100
@@ -99,22 +99,28 @@ class CkanCrawler(Crawler):
 
     def plan(self, ctx: CrawlContext) -> Iterable[FetchTask]:
         self._seen = set()
-        since, self._previous = self._load_previous(ctx)
+        since, self._previous, fallback = self._load_previous(ctx)
         if ctx.spec.scope.get("incremental", True) is not False and since is not None:
             limit = _positive_int(ctx.spec.scope, "activity_limit", DEFAULT_ACTIVITY_LIMIT)
             url = f"{self._base(ctx)}/recently_changed_packages_activity_list?limit={limit}"
             yield FetchTask(url=url, meta={"role": "activity", "since": since.isoformat(), "limit": limit,
                                            "run_started": self._started(ctx)})
         else:
-            yield self._search_task(ctx, 0)
+            yield self._search_task(ctx, 0, fallback)
 
     def after_fetch(self, task: FetchTask, result: FetchResult, ctx: CrawlContext) -> Iterable[FetchTask]:
         role = task.meta.get("role")
         if role == "activity":
             return self._after_activity(task, result, ctx)
-        if result.outcome is not FetchOutcome.ok or result.content is None or role not in _API_ROLES:
+        content = result.content
+        if role == "package_search" and result.outcome is FetchOutcome.not_modified:
+            previous = ctx.manifest.last_success(task.url)
+            if previous is None or previous.sha256 is None:
+                return ()
+            content = ctx.raw.get(previous.sha256)
+        elif result.outcome is not FetchOutcome.ok or content is None or role not in _API_ROLES:
             return ()
-        data = _json_object(result.content)
+        data = _json_object(content)
         if not _api_ok(data):
             return ()
         if role == "package_search":
@@ -148,31 +154,160 @@ class CkanCrawler(Crawler):
     def _started(ctx: CrawlContext) -> str:
         return ctx.now.astimezone(timezone.utc).isoformat()
 
-    def _search_task(self, ctx: CrawlContext, start: int, fallback: str | None = None) -> FetchTask:
+    def _search_task(
+        self, ctx: CrawlContext, start: int, fallback: str | None = None,
+        previous_page: tuple[int, int] | None = None,
+    ) -> FetchTask:
         scope = ctx.spec.scope
         rows = _positive_int(scope, "rows", DEFAULT_ROWS)
         query = urlencode({"q": scope.get("q", "*:*"), "rows": rows, "start": start, "sort": "id asc"}, quote_via=quote)
-        meta: dict[str, Any] = {"role": "package_search", "start": start, "rows": rows, "run_started": self._started(ctx)}
+        meta: dict[str, Any] = {
+            "role": "package_search", "start": start, "rows": rows, "run_started": self._started(ctx),
+            "dataset_limit": ctx.limit, "max_files_limit": ctx.spec.max_files,
+            "max_total_bytes_limit": ctx.spec.max_total_bytes,
+        }
+        if previous_page is not None:
+            meta["previous_start"], meta["previous_count"] = previous_page
         if fallback:
             meta["incremental_fallback"] = fallback
         return FetchTask(url=f"{self._base(ctx)}/package_search?{query}", meta=meta)
 
     @staticmethod
-    def _load_previous(ctx: CrawlContext) -> tuple[datetime | None, dict[str, str | None]]:
-        """(上次元数据运行的开始时间, 资源 URL -> 上次成功下载时的数据集 metadata_modified)。"""
-        since: datetime | None = None
+    def _load_previous(ctx: CrawlContext) -> tuple[datetime | None, dict[str, str | None], str | None]:
+        """(最近可用的运行基准, 资源 URL -> 上次成功下载时的数据集 metadata_modified, 全量回退原因)。"""
         previous: dict[str, str | None] = {}
+        runs: dict[datetime, list[tuple[Any, dict[str, Any]]]] = {}
         for snap in ctx.manifest.snapshots_for(ctx.spec.id):
-            if snap.outcome is not FetchOutcome.ok:
-                continue
             meta = ctx.manifest.snapshot_meta(snap.snapshot_id)
-            if meta.get("role") in ("package_search", "package_show") and isinstance(meta.get("run_started"), str):
-                started = _utc(meta["run_started"])
-                if started is not None and (since is None or started > since):
-                    since = started
-            elif meta.get("role") == "resource":
+            role = meta.get("role")
+            if role == "resource" and snap.outcome is FetchOutcome.ok:
                 previous[snap.resource_url] = meta.get("package_modified")  # type: ignore[assignment]
-        return since, previous
+            started = _utc(meta.get("run_started")) if isinstance(meta.get("run_started"), str) else None
+            if started is not None and role in ("package_search", "package_show", "activity", "resource"):
+                runs.setdefault(started, []).append((snap, meta))
+
+        full_runs = [started for started, entries in runs.items()
+                     if any(meta.get("role") == "package_search" for _, meta in entries)]
+        if not full_runs:
+            return None, previous, None
+
+        latest_full = max(full_runs)
+        pages = [(snap, meta) for snap, meta in runs[latest_full] if meta.get("role") == "package_search"]
+        complete, failed = CkanCrawler._full_run_complete(ctx, pages, runs[latest_full])
+        if not complete:
+            reason = "上次全量未完成：分页请求失败" if failed else "上次全量未完成：分页未走到末页"
+            return None, previous, reason
+
+        since = latest_full
+        for started, entries in runs.items():
+            if started <= latest_full or any(meta.get("role") == "package_search" for _, meta in entries):
+                continue
+            if any(meta.get("role") in ("activity", "package_show") and snap.outcome is FetchOutcome.ok
+                   for snap, meta in entries):
+                since = max(since, started)
+        return since, previous, None
+
+    @staticmethod
+    def _full_run_complete(
+        ctx: CrawlContext,
+        pages: list[tuple[Any, dict[str, Any]]],
+        run: list[tuple[Any, dict[str, Any]]],
+    ) -> tuple[bool, bool]:
+        """从该次全量的 package_search 快照验证分页连续且记录了末页。"""
+        if any(snap.outcome not in (FetchOutcome.ok, FetchOutcome.not_modified) for snap, _ in pages):
+            return False, True
+        by_start: dict[int, tuple[Any, dict[str, Any], list[Any] | None]] = {}
+        missing_raw = False
+        for snap, meta in pages:
+            start, rows = meta.get("start"), meta.get("rows")
+            if (not isinstance(start, int) or isinstance(start, bool) or start < 0
+                    or not isinstance(rows, int) or isinstance(rows, bool) or rows <= 0 or start in by_start):
+                return False, False
+            raw_missing = False
+            body_snapshot = snap
+            if snap.outcome is FetchOutcome.not_modified:
+                body_snapshot = ctx.manifest.last_success(snap.resource_url)
+                if body_snapshot is None or body_snapshot.sha256 is None:
+                    missing_raw = True
+                    raw_missing = True
+            try:
+                data = _json_object(ctx.raw.get(body_snapshot.sha256)) if body_snapshot and body_snapshot.sha256 else None
+            except NotFoundError:
+                data = None
+                missing_raw = True
+                raw_missing = True
+            result = data.get("result") if _api_ok(data) else None
+            results = result.get("results") if isinstance(result, dict) else None
+            if not isinstance(results, list) and not raw_missing:
+                return False, False
+            by_start[start] = (snap, meta, results if isinstance(results, list) else None)
+
+        if missing_raw:
+            return CkanCrawler._metadata_full_run_complete(ctx, pages, run), False
+
+        reached_empty_page = any(not results for _, _, results in by_start.values())
+        if not reached_empty_page and CkanCrawler._run_hit_cap(ctx, pages, run):
+            return False, False
+
+        dataset_limit = next((meta.get("dataset_limit") for _, meta in pages
+                              if meta.get("dataset_limit") is not None), None)
+        if isinstance(dataset_limit, int) and not isinstance(dataset_limit, bool):
+            seen = {package["id"] for _, _, results in by_start.values() for package in results
+                    if isinstance(package, dict) and isinstance(package.get("id"), str)}
+            if len(seen) >= dataset_limit:
+                return False, False
+
+        expected = 0
+        while expected in by_start:
+            _, meta, results = by_start.pop(expected)
+            count = len(results)
+            if count == 0:
+                return not by_start, False
+            next_start = expected + count
+            if count < meta["rows"] and next_start not in by_start:
+                return not by_start, False
+            expected = next_start
+        return False, False
+
+    @staticmethod
+    def _metadata_full_run_complete(
+        ctx: CrawlContext,
+        pages: list[tuple[Any, dict[str, Any]]],
+        run: list[tuple[Any, dict[str, Any]]],
+    ) -> bool:
+        """raw 不在本次上下文中时，用分页续页 meta 和执行上限做保守核验。"""
+        if any(meta.get("dataset_limit") is not None for _, meta in pages):
+            return False
+        if CkanCrawler._run_hit_cap(ctx, pages, run):
+            return False
+        ordered = sorted(pages, key=lambda item: item[1]["start"])
+        if len(ordered) < 2 or ordered[0][1]["start"] != 0:
+            return False
+        for (_, previous_meta), (_, current_meta) in zip(ordered, ordered[1:]):
+            previous_start, previous_count = current_meta.get("previous_start"), current_meta.get("previous_count")
+            if (not isinstance(previous_start, int) or isinstance(previous_start, bool)
+                    or not isinstance(previous_count, int) or isinstance(previous_count, bool)
+                    or previous_count <= 0 or previous_start != previous_meta["start"]
+                    or current_meta["start"] != previous_start + previous_count):
+                return False
+        return all(snap.outcome is FetchOutcome.ok for snap, _ in pages)
+
+    @staticmethod
+    def _run_hit_cap(
+        ctx: CrawlContext,
+        pages: list[tuple[Any, dict[str, Any]]],
+        run: list[tuple[Any, dict[str, Any]]],
+    ) -> bool:
+        file_caps = [meta["max_files_limit"] for _, meta in pages
+                     if isinstance(meta.get("max_files_limit"), int)
+                     and not isinstance(meta.get("max_files_limit"), bool)]
+        byte_caps = [meta["max_total_bytes_limit"] for _, meta in pages
+                     if isinstance(meta.get("max_total_bytes_limit"), int)
+                     and not isinstance(meta.get("max_total_bytes_limit"), bool)]
+        max_files = min(file_caps, default=ctx.spec.max_files)
+        max_bytes = min(byte_caps, default=ctx.spec.max_total_bytes)
+        return (len(run) >= max_files or sum(snap.size or 0 for snap, _ in run) >= max_bytes
+                or any(snap.outcome is FetchOutcome.too_large for snap, _ in run))
 
     def _after_activity(self, task: FetchTask, result: FetchResult, ctx: CrawlContext) -> Iterable[FetchTask]:
         since = _utc(task.meta["since"])
@@ -210,7 +345,7 @@ class CkanCrawler(Crawler):
         count = len(results)  # 只按实际返回条数判断：空页才停
         next_start = task.meta["start"] + count
         if count > 0 and (ctx.limit is None or len(self._seen) < ctx.limit):
-            tasks.append(self._search_task(ctx, next_start))
+            tasks.append(self._search_task(ctx, next_start, previous_page=(task.meta["start"], count)))
         return tasks
 
     def _resource_tasks(self, package: Any, ctx: CrawlContext) -> list[FetchTask]:
@@ -249,6 +384,6 @@ class CkanCrawler(Crawler):
                 "role": "resource", "dataset_id": package["id"], "dataset_name": package.get("name"),
                 "resource_id": res.get("id"), "format": res.get("format"), "declared_size": size if isinstance(size, int) else None,
                 "license": _clean(res.get("license_id")) or _clean(package.get("license_id")),
-                "package_modified": modified, "max_file_bytes": max_bytes,
+                "package_modified": modified, "max_file_bytes": max_bytes, "run_started": self._started(ctx),
             }))
         return tasks
