@@ -29,6 +29,10 @@ class LawXMLParser(Parser):
     content_type = "*"
 
     def parse(self, snapshot: Snapshot, data: bytes, meta: Mapping[str, JsonValue] | None = None) -> ParseResult:
+        role = meta.get("role") if meta is not None else None
+        if role in ("law_list", "law_revisions"):
+            return ParseResult(warnings=[f"非正文快照（role={role}），跳过"])
+
         if snapshot.sha256 is None:
             raise ParseError(f"快照 {snapshot.snapshot_id} 没有正文")
         if snapshot.source_id != "jp-egov-law":
