@@ -121,3 +121,13 @@
 4. 两种 404 错误码不同：`law_revisions` 为 `404001`（取得結果が０件です。），`law_data` 为 `404004`（…法令本文ファイルは存在しません。）。响应体都是 `{"code","message"}`。
 5. 议员立法的法令 ID 是 `AC1` 形式（如官民データ活用推進基本法 `428AC1000000103`），按 `AC0` 拼会 404。
 6. 规格 2.1.139 的 `law_data` 新增 `json_format`（full/light）参数，旧版参考文档（基于 2.1.138）未列出、并建议不要使用；本样本未使用该参数。
+
+## 补录：没有“条”的法令（2026-10-21，H3 真实抓取中发现）
+
+这三份响应取自 H3 的真实抓取（`data/raw`，原始字节未改动），请求参数和其他样本相同，只是 `asof=2026-10-21`。它们的 `MainProvision` 下面直接是 `Paragraph`，没有 `Article`。H3 抓取的 200 部法令中有 31 部是这种结构，供 DATUMOJ-IVY-205 测试用。
+
+| 文件 | 请求 URL | HTTP | 抓取时间（UTC） | 大小 | 法令 |
+|---|---|---|---|---|---|
+| `law_data.132AC1000000040.asof2026-10-21.xml-in-json.json` | `https://laws.e-gov.go.jp/api/2/law_data/132AC1000000040?asof=2026-10-21&response_format=json&law_full_text_format=xml` | 200 | 2026-10-21T05:38:05Z | 2,044 | 明治三十二年法律第四十号（失火ノ責任ニ関スル法律），本则 1 项 |
+| `law_data.135AC1000000050.asof2026-10-21.xml-in-json.json` | `https://laws.e-gov.go.jp/api/2/law_data/135AC1000000050?asof=2026-10-21&response_format=json&law_full_text_format=xml` | 200 | 2026-10-21T05:38:28Z | 2,452 | 明治三十五年法律第五十号（年齢計算ニ関スル法律），本则 3 项 |
+| `law_data.120IO0000000001.asof2026-10-21.xml-in-json.json` | `https://laws.e-gov.go.jp/api/2/law_data/120IO0000000001?asof=2026-10-21&response_format=json&law_full_text_format=xml` | 200 | 2026-10-21T05:37:33Z | 27,675 | 海底電信線保護万国連合条約ノ説明書，本则 4 项 |
