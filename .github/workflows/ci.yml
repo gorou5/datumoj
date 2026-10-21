@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+# 最小权限：只读
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install validators
+        run: pip install jsonschema pyyaml
+
+      - name: Validate JSON files parse
+        run: |
+          python - <<'EOF'
+          import json, pathlib, sys
+          bad = []
+          for f in pathlib.Path('.').rglob('*.json'):
+              if '.git/' in str(f):
+                  continue
+              try:
+                  json.loads(f.read_text(encoding='utf-8'))
+              except Exception as e:
+                  bad.append(f"{f}: {e}")
+          if bad:
+              print('\n'.join(bad)); sys.exit(1)
+          print('all JSON files parse OK')
+          EOF
+
+      - name: Validate YAML files parse
+        run: |
+          python - <<'EOF'
+          import yaml, pathlib, sys
+          bad = []
+          for f in list(pathlib.Path('.github').rglob('*.yml')) + list(pathlib.Path('.github').rglob('*.yaml')):
+              try:
+                  yaml.safe_load(f.read_text(encoding='utf-8'))
+              except Exception as e:
+                  bad.append(f"{f}: {e}")
+          if bad:
+              print('\n'.join(bad)); sys.exit(1)
+          print('all YAML files parse OK')
+          EOF
+
+      - name: Validate module/data-source descriptions against schemas
+        run: python tests/validate_schemas.py
+
+      - name: Check .env.example contains no real secrets
+        run: |
+          # .env.example 只允许变量名 + 明显虚构的占位值
+          if grep -Ei 'sk-|ghp_|xox|AKIA|-----BEGIN (RSA |EC )?PRIVATE KEY' .env.example; then
+            echo 'ERROR: .env.example 疑似包含真实密钥'; exit 1
+          fi
+          echo '.env.example clean'
+
+      # 注意：部署工作流尚未配置。在配置 CLOUDFLARE_API_TOKEN 等
+      # Secrets 并明确部署流程前，不添加任何自动部署步骤。
+      # 来自 fork 的 PR 不应获得生产凭证（见 SECURITY.md）。

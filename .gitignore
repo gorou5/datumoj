@@ -1,11 +1,34 @@
+# 调度器状态（必须保留：被 git 跟踪会让合并全被拦下）
 .orch/
-.DS_Store
+
+# 数据与本地状态
 /data/
 .secrets/
+handoff/
+.serena/
+
+# Python
 .venv/
+venv/
 __pycache__/
 *.pyc
 .pytest_cache/
 .ruff_cache/
-handoff/
-.serena/
+
+# 依赖与构建产物
+node_modules/
+dist/
+build/
+
+# 本地敏感配置（绝不提交）
+.env
+.env.local
+*.pem
+*.key
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
