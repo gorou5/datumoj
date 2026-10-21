@@ -15,8 +15,8 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
-from datumoj.core.contracts import ObservationStore, Retriever
-from datumoj.core.models import Citation, DocKey, GapState, Hit, Lang, Observation, SourceId, SourceText
+from datumoj.core.contracts import Manifest, ObservationStore, Retriever, citation_for_observation
+from datumoj.core.models import Citation, DocKey, FetchOutcome, GapState, Hit, Lang, Observation, SourceId, SourceText
 
 
 QuestionKind = Literal["retrieval", "numeric", "gap", "time", "injection", "cross_source"]
@@ -205,9 +205,10 @@ def evaluate(
     retriever: Retriever,
     observation_store: ObservationStore,
     cite: Callable[[Citation], Any] | None,
+    manifest: Manifest | None = None,
     k: int = 10,
 ) -> EvaluationReport:
-    """通过契约注入检索器、只读 SQL 库及出处还原函数，离线计算题库指标。"""
+    """通过契约注入检索器、只读 SQL 库、可选快照清单及出处还原函数，离线计算题库指标。"""
     if k < 1:
         raise ValueError("k 必须 ≥ 1")
     all_metrics: list[tuple[dict[str, float | None], int]] = []
@@ -252,19 +253,11 @@ def evaluate(
                 if not numeric_ok:
                     reasons.append("SQL 数值与 expect.value.equals 不符")
                 occurrence = any(_has_number(evidence, expected) for _, evidence in resolved)
-                for hit, evidence in resolved:
-                    if not occurrence and _has_evidence(evidence):
-                        occurrence = any(
-                            obs.source_id == hit.citation.source_id
-                            and obs.snapshot_sha256 == hit.citation.snapshot_sha256
-                            and obs.locator == hit.citation.locator
-                            and obs.value is not None
-                            and _canonical_number(obs.value) == _canonical_number(expected)
-                            for obs in query_result.provenance
-                        )
+                if not occurrence:
+                    occurrence = _has_sql_number(query_result.provenance, expected, manifest, cite)
                 metrics["numeric_occurrence"] = float(occurrence)
                 if not occurrence:
-                    reasons.append("期望数值未出现在可还原的引用原文或数据行中")
+                    reasons.append("文档检索前 3 条引用与 SQL 出处行中均未找到可还原的期望数值")
             except Exception as exc:
                 metrics["numeric_precision"] = 0.0
                 metrics["numeric_occurrence"] = 0.0
@@ -402,6 +395,34 @@ def _flatten(value: Any) -> list[str]:
 def _canonical_number(value: Decimal) -> str:
     text = format(value.normalize(), "f")
     return "0" if text in {"-0", ""} else text
+
+
+def _has_sql_number(
+    provenance: Sequence[Observation],
+    expected: Decimal,
+    manifest: Manifest | None,
+    cite: Callable[[Citation], Any] | None,
+) -> bool:
+    if manifest is None or cite is None:
+        return False
+    target = _canonical_number(expected)
+    for obs in provenance:
+        if obs.value is None or _canonical_number(obs.value) != target:
+            continue
+        try:
+            snapshot = next(
+                snapshot
+                for snapshot in manifest.snapshots_by_sha256(obs.snapshot_sha256)
+                if snapshot.source_id == obs.source_id
+                and snapshot.fetched_at == obs.fetched_at
+                and snapshot.outcome is FetchOutcome.ok
+            )
+            evidence = cite(citation_for_observation(obs, snapshot))
+        except Exception:
+            continue
+        if _has_evidence(evidence):
+            return True
+    return False
 
 
 def _has_number(evidence: Any, expected: Decimal) -> bool:
