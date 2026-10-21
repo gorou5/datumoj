@@ -1,0 +1,161 @@
+questions:
+  - id: stat-dashboard-tokyo-population-2023
+    question: 統計ダッシュボードの人口推計では、2023年の東京都の総人口はいくらですか？
+    lang: ja
+    kind: numeric
+    queries:
+      - 東京都 総人口 人口推計 2023年
+    source_ids: [jp-stat-dashboard]
+    expect:
+      hits:
+        - doc_key: jp-stat-dashboard:0201010000000010000
+      value:
+        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0201010000000010000' AND indicator_code = '0201010000000010000' AND area_code = '13000' AND time_start = '2023-01-01'"
+        equals: 14086000
+        tolerance: 0
+    notes: "原表：tests/fixtures/stat_dashboard/getData_b1_pop5x48_2021-2023CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[110]，@indicator=0201010000000010000、@regionCode=13000、@time=2023CY00、@stat=20020101 的 VALUE.$。"
+
+  - id: stat-dashboard-national-population-2023
+    question: 2023年の全国の総人口はいくらですか？
+    lang: ja
+    kind: numeric
+    queries:
+      - 全国 総人口 2023年
+    source_ids: [jp-stat-dashboard]
+    expect:
+      hits:
+        - doc_key: jp-stat-dashboard:0201010000000010000
+      value:
+        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0201010000000010000' AND indicator_code = '0201010000000010000' AND area_code = '00000' AND time_start = '2023-01-01'"
+        equals: 124352000
+        tolerance: 0
+    notes: "原表：tests/fixtures/stat_dashboard/getData_b1_pop5x48_2021-2023CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[97]，@indicator=0201010000000010000、@regionCode=00000、@time=2023CY00、@stat=20020101 的 VALUE.$。"
+
+  - id: stat-dashboard-okinawa-births-2022
+    question: 2022年の沖縄県の出生数はいくらですか？
+    lang: ja
+    kind: numeric
+    queries:
+      - 沖縄県 出生数 2022年
+    source_ids: [jp-stat-dashboard]
+    expect:
+      hits:
+        - doc_key: jp-stat-dashboard:0203010000000010000
+      value:
+        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0203010000000010000' AND indicator_code = '0203010000000010000' AND area_code = '47000' AND time_start = '2022-01-01'"
+        equals: 13594
+        tolerance: 0
+    notes: "原表：tests/fixtures/stat_dashboard/getData_b1_pop5x48_2021-2023CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[240]，@indicator=0203010000000010000、@regionCode=47000、@time=2022CY00、@stat=00450011 的 VALUE.$。"
+
+  - id: stat-dashboard-hokkaido-deaths-2021
+    question: 2021年の北海道の死亡数はいくらですか？
+    lang: ja
+    kind: numeric
+    queries:
+      - 北海道 死亡数 2021年
+    source_ids: [jp-stat-dashboard]
+    expect:
+      hits:
+        - doc_key: jp-stat-dashboard:0203020000000010000
+      value:
+        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0203020000000010000' AND indicator_code = '0203020000000010000' AND area_code = '01000' AND time_start = '2021-01-01'"
+        equals: 69023
+        tolerance: 0
+    notes: "原表：tests/fixtures/stat_dashboard/getData_b1_pop5x48_2021-2023CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[290]，@indicator=0203020000000010000、@regionCode=01000、@time=2021CY00、@stat=00450011 的 VALUE.$。"
+
+  - id: stat-dashboard-osaka-inmigrants-2023
+    question: 2023年の大阪府の転入者数はいくらですか？
+    lang: ja
+    kind: numeric
+    queries:
+      - 大阪府 転入者数 2023年
+    source_ids: [jp-stat-dashboard]
+    expect:
+      hits:
+        - doc_key: jp-stat-dashboard:0204010000000010020
+      value:
+        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0204010000000010020' AND indicator_code = '0204010000000010020' AND area_code = '27000' AND time_start = '2023-01-01'"
+        equals: 177874
+        tolerance: 0
+    notes: "原表：tests/fixtures/stat_dashboard/getData_b1_pop5x48_2021-2023CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[556]，@indicator=0204010000000010020、@regionCode=27000、@time=2023CY00、@stat=00200502 の VALUE.$。"
+
+  - id: stat-dashboard-tokyo-outmigrants-2023
+    question: 2023年の東京都の転出者数はいくらですか？
+    lang: ja
+    kind: numeric
+    queries:
+      - 東京都 転出者数 2023年
+    source_ids: [jp-stat-dashboard]
+    expect:
+      hits:
+        - doc_key: jp-stat-dashboard:0204020000000010020
+      value:
+        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0204020000000010020' AND indicator_code = '0204020000000010020' AND area_code = '13000' AND time_start = '2023-01-01'"
+        equals: 385848
+        tolerance: 0
+    notes: "原表：tests/fixtures/stat_dashboard/getData_b1_pop5x48_2021-2023CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[686]，@indicator=0204020000000010020、@regionCode=13000、@time=2023CY00、@stat=00200502 の VALUE.$。"
+
+  - id: stat-dashboard-tokyo-households-2020
+    question: 2020年の東京都の世帯数はいくらですか？
+    lang: ja
+    kind: numeric
+    queries:
+      - 東京都 世帯数 2020年
+    source_ids: [jp-stat-dashboard]
+    expect:
+      hits:
+        - doc_key: jp-stat-dashboard:0202000000000010000
+      value:
+        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0202000000000010000' AND indicator_code = '0202000000000010000' AND area_code = '13000' AND time_start = '2020-01-01'"
+        equals: 7227180
+        tolerance: 0
+    notes: "原表：tests/fixtures/stat_dashboard/getData_b2_census4x48_2020CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[14]，@indicator=0202000000000010000、@regionCode=13000、@time=2020CY00、@stat=00200521 的 VALUE.$。"
+
+  - id: stat-dashboard-national-employed-2020
+    question: 統計ダッシュボードの社会・人口統計体系による2020年の全国就業者数はいくらですか？
+    lang: ja
+    kind: numeric
+    queries:
+      - 社会 人口統計体系 全国 就業者数 2020年
+    source_ids: [jp-stat-dashboard]
+    expect:
+      hits:
+        - doc_key: jp-stat-dashboard:0301100000010010000
+      value:
+        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0301100000010010000' AND indicator_code = '0301100000010010000' AND area_code = '00000' AND time_start = '2020-01-01'"
+        equals: 57643225
+        tolerance: 0
+    notes: "原表：tests/fixtures/stat_dashboard/getData_b2_census4x48_2020CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[98]，@indicator=0301100000010010000、@regionCode=00000、@time=2020CY00、@stat=00200502 の VALUE.$。"
+
+  - id: stat-dashboard-osaka-natural-change-2020
+    question: 2020年の大阪府の自然増減数はいくらですか？
+    lang: ja
+    kind: numeric
+    queries:
+      - 大阪府 自然増減数 2020年
+    source_ids: [jp-stat-dashboard]
+    expect:
+      hits:
+        - doc_key: jp-stat-dashboard:0203060000000010010
+      value:
+        sql: "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0203060000000010010' AND indicator_code = '0203060000000010010' AND area_code = '27000' AND time_start = '2020-01-01'"
+        equals: -29766
+        tolerance: 0
+    notes: "原表：tests/fixtures/stat_dashboard/getData_b2_census4x48_2020CY.json；位置：STATISTICAL_DATA.DATA_INF.DATA_OBJ[76]，@indicator=0203060000000010010、@regionCode=27000、@time=2020CY00、@stat=00450011 の VALUE.$。"
+
+  - id: stat-estat-tokyo-ict-employees-2016
+    question: 2016年の東京都の情報通信業従業者数はいくらですか？
+    lang: ja
+    kind: numeric
+    queries:
+      - 東京都 情報通信業 従業者数 平成28年経済センサス
+    source_ids: [jp-estat-files]
+    expect:
+      hits:
+        - doc_key: jp-estat-files:000031720773
+          locator_prefix: cell=I977;row=977
+      value:
+        sql: "SELECT value FROM observations WHERE source_id = 'jp-estat-files' AND table_key = '000031720773' AND indicator_code = 'jsyu102A.0001' AND area_code = '13000' AND dims LIKE '%sanD1.0963%'"
+        equals: 849374
+        tolerance: 0
+    notes: "原表：tests/fixtures/estat_files/000031720773_ecensus2016_t02_tokyo.csv；单元格：CSV 第977行第9列（I977），sanD1.0963 信息通信業、従業者数(人)，indicator_code=jsyu102A.0001。"
