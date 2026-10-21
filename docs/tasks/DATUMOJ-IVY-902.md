@@ -4,7 +4,7 @@ title: 检查点 M2 集成：目录、统计、JMA 接入，统计题达标
 project: DATUMOJ
 status: todo
 priority: 2
-depends_on: ["DATUMOJ-IVY-901", "DATUMOJ-IVY-203", "DATUMOJ-IVY-303", "DATUMOJ-IVY-304", "DATUMOJ-IVY-305", "DATUMOJ-IVY-401", "DATUMOJ-IVY-402", "DATUMOJ-IVY-703"]
+depends_on: ["DATUMOJ-IVY-901", "DATUMOJ-IVY-203", "DATUMOJ-IVY-303", "DATUMOJ-IVY-304", "DATUMOJ-IVY-305", "DATUMOJ-IVY-401", "DATUMOJ-IVY-402", "DATUMOJ-IVY-703", "DATUMOJ-IVY-705", "DATUMOJ-IVY-706"]
 runner: claude
 model: null
 tier: high
