@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -94,7 +95,10 @@ def build(data_dir: str | Path, overrides: dict[str, Any] | None = None) -> Wiri
             wiring.registry = load_registry(Path(__file__).resolve().parents[2] / "sources")
 
     # Vector search is optional; keyword search remains usable when LanceDB is absent.
-    if "vectors" in overrides:
+    vectors_off = os.environ.get("DATUMOJ_VECTORS", "").strip().lower() == "off"
+    if vectors_off:
+        wiring.vectors = None
+    elif "vectors" in overrides:
         wiring.vectors = overrides["vectors"]
     elif wiring.chunks is not None:
         try:
@@ -130,6 +134,7 @@ def build(data_dir: str | Path, overrides: dict[str, Any] | None = None) -> Wiri
                 manifest=wiring.manifest, raw=wiring.raw, registry=wiring.registry,
                 chunks=wiring.chunks, keyword=wiring.keyword, observations=wiring.observations,
                 catalog=wiring.catalog, vectors=wiring.vectors, parsers=overrides.get("parsers"),
+                vector_state_path=root / "vectors-state.json",
             )
 
     if all((wiring.retriever, wiring.catalog, wiring.observations, wiring.chunks, wiring.manifest,
