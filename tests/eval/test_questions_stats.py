@@ -6,9 +6,11 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
+from datumoj.core.registry import load_registry
 from datumoj.eval import load_questions
-from datumoj.testing.fakes import FakeObservationStore
-from datumoj.testing.samples import make_observation
+from datumoj.parsers.estat_tables import EstatTableParser
+from datumoj.store.observations import DuckDBObservationStore
+from datumoj.testing.samples import make_observation, make_snapshot
 
 ROOT = Path(__file__).parents[2]
 FIXTURES = ROOT / "tests" / "fixtures"
@@ -131,9 +133,23 @@ def test_estat_numeric_answer_matches_recorded_csv_cell():
     assert "I977" in q.notes
 
 
-def test_numeric_sql_returns_one_fixture_value_for_each_question():
-    store = FakeObservationStore()
+def test_numeric_sql_returns_one_fixture_value_for_each_question(tmp_path):
+    store = DuckDBObservationStore(tmp_path / "observations")
     by_table = {}
+
+    estat_spec = load_registry(ROOT / "sources").get("jp-estat-files")
+    estat_entry = next(
+        table for table in estat_spec.scope["tables"] if table["stat_inf_id"] == "000031720773"
+    )
+    estat_path = FIXTURES / "estat_files/000031720773_ecensus2016_t02_tokyo.csv"
+    estat_data = estat_path.read_bytes()
+    estat_snapshot = make_snapshot(
+        estat_spec.id,
+        f"{estat_spec.base_url.rstrip('/')}/stat-search/file-download?statInfId=000031720773&fileKind=1",
+        estat_data,
+    )
+    estat_result = EstatTableParser().parse(estat_snapshot, estat_data, estat_entry)
+    by_table[(estat_spec.id, "000031720773")] = estat_result.observations
 
     for q in STAT_QUESTIONS:
         if q.id in JSON_CELLS:
@@ -153,28 +169,6 @@ def test_numeric_sql_returns_one_fixture_value_for_each_question():
                 time_end=date(int(period[:4]), 12, 31),
             )
             by_table.setdefault((observation.source_id, table_key), []).append(observation)
-            continue
-
-        path = FIXTURES / "estat_files/000031720773_ecensus2016_t02_tokyo.csv"
-        with path.open(encoding="cp932", newline="") as source:
-            row = list(csv.reader(source))[976]
-        common = dict(
-            source_id="jp-estat-files",
-            dataset_key="jp-estat-files:000031720773",
-            table_key="000031720773",
-            area_code="13000",
-            time_start=date(2016, 1, 1),
-            time_end=date(2016, 12, 31),
-            dims={"industry_code": "sanD1.0963"},
-        )
-        for column, code in ((8, "jsyu102A.0001"), (9, "jsyu102A.0002"), (10, "jsyu102A.0003")):
-            observation = make_observation(
-                f"estat-{code}",
-                row[column],
-                indicator_code=code,
-                **common,
-            )
-            by_table.setdefault((observation.source_id, "000031720773"), []).append(observation)
 
     for (source_id, table_key), observations in by_table.items():
         store.write_table(source_id, table_key, observations)
@@ -182,3 +176,12 @@ def test_numeric_sql_returns_one_fixture_value_for_each_question():
         result = store.query_readonly(q.expect.value.sql)
         assert len(result.rows) == 1, q.id
         assert Decimal(str(result.rows[0][0])) == Decimal(str(q.expect.value.equals)), q.id
+
+    estat = next(q for q in STAT_QUESTIONS if q.id == "stat-estat-tokyo-ict-employees-2016")
+    legacy_sql = estat.expect.value.sql.replace(
+        " AND json_extract_string(dims, '$.legal_org_code') = 'keiso4A.0000'", ""
+    )
+    assert legacy_sql != estat.expect.value.sql
+    legacy_rows = store.query_readonly(legacy_sql).rows
+    assert len(legacy_rows) == 6
+    assert (Decimal("849374"),) in legacy_rows

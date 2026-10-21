@@ -155,7 +155,7 @@ questions:
         - doc_key: jp-estat-files:000031720773
           locator_prefix: cell=I977;row=977
       value:
-        sql: "SELECT value FROM observations WHERE source_id = 'jp-estat-files' AND table_key = '000031720773' AND indicator_code = 'jsyu102A.0001' AND area_code = '13000' AND dims LIKE '%sanD1.0963%'"
+        sql: "SELECT value FROM observations WHERE source_id = 'jp-estat-files' AND table_key = '000031720773' AND indicator_code = 'jsyu102A.0001' AND area_code = '13000' AND dims LIKE '%sanD1.0963%' AND json_extract_string(dims, '$.legal_org_code') = 'keiso4A.0000'"
         equals: 849374
         tolerance: 0
-    notes: "原表：tests/fixtures/estat_files/000031720773_ecensus2016_t02_tokyo.csv；单元格：CSV 第977行第9列（I977），sanD1.0963 信息通信業、従業者数(人)，indicator_code=jsyu102A.0001。"
+    notes: "原表：tests/fixtures/estat_files/000031720773_ecensus2016_t02_tokyo.csv；单元格：CSV 第977行第9列（I977），sanD1.0963 信息通信業、従業者数(人)，indicator_code=jsyu102A.0001。经营组织维度会产生总数和五个分项，因此限定 keiso4A.0000（总数）。"
