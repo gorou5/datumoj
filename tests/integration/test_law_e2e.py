@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import tempfile
 from datetime import date, datetime, timezone
 from functools import partial
 from pathlib import Path
@@ -28,7 +30,9 @@ from datumoj.parsers.xml_law import LawXMLParser
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "tests/fixtures/egov_law"
-RESULTS = ROOT / "results/DATUMOJ-IVY-901"
+# 评测报告默认写到临时目录：写回仓库里受跟踪的 results/ 会弄脏工作区，调度器因此拒绝合并其他任务。
+# 需要更新 results/DATUMOJ-IVY-901/ 里的证据时，设置 DATUMOJ_EVIDENCE_DIR 再运行。
+RESULTS = Path(os.environ["DATUMOJ_EVIDENCE_DIR"]) if os.environ.get("DATUMOJ_EVIDENCE_DIR") else Path(tempfile.mkdtemp(prefix="datumoj-901-"))
 SOURCE = "jp-egov-law"
 API = "https://laws.e-gov.go.jp/api/2"
 NOW = datetime(2026, 10, 20, 12, tzinfo=timezone.utc)
