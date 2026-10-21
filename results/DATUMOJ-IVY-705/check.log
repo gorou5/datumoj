@@ -1,0 +1,4 @@
+$ make check T=tests/eval/test_questions_stats.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+.....                                                                    [100%]
+5 passed in 1.98s
