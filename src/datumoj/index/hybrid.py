@@ -18,6 +18,10 @@ from datumoj.core.models import FetchOutcome, Freshness, GapState, Hit, MatchedB
 from datumoj.index.coverage import gap_state
 
 
+# 临时默认阈值；待 H5 用 bge-m3 和评测集校准。
+DEFAULT_MIN_VECTOR_SCORE = 0.3
+
+
 class HybridRetriever:
     def __init__(
         self,
@@ -26,12 +30,14 @@ class HybridRetriever:
         registry: Registry,
         keyword: KeywordIndex,
         vector: VectorIndex | None = None,
+        min_vector_score: float = DEFAULT_MIN_VECTOR_SCORE,
     ) -> None:
         self.chunks = chunks
         self.manifest = manifest
         self.registry = registry
         self.keyword = keyword
         self.vector = vector
+        self.min_vector_score = min_vector_score
 
     def search(
         self,
@@ -81,8 +87,14 @@ class HybridRetriever:
 
         scores: dict[str, float] = {}
         matched: dict[str, list[MatchedBy]] = {}
+        vector_results_ignored = False
         for method, results in ((MatchedBy.keyword, keyword_results), (MatchedBy.vector, vector_results)):
             for result in results:
+                if method is MatchedBy.vector:
+                    items = [item for item in result.items if item.score >= self.min_vector_score]
+                    if len(items) != len(result.items):
+                        vector_results_ignored = True
+                    result = result.model_copy(update={"items": items})
                 self._fuse(result, method, scores, matched)
 
         hits = []
@@ -115,6 +127,9 @@ class HybridRetriever:
                 citation=citation_for_chunk(chunk, snapshots[-1], spec.license if spec else None),
                 matched_by=matched[chunk_id],
             ))
+
+        if vector_results_ignored and not hits:
+            warnings.append("向量近邻相似度过低，已忽略")
 
         times = [h.citation.fetched_at for h in hits]
         by_source = {}
