@@ -4,7 +4,7 @@ title: 检查点 M1 集成：法令链路端到端，法令题达标
 project: DATUMOJ
 status: todo
 priority: 2
-depends_on: ["DATUMOJ-IVY-105", "DATUMOJ-IVY-201", "DATUMOJ-IVY-202", "DATUMOJ-IVY-501", "DATUMOJ-IVY-602", "DATUMOJ-IVY-702"]
+depends_on: ["DATUMOJ-IVY-105", "DATUMOJ-IVY-201", "DATUMOJ-IVY-202", "DATUMOJ-IVY-501", "DATUMOJ-IVY-602", "DATUMOJ-IVY-702", "DATUMOJ-IVY-204", "DATUMOJ-IVY-504", "DATUMOJ-IVY-605"]
 runner: claude
 model: null
 tier: high
