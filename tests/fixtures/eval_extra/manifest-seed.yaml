@@ -1,0 +1,8 @@
+snapshots:
+  - snapshot_id: eval-fetchfail-http-503
+    source_id: jp-eval-fetchfail
+    resource_url: https://example.invalid/eval/fetchfail/notice
+    fetched_at: "2026-10-20T12:00:00Z"
+    outcome: http_error
+    http_status: 503
+    error: HTTP 503 Service Unavailable

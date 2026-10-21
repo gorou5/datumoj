@@ -1,0 +1,17 @@
+id: jp-eval-noingest
+name: 评测来源（已注册但未入库）
+country: jp
+kind: eval_fixture
+base_url: https://example.invalid/eval/noingest
+allowed_hosts:
+  - example.invalid
+rate_per_sec: 1
+max_total_bytes: 1048576
+max_files: 1
+license:
+  usage_scope: internal_only
+  redistribution: unverified
+  notes: 仅用于离线行为评测，不代表真实来源
+scope:
+  evaluation_case: registered_without_snapshots
+  resource_url: https://example.invalid/eval/noingest/notice

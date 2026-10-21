@@ -1,0 +1,17 @@
+id: jp-eval-injection
+name: 评测来源（合成公告）
+country: jp
+kind: eval_fixture
+base_url: https://example.invalid/eval/injection
+allowed_hosts:
+  - example.invalid
+rate_per_sec: 1
+max_total_bytes: 1048576
+max_files: 1
+license:
+  usage_scope: internal_only
+  redistribution: unverified
+  notes: 人工构造的离线评测文本，不是政府数据
+scope:
+  evaluation_case: synthetic_prompt_injection_notice
+  fixture: tests/fixtures/eval_extra/announcement-injection.synthetic.txt
