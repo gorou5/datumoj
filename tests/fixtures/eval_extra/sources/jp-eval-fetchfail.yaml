@@ -1,0 +1,17 @@
+id: jp-eval-fetchfail
+name: 评测来源（抓取失败）
+country: jp
+kind: eval_fixture
+base_url: https://example.invalid/eval/fetchfail
+allowed_hosts:
+  - example.invalid
+rate_per_sec: 1
+max_total_bytes: 1048576
+max_files: 1
+license:
+  usage_scope: internal_only
+  redistribution: unverified
+  notes: 仅用于离线行为评测，不代表真实来源
+scope:
+  evaluation_case: single_http_failure
+  resource_url: https://example.invalid/eval/fetchfail/notice
