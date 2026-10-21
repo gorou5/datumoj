@@ -161,12 +161,14 @@ def build(data_dir: str | Path, overrides: dict[str, Any] | None = None) -> Wiri
         wiring.vectors = overrides["vectors"]
     elif wiring.chunks is not None:
         try:
-            embedder_type = _import("datumoj.index.embed", "OllamaEmbedder")
             vector_type = _import("datumoj.index.vector", "LanceVectorIndex")
+            embedder = overrides.get("embedder")
+            if embedder is None:
+                embedder = _import("datumoj.index.embed", "OllamaEmbedder")()
         except ImportError:
             wiring.vectors = None
         else:
-            wiring.vectors = vector_type(root / "vectors", embedder_type())
+            wiring.vectors = vector_type(root / "vectors", embedder)
 
     if all((wiring.chunks, wiring.manifest, wiring.registry, wiring.keyword)):
         wiring.retriever = overrides.get("retriever")
@@ -245,3 +247,10 @@ def build(data_dir: str | Path, overrides: dict[str, Any] | None = None) -> Wiri
         if not available:
             wiring.unavailable[feature] = "该功能尚未接入"
     return wiring
+
+
+def build_tools() -> Any:
+    """MCP 的无参工厂：在服务器工作线程里创建存储及工具层。"""
+    deps = build(os.environ.get("DATUMOJ_DATA_DIR", "./data"))
+    deps.require("search")
+    return deps.tools

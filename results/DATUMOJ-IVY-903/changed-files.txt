@@ -1,0 +1,14 @@
+results/DATUMOJ-IVY-903/acceptance.log
+results/DATUMOJ-IVY-903/changed-files.txt
+results/DATUMOJ-IVY-903/commands.json
+results/DATUMOJ-IVY-903/corpus.json
+results/DATUMOJ-IVY-903/evaluation.json
+results/DATUMOJ-IVY-903/evaluation.md
+results/DATUMOJ-IVY-903/gate.json
+results/DATUMOJ-IVY-903/mcp.json
+results/DATUMOJ-IVY-903/parse.json
+results/DATUMOJ-IVY-903/regression.log
+results/DATUMOJ-IVY-903/summary.md
+src/datumoj/cli.py
+src/datumoj/wiring.py
+tests/integration/test_full_eval.py

@@ -1,0 +1,4 @@
+$ make check T='tests/test_cli.py tests/test_mcp_server_threads.py'
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+..........                                                               [100%]
+10 passed in 1.14s
