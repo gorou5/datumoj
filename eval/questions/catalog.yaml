@@ -1,0 +1,120 @@
+questions:
+  - id: catalog-fukuoka-census-housing-2010
+    question: 福岡市の平成22年国勢調査で住居の状態をまとめたデータはありますか？
+    lang: ja
+    kind: retrieval
+    queries:
+      - 福岡市 平成22年 国勢調査 住居の状態
+    source_ids: [jp-egov-data]
+    expect:
+      hits:
+        - doc_key: jp-egov-data:275043f1-d8a4-418f-96df-1aba07f1eaa2
+    notes: "Fixture: tests/fixtures/ckan_egov/package_search_q-jinko_rows5_start0.json; package id 275043f1-d8a4-418f-96df-1aba07f1eaa2."
+
+  - id: catalog-shizuoka-tourism
+    question: 有没有静冈市观光交流客数的数据？
+    lang: zh
+    kind: retrieval
+    queries:
+      - 静岡市 観光交流客数
+    source_ids: [jp-egov-data]
+    expect:
+      hits:
+        - doc_key: jp-egov-data:2f7e85f5-60c2-4bf1-a4b2-7a2d633b819a
+    notes: "Fixture: tests/fixtures/ckan_egov/package_search_q-jinko_rows5_start0.json; package id 2f7e85f5-60c2-4bf1-a4b2-7a2d633b819a."
+
+  - id: catalog-fukuoka-deaths-by-living-area
+    question: Is there a dataset on deaths by daily living area in Fukuoka City?
+    lang: en
+    kind: retrieval
+    queries:
+      - 福岡市 死亡者数 日常生活圏域別
+    source_ids: [jp-egov-data]
+    expect:
+      hits:
+        - doc_key: jp-egov-data:d5c6ca2a-97a0-484c-b685-9c3a49e47dbb
+    notes: "Fixture: tests/fixtures/ckan_egov/package_search_q-jinko_rows5_start0.json; package id d5c6ca2a-97a0-484c-b685-9c3a49e47dbb."
+
+  - id: catalog-fukuoka-commuting-population
+    question: 福岡市の平成22年国勢調査で従業地・通学地別の人口や産業を扱った資料はありますか？
+    lang: ja
+    kind: retrieval
+    queries:
+      - 福岡市 平成22年 国勢調査 従業地 通学地 人口 産業
+    source_ids: [jp-egov-data]
+    expect:
+      hits:
+        - doc_key: jp-egov-data:af6f1c32-1a05-418a-b8b7-68d62ed272d4
+    notes: "Fixture: tests/fixtures/ckan_egov/package_search_q-jinko_rows5_start0.json; package id af6f1c32-1a05-418a-b8b7-68d62ed272d4."
+
+  - id: catalog-shizuoka-population-households
+    question: 有没有静冈市人口和家庭户数的数据？
+    lang: zh
+    kind: retrieval
+    queries:
+      - 静岡市の人口 世帯
+    source_ids: [jp-egov-data]
+    expect:
+      hits:
+        - doc_key: jp-egov-data:fe24a2c3-cabb-4247-8759-26a3a902d817
+    notes: "Fixture: tests/fixtures/ckan_egov/package_search_q-jinko_rows5_start5.json; package id fe24a2c3-cabb-4247-8759-26a3a902d817."
+
+  - id: catalog-fukuoka-inmigrants
+    question: Is there data on the number of people moving into Fukuoka City by daily living area?
+    lang: en
+    kind: retrieval
+    queries:
+      - 福岡市 転入者数 日常生活圏域別
+    source_ids: [jp-egov-data]
+    expect:
+      hits:
+        - doc_key: jp-egov-data:097cf0b2-044a-420d-86bd-f98ac23c607f
+    notes: "Fixture: tests/fixtures/ckan_egov/package_search_q-jinko_rows5_start5.json; package id 097cf0b2-044a-420d-86bd-f98ac23c607f."
+
+  - id: catalog-fukuoka-census-2015
+    question: 福岡市の平成27年国勢調査の人口等基本集計データはありますか？
+    lang: ja
+    kind: retrieval
+    queries:
+      - 福岡市 平成27年 国勢調査 人口等基本集計
+    source_ids: [jp-egov-data]
+    expect:
+      hits:
+        - doc_key: jp-egov-data:8948b0a9-e597-4bfe-9413-9fc841c64e5e
+    notes: "Fixture: tests/fixtures/ckan_egov/package_search_q-jinko_rows5_start5.json; package id 8948b0a9-e597-4bfe-9413-9fc841c64e5e."
+
+  - id: catalog-fukuoka-elderly-households
+    question: 福岡市の平成22年国勢調査で高齢世帯員の有無別に世帯を分類したデータはありますか？
+    lang: ja
+    kind: retrieval
+    queries:
+      - 福岡市 平成22年 国勢調査 高齢世帯員 世帯類型
+    source_ids: [jp-egov-data]
+    expect:
+      hits:
+        - doc_key: jp-egov-data:11e4f530-5e67-4e7d-ba09-e8ef913c2285
+    notes: "Fixture: tests/fixtures/ckan_egov/package_search_q-jinko_rows5_start5.json; package id 11e4f530-5e67-4e7d-ba09-e8ef913c2285."
+
+  - id: catalog-major-city-statistics
+    question: 有没有关于大城市主要统计数据的资料？
+    lang: zh
+    kind: retrieval
+    queries:
+      - 大都市別 主要統計表
+    source_ids: [jp-egov-data]
+    expect:
+      hits:
+        - doc_key: jp-egov-data:8eb7d1ce-7d8b-48c7-a072-dd0d6800dd42
+    notes: "Fixture: tests/fixtures/ckan_egov/package_search_q-jinko_rows5_start5.json; package id 8eb7d1ce-7d8b-48c7-a072-dd0d6800dd42."
+
+  - id: catalog-fukuoka-census-overview-2010
+    question: 福岡市の平成22年国勢調査の人口等基本集計の概要資料はありますか？
+    lang: ja
+    kind: retrieval
+    queries:
+      - 福岡市 平成22年 国勢調査 人口等基本集計 概要
+    source_ids: [jp-egov-data]
+    expect:
+      hits:
+        - doc_key: jp-egov-data:fc325ba2-0966-4a73-ac8b-9b635805a922
+    notes: "Fixture: tests/fixtures/ckan_egov/package_search_q-jinko_rows5_start0.json; package id fc325ba2-0966-4a73-ac8b-9b635805a922."
