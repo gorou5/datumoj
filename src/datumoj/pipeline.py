@@ -50,12 +50,16 @@ class PipelineDeps:
 @dataclass
 class ParseSummary:
     parsed: list[str] = field(default_factory=list)
-    """成功解析的 snapshot_id。"""
+    """本次成功解析的 snapshot_id（包含重试成功）。"""
+    newly_parsed: list[str] = field(default_factory=list)
+    """本次首次解析成功的 snapshot_id。"""
+    retried: list[str] = field(default_factory=list)
+    """本次重试后成功的 snapshot_id。"""
     skipped: int = 0
-    """已处理过（同一 sha256、同一解析器版本）而跳过的快照数。"""
+    """本次遇到已有解析记录的快照数；失败记录会计入并重新尝试。"""
     no_parser: list[str] = field(default_factory=list)
     failed: dict[str, str] = field(default_factory=dict)
-    """snapshot_id → 失败原因。"""
+    """本次解析后仍失败的 snapshot_id → 错误原因。"""
 
 
 def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSummary:
@@ -81,9 +85,12 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
                 else:
                     summary.skipped += 1
                 continue
-            if deps.manifest.get_parse(snap.sha256, cls.name, cls.version) is not None:
+            previous = deps.manifest.get_parse(snap.sha256, cls.name, cls.version)
+            if previous is not None:
                 summary.skipped += 1
-                continue
+                if previous.status is not ParseStatus.failed:
+                    continue
+            is_retry = previous is not None and previous.status is ParseStatus.failed
             try:
                 _process(deps, cls(), snap)
             except Exception as exc:  # 一个坏快照不影响其他
@@ -97,6 +104,7 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
                     ParseRecord(sha256=snap.sha256, parser=cls.name, version=cls.version, status=ParseStatus.ok)
                 )
                 summary.parsed.append(snap.snapshot_id)
+                (summary.retried if is_retry else summary.newly_parsed).append(snap.snapshot_id)
     return summary
 
 
