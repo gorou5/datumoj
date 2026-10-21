@@ -1,12 +1,12 @@
 """调度核心：离线时钟、开关、追加记录和跨进程 flock。"""
 
-import fcntl
 import json
 import multiprocessing
 import os
 import plistlib
 import subprocess
 from datetime import timedelta
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -182,13 +182,15 @@ def test_checks_switches_between_serial_sources(tmp_path):
 
 
 def hold_lock(path, ready, release):
-    with open(path, "w") as stream:
-        fcntl.flock(stream, fcntl.LOCK_EX)
+    from datumoj.core.schedule import _locked
+
+    with _locked(Path(path)) as stream:
+        stream.seek(0)
+        stream.truncate()
         json.dump({"pid": os.getpid()}, stream)
         stream.flush()
         ready.set()
         release.wait(10)
-        # Simulate a crash: no explicit unlock or file cleanup.
         os._exit(0)
 
 
@@ -198,7 +200,7 @@ def test_live_lock_blocks_tick_and_manual_and_crash_releases_stale_lock(tmp_path
     path = tmp_path / "locks" / "jp-test0.lock"
     path.parent.mkdir()
     # 用 fork：spawn 的子进程要按模块名重新导入本测试文件，是否可导入取决于运行环境（pytest 的导入方式和 PYTHONPATH）。
-    ctx = multiprocessing.get_context("fork")
+    ctx = multiprocessing.get_context("spawn" if os.name == "nt" else "fork")
     ready, release = ctx.Event(), ctx.Event()
     process = ctx.Process(target=hold_lock, args=(str(path), ready, release))
     process.start()
@@ -292,3 +294,59 @@ def test_uv_resolution_matches_makefile(tmp_path, monkeypatch):
     assert plistlib.loads(launchd_plist(tmp_path, tmp_path))["ProgramArguments"][0] == "/path/bin/uv"
     monkeypatch.setattr(module.shutil, "which", lambda _: None)
     assert plistlib.loads(launchd_plist(tmp_path, tmp_path))["ProgramArguments"][0] == "/opt/homebrew/bin/uv"
+
+
+def test_schedule_imports_without_fcntl(tmp_path, monkeypatch):
+    if os.name == "nt":
+        import datumoj.core.schedule as module
+
+        assert module.fcntl is None
+        assert module.msvcrt is not None
+        with module._locked(tmp_path / "lock") as stream:
+            assert stream is not None
+        return
+
+    import errno
+    import importlib.util
+    import sys
+    import types
+    from pathlib import Path
+
+    locks = set()
+    fake = types.ModuleType("msvcrt")
+    fake.LK_NBLCK = 1
+    fake.LK_UNLCK = 2
+
+    def locking(fd, mode, nbytes):
+        stat = os.fstat(fd)
+        offset = os.lseek(fd, 0, os.SEEK_CUR)
+        key = (stat.st_dev, stat.st_ino, offset, nbytes)
+        if mode == fake.LK_NBLCK:
+            if key in locks:
+                raise OSError(errno.EACCES, "lock is held")
+            locks.add(key)
+        elif mode == fake.LK_UNLCK:
+            locks.remove(key)
+        else:
+            raise AssertionError("unexpected lock mode")
+
+    fake.locking = locking
+    monkeypatch.setitem(sys.modules, "fcntl", None)
+    monkeypatch.setitem(sys.modules, "msvcrt", fake)
+    name = "_datumoj_schedule_no_fcntl_test"
+    source = Path(__file__).resolve().parents[2] / "src" / "datumoj" / "core" / "schedule.py"
+    spec = importlib.util.spec_from_file_location(name, source)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, name, module)
+    spec.loader.exec_module(module)
+
+    assert module.fcntl is None
+    with module._locked(tmp_path / "lock") as stream:
+        assert stream is not None
+        stream.seek(0)
+        stream.write("{}")
+        stream.flush()
+        with module._locked(tmp_path / "lock", blocking=False) as busy:
+            assert busy is None
+    assert not locks

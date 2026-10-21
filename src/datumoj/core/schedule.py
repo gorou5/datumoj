@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import fcntl
 import json
 import os
 import plistlib
@@ -16,6 +15,16 @@ from pathlib import Path
 from typing import Any
 
 from datumoj.core.contracts import SourceSpec
+
+try:
+    import fcntl
+except ImportError:
+    import errno
+    import msvcrt
+    import time
+    fcntl = None
+
+_WINDOWS_LOCK_OFFSET = 1 << 20
 
 
 def utcnow() -> datetime:
@@ -63,15 +72,36 @@ def _atomic_write(path: Path, content: bytes) -> None:
 def _locked(path: Path, *, blocking: bool = True) -> Iterator[Any]:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a+", encoding="utf-8") as stream:
-        try:
-            fcntl.flock(stream, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
-        except BlockingIOError:
-            yield None
+        if fcntl is not None:
+            try:
+                fcntl.flock(stream, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
+            except BlockingIOError:
+                yield None
+                return
+            try:
+                yield stream
+            finally:
+                fcntl.flock(stream, fcntl.LOCK_UN)
             return
+
+        while True:
+            stream.seek(_WINDOWS_LOCK_OFFSET)
+            try:
+                msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+            except OSError as exc:
+                if exc.errno != errno.EACCES:
+                    raise
+                if not blocking:
+                    yield None
+                    return
+                time.sleep(0.05)
+            else:
+                break
         try:
             yield stream
         finally:
-            fcntl.flock(stream, fcntl.LOCK_UN)
+            stream.seek(_WINDOWS_LOCK_OFFSET)
+            msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 def write_control(data_dir: str | Path, control: dict[str, Any]) -> None:
@@ -176,8 +206,8 @@ class Scheduler:
         with _locked(self._lock_path(source_id), blocking=False) as lock:
             if lock is None:
                 return skip("正在运行")
-            # Never unlink lock files: waiters must share the same inode. A crashed process's
-            # flock is released by the kernel, so stale PID metadata can simply be overwritten.
+            # 不要删除锁文件，否则等待者可能锁住不同文件。
+            # 进程退出时内核会释放锁，旧 PID 元数据可直接覆盖。
             control = read_control(self.data_dir)
             if not control["enabled"]:
                 return skip("总开关关闭")
