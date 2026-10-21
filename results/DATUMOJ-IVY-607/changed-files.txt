@@ -1,0 +1,7 @@
+src/datumoj/pipeline.py
+src/datumoj/wiring.py
+src/datumoj/cli.py
+tests/test_pipeline_vectors.py
+results/DATUMOJ-IVY-607/acceptance.log
+results/DATUMOJ-IVY-607/changed-files.txt
+results/DATUMOJ-IVY-607/summary.md

@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from datumoj.core.models import Citation
 from datumoj import wiring
+from datumoj.pipeline import vector_status
 
 app = typer.Typer(no_args_is_help=True, help="抓取、解析、索引并查询本地政府公开数据。")
 
@@ -83,6 +84,17 @@ def _human_search(deps: Any, result: dict[str, Any]) -> None:
         typer.echo(f"提示：{warning}")
 
 
+def _echo_vector_status(deps: Any) -> None:
+    if deps.vectors is None or deps.pipeline_deps is None:
+        typer.echo("向量索引：关闭")
+        return
+    state = vector_status(deps.pipeline_deps)
+    if state["state"] == "missing":
+        typer.echo(f"向量索引：暂缺 {state['missing_blocks']} 个块；最近错误：{state['error']}")
+    else:
+        typer.echo(f"向量索引：可用（{state['blocks']} 个块）")
+
+
 @app.command()
 def crawl(
     source: str = typer.Argument(..., help="来源 ID"),
@@ -126,6 +138,8 @@ def parse(source: str | None = typer.Argument(None, help="可选来源 ID")) -> 
     def action(deps: Any) -> None:
         summary = deps.parse_pending(deps.pipeline_deps, source)
         typer.echo(f"解析完成：成功 {len(summary.parsed)}，跳过 {summary.skipped}，无解析器 {len(summary.no_parser)}")
+        if summary.vectors_missing:
+            typer.echo(f"向量暂缺：{_json(summary.vectors_missing)}", err=True)
         if summary.failed:
             typer.echo(f"解析失败：{_json(summary.failed)}", err=True)
             raise typer.Exit(1)
@@ -133,15 +147,25 @@ def parse(source: str | None = typer.Argument(None, help="可选来源 ID")) -> 
 
 
 @app.command()
-def index(rebuild: bool = typer.Option(False, "--rebuild", help="从当前文档块重建索引")) -> None:
-    """解析新快照并更新索引；可选择全量重建。"""
+def index(
+    rebuild: bool = typer.Option(False, "--rebuild", help="从当前文档块重建索引"),
+    vectors_only: bool = typer.Option(False, "--vectors-only", help="只重试暂缺文档的向量嵌入"),
+) -> None:
+    """解析新快照并更新索引；可选择全量重建或只补做向量。"""
     def action(deps: Any) -> None:
+        if vectors_only:
+            count = deps.reindex(deps.pipeline_deps, vectors_only=True)
+            typer.echo(f"向量补做完成：更新 {count} 个块")
+            _echo_vector_status(deps)
+            return
         summary = deps.parse_pending(deps.pipeline_deps)
         if rebuild:
             count = deps.reindex(deps.pipeline_deps)
             typer.echo(f"索引重建完成：{count} 个块")
         else:
             typer.echo(f"索引更新完成：处理 {len(summary.parsed)} 个新快照")
+        if summary.vectors_missing:
+            typer.echo(f"向量暂缺：{_json(summary.vectors_missing)}", err=True)
         if summary.failed:
             typer.echo(f"解析失败：{_json(summary.failed)}", err=True)
             raise typer.Exit(1)
@@ -198,11 +222,12 @@ def status() -> None:
         sources = result.get("data", {}).get("sources", [])
         if not sources:
             typer.echo("当前没有登记来源。")
-            return
-        for item in sources:
-            fresh = item.get("freshness", {})
-            as_of = fresh.get("as_of") or "无成功抓取"
-            typer.echo(f"{item['source_id']}：{item['status']}；快照 {item['snapshots']}；截止 {as_of}")
+        else:
+            for item in sources:
+                fresh = item.get("freshness", {})
+                as_of = fresh.get("as_of") or "无成功抓取"
+                typer.echo(f"{item['source_id']}：{item['status']}；快照 {item['snapshots']}；截止 {as_of}")
         for warning in result.get("warnings", []):
             typer.echo(f"提示：{warning}")
+        _echo_vector_status(deps)
     _run("status", action)
