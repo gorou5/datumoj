@@ -125,9 +125,9 @@ def run_crawl(
 ) -> CrawlReport:
     """依次执行计划；追加任务优先，同一次运行按去 Key 的 URL 去重。
 
-    limit 只传给插件；max_files 对所有抓取（含失败和 304）计数。累计字节按收到的正文计，
-    超限响应记 too_large，不写 raw，完成本次 after_fetch 后停止。空正文 / SPA 原文仍存 raw
-    以便诊断。存储错误直接抛出，不能把未成功落库的运行报告为成功。
+    limit 只传给插件；max_files 对所有抓取（含失败和 304）计数。采集器未拒收的正文计入累计字节；
+    抓取器报告超过总上限时，或累计字节超过总上限时，记 too_large、不写 raw，完成本次 after_fetch 后停止。
+    空正文 / SPA 原文仍存 raw 以便诊断。存储错误直接抛出，不能把未成功落库的运行报告为成功。
     """
     started = deps.clock()
     report = CrawlReport(source_id=spec.id)
@@ -194,16 +194,22 @@ def run_crawl(
                     url=url, outcome=FetchOutcome.network_error, fetched_at=deps.now(), error=str(exc),
                 )
             fetched += 1
-            total_bytes += len(result.content) if result.content is not None else 0
-            override = crawler.classify(task, result)
-            if override is not None:
-                result = _with_outcome(result, override)
-            elif result.outcome is FetchOutcome.ok:
-                result = _with_outcome(result, _default_outcome(result.content))
+            fetcher_too_large = result.outcome is FetchOutcome.too_large
+            if not fetcher_too_large:
+                override = crawler.classify(task, result)
+                if override is not None:
+                    result = _with_outcome(result, override)
+                elif result.outcome is FetchOutcome.ok:
+                    result = _with_outcome(result, _default_outcome(result.content))
 
-            if total_bytes > spec.max_total_bytes:
+            # 采集器可以在单文件限制下拒收正文；这类内容不会写 raw，也不占来源累计容量。
+            crawler_too_large = result.outcome is FetchOutcome.too_large and not fetcher_too_large
+            if not crawler_too_large:
+                total_bytes += len(result.content) if result.content is not None else 0
+            total_too_large = total_bytes > spec.max_total_bytes
+            if total_too_large:
                 result = _with_outcome(result, FetchOutcome.too_large, "累计正文超过 max_total_bytes 上限")
-            if total_bytes >= spec.max_total_bytes or result.outcome is FetchOutcome.too_large:
+            if fetcher_too_large or total_bytes >= spec.max_total_bytes:
                 report.stop_reason = f"因上限停止：max_total_bytes={spec.max_total_bytes}"
             elif fetched >= spec.max_files:
                 report.stop_reason = f"因上限停止：max_files={spec.max_files}"
