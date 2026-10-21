@@ -197,7 +197,8 @@ def test_live_lock_blocks_tick_and_manual_and_crash_releases_stale_lock(tmp_path
     enable(scheduler)
     path = tmp_path / "locks" / "jp-test0.lock"
     path.parent.mkdir()
-    ctx = multiprocessing.get_context("spawn")
+    # 用 fork：spawn 的子进程要按模块名重新导入本测试文件，是否可导入取决于运行环境（pytest 的导入方式和 PYTHONPATH）。
+    ctx = multiprocessing.get_context("fork")
     ready, release = ctx.Event(), ctx.Event()
     process = ctx.Process(target=hold_lock, args=(str(path), ready, release))
     process.start()
