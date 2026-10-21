@@ -1,0 +1,33 @@
+id: jp-stat-dashboard
+name: 統計ダッシュボード（精選指標）
+country: jp
+kind: stat_dashboard
+base_url: https://dashboard.e-stat.go.jp/api/1.0/
+allowed_hosts:
+  - dashboard.e-stat.go.jp
+rate_per_sec: 0.5
+max_total_bytes: 1073741824
+max_files: 100
+schedule: monthly
+license:
+  name: 政府標準利用規約（第2.0版）
+  url: https://www.e-stat.go.jp/terms-of-use
+  attribution: 出典：総務省統計局「統計ダッシュボード」
+  usage_scope: internal_only
+  redistribution: unverified
+  verified_at: null
+  notes: 利用条件尚未逐项核对；核对前仅内部使用
+scope:
+  # 代码均来自 tests/fixtures/stat_dashboard/ 的录制目录响应。
+  indicators:
+    - "0201010000000010000" # 総人口（総数）
+    - "0202000000000010000" # 世帯数（総数）
+    - "0203010000000010000" # 出生数
+    - "0203020000000010000" # 死亡数
+    - "0204010000000010020" # 転入者数
+    - "0204020000000010020" # 転出者数
+    - "0203060000000010010" # 自然増減数
+    - "0204050000000010020" # 社会増減数（総人口）
+    - "0301100000010010000" # 就業者数（国勢調査）
+    - "0705100401010010000" # 県内総生産（名目）2015年基準
+retention_note: 指标目录每次全量抓取；观测值数据请求按指标和地区批次增量抓取。
