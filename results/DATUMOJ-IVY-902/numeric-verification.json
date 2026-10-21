@@ -1,0 +1,245 @@
+{
+  "numeric_precision": 1.0,
+  "questions": [
+    {
+      "id": "stat-dashboard-tokyo-population-2023",
+      "sql": "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0201010000000010000' AND indicator_code = '0201010000000010000' AND area_code = '13000' AND time_start = '2023-01-01'",
+      "value": "14086000",
+      "citation": {
+        "source_id": "jp-stat-dashboard",
+        "resource_url": "https://dashboard.e-stat.go.jp/api/1.0/Json/getData?Lang=JP&IndicatorCode=0201010000000010000%2C0202000000000010000%2C0203010000000010000%2C0203020000000010000%2C0204010000000010020&RegionCode=00000%2C01000%2C02000%2C03000%2C04000%2C05000%2C06000%2C07000%2C08000%2C09000%2C10000%2C11000%2C12000%2C13000%2C14000%2C15000%2C16000%2C17000%2C18000%2C19000%2C20000%2C21000%2C22000%2C23000%2C24000%2C25000%2C26000%2C27000%2C28000%2C29000%2C30000%2C31000%2C32000%2C33000%2C34000%2C35000%2C36000%2C37000%2C38000%2C39000%2C40000%2C41000%2C42000%2C43000%2C44000%2C45000%2C46000%2C47000&IsSeasonalAdjustment=1&MetaGetFlg=Y&SectionHeaderFlg=1",
+        "snapshot_sha256": "4cb0cc888be05be81fd7bca2966e79005ffa08e88db89bc85b28637bb6c77144",
+        "fetched_at": "2026-10-21T09:00:00+09:00",
+        "locator": "row=110",
+        "published_at": null,
+        "effective_at": null,
+        "period": {
+          "start": "2023-01-01",
+          "end": "2023-12-31",
+          "label": "2023年"
+        },
+        "license": "政府標準利用規約（第2.0版）",
+        "attribution": "出典：総務省統計局「統計ダッシュボード」",
+        "usage_scope": "internal_only",
+        "time_basis": "period"
+      },
+      "original_cell_matches": true
+    },
+    {
+      "id": "stat-dashboard-national-population-2023",
+      "sql": "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0201010000000010000' AND indicator_code = '0201010000000010000' AND area_code = '00000' AND time_start = '2023-01-01'",
+      "value": "124352000",
+      "citation": {
+        "source_id": "jp-stat-dashboard",
+        "resource_url": "https://dashboard.e-stat.go.jp/api/1.0/Json/getData?Lang=JP&IndicatorCode=0201010000000010000%2C0202000000000010000%2C0203010000000010000%2C0203020000000010000%2C0204010000000010020&RegionCode=00000%2C01000%2C02000%2C03000%2C04000%2C05000%2C06000%2C07000%2C08000%2C09000%2C10000%2C11000%2C12000%2C13000%2C14000%2C15000%2C16000%2C17000%2C18000%2C19000%2C20000%2C21000%2C22000%2C23000%2C24000%2C25000%2C26000%2C27000%2C28000%2C29000%2C30000%2C31000%2C32000%2C33000%2C34000%2C35000%2C36000%2C37000%2C38000%2C39000%2C40000%2C41000%2C42000%2C43000%2C44000%2C45000%2C46000%2C47000&IsSeasonalAdjustment=1&MetaGetFlg=Y&SectionHeaderFlg=1",
+        "snapshot_sha256": "4cb0cc888be05be81fd7bca2966e79005ffa08e88db89bc85b28637bb6c77144",
+        "fetched_at": "2026-10-21T09:00:00+09:00",
+        "locator": "row=97",
+        "published_at": null,
+        "effective_at": null,
+        "period": {
+          "start": "2023-01-01",
+          "end": "2023-12-31",
+          "label": "2023年"
+        },
+        "license": "政府標準利用規約（第2.0版）",
+        "attribution": "出典：総務省統計局「統計ダッシュボード」",
+        "usage_scope": "internal_only",
+        "time_basis": "period"
+      },
+      "original_cell_matches": true
+    },
+    {
+      "id": "stat-dashboard-okinawa-births-2022",
+      "sql": "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0203010000000010000' AND indicator_code = '0203010000000010000' AND area_code = '47000' AND time_start = '2022-01-01'",
+      "value": "13594",
+      "citation": {
+        "source_id": "jp-stat-dashboard",
+        "resource_url": "https://dashboard.e-stat.go.jp/api/1.0/Json/getData?Lang=JP&IndicatorCode=0201010000000010000%2C0202000000000010000%2C0203010000000010000%2C0203020000000010000%2C0204010000000010020&RegionCode=00000%2C01000%2C02000%2C03000%2C04000%2C05000%2C06000%2C07000%2C08000%2C09000%2C10000%2C11000%2C12000%2C13000%2C14000%2C15000%2C16000%2C17000%2C18000%2C19000%2C20000%2C21000%2C22000%2C23000%2C24000%2C25000%2C26000%2C27000%2C28000%2C29000%2C30000%2C31000%2C32000%2C33000%2C34000%2C35000%2C36000%2C37000%2C38000%2C39000%2C40000%2C41000%2C42000%2C43000%2C44000%2C45000%2C46000%2C47000&IsSeasonalAdjustment=1&MetaGetFlg=Y&SectionHeaderFlg=1",
+        "snapshot_sha256": "4cb0cc888be05be81fd7bca2966e79005ffa08e88db89bc85b28637bb6c77144",
+        "fetched_at": "2026-10-21T09:00:00+09:00",
+        "locator": "row=240",
+        "published_at": null,
+        "effective_at": null,
+        "period": {
+          "start": "2022-01-01",
+          "end": "2022-12-31",
+          "label": "2022年"
+        },
+        "license": "政府標準利用規約（第2.0版）",
+        "attribution": "出典：総務省統計局「統計ダッシュボード」",
+        "usage_scope": "internal_only",
+        "time_basis": "period"
+      },
+      "original_cell_matches": true
+    },
+    {
+      "id": "stat-dashboard-hokkaido-deaths-2021",
+      "sql": "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0203020000000010000' AND indicator_code = '0203020000000010000' AND area_code = '01000' AND time_start = '2021-01-01'",
+      "value": "69023",
+      "citation": {
+        "source_id": "jp-stat-dashboard",
+        "resource_url": "https://dashboard.e-stat.go.jp/api/1.0/Json/getData?Lang=JP&IndicatorCode=0201010000000010000%2C0202000000000010000%2C0203010000000010000%2C0203020000000010000%2C0204010000000010020&RegionCode=00000%2C01000%2C02000%2C03000%2C04000%2C05000%2C06000%2C07000%2C08000%2C09000%2C10000%2C11000%2C12000%2C13000%2C14000%2C15000%2C16000%2C17000%2C18000%2C19000%2C20000%2C21000%2C22000%2C23000%2C24000%2C25000%2C26000%2C27000%2C28000%2C29000%2C30000%2C31000%2C32000%2C33000%2C34000%2C35000%2C36000%2C37000%2C38000%2C39000%2C40000%2C41000%2C42000%2C43000%2C44000%2C45000%2C46000%2C47000&IsSeasonalAdjustment=1&MetaGetFlg=Y&SectionHeaderFlg=1",
+        "snapshot_sha256": "4cb0cc888be05be81fd7bca2966e79005ffa08e88db89bc85b28637bb6c77144",
+        "fetched_at": "2026-10-21T09:00:00+09:00",
+        "locator": "row=290",
+        "published_at": null,
+        "effective_at": null,
+        "period": {
+          "start": "2021-01-01",
+          "end": "2021-12-31",
+          "label": "2021年"
+        },
+        "license": "政府標準利用規約（第2.0版）",
+        "attribution": "出典：総務省統計局「統計ダッシュボード」",
+        "usage_scope": "internal_only",
+        "time_basis": "period"
+      },
+      "original_cell_matches": true
+    },
+    {
+      "id": "stat-dashboard-osaka-inmigrants-2023",
+      "sql": "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0204010000000010020' AND indicator_code = '0204010000000010020' AND area_code = '27000' AND time_start = '2023-01-01'",
+      "value": "177874",
+      "citation": {
+        "source_id": "jp-stat-dashboard",
+        "resource_url": "https://dashboard.e-stat.go.jp/api/1.0/Json/getData?Lang=JP&IndicatorCode=0201010000000010000%2C0202000000000010000%2C0203010000000010000%2C0203020000000010000%2C0204010000000010020&RegionCode=00000%2C01000%2C02000%2C03000%2C04000%2C05000%2C06000%2C07000%2C08000%2C09000%2C10000%2C11000%2C12000%2C13000%2C14000%2C15000%2C16000%2C17000%2C18000%2C19000%2C20000%2C21000%2C22000%2C23000%2C24000%2C25000%2C26000%2C27000%2C28000%2C29000%2C30000%2C31000%2C32000%2C33000%2C34000%2C35000%2C36000%2C37000%2C38000%2C39000%2C40000%2C41000%2C42000%2C43000%2C44000%2C45000%2C46000%2C47000&IsSeasonalAdjustment=1&MetaGetFlg=Y&SectionHeaderFlg=1",
+        "snapshot_sha256": "4cb0cc888be05be81fd7bca2966e79005ffa08e88db89bc85b28637bb6c77144",
+        "fetched_at": "2026-10-21T09:00:00+09:00",
+        "locator": "row=556",
+        "published_at": null,
+        "effective_at": null,
+        "period": {
+          "start": "2023-01-01",
+          "end": "2023-12-31",
+          "label": "2023年"
+        },
+        "license": "政府標準利用規約（第2.0版）",
+        "attribution": "出典：総務省統計局「統計ダッシュボード」",
+        "usage_scope": "internal_only",
+        "time_basis": "period"
+      },
+      "original_cell_matches": true
+    },
+    {
+      "id": "stat-dashboard-tokyo-outmigrants-2023",
+      "sql": "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0204020000000010020' AND indicator_code = '0204020000000010020' AND area_code = '13000' AND time_start = '2023-01-01'",
+      "value": "385848",
+      "citation": {
+        "source_id": "jp-stat-dashboard",
+        "resource_url": "https://dashboard.e-stat.go.jp/api/1.0/Json/getData?Lang=JP&IndicatorCode=0204020000000010020%2C0203060000000010010%2C0204050000000010020%2C0301100000010010000%2C0705100401010010000&RegionCode=00000%2C01000%2C02000%2C03000%2C04000%2C05000%2C06000%2C07000%2C08000%2C09000%2C10000%2C11000%2C12000%2C13000%2C14000%2C15000%2C16000%2C17000%2C18000%2C19000%2C20000%2C21000%2C22000%2C23000%2C24000%2C25000%2C26000%2C27000%2C28000%2C29000%2C30000%2C31000%2C32000%2C33000%2C34000%2C35000%2C36000%2C37000%2C38000%2C39000%2C40000%2C41000%2C42000%2C43000%2C44000%2C45000%2C46000%2C47000&IsSeasonalAdjustment=1&MetaGetFlg=Y&SectionHeaderFlg=1",
+        "snapshot_sha256": "8e2dd0fe89fcc8f9fc9ed66d24e2de6874218ce87f23e667d8283f01db1d4d4a",
+        "fetched_at": "2026-10-21T09:00:00+09:00",
+        "locator": "row=110",
+        "published_at": null,
+        "effective_at": null,
+        "period": {
+          "start": "2023-01-01",
+          "end": "2023-12-31",
+          "label": "2023年"
+        },
+        "license": "政府標準利用規約（第2.0版）",
+        "attribution": "出典：総務省統計局「統計ダッシュボード」",
+        "usage_scope": "internal_only",
+        "time_basis": "period"
+      },
+      "original_cell_matches": true
+    },
+    {
+      "id": "stat-dashboard-tokyo-households-2020",
+      "sql": "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0202000000000010000' AND indicator_code = '0202000000000010000' AND area_code = '13000' AND time_start = '2020-01-01'",
+      "value": "7227180",
+      "citation": {
+        "source_id": "jp-stat-dashboard",
+        "resource_url": "https://dashboard.e-stat.go.jp/api/1.0/Json/getData?Lang=JP&IndicatorCode=0201010000000010000%2C0202000000000010000%2C0203010000000010000%2C0203020000000010000%2C0204010000000010020&RegionCode=00000%2C01000%2C02000%2C03000%2C04000%2C05000%2C06000%2C07000%2C08000%2C09000%2C10000%2C11000%2C12000%2C13000%2C14000%2C15000%2C16000%2C17000%2C18000%2C19000%2C20000%2C21000%2C22000%2C23000%2C24000%2C25000%2C26000%2C27000%2C28000%2C29000%2C30000%2C31000%2C32000%2C33000%2C34000%2C35000%2C36000%2C37000%2C38000%2C39000%2C40000%2C41000%2C42000%2C43000%2C44000%2C45000%2C46000%2C47000&IsSeasonalAdjustment=1&MetaGetFlg=Y&SectionHeaderFlg=1",
+        "snapshot_sha256": "4cb0cc888be05be81fd7bca2966e79005ffa08e88db89bc85b28637bb6c77144",
+        "fetched_at": "2026-10-21T09:00:00+09:00",
+        "locator": "row=590",
+        "published_at": null,
+        "effective_at": null,
+        "period": {
+          "start": "2020-01-01",
+          "end": "2020-12-31",
+          "label": "2020年"
+        },
+        "license": "政府標準利用規約（第2.0版）",
+        "attribution": "出典：総務省統計局「統計ダッシュボード」",
+        "usage_scope": "internal_only",
+        "time_basis": "period"
+      },
+      "original_cell_matches": true
+    },
+    {
+      "id": "stat-dashboard-national-employed-2020",
+      "sql": "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0301100000010010000' AND indicator_code = '0301100000010010000' AND area_code = '00000' AND time_start = '2020-01-01'",
+      "value": "57643225",
+      "citation": {
+        "source_id": "jp-stat-dashboard",
+        "resource_url": "https://dashboard.e-stat.go.jp/api/1.0/Json/getData?Lang=JP&IndicatorCode=0204020000000010020%2C0203060000000010010%2C0204050000000010020%2C0301100000010010000%2C0705100401010010000&RegionCode=00000%2C01000%2C02000%2C03000%2C04000%2C05000%2C06000%2C07000%2C08000%2C09000%2C10000%2C11000%2C12000%2C13000%2C14000%2C15000%2C16000%2C17000%2C18000%2C19000%2C20000%2C21000%2C22000%2C23000%2C24000%2C25000%2C26000%2C27000%2C28000%2C29000%2C30000%2C31000%2C32000%2C33000%2C34000%2C35000%2C36000%2C37000%2C38000%2C39000%2C40000%2C41000%2C42000%2C43000%2C44000%2C45000%2C46000%2C47000&IsSeasonalAdjustment=1&MetaGetFlg=Y&SectionHeaderFlg=1",
+        "snapshot_sha256": "8e2dd0fe89fcc8f9fc9ed66d24e2de6874218ce87f23e667d8283f01db1d4d4a",
+        "fetched_at": "2026-10-21T09:00:00+09:00",
+        "locator": "row=194",
+        "published_at": null,
+        "effective_at": null,
+        "period": {
+          "start": "2020-01-01",
+          "end": "2020-12-31",
+          "label": "2020年"
+        },
+        "license": "政府標準利用規約（第2.0版）",
+        "attribution": "出典：総務省統計局「統計ダッシュボード」",
+        "usage_scope": "internal_only",
+        "time_basis": "period"
+      },
+      "original_cell_matches": true
+    },
+    {
+      "id": "stat-dashboard-osaka-natural-change-2020",
+      "sql": "SELECT value FROM observations WHERE source_id = 'jp-stat-dashboard' AND table_key = '0203060000000010010' AND indicator_code = '0203060000000010010' AND area_code = '27000' AND time_start = '2020-01-01'",
+      "value": "-29766",
+      "citation": {
+        "source_id": "jp-stat-dashboard",
+        "resource_url": "https://dashboard.e-stat.go.jp/api/1.0/Json/getData?Lang=JP&IndicatorCode=0204020000000010020%2C0203060000000010010%2C0204050000000010020%2C0301100000010010000%2C0705100401010010000&RegionCode=00000%2C01000%2C02000%2C03000%2C04000%2C05000%2C06000%2C07000%2C08000%2C09000%2C10000%2C11000%2C12000%2C13000%2C14000%2C15000%2C16000%2C17000%2C18000%2C19000%2C20000%2C21000%2C22000%2C23000%2C24000%2C25000%2C26000%2C27000%2C28000%2C29000%2C30000%2C31000%2C32000%2C33000%2C34000%2C35000%2C36000%2C37000%2C38000%2C39000%2C40000%2C41000%2C42000%2C43000%2C44000%2C45000%2C46000%2C47000&IsSeasonalAdjustment=1&MetaGetFlg=Y&SectionHeaderFlg=1",
+        "snapshot_sha256": "8e2dd0fe89fcc8f9fc9ed66d24e2de6874218ce87f23e667d8283f01db1d4d4a",
+        "fetched_at": "2026-10-21T09:00:00+09:00",
+        "locator": "row=172",
+        "published_at": null,
+        "effective_at": null,
+        "period": {
+          "start": "2020-01-01",
+          "end": "2020-12-31",
+          "label": "2020年"
+        },
+        "license": "政府標準利用規約（第2.0版）",
+        "attribution": "出典：総務省統計局「統計ダッシュボード」",
+        "usage_scope": "internal_only",
+        "time_basis": "period"
+      },
+      "original_cell_matches": true
+    },
+    {
+      "id": "stat-estat-tokyo-ict-employees-2016",
+      "sql": "SELECT value FROM observations WHERE source_id = 'jp-estat-files' AND table_key = '000031720773' AND indicator_code = 'jsyu102A.0001' AND area_code = '13000' AND dims LIKE '%sanD1.0963%' AND json_extract_string(dims, '$.legal_org_code') = 'keiso4A.0000'",
+      "value": "849374",
+      "citation": {
+        "source_id": "jp-estat-files",
+        "resource_url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031720773&fileKind=1",
+        "snapshot_sha256": "edd9212febc53bc4fdde9838da6cc48d1f0aea4f399a9a2bff1e12cff9e33bb3",
+        "fetched_at": "2026-10-21T09:00:00+09:00",
+        "locator": "cell=I977;row=977",
+        "published_at": null,
+        "effective_at": null,
+        "period": {
+          "start": "2016-01-01",
+          "end": "2016-12-31",
+          "label": "平成28年"
+        },
+        "license": "政府標準利用規約（第2.0版）",
+        "attribution": "出典：政府統計の総合窓口（e-Stat）",
+        "usage_scope": "internal_only",
+        "time_basis": "period"
+      },
+      "original_cell_matches": true
+    }
+  ]
+}

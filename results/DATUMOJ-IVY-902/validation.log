@@ -1,0 +1,26 @@
+$ make check T=tests/integration/test_stats_e2e.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+........................                                                 [100%]
+24 passed in 6.42s
+exit_code=0
+
+$ PYTEST_ADDOPTS='-x --tb=short' make check T='tests/integration/test_stats_e2e.py tests/integration/test_law_e2e.py tests/test_cli.py tests/store/test_catalog.py'
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+..................................................                       [100%]
+50 passed in 8.66s
+exit_code=0
+
+$ DATUMOJ_EVIDENCE_DIR=/private/tmp/DATUMOJ-IVY-902-evidence make check T=tests/integration/test_stats_e2e.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+........................                                                 [100%]
+24 passed in 5.99s
+exit_code=0
+
+$ git diff --check
+exit_code=0
+
+Default acceptance filesystem verification (SHA-256 before/after):
+Baseline: 414 tracked/task evidence files hashed.
+After default acceptance: checked 414 tracked/task evidence files; changed=[]; added_evidence=[]
+exit_code=0
+

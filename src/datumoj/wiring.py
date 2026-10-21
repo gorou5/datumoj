@@ -3,10 +3,69 @@
 from __future__ import annotations
 
 import importlib
+import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
+
+from datumoj.core.contracts import ParseError, ParseResult, discover_parsers
+from datumoj.parsers.ckan_meta import CkanMetaParser
+from datumoj.store.catalog import SqliteCatalogStore
+
+
+class _CkanPages(CkanMetaParser):
+    """把采集器的分页逐项交给现有 package 解析器；资源文件不当作目录 JSON。"""
+
+    name = "ckan_pages"
+    version = "1"
+
+    def parse(self, snapshot, data, meta=None):
+        if meta and meta.get("role") in {"resource", "activity"}:
+            return ParseResult()
+        try:
+            payload = json.loads(data)
+        except (ValueError, UnicodeDecodeError) as exc:
+            raise ParseError("CKAN 元数据不是有效 JSON") from exc
+        page = payload.get("result") if isinstance(payload, dict) else None
+        if not isinstance(page, dict) or "results" not in page:
+            return super().parse(snapshot, data, meta)
+        if payload.get("success") is not True or not isinstance(page["results"], list):
+            raise ParseError("CKAN package_search 响应无效")
+        datasets, resources, warnings = [], [], []
+        for package in page["results"]:
+            parsed = super().parse(snapshot, json.dumps({"result": package}).encode(), meta)
+            datasets.extend(parsed.datasets)
+            resources.extend(parsed.resources)
+            warnings.extend(parsed.warnings)
+        return ParseResult(datasets=datasets, resources=resources, warnings=warnings)
+
+
+def _parse_pending(deps, source_id=None):
+    from datumoj.pipeline import parse_pending
+
+    if deps.parsers is None:
+        parsers = discover_parsers()
+        parsers[("ckan", "*")] = _CkanPages
+        deps = replace(deps, parsers=parsers)
+    return parse_pending(deps, source_id)
+
+
+class _CatalogQueries(SqliteCatalogStore):
+    """目录库接受单个词项；在入口把空格分隔的多词查询做 RRF 合并。"""
+
+    def search(self, query, filters=None, k=20):
+        terms = list(dict.fromkeys(query.split()))
+        if len(terms) <= 1:
+            return super().search(query, filters, k)
+        hits, scores = {}, {}
+        for term in terms:
+            for rank, hit in enumerate(super().search(term, filters, k), 1):
+                key = hit.dataset.dataset_key
+                hits[key] = hit
+                scores[key] = scores.get(key, 0.0) + 1 / (60 + rank)
+        keys = sorted(hits, key=lambda key: (-scores[key], key))[:k]
+        return [hits[key].model_copy(update={"score": scores[key]}) for key in keys]
 
 
 class FeatureNotConnected(RuntimeError):
@@ -78,7 +137,7 @@ def build(data_dir: str | Path, overrides: dict[str, Any] | None = None) -> Wiri
         overrides, "keyword", "datumoj.index.fts", "SqliteKeywordIndex", root / "keyword.sqlite"
     )
     wiring.catalog = _get(
-        overrides, "catalog", "datumoj.store.catalog", "SqliteCatalogStore", root / "catalog.sqlite"
+        overrides, "catalog", "datumoj.wiring", "_CatalogQueries", root / "catalog.sqlite"
     )
     wiring.observations = _get(
         overrides, "observations", "datumoj.store.observations", "DuckDBObservationStore", root
@@ -125,7 +184,7 @@ def build(data_dir: str | Path, overrides: dict[str, Any] | None = None) -> Wiri
             wiring.observations, wiring.catalog)):
         try:
             deps_type = _import("datumoj.pipeline", "PipelineDeps")
-            wiring.parse_pending = overrides.get("parse_pending") or _import("datumoj.pipeline", "parse_pending")
+            wiring.parse_pending = overrides.get("parse_pending") or _parse_pending
             wiring.reindex = overrides.get("reindex") or _import("datumoj.pipeline", "reindex")
         except ImportError:
             pass

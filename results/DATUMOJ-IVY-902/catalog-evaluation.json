@@ -1,0 +1,125 @@
+{
+  "recall_at_10": 1.0,
+  "threshold": 0.85,
+  "questions": [
+    {
+      "id": "catalog-fukuoka-census-housing-2010",
+      "recall_at_10": 1.0,
+      "hits": [
+        "jp-egov-data:275043f1-d8a4-418f-96df-1aba07f1eaa2",
+        "jp-egov-data:8eb7d1ce-7d8b-48c7-a072-dd0d6800dd42",
+        "jp-egov-data:af6f1c32-1a05-418a-b8b7-68d62ed272d4",
+        "jp-egov-data:11e4f530-5e67-4e7d-ba09-e8ef913c2285",
+        "jp-egov-data:8948b0a9-e597-4bfe-9413-9fc841c64e5e",
+        "jp-egov-data:fc325ba2-0966-4a73-ac8b-9b635805a922",
+        "jp-egov-data:097cf0b2-044a-420d-86bd-f98ac23c607f",
+        "jp-egov-data:d5c6ca2a-97a0-484c-b685-9c3a49e47dbb"
+      ]
+    },
+    {
+      "id": "catalog-shizuoka-tourism",
+      "recall_at_10": 1.0,
+      "hits": [
+        "jp-egov-data:2f7e85f5-60c2-4bf1-a4b2-7a2d633b819a",
+        "jp-egov-data:fe24a2c3-cabb-4247-8759-26a3a902d817"
+      ]
+    },
+    {
+      "id": "catalog-fukuoka-deaths-by-living-area",
+      "recall_at_10": 1.0,
+      "hits": [
+        "jp-egov-data:d5c6ca2a-97a0-484c-b685-9c3a49e47dbb",
+        "jp-egov-data:097cf0b2-044a-420d-86bd-f98ac23c607f",
+        "jp-egov-data:8948b0a9-e597-4bfe-9413-9fc841c64e5e",
+        "jp-egov-data:8eb7d1ce-7d8b-48c7-a072-dd0d6800dd42",
+        "jp-egov-data:af6f1c32-1a05-418a-b8b7-68d62ed272d4"
+      ]
+    },
+    {
+      "id": "catalog-fukuoka-commuting-population",
+      "recall_at_10": 1.0,
+      "hits": [
+        "jp-egov-data:af6f1c32-1a05-418a-b8b7-68d62ed272d4",
+        "jp-egov-data:11e4f530-5e67-4e7d-ba09-e8ef913c2285",
+        "jp-egov-data:275043f1-d8a4-418f-96df-1aba07f1eaa2",
+        "jp-egov-data:8948b0a9-e597-4bfe-9413-9fc841c64e5e",
+        "jp-egov-data:8eb7d1ce-7d8b-48c7-a072-dd0d6800dd42",
+        "jp-egov-data:fc325ba2-0966-4a73-ac8b-9b635805a922",
+        "jp-egov-data:097cf0b2-044a-420d-86bd-f98ac23c607f",
+        "jp-egov-data:fe24a2c3-cabb-4247-8759-26a3a902d817",
+        "jp-egov-data:d5c6ca2a-97a0-484c-b685-9c3a49e47dbb"
+      ]
+    },
+    {
+      "id": "catalog-shizuoka-population-households",
+      "recall_at_10": 1.0,
+      "hits": [
+        "jp-egov-data:fe24a2c3-cabb-4247-8759-26a3a902d817",
+        "jp-egov-data:11e4f530-5e67-4e7d-ba09-e8ef913c2285",
+        "jp-egov-data:275043f1-d8a4-418f-96df-1aba07f1eaa2",
+        "jp-egov-data:8948b0a9-e597-4bfe-9413-9fc841c64e5e",
+        "jp-egov-data:fc325ba2-0966-4a73-ac8b-9b635805a922"
+      ]
+    },
+    {
+      "id": "catalog-fukuoka-inmigrants",
+      "recall_at_10": 1.0,
+      "hits": [
+        "jp-egov-data:097cf0b2-044a-420d-86bd-f98ac23c607f",
+        "jp-egov-data:d5c6ca2a-97a0-484c-b685-9c3a49e47dbb",
+        "jp-egov-data:8948b0a9-e597-4bfe-9413-9fc841c64e5e",
+        "jp-egov-data:8eb7d1ce-7d8b-48c7-a072-dd0d6800dd42",
+        "jp-egov-data:af6f1c32-1a05-418a-b8b7-68d62ed272d4"
+      ]
+    },
+    {
+      "id": "catalog-fukuoka-census-2015",
+      "recall_at_10": 1.0,
+      "hits": [
+        "jp-egov-data:8948b0a9-e597-4bfe-9413-9fc841c64e5e",
+        "jp-egov-data:11e4f530-5e67-4e7d-ba09-e8ef913c2285",
+        "jp-egov-data:275043f1-d8a4-418f-96df-1aba07f1eaa2",
+        "jp-egov-data:8eb7d1ce-7d8b-48c7-a072-dd0d6800dd42",
+        "jp-egov-data:fc325ba2-0966-4a73-ac8b-9b635805a922",
+        "jp-egov-data:af6f1c32-1a05-418a-b8b7-68d62ed272d4",
+        "jp-egov-data:097cf0b2-044a-420d-86bd-f98ac23c607f",
+        "jp-egov-data:d5c6ca2a-97a0-484c-b685-9c3a49e47dbb"
+      ]
+    },
+    {
+      "id": "catalog-fukuoka-elderly-households",
+      "recall_at_10": 1.0,
+      "hits": [
+        "jp-egov-data:11e4f530-5e67-4e7d-ba09-e8ef913c2285",
+        "jp-egov-data:8eb7d1ce-7d8b-48c7-a072-dd0d6800dd42",
+        "jp-egov-data:af6f1c32-1a05-418a-b8b7-68d62ed272d4",
+        "jp-egov-data:275043f1-d8a4-418f-96df-1aba07f1eaa2",
+        "jp-egov-data:8948b0a9-e597-4bfe-9413-9fc841c64e5e",
+        "jp-egov-data:fc325ba2-0966-4a73-ac8b-9b635805a922",
+        "jp-egov-data:097cf0b2-044a-420d-86bd-f98ac23c607f",
+        "jp-egov-data:d5c6ca2a-97a0-484c-b685-9c3a49e47dbb"
+      ]
+    },
+    {
+      "id": "catalog-major-city-statistics",
+      "recall_at_10": 1.0,
+      "hits": [
+        "jp-egov-data:8eb7d1ce-7d8b-48c7-a072-dd0d6800dd42"
+      ]
+    },
+    {
+      "id": "catalog-fukuoka-census-overview-2010",
+      "recall_at_10": 1.0,
+      "hits": [
+        "jp-egov-data:af6f1c32-1a05-418a-b8b7-68d62ed272d4",
+        "jp-egov-data:11e4f530-5e67-4e7d-ba09-e8ef913c2285",
+        "jp-egov-data:275043f1-d8a4-418f-96df-1aba07f1eaa2",
+        "jp-egov-data:8948b0a9-e597-4bfe-9413-9fc841c64e5e",
+        "jp-egov-data:8eb7d1ce-7d8b-48c7-a072-dd0d6800dd42",
+        "jp-egov-data:fc325ba2-0966-4a73-ac8b-9b635805a922",
+        "jp-egov-data:097cf0b2-044a-420d-86bd-f98ac23c607f",
+        "jp-egov-data:d5c6ca2a-97a0-484c-b685-9c3a49e47dbb"
+      ]
+    }
+  ]
+}
