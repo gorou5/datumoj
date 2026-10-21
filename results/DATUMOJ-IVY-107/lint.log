@@ -1,0 +1,26 @@
+$ /Users/aaron/workspace/datumoj/.venv/bin/python -m ruff check src/datumoj/core/schedule.py src/datumoj/cli.py tests/core/test_schedule.py tests/test_cli_schedule.py
+B008 Do not perform function call `typer.Argument` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> src/datumoj/cli.py:315:26
+    |
+313 | @app.command()
+314 | def search(
+315 |     queries: list[str] = typer.Argument(..., help="一个或多个检索词"),
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+316 |     k: int = typer.Option(10, "-k", min=1, max=50, help="最多返回条数"),
+317 |     source: str | None = typer.Option(None, "--source", help="限制来源 ID"),
+    |
+
+B008 Do not perform function call `typer.Option` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+   --> src/datumoj/cli.py:386:27
+    |
+384 | def evaluate_corpus(
+385 |     gate: bool = typer.Option(False, "--gate", help="未达到全部评测门槛时退出码为 1"),
+386 |     report: Path | None = typer.Option(None, "--report", help="报告目录（默认使用临时目录）"),
+    |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+387 | ) -> None:
+388 |     """用完整题库评测本地语料，并输出 JSON 和 Markdown 报告。"""
+    |
+
+Found 2 errors.
+
+exit_code=1
