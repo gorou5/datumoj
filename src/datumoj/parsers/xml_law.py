@@ -115,6 +115,12 @@ class LawXMLParser(Parser):
         def visit(parent: ET.Element, path: list[str], supplement: str | None = None) -> None:
             nonlocal table_number
             siblings = list(parent)
+            is_main_provision = supplement is None and _local(parent.tag) == "MainProvision"
+            main_paragraph_count = (
+                sum(_local(child.tag) == "Paragraph" for child in siblings)
+                if is_main_provision
+                else 0
+            )
             paragraph_number = 0
             for child in siblings:
                 kind = _local(child.tag)
@@ -133,6 +139,15 @@ class LawXMLParser(Parser):
                     parts.append(("table", table_number))
                     table_title = _text(_child(child, "AppdxTableTitle"))
                     add_chunk(parts, _text(child), path + ([table_title] if table_title else []))
+                elif kind == "Paragraph" and is_main_provision:
+                    paragraph_number += 1
+                    para_num = child.attrib.get("Num") or str(paragraph_number)
+                    paragraph_path = (
+                        path
+                        if main_paragraph_count == 1
+                        else path + [f"第{para_num}項"]
+                    )
+                    add_chunk([("para", para_num)], _text(child), paragraph_path)
                 elif kind == "Paragraph" and supplement is not None:
                     paragraph_number += 1
                     para_num = child.attrib.get("Num") or str(paragraph_number)
