@@ -206,14 +206,15 @@ class DuckDBObservationStore:
 
 def _guard(sql: str) -> None:
     """白名单：单条 SELECT/WITH，不调用读文件、执行 SQL 串的函数。分词和解析都用 DuckDB 自己的。"""
+    sql_bytes = sql.encode("utf-8")
     tokens = duckdb.tokenize(sql)
-    first = _word(sql, tokens[0][0]) if tokens and tokens[0][1] == duckdb.token_type.keyword else ""
+    first = _word(sql_bytes, tokens[0][0]) if tokens and tokens[0][1] == duckdb.token_type.keyword else ""
     if first not in ("select", "with"):
         raise QueryRejected("只允许单条 SELECT / WITH 查询")
-    if any(sql[pos] == ";" for pos, _ in tokens[:-1]):
+    if any(sql_bytes[pos] == ord(";") for pos, _ in tokens[:-1]):
         raise QueryRejected("不允许多条语句")
     for pos, kind in tokens:
-        if kind in _WORD_TOKENS and _FORBIDDEN_NAMES.fullmatch(name := _word(sql, pos)):
+        if kind in _WORD_TOKENS and _FORBIDDEN_NAMES.fullmatch(name := _word(sql_bytes, pos)):
             raise QueryRejected(f"不允许使用 {name!r}（读文件或执行 SQL 串）")
     try:
         statements = duckdb.extract_statements(sql)
@@ -223,9 +224,9 @@ def _guard(sql: str) -> None:
         raise QueryRejected("只允许单条 SELECT / WITH 查询")
 
 
-def _word(sql: str, pos: int) -> str:
-    """分词器给的标识符/关键字起点处的词，去掉双引号，小写。"""
-    mt = _WORD.match(sql, pos)
+def _word(sql: bytes, pos: int) -> str:
+    """按 DuckDB 给出的 UTF-8 字节偏移取词，去掉双引号，小写。"""
+    mt = _WORD.match(sql[pos:].decode("utf-8"))
     if mt is None:
         return ""
     return (mt.group(2) if mt.group(1) is None else mt.group(1).replace('""', '"')).lower()

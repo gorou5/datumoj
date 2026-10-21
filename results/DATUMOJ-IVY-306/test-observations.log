@@ -1,0 +1,7 @@
+Command: make check T=tests/store/test_observations.py
+Exit code: 0
+
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+........................................................................ [ 86%]
+...........                                                              [100%]
+83 passed in 2.10s
