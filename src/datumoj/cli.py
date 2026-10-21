@@ -6,21 +6,49 @@ import json
 import os
 import tempfile
 from collections.abc import Callable
+from contextvars import ContextVar
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import typer
 from pydantic import BaseModel
 
-from datumoj.core.models import Citation
 from datumoj import wiring
+from datumoj.core import schedule as scheduling
+from datumoj.core.models import Citation
 from datumoj.pipeline import vector_status
 
 app = typer.Typer(no_args_is_help=True, help="抓取、解析、索引并查询本地政府公开数据。")
+schedule_app = typer.Typer(no_args_is_help=True, help="本机抓取开关和调度。")
+launchd_app = typer.Typer(no_args_is_help=True, help="生成、安装或卸载 launchd 任务。")
+app.add_typer(schedule_app, name="schedule")
+schedule_app.add_typer(launchd_app, name="launchd")
+_DATA_DIR: ContextVar[str | None] = ContextVar("datumoj_data_dir", default=None)
+
+
+@app.callback()
+def main(
+    ctx: typer.Context,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir", help="数据目录（优先于 DATUMOJ_DATA_DIR）")] = None,
+) -> None:
+    token = _DATA_DIR.set(str(data_dir) if data_dir is not None else None)
+    ctx.call_on_close(lambda: _DATA_DIR.reset(token))
 
 
 def _data_dir() -> str:
+    if (root := _DATA_DIR.get()) is not None:
+        return root
     return os.environ.get("DATUMOJ_DATA_DIR", "./data")
+
+
+@schedule_app.callback()
+def schedule_options(
+    ctx: typer.Context,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir", help="本次调度使用的数据目录")] = None,
+) -> None:
+    if data_dir is not None:
+        token = _DATA_DIR.set(str(data_dir))
+        ctx.call_on_close(lambda: _DATA_DIR.reset(token))
 
 
 def _run(feature: str, action: Callable[[Any], Any]) -> None:
@@ -108,17 +136,7 @@ def crawl(
         spec = deps.registry.get(source)
         if spec is None:
             raise ValueError(f"注册表里没有来源 {source!r}")
-        crawler_type = deps.crawler_classes.get(spec.kind)
-        if crawler_type is None:
-            raise wiring.FeatureNotConnected("该功能尚未接入：没有匹配的采集器")
-        fetcher = deps.fetcher_for(spec)
-        try:
-            crawl_deps = deps.crawl_deps_type(raw=deps.raw, manifest=deps.manifest, fetcher=fetcher)
-            report = deps.run_crawl(spec, crawler_type(), crawl_deps, limit=limit, dry_run=dry_run)
-        finally:
-            close = getattr(fetcher, "close", None)
-            if close is not None:
-                close()
+        report = _crawl_report(deps, spec, limit=limit, dry_run=dry_run)
         typer.echo(f"来源：{report.source_id}")
         if dry_run:
             typer.echo(f"计划 {len(report.planned)} 项：")
@@ -132,6 +150,124 @@ def crawl(
             typer.echo(f"失败分类：{_json(report.failures)}")
             raise typer.Exit(1)
     _run("crawl", action)
+
+
+def _crawl_report(deps: Any, spec: Any, *, limit: int | None = None, dry_run: bool = False) -> Any:
+    deps.require("crawl")
+    crawler_type = deps.crawler_classes.get(spec.kind)
+    if crawler_type is None:
+        raise wiring.FeatureNotConnected("该功能尚未接入：没有匹配的采集器")
+    fetcher = deps.fetcher_for(spec)
+    try:
+        crawl_deps = deps.crawl_deps_type(raw=deps.raw, manifest=deps.manifest, fetcher=fetcher)
+        return deps.run_crawl(spec, crawler_type(), crawl_deps, limit=limit, dry_run=dry_run)
+    finally:
+        close = getattr(fetcher, "close", None)
+        if close is not None:
+            close()
+
+
+def _scheduler() -> scheduling.Scheduler:
+    root = _data_dir()
+    deps = wiring.build(root)
+    if deps.registry is None:
+        raise wiring.FeatureNotConnected("该功能尚未接入：没有来源注册表")
+    return scheduling.Scheduler(root, deps.registry.all(), lambda spec: _crawl_report(deps, spec))
+
+
+def _schedule_call(action: Callable[[], Any]) -> None:
+    try:
+        typer.echo(_json(action()))
+    except typer.Exit:
+        raise
+    except ValueError as exc:
+        typer.echo(f"参数错误：{exc}", err=True)
+        raise typer.Exit(2) from exc
+    except Exception as exc:
+        typer.echo(f"运行失败：{type(exc).__name__}: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+
+@schedule_app.command("status")
+def schedule_status() -> None:
+    """显示总开关、来源开关、运行记录、下次到期和运行锁（JSON）。"""
+    _schedule_call(lambda: _scheduler().status())
+
+
+def _set_sources(source: str | None, all_sources: bool, enabled: bool) -> Any:
+    if (source is None) == (not all_sources):
+        raise ValueError("请指定 SOURCE 或 --all，且只能选一个")
+    scheduler = _scheduler()
+    if all_sources:
+        ids = set(scheduler.sources) | set(scheduling.read_control(_data_dir())["sources"])
+    else:
+        if source not in scheduler.sources:
+            raise ValueError(f"注册表里没有来源 {source!r}")
+        ids = [source]
+    return scheduling.set_enabled(_data_dir(), enabled, ids)
+
+
+@schedule_app.command("enable")
+def schedule_enable(
+    source: str | None = typer.Argument(None), all_sources: bool = typer.Option(False, "--all"),
+) -> None:
+    """打开来源开关；总开关单独设置。"""
+    _schedule_call(lambda: _set_sources(source, all_sources, True))
+
+
+@schedule_app.command("disable")
+def schedule_disable(
+    source: str | None = typer.Argument(None), all_sources: bool = typer.Option(False, "--all"),
+) -> None:
+    """关闭指定来源或全部来源开关。"""
+    _schedule_call(lambda: _set_sources(source, all_sources, False))
+
+
+@schedule_app.command("master")
+def schedule_master(state: str = typer.Argument(..., help="on 或 off")) -> None:
+    def action() -> Any:
+        if state not in {"on", "off"}:
+            raise ValueError("总开关必须为 on 或 off")
+        return scheduling.set_enabled(_data_dir(), state == "on")
+    _schedule_call(action)
+
+
+def _schedule_results(action: Callable[[], Any], *, manual: bool = False) -> None:
+    def report() -> Any:
+        result = action()
+        typer.echo(_json(result))
+        rows = [result] if manual else result
+        if any(row.get("exit_status", 0) or (manual and row["status"] == "skipped") for row in rows):
+            raise typer.Exit(1)
+        raise typer.Exit(0)
+    _schedule_call(report)
+
+
+@schedule_app.command("tick")
+def schedule_tick() -> None:
+    """串行运行已开启且到期的来源。"""
+    _schedule_results(lambda: _scheduler().tick())
+
+
+@schedule_app.command("run")
+def schedule_run(source: str = typer.Argument(...)) -> None:
+    """忽略到期时间运行一次；仍检查总开关、来源开关和锁。"""
+    _schedule_results(lambda: _scheduler().run_now(source), manual=True)
+
+
+@launchd_app.command("show")
+def launchd_show() -> None:
+    typer.echo(scheduling.launchd_plist(Path(__file__).resolve().parents[2], _data_dir()).decode(), nl=False)
+
+
+@launchd_app.command("install")
+def launchd_install() -> None:
+    _schedule_call(lambda: scheduling.install_launchd(Path(__file__).resolve().parents[2], _data_dir()))
+
+
+@launchd_app.command("uninstall")
+def launchd_uninstall() -> None:
+    _schedule_call(scheduling.uninstall_launchd)
 
 
 @app.command()
