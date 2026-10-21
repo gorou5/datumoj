@@ -4,7 +4,7 @@ title: 检查点 M3 集成：工具层接真实实现、MCP、60 题全部门槛
 project: DATUMOJ
 status: todo
 priority: 2
-depends_on: ["DATUMOJ-IVY-902", "DATUMOJ-IVY-502", "DATUMOJ-IVY-503", "DATUMOJ-IVY-603", "DATUMOJ-IVY-604", "DATUMOJ-IVY-704"]
+depends_on: ["DATUMOJ-IVY-902", "DATUMOJ-IVY-502", "DATUMOJ-IVY-503", "DATUMOJ-IVY-603", "DATUMOJ-IVY-604", "DATUMOJ-IVY-704", "DATUMOJ-IVY-707", "DATUMOJ-IVY-505", "DATUMOJ-IVY-608"]
 runner: claude
 model: null
 tier: high
@@ -41,6 +41,9 @@ max_attempts: 2
 3. 测试：在完整 fixture 语料上跑全部题目（≥ 60），断言所有门槛；通过 MCP 内存会话调用 `search_docs` 和 `cite`，验证结果能还原到原文。
 4. 达不到就如实报告，不改各线模块。
 5. （固定要求）集成测试**不能写入仓库里受 git 跟踪的路径**（包括 `results/`）：评测报告等证据默认写到临时目录，只有设置了环境变量 `DATUMOJ_EVIDENCE_DIR` 时才写到该目录（参考 `tests/integration/test_law_e2e.py` 的写法）。否则在 main 上跑全量测试会弄脏工作区，调度器会拒绝合并其他任务。
+
+8. （上次尝试已验证可行的做法，固定要求）`wiring` 增加 embedder 注入点（离线测试用真实 `LanceVectorIndex` + `HashEmbedder`，默认仍用 Ollama）；CLI 新增 `datumoj mcp`（调用 `mcp_server` 的 stdio 入口）和 `datumoj eval [--gate] [--report DIR]`（`--gate` 未达标退出 1，报告默认写临时目录）；评测语料直接用 fixture 原始字节建本地快照再跑真实解析和索引流水线，按 `tests/fixtures/eval_extra/` 的说明准备 noingest、fetchfail、unknown 三个缺口来源，synthetic 公告用测试专用解析器（继承 `ParserSuite`）。
+9. （固定要求）调用评测框架时传入 `catalog=`（707 新增），让目录类命中由目录检索提供；MCP 测试用 608 修复后的工厂方式创建服务器。
 
 # 不做
 - 不改各开发线的模块。
