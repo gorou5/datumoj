@@ -8,7 +8,7 @@ allowed_hosts:
   - "*.go.jp"
   - "*.lg.jp"
 rate_per_sec: 0.5
-max_total_bytes: 2147483648
+max_total_bytes: 10737418240   # 10GB（2026-10-21 团队决定）
 max_files: 5000
 schedule: daily
 license:
@@ -26,6 +26,6 @@ scope:
   incremental: true
   activity_limit: 100
   formats: [csv, xlsx, xls, pdf, json, xml]
-  max_file_bytes: 52428800
+  max_file_bytes: 209715200   # 单文件 200MB（2026-10-21 团队决定）
 needs_key: null
 retention_note: null
