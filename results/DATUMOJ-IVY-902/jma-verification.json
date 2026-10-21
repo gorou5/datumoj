@@ -1,0 +1,9 @@
+{
+  "projected_first_entries": 3,
+  "projected_second_entries": 5,
+  "second_downloads": [
+    "https://www.data.jma.go.jp/developer/xml/data/20261015051031_0_VPCK50_471000.xml",
+    "https://www.data.jma.go.jp/developer/xml/data/20261015073247_0_VPFD51_270000.xml"
+  ],
+  "third_downloads": []
+}
