@@ -93,6 +93,7 @@ def test_numeric_sql_targets_observations_and_estat_measure_is_exact():
     for q in STAT_QUESTIONS:
         sql = q.expect.value.sql.lower()
         assert re.match(r"\s*select\b", sql)
+        assert sql.startswith("select obs_id, value from observations")
         assert " from observations " in sql
 
     estat = next(q for q in STAT_QUESTIONS if q.id == "stat-estat-tokyo-ict-employees-2016")
@@ -175,7 +176,9 @@ def test_numeric_sql_returns_one_fixture_value_for_each_question(tmp_path):
     for q in STAT_QUESTIONS:
         result = store.query_readonly(q.expect.value.sql)
         assert len(result.rows) == 1, q.id
-        assert Decimal(str(result.rows[0][0])) == Decimal(str(q.expect.value.equals)), q.id
+        assert result.columns[:2] == ["obs_id", "value"], q.id
+        assert len(result.provenance) == 1, q.id
+        assert Decimal(str(result.rows[0][result.columns.index("value")])) == Decimal(str(q.expect.value.equals)), q.id
 
     estat = next(q for q in STAT_QUESTIONS if q.id == "stat-estat-tokyo-ict-employees-2016")
     legacy_sql = estat.expect.value.sql.replace(
@@ -184,4 +187,4 @@ def test_numeric_sql_returns_one_fixture_value_for_each_question(tmp_path):
     assert legacy_sql != estat.expect.value.sql
     legacy_rows = store.query_readonly(legacy_sql).rows
     assert len(legacy_rows) == 6
-    assert (Decimal("849374"),) in legacy_rows
+    assert any(Decimal(str(row[1])) == Decimal("849374") for row in legacy_rows)

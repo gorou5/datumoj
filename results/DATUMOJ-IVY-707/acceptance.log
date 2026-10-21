@@ -1,0 +1,25 @@
+DATUMOJ-IVY-707 acceptance commands
+Run from the task worktree. All final command runs passed.
+
+$ make check T=tests/eval/test_framework_dispatch.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+......                                                                   [100%]
+6 passed in 0.17s
+
+$ make check T=tests/eval/test_framework.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+......                                                                   [100%]
+6 passed in 0.25s
+
+$ make check T=tests/eval/test_framework_numeric.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+....                                                                     [100%]
+4 passed in 0.17s
+
+$ make check T=tests/eval/test_questions_stats.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+.....                                                                    [100%]
+5 passed in 1.88s
+
+The task's protected framework and numeric test files both pass. `make check` used
+the existing read-only main-repository virtualenv because `uv` was unavailable.
