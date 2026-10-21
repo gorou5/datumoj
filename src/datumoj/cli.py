@@ -168,11 +168,15 @@ def _crawl_report(deps: Any, spec: Any, *, limit: int | None = None, dry_run: bo
 
 
 def _scheduler() -> scheduling.Scheduler:
-    root = _data_dir()
+    return _scheduler_at(_data_dir())[1]
+
+
+def _scheduler_at(root: str | Path) -> tuple[Any, scheduling.Scheduler]:
     deps = wiring.build(root)
     if deps.registry is None:
         raise wiring.FeatureNotConnected("该功能尚未接入：没有来源注册表")
-    return scheduling.Scheduler(root, deps.registry.all(), lambda spec: _crawl_report(deps, spec))
+    scheduler = scheduling.Scheduler(root, deps.registry.all(), lambda spec: _crawl_report(deps, spec))
+    return deps, scheduler
 
 
 def _schedule_call(action: Callable[[], Any]) -> None:
@@ -268,6 +272,36 @@ def launchd_install() -> None:
 @launchd_app.command("uninstall")
 def launchd_uninstall() -> None:
     _schedule_call(scheduling.uninstall_launchd)
+
+
+@app.command()
+def admin(
+    port: Annotated[int, typer.Option("--port", min=1, max=65535, help="本机网页端口")] = 8765,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir", help="本次管理页面使用的数据目录")] = None,
+) -> None:
+    """启动只监听 127.0.0.1 的抓取管理页面。"""
+    root = data_dir if data_dir is not None else _data_dir()
+    try:
+        deps, scheduler = _scheduler_at(root)
+    except wiring.FeatureNotConnected as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+    except Exception as exc:
+        typer.echo(f"运行失败：{type(exc).__name__}: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    from datumoj.admin import create_app
+    import uvicorn
+
+    def run_now_in_worker(source_id: str) -> Any:
+        # The real storage implementations may own thread-affine SQLite connections.
+        # Build their dependencies in the worker that invokes Scheduler.run_now.
+        _, worker_scheduler = _scheduler_at(root)
+        return worker_scheduler.run_now(source_id)
+
+    web_app = create_app(root, deps, scheduler, run_now=run_now_in_worker)
+    typer.echo(f"管理页面：http://127.0.0.1:{port}/")
+    uvicorn.run(web_app, host="127.0.0.1", port=port)
 
 
 @app.command()

@@ -1,0 +1,19 @@
+$ make check T=tests/test_admin.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+........                                                                 [100%]
+8 passed in 0.17s
+
+$ make check T=tests/test_cli_schedule.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+..............                                                           [100%]
+14 passed in 0.22s
+
+$ make check T=tests/test_cli.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+....                                                                     [100%]
+4 passed in 0.30s
+
+$ make check T=tests/core/test_schedule.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+........................                                                 [100%]
+24 passed in 0.28s
