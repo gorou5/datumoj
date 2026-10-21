@@ -334,8 +334,11 @@ def test_stats_questions_numeric_precision_and_cli_citations(stats_chain):
         # Execute the original question SQL, then select obs_id as required by
         # ObservationStore to restore evidence. Predicates remain unchanged.
         result = stats_chain["invoke"](["sql", question.expect.value.sql, "--json"])
-        assert Decimal(json.loads(result.output)["data"]["rows"][0][0]) == question.expect.value.equals
-        sql = question.expect.value.sql.replace("SELECT value FROM", "SELECT value, obs_id FROM", 1)
+        payload = json.loads(result.output)["data"]
+        # 题库 SQL 自 707 起是 SELECT obs_id, value：按列名取 value，不依赖列顺序。
+        value_index = [c if isinstance(c, str) else c.get("content") for c in payload["columns"]].index("value")
+        assert Decimal(payload["rows"][0][value_index]) == question.expect.value.equals
+        sql = question.expect.value.sql  # 707 起题库 SQL 已带 obs_id
         result = stats_chain["invoke"](["sql", sql, "--json"])
         data = json.loads(result.output)["data"]
         assert len(data["rows"]) == len(data["provenance"]) == 1
