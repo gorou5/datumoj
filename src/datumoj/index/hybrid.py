@@ -18,8 +18,19 @@ from datumoj.core.models import FetchOutcome, Freshness, GapState, Hit, MatchedB
 from datumoj.index.coverage import gap_state
 
 
-# 临时默认阈值；待 H5 用 bge-m3 和评测集校准。
+# 向量相似度阈值依嵌入模型而定：不同模型的分数分布差别很大。
+# bge-m3 由 H5（2026-10-21）在 60 题评测语料上校准：无关问题的向量最高分 0.471，相关检索题最低 0.685，
+# 取 0.6 两边各留约 0.1 余量。详见 docs/adr/0001-embedding.md。其他模型（含测试用的 HashEmbedder）用保守的 0.3。
+MIN_VECTOR_SCORE_BY_MODEL = {"bge-m3": 0.6}
 DEFAULT_MIN_VECTOR_SCORE = 0.3
+
+
+def min_vector_score_for(vector: VectorIndex | None) -> float:
+    """按向量索引所用的嵌入模型选阈值；模型名带标签（如 bge-m3:latest）时按冒号前的名字匹配。"""
+    model = getattr(getattr(vector, "embedder", None), "model", None)
+    if isinstance(model, str):
+        return MIN_VECTOR_SCORE_BY_MODEL.get(model.split(":", 1)[0], DEFAULT_MIN_VECTOR_SCORE)
+    return DEFAULT_MIN_VECTOR_SCORE
 
 
 class HybridRetriever:
@@ -30,14 +41,14 @@ class HybridRetriever:
         registry: Registry,
         keyword: KeywordIndex,
         vector: VectorIndex | None = None,
-        min_vector_score: float = DEFAULT_MIN_VECTOR_SCORE,
+        min_vector_score: float | None = None,
     ) -> None:
         self.chunks = chunks
         self.manifest = manifest
         self.registry = registry
         self.keyword = keyword
         self.vector = vector
-        self.min_vector_score = min_vector_score
+        self.min_vector_score = min_vector_score_for(vector) if min_vector_score is None else min_vector_score
 
     def search(
         self,
