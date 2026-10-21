@@ -40,6 +40,7 @@ max_attempts: 2
 2. 端到端测试：回放 fixture → crawl → parse → index，然后 `datumoj sql` 查都道府县人口，结果与原表一致并带出处。
 3. 跑 `catalog.yaml` 和 `stats.yaml`，断言门槛。
 4. JMA：回放两次 feed，第二次只新增新条目。
+5. （固定要求）集成测试**不能写入仓库里受 git 跟踪的路径**（包括 `results/`）：评测报告等证据默认写到临时目录，只有设置了环境变量 `DATUMOJ_EVIDENCE_DIR` 时才写到该目录（参考 `tests/integration/test_law_e2e.py` 的写法）。否则在 main 上跑全量测试会弄脏工作区，调度器会拒绝合并其他任务。
 
 # 不做
 - 不改各开发线的模块。

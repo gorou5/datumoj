@@ -40,6 +40,7 @@ max_attempts: 2
 2. CLI 新增 `datumoj mcp`（启动 DATUMOJ-IVY-604 的服务器）和 `datumoj eval [--gate] [--report DIR]`（门槛不达标时退出码 1）。
 3. 测试：在完整 fixture 语料上跑全部题目（≥ 60），断言所有门槛；通过 MCP 内存会话调用 `search_docs` 和 `cite`，验证结果能还原到原文。
 4. 达不到就如实报告，不改各线模块。
+5. （固定要求）集成测试**不能写入仓库里受 git 跟踪的路径**（包括 `results/`）：评测报告等证据默认写到临时目录，只有设置了环境变量 `DATUMOJ_EVIDENCE_DIR` 时才写到该目录（参考 `tests/integration/test_law_e2e.py` 的写法）。否则在 main 上跑全量测试会弄脏工作区，调度器会拒绝合并其他任务。
 
 # 不做
 - 不改各开发线的模块。
