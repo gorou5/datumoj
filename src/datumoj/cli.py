@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import typer
@@ -231,3 +233,44 @@ def status() -> None:
             typer.echo(f"提示：{warning}")
         _echo_vector_status(deps)
     _run("status", action)
+
+
+@app.command()
+def mcp() -> None:
+    """通过 stdio 启动只读 MCP 服务器。"""
+    from datumoj import mcp_server
+
+    os.environ.setdefault(mcp_server.FACTORY_ENV, "datumoj.wiring:build_tools")
+    mcp_server.main()
+
+
+@app.command("eval")
+def evaluate_corpus(
+    gate: bool = typer.Option(False, "--gate", help="未达到全部评测门槛时退出码为 1"),
+    report: Path | None = typer.Option(None, "--report", help="报告目录（默认使用临时目录）"),
+) -> None:
+    """用完整题库评测本地语料，并输出 JSON 和 Markdown 报告。"""
+    from datumoj.eval import check_gate, evaluate, load_questions, write_reports
+
+    def action(deps: Any) -> None:
+        def cite(citation: Citation) -> list:
+            restored = deps.tools.cite(citation.snapshot_sha256, citation.locator)
+            data = restored.get("data", {})
+            return data.get("passages", []) if data.get("status") == "ok" else []
+
+        questions = load_questions(Path(__file__).resolve().parents[2] / "eval/questions")
+        result = evaluate(
+            questions, retriever=deps.retriever, observation_store=deps.observations,
+            cite=cite, manifest=deps.manifest, catalog=deps.catalog,
+        )
+        directory = report if report is not None else Path(tempfile.mkdtemp(prefix="datumoj-eval-"))
+        write_reports(result, directory)
+        checked = check_gate(result)
+        typer.echo(f"评测 {len(questions)} 题；报告：{directory.resolve()}")
+        typer.echo("门槛：通过" if checked.passed else "门槛：未通过")
+        for failure in checked.failures:
+            typer.echo(failure)
+        if gate and not checked.passed:
+            raise typer.Exit(1)
+
+    _run("search", action)
