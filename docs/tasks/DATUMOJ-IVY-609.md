@@ -38,6 +38,7 @@ max_attempts: 2
 2. **状态只升不降**：已是 `observations_loaded` 的资源不能被改回 `content_fetched`（可用契约里的 `max_state`，当前状态可通过 `CatalogStore.resources_for(dataset_key)` 读到；资源快照的 meta 里有 `dataset_id`，目录分页的结果里有 Resource 记录）。
 3. 补记：每次把 Resource 写入目录后，对这些资源的 URL 查 manifest（`Manifest.last_success`），已经有成功快照的，按第 1、2 条补上状态，这样解析顺序不影响结果。
 4. 抓取失败（没有成功快照）的资源保持 `catalog_only`。
+4a. 已有数据要能补上：`reindex(deps, source_id)`（即 `datumoj index --rebuild`）重建时，对目录里该来源的全部资源按第 1–3 条重新核对一遍状态（只升不降），不需要重新解析快照。测试覆盖这一点。
 5. 原有 `tests/test_pipeline.py`、`tests/test_pipeline_retry.py`、`tests/test_pipeline_vectors.py` 已列为 protected，必须全部通过。
 6. 新测试 `tests/test_pipeline_content_state.py`：用真实的 `SqliteCatalogStore`、`SqliteManifest`、`FileRawStore`（`tmp_path` 里）加 `tests/fixtures/ckan_egov/` 的分页样本和资源样本：资源先于分页解析、分页先于资源解析两种顺序都得到 `content_fetched`；失败的资源保持 `catalog_only`；已是 `observations_loaded` 的不被降级；重复解析不改变结果。
 
