@@ -143,7 +143,7 @@ Citation = source_id + resource_url + snapshot_sha256 + fetched_at + locator
 | eu-eurostat | Eurostat SDMX API | 精选数据集 |
 | uk / de / fr / nl | data.gov.uk、GovData、data.gouv.fr、data.overheid.nl（CKAN 或类似接口） | 复用 CKAN 采集器 |
 | us-fedreg | Federal Register API | 增量抓取公报全文 |
-| us-govinfo / us-datagov | GovInfo、Data.gov（需要 api.data.gov Key） | 等 Key 到位后再做 |
+| us-govinfo / us-datagov | GovInfo、Data.gov（需要 api.data.gov Key；GovInfo API 文档：https://github.com/usgpo/api） | 等 Key 到位后再做 |
 | intl-wdi | 世界银行 WDI | 精选指标做国际比较基准 |
 
 ### 抓取守则（写进代码和测试）
