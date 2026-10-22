@@ -1,0 +1,238 @@
+{
+  "endpoint": "http://127.0.0.1:50719",
+  "result": {
+    "requests": [
+      "https://laws.e-gov.go.jp/robots.txt",
+      "https://laws.e-gov.go.jp/api/2/laws?limit=100&offset=0",
+      "https://laws.e-gov.go.jp/api/2/law_revisions/321CONSTITUTION",
+      "https://laws.e-gov.go.jp/api/2/law_data/321CONSTITUTION?asof=2026-10-20&response_format=json&law_full_text_format=xml"
+    ],
+    "search": {
+      "data": {
+        "queries": [
+          "表現の自由"
+        ],
+        "hits": [
+          {
+            "chunk_id": "jp-egov-law:321CONSTITUTION#art=21",
+            "doc_key": "jp-egov-law:321CONSTITUTION",
+            "locator": "art=21",
+            "score": 0.01639344262295082,
+            "matched_by": [
+              "keyword"
+            ],
+            "snippet": {
+              "content": "第二十一条 集会、結社及び言論、出版その他一切の表現の自由は、これを保障する。 検閲は、これをしてはならない。 通信の秘密は、これを侵してはならない。",
+              "content_role": "untrusted_source_text"
+            },
+            "citation": {
+              "source_id": "jp-egov-law",
+              "resource_url": "https://laws.e-gov.go.jp/api/2/law_data/321CONSTITUTION?asof=2026-10-20&response_format=json&law_full_text_format=xml",
+              "snapshot_sha256": "a9c5daba9d5756d6cae9ecad455462adb4e26df1f39a158b7d6c3db5718bc07d",
+              "fetched_at": "2026-10-20T12:00:00Z",
+              "locator": "art=21",
+              "published_at": null,
+              "effective_at": "2026-10-20",
+              "period": null,
+              "license": null,
+              "attribution": null,
+              "usage_scope": "internal_only",
+              "time_basis": "effective"
+            },
+            "usage_notice": "仅供内部使用",
+            "law": {
+              "asof": "2026-10-20",
+              "pending_amendments": []
+            }
+          },
+          {
+            "chunk_id": "jp-egov-law:321CONSTITUTION#art=23",
+            "doc_key": "jp-egov-law:321CONSTITUTION",
+            "locator": "art=23",
+            "score": 0.016129032258064516,
+            "matched_by": [
+              "keyword"
+            ],
+            "snippet": {
+              "content": "第二十三条 学問の自由は、これを保障する。",
+              "content_role": "untrusted_source_text"
+            },
+            "citation": {
+              "source_id": "jp-egov-law",
+              "resource_url": "https://laws.e-gov.go.jp/api/2/law_data/321CONSTITUTION?asof=2026-10-20&response_format=json&law_full_text_format=xml",
+              "snapshot_sha256": "a9c5daba9d5756d6cae9ecad455462adb4e26df1f39a158b7d6c3db5718bc07d",
+              "fetched_at": "2026-10-20T12:00:00Z",
+              "locator": "art=23",
+              "published_at": null,
+              "effective_at": "2026-10-20",
+              "period": null,
+              "license": null,
+              "attribution": null,
+              "usage_scope": "internal_only",
+              "time_basis": "effective"
+            },
+            "usage_notice": "仅供内部使用",
+            "law": {
+              "asof": "2026-10-20",
+              "pending_amendments": []
+            }
+          },
+          {
+            "chunk_id": "jp-egov-law:321CONSTITUTION#art=19",
+            "doc_key": "jp-egov-law:321CONSTITUTION",
+            "locator": "art=19",
+            "score": 0.015873015873015872,
+            "matched_by": [
+              "keyword"
+            ],
+            "snippet": {
+              "content": "第十九条 思想及び良心の自由は、これを侵してはならない。",
+              "content_role": "untrusted_source_text"
+            },
+            "citation": {
+              "source_id": "jp-egov-law",
+              "resource_url": "https://laws.e-gov.go.jp/api/2/law_data/321CONSTITUTION?asof=2026-10-20&response_format=json&law_full_text_format=xml",
+              "snapshot_sha256": "a9c5daba9d5756d6cae9ecad455462adb4e26df1f39a158b7d6c3db5718bc07d",
+              "fetched_at": "2026-10-20T12:00:00Z",
+              "locator": "art=19",
+              "published_at": null,
+              "effective_at": "2026-10-20",
+              "period": null,
+              "license": null,
+              "attribution": null,
+              "usage_scope": "internal_only",
+              "time_basis": "effective"
+            },
+            "usage_notice": "仅供内部使用",
+            "law": {
+              "asof": "2026-10-20",
+              "pending_amendments": []
+            }
+          },
+          {
+            "chunk_id": "jp-egov-law:321CONSTITUTION#art=22",
+            "doc_key": "jp-egov-law:321CONSTITUTION",
+            "locator": "art=22",
+            "score": 0.015625,
+            "matched_by": [
+              "keyword"
+            ],
+            "snippet": {
+              "content": "第二十二条 何人も、公共の福祉に反しない限り、居住、移転及び職業選択の自由を有する。 何人も、外国に移住し、又は国籍を離脱する自由を侵されない。",
+              "content_role": "untrusted_source_text"
+            },
+            "citation": {
+              "source_id": "jp-egov-law",
+              "resource_url": "https://laws.e-gov.go.jp/api/2/law_data/321CONSTITUTION?asof=2026-10-20&response_format=json&law_full_text_format=xml",
+              "snapshot_sha256": "a9c5daba9d5756d6cae9ecad455462adb4e26df1f39a158b7d6c3db5718bc07d",
+              "fetched_at": "2026-10-20T12:00:00Z",
+              "locator": "art=22",
+              "published_at": null,
+              "effective_at": "2026-10-20",
+              "period": null,
+              "license": null,
+              "attribution": null,
+              "usage_scope": "internal_only",
+              "time_basis": "effective"
+            },
+            "usage_notice": "仅供内部使用",
+            "law": {
+              "asof": "2026-10-20",
+              "pending_amendments": []
+            }
+          },
+          {
+            "chunk_id": "jp-egov-law:321CONSTITUTION#art=20",
+            "doc_key": "jp-egov-law:321CONSTITUTION",
+            "locator": "art=20",
+            "score": 0.015384615384615385,
+            "matched_by": [
+              "keyword"
+            ],
+            "snippet": {
+              "content": "第二十条 信教の自由は、何人に対してもこれを保障する。 いかなる宗教団体も、国から特権を受け、又は政治上の権力を行使してはならない。 何人も、宗教上の行為、祝典、儀式又は行事に参加することを強制されない。 国及びその機関は、宗教教育その他いかなる宗教的活動もしてはならない。",
+              "content_role": "untrusted_source_text"
+            },
+            "citation": {
+              "source_id": "jp-egov-law",
+              "resource_url": "https://laws.e-gov.go.jp/api/2/law_data/321CONSTITUTION?asof=2026-10-20&response_format=json&law_full_text_format=xml",
+              "snapshot_sha256": "a9c5daba9d5756d6cae9ecad455462adb4e26df1f39a158b7d6c3db5718bc07d",
+              "fetched_at": "2026-10-20T12:00:00Z",
+              "locator": "art=20",
+              "published_at": null,
+              "effective_at": "2026-10-20",
+              "period": null,
+              "license": null,
+              "attribution": null,
+              "usage_scope": "internal_only",
+              "time_basis": "effective"
+            },
+            "usage_notice": "仅供内部使用",
+            "law": {
+              "asof": "2026-10-20",
+              "pending_amendments": []
+            }
+          }
+        ]
+      },
+      "gap_state": "ok",
+      "freshness": {
+        "as_of": "2026-10-20T12:00:00Z",
+        "oldest_fetched_at": "2026-10-20T12:00:00Z",
+        "by_source": {
+          "jp-egov-law": "2026-10-20T12:00:00Z"
+        }
+      },
+      "warnings": [
+        "degraded=true：向量索引未配置，退回纯关键词",
+        "部分结果的来源仅供内部使用（internal_only 或许可未核对），不得对外分发"
+      ],
+      "gap_detail": null
+    },
+    "passages": [
+      {
+        "kind": "chunk",
+        "chunk_id": "jp-egov-law:321CONSTITUTION#art=21",
+        "doc_key": "jp-egov-law:321CONSTITUTION",
+        "locator": "art=21",
+        "title_path": [
+          {
+            "content": "日本国憲法",
+            "content_role": "untrusted_source_text"
+          },
+          {
+            "content": "第三章 国民の権利及び義務",
+            "content_role": "untrusted_source_text"
+          },
+          {
+            "content": "第二十一条",
+            "content_role": "untrusted_source_text"
+          }
+        ],
+        "text": {
+          "content": "第二十一条 集会、結社及び言論、出版その他一切の表現の自由は、これを保障する。 検閲は、これをしてはならない。 通信の秘密は、これを侵してはならない。",
+          "content_role": "untrusted_source_text"
+        },
+        "citation": {
+          "source_id": "jp-egov-law",
+          "resource_url": "https://laws.e-gov.go.jp/api/2/law_data/321CONSTITUTION?asof=2026-10-20&response_format=json&law_full_text_format=xml",
+          "snapshot_sha256": "a9c5daba9d5756d6cae9ecad455462adb4e26df1f39a158b7d6c3db5718bc07d",
+          "fetched_at": "2026-10-20T12:00:00Z",
+          "locator": "art=21",
+          "published_at": null,
+          "effective_at": "2026-10-20",
+          "period": null,
+          "license": null,
+          "attribution": null,
+          "usage_scope": "internal_only",
+          "time_basis": "effective"
+        },
+        "usage_notice": "仅供内部使用",
+        "law": {
+          "asof": "2026-10-20",
+          "pending_amendments": []
+        }
+      }
+    ]
+  }
+}

@@ -9,7 +9,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from datumoj.core.contracts import ParseError, ParseResult, Parser, discover_parsers
+from datumoj.core.contracts import ParseError, Parser, ParseResult, discover_parsers
 from datumoj.core.storage import load_storage_config
 from datumoj.parsers.ckan_meta import CkanMetaParser
 from datumoj.store.catalog import SqliteCatalogStore
@@ -22,7 +22,7 @@ class _CkanPages(CkanMetaParser):
     version = "2"
 
     def parse(self, snapshot, data, meta=None):
-        if meta and meta.get("role") in {"resource", "activity"}:
+        if meta and meta.get("role") in {"resource", "activity", "datastore"}:
             return ParseResult()
         try:
             payload = json.loads(data)
