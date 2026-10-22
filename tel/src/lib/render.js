@@ -499,9 +499,25 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
 ${sections}
 ${searchForm()}
 <p class="meta">データ出典：${esc(f.block.source || '総務省 電気通信番号計画')}。このページは区画データから自動生成されています。</p>`;
+  // tel/seo-watch（第3ラウンド）: バックログ4「タイトル・説明文の磨き込み」。
+  // 番号そのものの検索意図（誰から／迷惑電話か／通話料は）に、本文と同じ事実
+  // （総務省指定データ・第三者機関標識）で正直に答えられる範囲で書く。
+  // 新たな断定・キーワード詰め込みはしない。
+  const carrier = f.block.carrierName || '';
+  const freeDial = f.lineType === 'free0800' || f.lineType === 'free0120';
+  const titleBits = [
+    f.gov ? f.gov.agency_name : '',
+    f.lineTypeName,
+    carrier ? `割当${carrier}` : '',
+    f.prefecture || '',
+    freeDial ? '通話料無料' : '',
+  ].filter(Boolean);
+  const flagNote = f.tpFlags.length
+    ? `第三者機関の標識が${f.tpFlags.length}件登録されています。`
+    : '現時点で第三者機関の詐欺標識の登録はありません。';
   return layout({
-    title: `${formatted} の電話番号情報｜${f.gov ? f.gov.agency_name + '・' : ''}${f.lineTypeName}${f.prefecture ? '・' + f.prefecture : ''}`,
-    description: `${formatted} は${f.lineTypeName}の番号です。${f.prefecture ? '地域は' + f.prefecture + '。' : ''}単位料金区域（MA）・割当事業者・番号帯の指定時期などを公的データで表示。第三者機関の標識も確認できます。`,
+    title: `${formatted} の電話番号情報｜${titleBits.join('・')}`,
+    description: `${formatted} は${f.lineTypeName}の番号です。${carrier ? `総務省の指定データでは割当事業者は${carrier}です。` : ''}${freeDial ? '通話料は着信側が負担し、かける側は無料です。' : ''}${f.prefecture ? `地域は${f.prefecture}です。` : ''}${flagNote}知らない番号への対処法も掲載しています。`,
     robots: f.tier === 1 ? undefined : 'noindex,follow',
     canonical: `https://tel.datumoj.com/${f.digits}`,
     jsonLd,
