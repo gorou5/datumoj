@@ -9,7 +9,8 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from datumoj.core.contracts import ParseError, ParseResult, discover_parsers
+from datumoj.core.contracts import ParseError, Parser, ParseResult, discover_parsers
+from datumoj.core.storage import load_storage_config
 from datumoj.parsers.ckan_meta import CkanMetaParser
 from datumoj.store.catalog import SqliteCatalogStore
 
@@ -18,10 +19,10 @@ class _CkanPages(CkanMetaParser):
     """把采集器的分页逐项交给现有 package 解析器；资源文件不当作目录 JSON。"""
 
     name = "ckan_pages"
-    version = "1"
+    version = "2"
 
     def parse(self, snapshot, data, meta=None):
-        if meta and meta.get("role") in {"resource", "activity"}:
+        if meta and meta.get("role") in {"resource", "activity", "datastore"}:
             return ParseResult()
         try:
             payload = json.loads(data)
@@ -33,21 +34,54 @@ class _CkanPages(CkanMetaParser):
         if payload.get("success") is not True or not isinstance(page["results"], list):
             raise ParseError("CKAN package_search 响应无效")
         datasets, resources, warnings = [], [], []
-        for package in page["results"]:
-            parsed = super().parse(snapshot, json.dumps({"result": package}).encode(), meta)
+        for index, package in enumerate(page["results"]):
+            if not isinstance(package, dict):
+                warnings.append(f"results[{index}] 不是对象，已跳过")
+                continue
+            parsed = self._parse_package(snapshot, package, locator=f"entry={index}")
             datasets.extend(parsed.datasets)
             resources.extend(parsed.resources)
             warnings.extend(parsed.warnings)
         return ParseResult(datasets=datasets, resources=resources, warnings=warnings)
 
 
+class _GovWebContentVersion:
+    def __get__(self, instance, owner) -> str:
+        from datumoj.parsers.html_page import HtmlPageParser
+        from datumoj.parsers.pdf import PdfParser
+
+        return f"pdf-{PdfParser.version}+html-{HtmlPageParser.version}"
+
+
+class _GovWebContent(Parser):
+    """网页附件共用分派入口；按正文选择已有实现，避免错误响应头选错解析器。"""
+
+    name = "gov-web-content"
+    version = _GovWebContentVersion()
+    source_kind = "gov_web"
+    content_type = "*"
+
+    def parse(self, snapshot, data, meta=None):
+        from datumoj.parsers.html_page import HtmlPageParser
+        from datumoj.parsers.pdf import PdfParser
+
+        parser = PdfParser() if data.lstrip().startswith(b"%PDF-") else HtmlPageParser()
+        return parser.parse(snapshot, data, meta)
+
+
+def _connected_parsers(*, skip_broken=False):
+    parsers = discover_parsers(skip_broken=skip_broken)
+    parsers[("ckan", "*")] = _CkanPages
+    for media in ("text/html", "application/pdf", "*"):
+        parsers[("gov_web", media)] = _GovWebContent
+    return parsers
+
+
 def _parse_pending(deps, source_id=None):
     from datumoj.pipeline import parse_pending
 
     if deps.parsers is None:
-        parsers = discover_parsers()
-        parsers[("ckan", "*")] = _CkanPages
-        deps = replace(deps, parsers=parsers)
+        deps = replace(deps, parsers=_connected_parsers())
     return parse_pending(deps, source_id)
 
 
@@ -93,6 +127,7 @@ class Wiring:
     run_crawl: Any = None
     crawl_deps_type: Any = None
     unavailable: dict[str, str] = field(default_factory=dict)
+    change_log: Any = None
 
     def require(self, feature: str) -> None:
         if feature in self.unavailable:
@@ -121,14 +156,18 @@ def _get(overrides: dict[str, Any], key: str, module: str, symbol: str, *args: A
     return implementation(*args)
 
 
-def build(data_dir: str | Path, overrides: dict[str, Any] | None = None) -> Wiring:
+def build(data_dir: str | Path | None = None, overrides: dict[str, Any] | None = None) -> Wiring:
     """按协议组装依赖。``overrides`` 可替换任意命名依赖，供测试和嵌入式调用注入。"""
     overrides = dict(overrides or {})
-    root = Path(data_dir)
+    config = load_storage_config(data_dir=data_dir)
+    root = config.data_dir
     root.mkdir(parents=True, exist_ok=True)
     wiring = Wiring(data_dir=root)
 
-    wiring.raw = _get(overrides, "raw", "datumoj.core.rawstore", "FileRawStore", root)
+    if config.raw_backend == "s3":
+        wiring.raw = _get(overrides, "raw", "datumoj.core.rawstore_s3", "S3RawStore", config)
+    else:
+        wiring.raw = _get(overrides, "raw", "datumoj.core.rawstore", "FileRawStore", root)
     wiring.manifest = _get(
         overrides, "manifest", "datumoj.core.manifest", "SqliteManifest", root / "manifest.sqlite"
     )
@@ -142,6 +181,7 @@ def build(data_dir: str | Path, overrides: dict[str, Any] | None = None) -> Wiri
     wiring.observations = _get(
         overrides, "observations", "datumoj.store.observations", "DuckDBObservationStore", root
     )
+    wiring.change_log = _get(overrides, "change_log", "datumoj.store.changes", "SqliteChangeLog", root / "changes.sqlite")
 
     if "registry" in overrides:
         wiring.registry = overrides["registry"]
@@ -196,6 +236,7 @@ def build(data_dir: str | Path, overrides: dict[str, Any] | None = None) -> Wiri
                 chunks=wiring.chunks, keyword=wiring.keyword, observations=wiring.observations,
                 catalog=wiring.catalog, vectors=wiring.vectors, parsers=overrides.get("parsers"),
                 vector_state_path=root / "vectors-state.json",
+                change_log=wiring.change_log,
             )
 
     if all((wiring.retriever, wiring.catalog, wiring.observations, wiring.chunks, wiring.manifest,
@@ -210,7 +251,10 @@ def build(data_dir: str | Path, overrides: dict[str, Any] | None = None) -> Wiri
                 wiring.tools = tools_type(
                     retriever=wiring.retriever, catalog=wiring.catalog, observations=wiring.observations,
                     chunks=wiring.chunks, manifest=wiring.manifest, raw=wiring.raw, registry=wiring.registry,
-                    parsers=overrides.get("parsers"), data_dir=root,
+                    parsers=(_connected_parsers(skip_broken=True) if overrides.get("parsers") is None
+                             else overrides["parsers"]),
+                    data_dir=root,
+                    change_log=wiring.change_log,
                 )
 
     wiring.crawler_classes = overrides.get("crawlers", {})
@@ -251,6 +295,6 @@ def build(data_dir: str | Path, overrides: dict[str, Any] | None = None) -> Wiri
 
 def build_tools() -> Any:
     """MCP 的无参工厂：在服务器工作线程里创建存储及工具层。"""
-    deps = build(os.environ.get("DATUMOJ_DATA_DIR", "./data"))
+    deps = build(str(load_storage_config().data_dir))
     deps.require("search")
     return deps.tools

@@ -1,0 +1,14 @@
+name = "tel"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+workers_dev = false
+
+routes = [
+  { pattern = "tel.datumoj.com", custom_domain = true },
+]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tel_datumoj"
+database_id = "508216ec-1d88-454c-9d3a-465b1c29adff"
+migrations_dir = "migrations"

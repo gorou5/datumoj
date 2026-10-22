@@ -12,9 +12,10 @@ from mcp import Client
 
 from datumoj import mcp_server
 from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.models import Observation, TimeGranularity
+from datumoj.core.models import ChangeEvent, ChangeKind, Observation, TimeGranularity
 from datumoj.testing.fakes import (
     FakeCatalogStore,
+    FakeChangeLog,
     FakeChunkStore,
     FakeManifest,
     FakeObservationStore,
@@ -26,7 +27,7 @@ from datumoj.testing.fakes import (
 from datumoj.testing.samples import T0, make_dataset, make_resource, make_snapshot, make_spec
 
 TEXT = "お知らせ\n\n人口統計の公開について。"
-TOOLS = {"search_docs", "search_catalog", "query_sql", "get_chunk", "cite", "version", "coverage"}
+TOOLS = {"search_docs", "list_changes", "search_catalog", "query_sql", "get_chunk", "cite", "version", "coverage"}
 
 
 @pytest.fixture
@@ -50,10 +51,16 @@ def tools(tmp_path) -> AnalysisTools:
         datasets=[make_dataset("jp-open:pop", "人口統計 2020")],
         resources=[make_resource("jp-open:pop", "r1", "https://example.go.jp/notice.txt", format="TXT")],
     )
+    change_log = FakeChangeLog()
+    change_log.append([ChangeEvent.make(
+        source_id="jp-open", kind=ChangeKind.added, doc_key=parsed.documents[0].doc_key,
+        resource_url=snap.resource_url, new_sha256=snap.sha256, detected_at=T0,
+        summary="文書が追加されました",
+    )])
     return AnalysisTools(
         retriever=FakeRetriever(chunks, manifest, registry), catalog=catalog, observations=observations,
         chunks=chunks, manifest=manifest, raw=raw, registry=registry, parsers={("fake", "text/plain"): FakeParser},
-        data_dir=tmp_path, index_built_at=lambda: T0,
+        change_log=change_log, data_dir=tmp_path, index_built_at=lambda: T0,
     )
 
 
@@ -83,6 +90,8 @@ def test_lists_all_tools_with_descriptions_and_prompt(tools):
     assert all(t.description and len(t.description) > 40 for t in listed.tools)
     sql = next(t for t in listed.tools if t.name == "query_sql")
     assert "only source of numbers" in sql.description
+    search = next(t for t in listed.tools if t.name == "search_docs")
+    assert "kinds" in search.description and "pdf" in search.description
     assert [p.name for p in prompts.prompts] == ["datumoj_answer_rules"]
 
 
@@ -90,6 +99,17 @@ def test_search_docs(tools):
     data = _data(_call(tools, "search_docs", {"queries": "人口統計"}))
     assert data["gap_state"] == "ok"
     assert data["data"]["hits"][0]["locator"] == "section=2"
+    filtered = _data(_call(tools, "search_docs", {"queries": "人口統計", "kinds": ["bulletin"]}))
+    assert filtered["data"]["hits"][0]["doc_key"] == "jp-open:notice.txt"
+
+
+def test_list_changes(tools):
+    data = _data(_call(tools, "list_changes"))
+    assert data["gap_state"] == "ok"
+    event = data["data"][0]
+    assert event["kind"] == "added"
+    assert event["citation"]["snapshot_sha256"]
+    assert event["summary"]["content_role"] == "untrusted_source_text"
 
 
 def test_search_catalog(tools):
@@ -118,6 +138,7 @@ def test_cite(tools):
 def test_version(tools):
     data = _data(_call(tools, "version"))
     assert data["data"]["package"] == "datumoj"
+    assert data["data"]["version"].endswith("+tachibana603")
 
 
 def test_coverage(tools):
