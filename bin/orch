@@ -1,3 +1,0 @@
-#!/bin/sh
-# 本项目调用调度器的入口：换调度器配置时只改这里。
-exec /Users/aaron/workspace/orchestrator/.venv/bin/python -m orch --config "${ORCH_CONFIG:-/Users/aaron/workspace/orchestrator/orch.yaml}" "$@"
