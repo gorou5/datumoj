@@ -76,6 +76,7 @@ def test_source_configuration_and_disabled_default(tmp_path):
     ]
     assert spec.scope["max_depth"] == 2 and spec.scope["max_pages_per_seed"] == 500
     assert spec.scope["follow_pdf"] is True
+    assert spec.scope["pdf_recheck_days"] == 7 and spec.scope["head_probe"] is True
     assert spec.license.redistribution == "unverified" and spec.license.usage_scope == "internal_only"
     assert not read_control(tmp_path)["sources"].get(spec.id, {}).get("enabled", False)
     assert discover_crawlers()["gov_web"] is GovWebCrawler

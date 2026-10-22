@@ -6,6 +6,7 @@ import logging
 import posixpath
 import re
 from collections.abc import Iterable
+from datetime import timedelta
 from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlsplit, urlunsplit
 
 from lxml import etree, html
@@ -83,10 +84,15 @@ class GovWebCrawler(Crawler):
         self._max_depth = scope.get("max_depth", 2)
         self._max_pages = scope.get("max_pages_per_seed", 200)
         self._follow_pdf = scope.get("follow_pdf", True)
+        self._pdf_recheck_days = scope.get("pdf_recheck_days")
         for name, value, minimum in (("max_depth", self._max_depth, 0),
                                      ("max_pages_per_seed", self._max_pages, 1)):
             if type(value) is not int or value < minimum:
                 raise ValueError(f"scope.{name} 必须是 >= {minimum} 的整数")
+        if self._pdf_recheck_days is not None and (
+            type(self._pdf_recheck_days) is not int or self._pdf_recheck_days < 1
+        ):
+            raise ValueError("scope.pdf_recheck_days 必须是正整数")
         if type(self._follow_pdf) is not bool:
             raise ValueError("scope.follow_pdf 必须是布尔值")
         seeds = scope.get("seeds")
@@ -180,6 +186,7 @@ class GovWebCrawler(Crawler):
             if declared_base is not None:
                 link_base = declared_base
         tasks = []
+        skipped_pdfs = 0
         for link in page.xpath("//a[@href] | //area[@href]"):
             url = normalize_url(link.get("href", ""), link_base)
             if url is None or url in self._seen:
@@ -195,6 +202,11 @@ class GovWebCrawler(Crawler):
             depth = task.meta["depth"] + 1
             if (pdf and not self._follow_pdf) or (not pdf and (depth > self._max_depth or suffix in _ASSETS)):
                 continue
+            if (pdf and self._pdf_recheck_days is not None and previous is not None
+                    and ctx.now - previous.fetched_at < timedelta(days=self._pdf_recheck_days)):
+                self._seen.add(url)
+                skipped_pdfs += 1
+                continue
             if self._counts[seed] >= self._max_pages:
                 if seed not in self._warned:
                     log.warning("gov_web seed=%s max_pages_per_seed=%s reached; further tasks omitted",
@@ -204,4 +216,6 @@ class GovWebCrawler(Crawler):
             tasks.append(self._task(url, seed, depth, "pdf" if pdf else "page", {
                 META_PARENT_URL: redact_url(result.url), META_PARENT_SHA256: digest,
             }))
+        if skipped_pdfs:
+            log.info("gov_web pdf_recheck skipped=%s", skipped_pdfs)
         return tasks
