@@ -190,5 +190,6 @@ def test_registry_export_cli_writes_requested_directory(tmp_path):
     result = CliRunner().invoke(cli.app, ["registry", "export", "--out", str(output)])
 
     assert result.exit_code == 0, result.output
-    assert "已导出 6 个来源描述" in result.output
-    assert len(list(output.glob("*.json"))) == 6
+    expected = len(list((ROOT / "sources").glob("*.yaml")))
+    assert f"已导出 {expected} 个来源描述" in result.output
+    assert len(list(output.glob("*.json"))) == expected
