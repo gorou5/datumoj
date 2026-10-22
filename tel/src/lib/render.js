@@ -473,8 +473,22 @@ ${searchForm()}`;
   });
 }
 
+// tel/seo-watch（第2ラウンド）: 種類ハブから Tier 1 番号ページへの内部リンク。
+// 対象番号は tel/seo/SEO_LOG.md の SEO 監視対象で、総務省指定データに
+// 6 桁以上の区画＋割当事業者を持つ実データページ（sitemap 掲載済み）。
+const FEATURED_NUMBERS = {
+  free0800: [{ digits: '08007779633', lineType: 'free0800' }],
+  free0120: [{ digits: '0120923499', lineType: 'free0120' }],
+};
+
 export function typePage(hub) {
   const lt = hub.lineType;
+  const featured = FEATURED_NUMBERS[lt.code] || [];
+  const featuredHtml = featured.length
+    ? `<div class="card"><h2>番号の例</h2><p>この種類で、総務省の指定データに基づく詳細ページがある番号の例です。</p><ul class="tight">${featured
+        .map((f) => `<li><a href="/${f.digits}">${esc(formatNumber(f.digits, { lineType: f.lineType }))}</a></li>`)
+        .join('')}</ul></div>`
+    : '';
   const rows = hub.blocks
     .map(
       (b) => `<tr><th>${esc(b.prefix)}</th><td>${b.designated_on ? esc(b.designated_on) + '〜' : ''} ${esc(b.note || '')}</td></tr>`
@@ -487,6 +501,7 @@ export function typePage(hub) {
 <div class="card"><h2>番号帯</h2><table>${rows}</table>
 ${hub.detailCount ? `<p class="meta">このほか、総務省の指定状況に基づく事業者別区画（6桁単位）が ${hub.detailCount} 件あり、各番号のページで割当事業者として表示されます。</p>` : ''}
 </div>
+${featuredHtml}
 ${searchForm()}`;
   return layout({
     title: `${lt.name_ja} の番号帯一覧`,
