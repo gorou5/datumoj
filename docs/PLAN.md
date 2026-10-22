@@ -142,7 +142,7 @@ Citation = source_id + resource_url + snapshot_sha256 + fetched_at + locator
 
 - **方向**：运行时以后落到网络存储，云端优先 Cloudflare（R2 存原始文件和派生文件，Workers / Cron Triggers 跑定时抓取，D1 等按需选择），与团队规范 `docs/architecture.md` §4 一致。
 - **做法**：核心逻辑与平台解耦。所有存储经接口访问（`RawStore` 已有；manifest、chunk、目录、观测值、向量各有 Protocol），数据位置只由一处配置决定；平台相关的实现放在独立的适配层，本机实现继续可用。
-- **分步**：TACHIBANA 先把存储位置收拢到一处配置，并给 `RawStore` 加 S3 兼容（R2）实现，用契约测试套件在模拟存储上验证；SQLite 类的库（manifest、目录、chunk）上网络存储的方式（D1，或只同步备份）用 ADR 决定。真正部署到 Cloudflare，等账号、凭证和部署流程定下来以后另排版本。
+- **分步**：TACHIBANA 先把存储位置收拢到一处配置，并给 `RawStore` 加 S3 兼容（R2）实现，用契约测试套件在模拟存储上验证；SQLite 类的库（manifest、目录、chunk）上网络存储的方式（D1，或只同步备份）用 ADR 决定。2026-10-22 已定（ADR 0002）：索引跟随数据上 R2，本机的库按需从 R2 重建；同步频率按来源分别设置。真正部署到 Cloudflare，等账号、凭证和部署流程定下来以后另排版本。
 - **凭证**：R2 / Cloudflare 凭证只放 `.env` 或平台 Secrets，不进仓库；生产资源的创建和变更要人明确授权（`SECURITY.md`）。
 
 ## 5. 来源范围与优先级
@@ -386,7 +386,7 @@ datumoj/
 | 7 | 变化报告 | 要。先输出本地 Markdown 到 `data/reports/`，M4 再决定是否推送 |
 | 8 | 定时抓取的机器 | 先用项目负责人的 Mac（launchd），配置写成可移植的（换到 Linux 用 cron）；M2 验收时开始 JMA 每小时轮询；中断会留缺口，变化报告里要注明 |
 | 9 | e-Stat appId | 第一阶段只用文件下载，不用 API。API 放在 P2，届时在主对话里只发一次有限请求核实 |
-| 10 | jp-gov-web 种子清单 | 内阁府、经产省、总务省、东京都、大阪府、大阪市，M4 开始前再细化到具体栏目 |
+| 10 | jp-gov-web 种子清单 | 内阁府、总务省、大阪市，M4 开始前再细化到具体栏目。东京都、大阪府（规约不允许复制转载）和经产省（对爬虫返回 403）2026-10-22 决定不进 0.2 |
 | 11 | 旧项目真实样本 | 从 `local-runtime-evidence/` 挑小样本（每个来源几 MB 以内）放进 `tests/fixtures/`，缺的在 H1 和 H3 里补录 |
 | 12 | 数据保留与清理（2026-10-22） | DATUMOJ 不做数据清理；保留和清理由另外的 batch 机制处理 |
 | 13 | 来源说明字段（2026-10-22） | 保存目的、保留期限等说明不作硬性要求；注册层描述 JSON 由 `sources/*.yaml` 导出 |
