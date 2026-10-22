@@ -21,6 +21,8 @@
   .steps{font-size:13.5px;color:var(--muted);margin-top:8px;min-height:20px}
   .steps b{color:var(--ink)}
   .steps .clear{margin-left:10px;cursor:pointer;color:var(--tach);text-decoration:underline}
+  #chipbox{max-height:42vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px}
+  @media (max-width:700px){.panel{position:static}#chipbox{max-height:48vh} td.c,td.u{white-space:normal} th,td{font-size:12.5px;padding:5px 6px}}
   .group{margin:14px 0 2px;font-size:13px;color:var(--muted);letter-spacing:.04em}
   .chips{display:flex;flex-wrap:wrap;gap:7px}
   .chip{border:1px solid var(--line);background:var(--card);border-radius:20px;padding:4px 12px;
@@ -58,8 +60,8 @@
 <div class="panel">
   <input id="q" type="search" placeholder="逐步筛选：输入关键字，如 japan / health / bank / fao…" aria-label="关键字逐步筛选">
   <div class="steps" id="steps"></div>
-  <div id="chipbox"></div>
 </div>
+<div id="chipbox"></div>
 
 <main id="results"></main>
 
