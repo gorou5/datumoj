@@ -1,5 +1,5 @@
 // HTML rendering for tel.datumoj.com. No inline client JS; search is a plain GET form.
-import { formatNumber, splitNumber, anatomySegments, anatomyLabels, neighbors } from './number.js';
+import { formatNumber, splitNumber, anatomySegments, neighbors } from './number.js';
 
 export function esc(s) {
   return String(s ?? '')
@@ -268,11 +268,15 @@ export function homePage() {
 export function numberPage(facts) {
   const f = facts;
   const formatted = formatNumber(f.digits, f);
-  const segs = anatomySegments(f.digits, f);
-  const labels = anatomyLabels(f);
-  const segHtml = segs
-    .map((s, i) => `<div class="seg"><b>${esc(s)}</b><span>${esc(labels[i] || '')}</span></div>`)
+  const hero = randomHero(f);
+  const segColors = ['seg-a', 'seg-b', 'seg-c', 'seg-d'];
+  const segHtml = hero.segments
+    .map(
+      (s, i) =>
+        `${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<button type="button" class="segbtn ${segColors[i % 4]}${i === hero.defaultSeg ? ' is-active' : ''}" data-seg="${i}" aria-pressed="${i === hero.defaultSeg}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></button>`
+    )
     .join('');
+  const heroJson = JSON.stringify(hero.segments).replace(/<\//g, '<\\/');
   const crumbs = [{ name: 'ホーム', url: 'https://tel.datumoj.com/' }, { name: f.lineTypeName, url: `https://tel.datumoj.com/type/${f.lineType}` }];
   if (f.areaCode) crumbs.push({ name: `市外局番 ${f.areaCode}`, url: `https://tel.datumoj.com/area/${f.areaCode}` });
   crumbs.push({ name: formatted, url: `https://tel.datumoj.com/${f.digits}` });
@@ -397,8 +401,10 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
   };
   const body = `
 <p class="crumbs">${crumbHtml}</p>
-<h1>${esc(formatted)}</h1>
-<div class="segs">${segHtml}</div>
+<h1 class="sr-only">${esc(formatted)} の電話番号情報</h1>
+<div class="hero-num" role="group" aria-label="電話番号の各部分">${segHtml}</div>
+<div class="seg-explain" id="segExplain" data-seg="${hero.defaultSeg}" aria-live="polite"><h2 id="segTitle">${esc(hero.segments[hero.defaultSeg].title)}</h2><p id="segText">${esc(hero.segments[hero.defaultSeg].explain)}</p></div>
+<script>(function(){var SEGS=${heroJson};var btns=document.querySelectorAll('.segbtn');var t=document.getElementById('segTitle'),x=document.getElementById('segText'),c=document.getElementById('segExplain');function sel(i){for(var j=0;j<btns.length;j++){btns[j].classList.toggle('is-active',j===i);btns[j].setAttribute('aria-pressed',j===i?'true':'false');}t.textContent=SEGS[i].title;x.textContent=SEGS[i].explain;c.setAttribute('data-seg',String(i));}for(var k=0;k<btns.length;k++){(function(k){btns[k].addEventListener('click',function(){sel(k);});})(k);}})();</script>
 <div class="card"><table>${rows.join('')}</table></div>
 ${sections}
 ${searchForm()}
