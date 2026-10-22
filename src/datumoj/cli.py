@@ -7,6 +7,7 @@ import os
 import tempfile
 from collections.abc import Callable
 from contextvars import ContextVar
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -14,6 +15,7 @@ import typer
 from pydantic import BaseModel
 
 from datumoj import wiring
+from datumoj.analysis.reports import weekly_report
 from datumoj.core import schedule as scheduling
 from datumoj.core.models import Citation
 from datumoj.core.registry_export import export_registry
@@ -24,9 +26,11 @@ app = typer.Typer(no_args_is_help=True, help="抓取、解析、索引并查询�
 schedule_app = typer.Typer(no_args_is_help=True, help="本机抓取开关和调度。")
 launchd_app = typer.Typer(no_args_is_help=True, help="生成、安装或卸载 launchd 任务。")
 registry_app = typer.Typer(no_args_is_help=True, help="数据源注册表导出。")
+report_app = typer.Typer(no_args_is_help=True, help="生成资料库变化报告。")
 app.add_typer(schedule_app, name="schedule")
 schedule_app.add_typer(launchd_app, name="launchd")
 app.add_typer(registry_app, name="registry")
+app.add_typer(report_app, name="report")
 _DATA_DIR: ContextVar[str | None] = ContextVar("datumoj_data_dir", default=None)
 
 
@@ -191,8 +195,50 @@ def _scheduler_at(root: str | Path) -> tuple[Any, scheduling.Scheduler]:
     deps = wiring.build(root)
     if deps.registry is None:
         raise wiring.FeatureNotConnected("该功能尚未接入：没有来源注册表")
-    scheduler = scheduling.Scheduler(root, deps.registry.all(), lambda spec: _crawl_report(deps, spec))
+    scheduler = scheduling.Scheduler(
+        root, deps.registry.all(), lambda spec: _crawl_report(deps, spec), manifest=deps.manifest,
+    )
     return deps, scheduler
+
+
+@report_app.command("weekly")
+def report_weekly(
+    since: str | None = typer.Option(None, "--since", help="开始日期（YYYY-MM-DD）"),
+    until: str | None = typer.Option(None, "--until", help="结束日期（YYYY-MM-DD）"),
+    out: Path | None = typer.Option(None, "--out", help="报告输出路径"),
+) -> None:
+    """生成带出处的每周变化 Markdown。"""
+    def parse_date(value: str | None, name: str) -> date | None:
+        if value is None:
+            return None
+        try:
+            parsed = date.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError(f"{name} 必须是 YYYY-MM-DD") from exc
+        if parsed.isoformat() != value:
+            raise ValueError(f"{name} 必须是 YYYY-MM-DD")
+        return parsed
+
+    def action(deps: Any) -> None:
+        if any(item is None for item in (deps.registry, deps.manifest, deps.chunks, deps.change_log)):
+            raise wiring.FeatureNotConnected("周报所需的注册表、快照、文档或变化日志尚未接入")
+        now = datetime.now(UTC)
+        end_day = parse_date(until, "until") or now.date()
+        start_day = parse_date(since, "since") or (end_day - timedelta(days=6))
+        if start_day > end_day:
+            raise ValueError("since 不能晚于 until")
+        scheduler = scheduling.Scheduler(
+            deps.data_dir, deps.registry.all(), lambda spec: _crawl_report(deps, spec), manifest=deps.manifest,
+        )
+        status = scheduler.status()
+        alerts = [alert for source in status["sources"] for alert in source["alerts"]]
+        content = weekly_report(deps, start_day, end_day, alerts)
+        iso_year, iso_week, _ = end_day.isocalendar()
+        path = out or deps.data_dir / "reports" / f"weekly-{iso_year}-W{iso_week:02d}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        typer.echo(str(path))
+    _run("report", action)
 
 
 def _schedule_call(action: Callable[[], Any]) -> None:
