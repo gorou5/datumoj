@@ -9,9 +9,9 @@ runner: claude
 model: null
 tier: low
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/parsers/html_page.py", "src/datumoj/wiring.py", "tests/parsers/test_html_page_dates.py", "results/DATUMOJ-TACHIBANA-207/**"]
+scope: ["src/datumoj/parsers/html_page.py", "src/datumoj/wiring.py", "tests/parsers/test_html_page_dates.py", "tests/parsers/test_html_page.py", "results/DATUMOJ-TACHIBANA-207/**"]
 out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", ".github/**"]
-protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**", "tests/parsers/test_html_page.py", "tests/integration/test_gov_web_e2e.py"]
+protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**", "tests/integration/test_gov_web_e2e.py"]
 acceptance:
   automated:
     - cmd: make check T=tests/parsers/test_html_page_dates.py
@@ -41,7 +41,8 @@ max_attempts: 2
 2. 与现有规则合并：仍取所有更新日类候选里最新的一个；没有候选仍留空，不拿抓取日顶替。
 3. 提高解析器版本号，使 `datumoj parse` / `index` 会重新解析已有的大阪市快照、补上日期（不需要重新抓取）。注意：实际入库走的是 `wiring.py` 里的分派入口 `_GovWebContent`（name `gov-web-content`，按正文选 PDF / HTML 解析器），解析记录按它的版本记；只改 `HtmlPageParser.version` 不会触发重新解析。所以要让 `_GovWebContent.version` 随内部两个解析器的版本变化（例如由两者的版本拼成），并加测试断言 HTML 解析器版本变化会让分派入口的版本跟着变。在 summary 里说明版本提升对已入库数据的影响。
 4. 新测试 `tests/parsers/test_html_page_dates.py`：`osaka-city/detail-1.html` 的 `published_at` 为 2026-08-26，`detail-2.html` 为 2026-10-16；`page_day01` 里不是日期、带其他文字、表外 class 的同样结构都不取；内阁府、总务省样本的日期结果不变；`dated-wareki.html` 仍为 2025-04-01。
-5. `tests/parsers` 和 `tests/integration/test_gov_web_e2e.py` 必须仍然通过。
+5. 202 留下的测试 `tests/parsers/test_html_page.py::test_osaka_unlabeled_page_date_is_not_treated_as_published_date` 断言大阪市样本的 `published_at is None`，与本任务（2026-10-22 人定）相反：只把这一个测试改为断言 2026-08-26（可改名），`test_html_page.py` 里的其他测试一律不改。（第 1、2 次尝试因任务文件把该文件设为受保护而卡在这里，实现本身其余测试都通过。）
+6. `tests/parsers` 和 `tests/integration/test_gov_web_e2e.py` 必须仍然通过。
 
 # 不做
 - 不改采集器。
