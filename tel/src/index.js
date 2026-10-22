@@ -9,7 +9,7 @@ import {
   listGovAgencies, listGovNumbers, govNumbersByAgency,
 } from './lib/compose.js';
 import {
-  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage,
+  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero,
 } from './lib/render.js';
 
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
@@ -90,6 +90,32 @@ export default {
         const hub = await getLineTypeHub(db, m[1]);
         if (!hub) return html(notFoundPage(m[1]), 404);
         return html(typePage(hub));
+      }
+      if (path === '/random.json') {
+        // Homepage hero: draw a real designated block at random (type first,
+        // so all line types rotate), fill it out with random subscriber
+        // digits, and return the fullest explanation compose can give.
+        const types = ['fixed', 'mobile', 'ip050', 'free0120', 'free0800', 'navi0570', 'm2m020'];
+        let payload = null;
+        for (let attempt = 0; attempt < 6 && !payload; attempt++) {
+          const lt = types[Math.floor(Math.random() * types.length)];
+          const brow = await db
+            .prepare(
+              "SELECT prefix FROM number_block_allocation WHERE line_type = ? AND carrier_id IS NOT NULL AND status = 'designated' AND length(prefix) >= 6 ORDER BY RANDOM() LIMIT 1"
+            )
+            .bind(lt)
+            .first();
+          if (!brow) continue;
+          const ltRow = await db.prepare('SELECT digits FROM line_type WHERE code = ?').bind(lt).first();
+          let digits = brow.prefix;
+          while (digits.length < ltRow.digits) digits += Math.floor(Math.random() * 10);
+          const facts = await composeNumber(db, digits);
+          if (facts) payload = randomHero(facts);
+        }
+        if (!payload) return new Response('{}', { status: 503, headers: { 'cache-control': 'no-store' } });
+        return new Response(JSON.stringify(payload), {
+          headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+        });
       }
       if ((m = path.match(/^\/(\d{10,14})$/))) {
         const facts = await composeNumber(db, m[1]);

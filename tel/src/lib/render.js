@@ -1,5 +1,5 @@
 // HTML rendering for tel.datumoj.com. No inline client JS; search is a plain GET form.
-import { formatNumber, anatomySegments, anatomyLabels, neighbors } from './number.js';
+import { formatNumber, splitNumber, anatomySegments, anatomyLabels, neighbors } from './number.js';
 
 export function esc(s) {
   return String(s ?? '')
@@ -41,12 +41,16 @@ th{width:11rem;color:#555;font-weight:600}
 .segbtn{border:2px solid transparent;border-radius:14px;padding:.5rem .9rem .35rem;cursor:pointer;font:inherit;background:#eef1f4;text-align:center}
 .segbtn .segdigits{display:block;font-size:clamp(1.9rem,8.5vw,3.6rem);font-weight:700;letter-spacing:.04em;line-height:1.15;color:#33424f}
 .segbtn .segcap{display:block;font-size:.72rem;color:#71808d;margin-top:.15rem}
-.seg-a{background:#dcebf5}.seg-b{background:#e2ecd9}.seg-c{background:#f6ead0}
+.seg-a{background:#dcebf5}.seg-b{background:#e2ecd9}.seg-c{background:#f6ead0}.seg-d{background:#e9e0f2}
+.hero-facts{max-width:640px;margin:.9rem auto 0;text-align:left;background:#fbfaf6;border:1px solid #e7e1d2;border-radius:10px;padding:.7rem 1.1rem}
+.hero-fact{margin:.25rem 0;font-size:.92rem;color:#3d473a}
+.hero-fact b{color:#22303c}
 .segbtn.is-active{border-color:#5b84a6;box-shadow:0 3px 14px rgba(60,70,90,.18)}
 .hero-hyphen{align-self:center;font-size:clamp(1.4rem,6vw,2.6rem);color:#a3aeb8}
 .seg-explain{max-width:640px;margin:1.1rem auto 0;text-align:left;background:#fff;border:1px solid #e7e1d2;border-left:6px solid #7d9db5;border-radius:10px;padding:.9rem 1.1rem}
 .seg-explain[data-seg="1"]{border-left-color:#a3b899}
 .seg-explain[data-seg="2"]{border-left-color:#dfc08a}
+.seg-explain[data-seg="3"]{border-left-color:#b39ddb}
 .seg-explain h2{font-size:1.05rem;margin:0 0 .3rem}
 .seg-explain p{margin:0}
 .hero-note{color:#8a94a0;font-size:.88rem;margin-top:.9rem}
@@ -95,12 +99,98 @@ function searchForm(value = '') {
 </form>`;
 }
 
+// Payload for the homepage hero (/random.json): the fullest explanation we
+// can give for one randomly drawn, really-designated number — every line
+// type, with the fixed-line exchange (市内局番, the old 分局) explained.
+export function randomHero(f) {
+  const formatted = formatNumber(f.digits, f);
+  const carrier = f.block.carrierName;
+  let segments;
+  let defaultSeg = 0;
+  if (f.lineType === 'fixed') {
+    const parts = anatomySegments(f.digits, f);
+    const ma = f.mas && f.mas.length === 1 ? f.mas[0] : null;
+    segments = [
+      {
+        text: parts[0], label: '国内プレフィックス', title: '国内プレフィックス「0」',
+        explain: '日本国内で市外へかける際の合図（トランクプレフィックス）です。海外からかける場合は +81 に置き換わり、この0は省略されます。',
+      },
+      {
+        text: parts[1], label: '市外局番', title: `市外局番（0${parts[1]}）`,
+        explain: `固定電話の地域を表す番号です。市外局番 0${parts[1]} は${f.prefecture || '日本'}のエリアで使われています。市外局番と市内局番は、合わせて5桁になるよう設計されています。`,
+      },
+      {
+        text: parts[2], label: '市内局番', title: '市内局番（かつての「分局」）',
+        explain: `もともとは電話交換局（分局）が担当するエリアごとに割り当てられた部分で、その電話がどの交換局の管轄かを示していました。交換の自動化・IP化で「分局」という実体は薄れましたが、市内局番は今も単位料金区域（MA）の中の番号区画として、事業者ごとに割り当てられています。${ma ? `この番号の区画は ${ma.charge_area_name}MA（番号区画コード ${ma.zone_code}）に属します。` : ''}${carrier ? `割当事業者は ${carrier} です。` : ''}`,
+      },
+      {
+        text: parts[3], label: '加入者番号', title: '加入者番号',
+        explain: '市内局番のエリアの中で、各契約回線に割り当てられる4桁の番号です。それ自体に地域や事業者の意味はありません。',
+      },
+    ];
+    defaultSeg = 2;
+  } else if (f.lineType === 'm2m020') {
+    const p = f.block.prefix;
+    segments = [
+      {
+        text: p, label: '番号区画', title: '020番号の区画',
+        explain: `020は、携帯電話網を使うM2M（機器間通信）等専用の番号帯です。一般の音声通話用ではなく、IoT機器やデータ通信端末に割り当てられます。${carrier ? `この区画の割当事業者は ${carrier} です。` : ''}桁数は用途により12〜14桁です。`,
+      },
+      {
+        text: f.digits.slice(p.length), label: '識別番号', title: '識別番号',
+        explain: '個々の機器・回線を識別するための番号部分です。',
+      },
+    ];
+  } else {
+    const parts = splitNumber(f.digits, f);
+    const band = parts[0];
+    let bandExplain;
+    if (f.lineType === 'mobile') {
+      bandExplain = `${band} は携帯電話の番号帯です。${carrier ? `当初の割当事業者は ${carrier} です。` : ''}2006年に番号ポータビリティ（MNP）が始まって以降、事業者を変えても番号はそのまま使えるため、現在の契約事業者はこの番号からは分かりません。`;
+    } else if (f.lineType === 'ip050') {
+      bandExplain = `050 はIP電話の番号帯です（2003年に利用開始）。${carrier ? `割当事業者は ${carrier} です。` : ''}インターネット回線を使う電話で、市外局番と違い地域とは結びついていません。番号ポータビリティの対象です。`;
+    } else if (f.lineType === 'free0120' || f.lineType === 'free0800') {
+      bandExplain = `${band} は着信課金（フリーダイヤル）の番号帯です。通話料は着信側が負担し、かける側は無料です。${carrier ? `割当事業者は ${carrier} です。` : ''}企業や団体の問い合わせ窓口などに使われます。`;
+    } else {
+      bandExplain = `0570 はナビダイヤルの番号帯です。全国共通の窓口番号を実際の着信先へ振り分ける仕組みで、通話料は発信者負担（有料）です。${carrier ? `割当事業者は ${carrier} です。` : ''}`;
+    }
+    const restExplain =
+      f.lineType === 'mobile' || f.lineType === 'ip050'
+        ? '契約者ごとに割り当てられる加入者番号の一部です。携帯電話・IP電話には固定電話のような「分局」（交換局エリア）の仕組みがなく、この数字から地域や現在の契約事業者は分かりません。'
+        : '契約した企業・団体ごとに割り当てられる加入者番号の一部です。数字から地域は分かりません。';
+    segments = [
+      { text: band, label: '番号帯', title: `番号帯（${band}）`, explain: bandExplain },
+      { text: parts[1], label: '加入者番号', title: '加入者番号（前半）', explain: restExplain },
+      { text: parts[2], label: '加入者番号', title: '加入者番号（後半）', explain: restExplain },
+    ];
+  }
+  const facts = [{ k: '番号の種類', v: f.lineTypeName }];
+  if (carrier) facts.push({ k: '割当事業者', v: carrier });
+  if (f.lineType === 'fixed') {
+    if (f.prefecture) facts.push({ k: '都道府県', v: f.prefecture });
+    if (f.mas && f.mas.length === 1) {
+      facts.push({ k: '単位料金区域（MA）', v: `${f.mas[0].charge_area_name}MA（番号区画コード ${f.mas[0].zone_code}）` });
+      facts.push({ k: '対象地域', v: f.mas[0].region });
+    }
+  }
+  if (f.lineType === 'mobile' || f.lineType === 'ip050') facts.push({ k: '地域', v: '番号から地域は特定できません' });
+  facts.push({ k: 'データ出典', v: f.block.source || '総務省 電気通信番号計画' });
+  return {
+    digits: f.digits,
+    formatted,
+    kicker: `日本の電話番号の例（${f.lineTypeName}）`,
+    segments,
+    facts,
+    defaultSeg,
+  };
+}
+
 export function homePage() {
   const body = `
 <div class="home">
 <h1 class="sr-only">日本の電話番号データベース</h1>
-<p class="hero-kicker">日本の携帯電話番号（11桁）の例</p>
-<div class="hero-num" role="group" aria-label="電話番号の各部分">
+<p class="hero-kicker" id="heroKicker">日本の電話番号の例</p>
+<div class="hero-num" id="heroSegs" role="group" aria-label="電話番号の各部分">
 <button type="button" class="segbtn seg-a is-active" data-seg="0" aria-pressed="true"><span class="segdigits" id="segd0">090</span><span class="segcap">番号帯</span></button>
 <span class="hero-hyphen">-</span>
 <button type="button" class="segbtn seg-b" data-seg="1" aria-pressed="false"><span class="segdigits" id="segd1">XXXX</span><span class="segcap">加入者番号</span></button>
@@ -111,8 +201,9 @@ export function homePage() {
 <h2 id="segTitle">番号帯（070 / 080 / 090）</h2>
 <p id="segText">携帯電話の番号帯です。もともとは契約した事業者を表す目印でしたが、2006年に番号ポータビリティ（MNP）が始まって以降、事業者を変えても番号はそのまま使えるため、いまの事業者はこの3桁からは分かりません。2024年には新しい番号帯として060も指定されました。</p>
 </div>
-<p class="hero-note">表示される番号は毎回ランダムな例です。色のついた部分を押すと、その部分の意味が表示されます。<button type="button" class="shuffle" id="shuffleBtn">別の番号を表示</button></p>
-<p class="hero-note">なお固定電話の番号は10桁です。桁数の違いの成り立ちは<a href="/history">日本の電話番号の歴史</a>へ。</p>
+<div class="hero-facts" id="heroFacts" hidden></div>
+<p class="hero-note">表示される番号は、総務省の指定データにある実在の番号区画から毎回ランダムに選ばれています。色のついた部分を押すと、その部分の意味が表示されます。<button type="button" class="shuffle" id="shuffleBtn">別の番号を表示</button> <a id="heroDetail" href="/09012345678" hidden>この番号の詳細ページ</a></p>
+<p class="hero-note">固定電話は10桁、携帯電話は11桁など、桁数の違いの成り立ちは<a href="/history">日本の電話番号の歴史</a>へ。</p>
 <form class="bigsearch" action="/search" method="get" role="search">
 <input type="search" name="q" inputmode="numeric" autocomplete="off" placeholder="電話番号を入力（例：090-1234-5678）" aria-label="電話番号">
 <button type="submit">調べる</button>
@@ -121,28 +212,49 @@ export function homePage() {
 </div>
 <script>
 (function(){
-  var EXPLAIN=[
-    {t:'番号帯（070 / 080 / 090）',x:'携帯電話の番号帯です。もともとは契約した事業者を表す目印でしたが、2006年に番号ポータビリティ（MNP）が始まって以降、事業者を変えても番号はそのまま使えるため、いまの事業者はこの3桁からは分かりません。2024年には新しい番号帯として060も指定されました。'},
-    {t:'加入者番号（前半4桁）',x:'契約者ごとに割り当てられる加入者番号（8桁）の前半です。固定電話の市内局番と違い、地域を表すものではありません。'},
-    {t:'加入者番号（後半4桁）',x:'加入者番号の後半4桁です。前半と合わせた8桁が、その契約回線を識別する固有の番号になります。'}
-  ];
-  var BANDS=['070','080','090'];
-  function rnd(n){var s='';for(var i=0;i<n;i++){s+=Math.floor(Math.random()*10);}return s;}
-  function newNumber(){
-    document.getElementById('segd0').textContent=BANDS[Math.floor(Math.random()*BANDS.length)];
-    document.getElementById('segd1').textContent=rnd(4);
-    document.getElementById('segd2').textContent=rnd(4);
-  }
-  var btns=document.querySelectorAll('.segbtn');
+  var segsEl=document.getElementById('heroSegs');
+  var kick=document.getElementById('heroKicker');
+  var titleEl=document.getElementById('segTitle'), textEl=document.getElementById('segText'), card=document.getElementById('segExplain');
+  var factsEl=document.getElementById('heroFacts'), detail=document.getElementById('heroDetail');
+  var COLORS=['seg-a','seg-b','seg-c','seg-d'];
+  var data=null;
   function select(i){
+    if(!data||!data.segments[i])return;
+    var btns=segsEl.querySelectorAll('.segbtn');
     for(var j=0;j<btns.length;j++){btns[j].classList.toggle('is-active',j===i);btns[j].setAttribute('aria-pressed',j===i?'true':'false');}
-    document.getElementById('segTitle').textContent=EXPLAIN[i].t;
-    document.getElementById('segText').textContent=EXPLAIN[i].x;
-    document.getElementById('segExplain').setAttribute('data-seg',String(i));
+    titleEl.textContent=data.segments[i].title;
+    textEl.textContent=data.segments[i].explain;
+    card.setAttribute('data-seg',String(i));
   }
-  for(var k=0;k<btns.length;k++){(function(k){btns[k].addEventListener('click',function(){select(k);});})(k);}
-  document.getElementById('shuffleBtn').addEventListener('click',newNumber);
-  newNumber();
+  function render(d){
+    data=d;
+    kick.textContent=d.kicker;
+    segsEl.innerHTML='';
+    d.segments.forEach(function(s,i){
+      if(i>0){var h=document.createElement('span');h.className='hero-hyphen';h.textContent='-';segsEl.appendChild(h);}
+      var b=document.createElement('button');b.type='button';b.className='segbtn '+COLORS[i%COLORS.length];b.setAttribute('aria-pressed','false');
+      var ds=document.createElement('span');ds.className='segdigits';ds.textContent=s.text;
+      var cs=document.createElement('span');cs.className='segcap';cs.textContent=s.label;
+      b.appendChild(ds);b.appendChild(cs);
+      b.addEventListener('click',function(){select(i);});
+      segsEl.appendChild(b);
+    });
+    factsEl.innerHTML='';
+    d.facts.forEach(function(f){
+      var row=document.createElement('p');row.className='hero-fact';
+      var k=document.createElement('b');k.textContent=f.k+'：';
+      row.appendChild(k);row.appendChild(document.createTextNode(f.v));
+      factsEl.appendChild(row);
+    });
+    factsEl.hidden=false;
+    detail.hidden=false;detail.href='/'+d.digits;detail.textContent='この番号（'+d.formatted+'）の詳細ページ';
+    select(d.defaultSeg||0);
+  }
+  function load(){
+    fetch('/random.json',{cache:'no-store'}).then(function(r){return r.json();}).then(render).catch(function(){});
+  }
+  document.getElementById('shuffleBtn').addEventListener('click',load);
+  load();
 })();
 </script>`;
   return layout({
