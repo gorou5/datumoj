@@ -9,7 +9,7 @@ allowed_hosts:
   - www.city.osaka.lg.jp
 rate_per_sec: 0.3333333333333333
 max_total_bytes: 2147483648
-max_files: 2000
+max_files: 3000
 schedule: daily
 license:
   name: unknown
@@ -29,6 +29,7 @@ scope:
       path_prefix: /keizaisenryaku/
   max_depth: 2
   max_pages_per_seed: 500
+  max_pdfs_per_seed: 500
   follow_pdf: true
   pdf_recheck_days: 7
   head_probe: true
