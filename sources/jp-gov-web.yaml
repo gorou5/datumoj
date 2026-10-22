@@ -8,8 +8,8 @@ allowed_hosts:
   - www.soumu.go.jp
   - www.city.osaka.lg.jp
 rate_per_sec: 0.3333333333333333
-max_total_bytes: 1073741824
-max_files: 600
+max_total_bytes: 2147483648
+max_files: 2000
 schedule: daily
 license:
   name: unknown
@@ -28,7 +28,7 @@ scope:
       label: 産業支援・創出支援・特区制度など（経済戦略局）
       path_prefix: /keizaisenryaku/
   max_depth: 2
-  max_pages_per_seed: 200
+  max_pages_per_seed: 500
   follow_pdf: true
 # New sources are disabled by control.json defaults; switches do not belong in YAML.
 retention_note: 日次の限定巡回。raw は出典再現用の不変スナップショット。保存期限・削除方針は unknown。

@@ -74,7 +74,7 @@ def test_source_configuration_and_disabled_default(tmp_path):
     assert [s["path_prefix"] for s in spec.scope["seeds"]] == [
         "/cstp/openinnovation/", "/denshijiti/", "/keizaisenryaku/",
     ]
-    assert spec.scope["max_depth"] == 2 and spec.scope["max_pages_per_seed"] == 200
+    assert spec.scope["max_depth"] == 2 and spec.scope["max_pages_per_seed"] == 500
     assert spec.scope["follow_pdf"] is True
     assert spec.license.redistribution == "unverified" and spec.license.usage_scope == "internal_only"
     assert not read_control(tmp_path)["sources"].get(spec.id, {}).get("enabled", False)
