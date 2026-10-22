@@ -1,5 +1,5 @@
 // HTML rendering for tel.datumoj.com. No inline client JS; search is a plain GET form.
-import { formatNumber, splitNumber, segmentLabels, neighbors } from './number.js';
+import { formatNumber, anatomySegments, anatomyLabels, neighbors } from './number.js';
 
 export function esc(s) {
   return String(s ?? '')
@@ -156,8 +156,8 @@ export function homePage() {
 export function numberPage(facts) {
   const f = facts;
   const formatted = formatNumber(f.digits, f);
-  const segs = splitNumber(f.digits, f);
-  const labels = segmentLabels(f.lineType);
+  const segs = anatomySegments(f.digits, f);
+  const labels = anatomyLabels(f);
   const segHtml = segs
     .map((s, i) => `<div class="seg"><b>${esc(s)}</b><span>${esc(labels[i] || '')}</span></div>`)
     .join('');
