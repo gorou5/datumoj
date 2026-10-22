@@ -1,0 +1,34 @@
+id: jp-gov-web
+name: 省庁・自治体の政策栏目（精選種子）
+country: jp
+kind: gov_web
+base_url: https://www8.cao.go.jp/cstp/openinnovation/
+allowed_hosts:
+  - www8.cao.go.jp
+  - www.soumu.go.jp
+  - www.city.osaka.lg.jp
+rate_per_sec: 0.3333333333333333
+max_total_bytes: 1073741824
+max_files: 600
+schedule: daily
+license:
+  name: unknown
+  usage_scope: internal_only
+  redistribution: unverified
+  notes: README の規約確認を参考とするが、添付ファイルを含む個別の権利は未確認。
+scope:
+  seeds:
+    - url: https://www8.cao.go.jp/cstp/openinnovation/index.html
+      label: イノベーション推進（科学技術・イノベーション推進事務局）
+      path_prefix: /cstp/openinnovation/
+    - url: https://www.soumu.go.jp/denshijiti/digital_transformation.html
+      label: 地域におけるデジタル・トランスフォーメーション
+      path_prefix: /denshijiti/
+    - url: https://www.city.osaka.lg.jp/keizaisenryaku/category/3037-1-0-0-0-0-0-0-0-0.html
+      label: 産業支援・創出支援・特区制度など（経済戦略局）
+      path_prefix: /keizaisenryaku/
+  max_depth: 2
+  max_pages_per_seed: 200
+  follow_pdf: true
+# New sources are disabled by control.json defaults; switches do not belong in YAML.
+retention_note: 日次の限定巡回。raw は出典再現用の不変スナップショット。保存期限・削除方針は unknown。
