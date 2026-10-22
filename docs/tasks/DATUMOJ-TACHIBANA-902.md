@@ -38,7 +38,7 @@ m2 的各项能力用真实实现一起跑通，并且整条流水线在原始�
 - 测试不能写入仓库里受 git 跟踪的路径；临时文件一律放 `tmp_path`。
 
 # 要求
-1. BODIK：回放 `tests/fixtures/bodik/`，目录入库，DataStore 三页都成为快照。
+1. BODIK：回放 `tests/fixtures/bodik/`（`limit=5`，已录 offset 0/5/10/65/67，见该目录 README），目录入库；DataStore 回放的各页都成为快照，读到末页（不足 `limit`）后停止，不跟随 `_links.next`。
 2. e-Stat：回放 `tests/fixtures/estat_files/`，`search_catalog` 能按表题找到统计表，结果出处能用 `cite` 还原，`query_sql` 取到的数值与原表一致。
 3. 目录：e-Gov 目录分页样本解析后，`search_catalog` 的每条结果都有出处并能 `cite` 还原。
 4. 关键词门槛：IVY 的评测门槛（`tests/integration/test_full_eval.py` 的同一套指标）全部达标，behavior 里的零命中题判为 `zero_hits`。

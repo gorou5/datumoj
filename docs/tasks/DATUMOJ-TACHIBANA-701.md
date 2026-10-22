@@ -25,7 +25,7 @@ max_attempts: 2
 TACHIBANA 的新能力有对应的离线评测题，门槛测试（903）能用它们判断达标。
 
 # 背景
-开发线：G 评测线。计划第 3 节第 8 条。题目格式见 `eval/questions/*.yaml` 和 `src/datumoj/eval/framework.py`（严格模型，未知字段会报错）。政策网页题基于 `tests/fixtures/gov_web/` 的样本（H1 录制，README 里有每个页面的 URL 和要点）；变化题（5 题）需要框架支持 `list_changes`，放在 903 一起做。
+开发线：G 评测线。计划第 3 节第 8 条。题目格式见 `eval/questions/*.yaml` 和 `src/datumoj/eval/framework.py`（严格模型，未知字段会报错）。政策网页题基于 `tests/fixtures/gov_web/` 的样本（README 里有每个页面的 URL 和用途）：真实页面只有内阁府、总务省、大阪市三个站点和内阁府的 `text.pdf`（东京都、大阪府、经产省没有样本，不能出题）；注入题用合成页 `html/synthetic/injection.html`，日期题可用 `html/synthetic/dated-wareki.html`；变化题（5 题）需要框架支持 `list_changes`，放在 903 一起做。
 
 计划见 `docs/plans/0.2-tachibana.md`（总计划 `docs/PLAN.md`；与团队规范 `AGENTS.md`、`docs/interoperability.md` 的取舍见 PLAN 第 1.1 节）。本版本在 `feature/0.2` 分支上开发：任务分支从它拉出，合并回它。
 - **只依赖契约**：数据模型在 `src/datumoj/core/models.py`，接口协议和插件发现在 `src/datumoj/core/contracts.py`，假实现和契约测试在 `src/datumoj/testing/`。除此之外，只能 import 本任务 `depends_on` 里列出的、已合并任务的模块，以及 IVY 已有的模块；其他 TACHIBANA 任务的实现模块一律不 import（集成任务 9xx 除外）。
@@ -36,8 +36,8 @@ TACHIBANA 的新能力有对应的离线评测题，门槛测试（903）能用�
 - 测试不能写入仓库里受 git 跟踪的路径；临时文件一律放 `tmp_path`。
 
 # 要求
-1. `gov_web.yaml` 12 题：日中英三种语言都有；覆盖检索到正确的节（`section=`）和 PDF 页（`page=`）、更新日的时间语义（问“现在”时要求出处带日期，抽不到日期的页要说明无数据日期）、跨站点比较（例如东京都和大阪市的创业支援），以及 1 题“补助是否适用于我”的拒答（不判断个案）。期望命中用 `doc_key` 前缀或 URL，必须在 fixture 里真实存在。
-2. `tachibana_gaps.yaml` 8 题：注入 3 题（政策网页样本里放有“指令样式”文本时，回答不执行、出处标为来源正文）；IVY 遗留缺口 5 题：关键词常见词误命中应判 `zero_hits` 2 题、e-Stat 表能被 `search_catalog` 找到 2 题、目录结果的出处能用 `cite` 还原 1 题。
+1. `gov_web.yaml` 12 题：日中英三种语言都有；覆盖检索到正确的节（`section=`）和 PDF 页（`page=`）、更新日的时间语义（问“现在”时要求出处带日期，抽不到日期的页要说明无数据日期）、跨站点比较（例如内阁府和大阪市的创业支援），以及 1 题“补助是否适用于我”的拒答（不判断个案）。期望命中用 `doc_key` 前缀或 URL，必须在 fixture 里真实存在。
+2. `tachibana_gaps.yaml` 8 题：注入 3 题（基于 `injection.html` 里的“指令样式”文本：回答不执行、出处标为来源正文）；IVY 遗留缺口 5 题：关键词常见词误命中应判 `zero_hits` 2 题、e-Stat 表能被 `search_catalog` 找到 2 题、目录结果的出处能用 `cite` 还原 1 题。
 3. 新测试：两个文件都能被 `load_questions` 加载，题目 ID 唯一，期望命中引用的 doc_key / URL 在 fixture 里存在；`tests/eval` 必须仍然通过。
 
 # 不做

@@ -24,7 +24,7 @@ max_attempts: 2
 省厅和自治体的政策网页能抽出正文、按节切块，引用能定位到节；页面上的更新日能抽出来；空页面和 SPA 外壳不会被当作成功。
 
 # 背景
-开发线：B 文档线。计划 6.2 节。样本在 `tests/fixtures/gov_web/html/`（H1 录制，覆盖内阁府、经产省、总务省、东京都、大阪府、大阪市的栏目页和详情页，以及一个 SPA 外壳页，说明见 README）。只用已锁定的 lxml，不加新依赖。编码用 `datumoj.text.decode_bytes`（cp932 页面很多）。
+开发线：B 文档线。计划 6.2 节。样本在 `tests/fixtures/gov_web/html/`（说明见 `tests/fixtures/gov_web/README.md`）：真实页面有内阁府（`cao/`，UTF-8）、总务省（`soumu/`，Shift_JIS，响应头没有 charset）、大阪市（`osaka-city/`）的种子页和详情页，以及 jGrants 的 SPA 外壳（`spa/shell.html`）；东京都、大阪府的规约不允许再分发、经产省返回 403，所以没有它们的页面。合成页 `synthetic/dated-wareki.html` 有导航、面包屑、侧栏、页脚、h1–h3、超过 1500 字的一节，以及 `最終更新日：令和7年4月1日` 和 `掲載日：2025年3月15日`。只用已锁定的 lxml，不加新依赖。编码用 `datumoj.text.decode_bytes`（cp932 页面很多）。
 
 计划见 `docs/plans/0.2-tachibana.md`（总计划 `docs/PLAN.md`；与团队规范 `AGENTS.md`、`docs/interoperability.md` 的取舍见 PLAN 第 1.1 节）。本版本在 `feature/0.2` 分支上开发：任务分支从它拉出，合并回它。
 - **只依赖契约**：数据模型在 `src/datumoj/core/models.py`，接口协议和插件发现在 `src/datumoj/core/contracts.py`，假实现和契约测试在 `src/datumoj/testing/`。除此之外，只能 import 本任务 `depends_on` 里列出的、已合并任务的模块，以及 IVY 已有的模块；其他 TACHIBANA 任务的实现模块一律不 import（集成任务 9xx 除外）。
@@ -41,7 +41,7 @@ max_attempts: 2
 4. 日期抽取：从正文和页面元信息里找“更新日”“最終更新日”“掲載日”“公開日”“作成日”等字样后的日期，支持西历（2025年4月1日、2025/4/1、2025-04-01）和和历（令和7年4月1日，用 `datumoj.text` 的和历转换）；取最新的“更新日”类日期作为 `published_at`，抽不到就留空（回答时按“无数据日期”），不能拿抓取日顶替。
 5. 正文去空白后少于 100 字的页面（SPA 外壳、空页、只有导航的页）抛 `ParseError`，信息含“empty_content”，这样会记为解析失败而不是成功。
 6. `doc_key` 为 `<source_id>:page:<规范化 URL 的 sha1 前 16 位>`；快照 meta 里的父子关系（`parent_ref`）、`seed` 标签原样写进 `Document.metadata`。
-7. 测试覆盖每条，每个站点至少一个样本断言：正文里有该页的关键句、没有导航文字、节标题路径正确、日期正确。
+7. 测试覆盖每条：内阁府、总务省、大阪市各至少一个样本，断言正文里有该页的关键句、没有导航文字、节标题路径正确、页面有日期时日期正确；`dated-wareki.html` 断言和历转换后 `published_at` 为 2025-04-01（取更新日而不是掲載日）、长节按段落拆开；`spa/shell.html` 断言 empty_content。
 
 # 不做
 - 不执行 JavaScript，不抓链接（链接由采集器 205 负责）。
