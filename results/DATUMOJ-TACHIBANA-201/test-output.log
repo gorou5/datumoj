@@ -1,0 +1,10 @@
+验收命令：make check T=tests/parsers/test_pdf.py
+
+首轮运行：9 passed, 1 failed。标题回退误把第一页后续行合并进标题；修正为从原始分页文本提取首行后重跑。
+
+最终运行：
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+..........                                                               [100%]
+10 passed in 0.55s
+
+测试只使用 tests/fixtures/gov_web/ 中的本地 PDF；未发起网络请求。
