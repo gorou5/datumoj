@@ -44,6 +44,7 @@
   .timeline{margin:16px 0;border-left:2px solid var(--line);padding-left:22px}
   .tl-item{position:relative;margin:0 0 18px}
   .tl-item:before{content:"";position:absolute;left:-29px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--ivy)}
+  .tl-item.doing:before{background:var(--tach)} .tl-item.pending:before{background:#fff;border:2px solid var(--future)}
   .tl-item .t{font-weight:700}
   .tl-item .d{color:var(--muted);font-size:14px}
   pre.arch{background:#20242a;color:#d7dce2;border-radius:10px;padding:18px;overflow-x:auto;font-size:12.5px;line-height:1.55}
@@ -69,8 +70,9 @@
 <div style="background:#fff;border:1px solid #e3e1da;border-left:4px solid #3d7a44;border-radius:10px;padding:14px 18px;margin:18px 0"><b>附：数据源目录</b> —— orbisdata.org 收录的 471 个官方数据资源地址，已按数据场景分类（国家统计 / 开放门户 / 区域组织 / 发展金融 / 联合国专题 / 专业平台）：<a href="orbis/">orbisdata 资源目录 · 按数据场景分类 →</a></div>
 
 
+<!-- 下面“版本路线图”和“里程碑”两节由 milestones.json 渲染；静态内容只在读取失败时显示。 -->
 <h2 id="roadmap">版本路线图<span class="sub">每个版本取一个家纹作代号；任务编号 DATUMOJ-&lt;代号&gt;-&lt;序号&gt;，号段按开发线分</span></h2>
-<div class="cards">
+<div class="cards" id="versions">
   <div class="vcard ivy">
     <div class="ver">0.1 · 当前已完成</div>
     <div class="name">IVY（蔦）</div>
@@ -91,6 +93,7 @@
   </div>
 </div>
 
+<div id="milestones">
 <h3>IVY 里程碑（检查点）</h3>
 <div class="timeline">
   <div class="tl-item"><span class="t">M0 契约与地基</span> <span class="badge">集成任务 IVY-105</span><div class="d">契约审查通过；make test 全部通过；用回放样本完整走一遍“计划→抓取→存 raw→写 manifest”，失败和超上限都有记录。</div></div>
@@ -99,6 +102,8 @@
   <div class="tl-item"><span class="t">M3 AI 分析入口</span> <span class="badge done">✓ tag v0.1.0-ivy-m3</span><div class="d">在 Claude 里通过 MCP 提问，得到带出处的回答；评测 60 题全部达标。</div></div>
   <div class="tl-item"><span class="t">IVY 完成</span> <span class="badge done">✓ tag v0.1.0-ivy</span><div class="d">H6 验收（现场问答 + 人工抽查引用支持率）后发布。验收记录：docs/acceptance/v0.1.0-ivy.md。第一阶段完成。</div></div>
 </div>
+</div>
+<p class="muted" id="ms-updated"></p>
 
 <h2 id="master">总计划<span class="sub">docs/PLAN.md 第 3 版：契约先行、7 条开发线并行</span></h2>
 
@@ -341,5 +346,75 @@
   <p>DATUMOJ · 连接官方公开数据，不囤数据 · 2026-10-22</p>
 </footer>
 </div>
+<script>
+// 版本卡片和里程碑由 milestones.json 渲染；只用 textContent 写入，JSON 里的文字不会被当成 HTML
+(function () {
+  var REPO = "https://github.com/gorou5/datumoj";
+  var STATUS = {done: ["done", "✓ 已完成"], doing: ["doing", "进行中"], pending: ["", "未开始"], planned: ["", "方向已定"]};
+  var CARD = {"0.1": "ivy", "0.2": "tach"};
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function link(text, href) { var a = el("a", null, text); a.href = href; return a; }
+  function badge(cls, text) { return el("span", "badge" + (cls ? " " + cls : ""), text); }
+  function render(d) {
+    var vs = document.getElementById("versions");
+    vs.textContent = "";
+    d.versions.forEach(function (v) {
+      var c = el("div", "vcard " + (CARD[v.version] || "future"));
+      c.appendChild(el("div", "ver", v.version));
+      c.appendChild(el("div", "name", v.codename));
+      c.appendChild(el("p", null, v.summary));
+      var p = el("p");
+      p.appendChild(badge((STATUS[v.status] || [""])[0], v.label));
+      if (v.tag) { p.appendChild(document.createTextNode(" ")); p.appendChild(badge("", "tag: " + v.tag)); }
+      if (v.plan) { p.appendChild(document.createTextNode(" ")); p.appendChild(link("计划", REPO + "/blob/main/" + v.plan)); }
+      c.appendChild(p);
+      vs.appendChild(c);
+    });
+    var ms = document.getElementById("milestones");
+    ms.textContent = "";
+    d.versions.forEach(function (v) {
+      var items = d.milestones.filter(function (m) { return m.version === v.version; });
+      if (!items.length) return;
+      ms.appendChild(el("h3", null, v.version + " " + v.codename + " 里程碑"));
+      var tl = el("div", "timeline");
+      items.forEach(function (m) {
+        var st = STATUS[m.status] || STATUS.pending;
+        var it = el("div", "tl-item " + m.status);
+        it.appendChild(el("span", "t", m.id + " " + m.title));
+        it.appendChild(document.createTextNode(" "));
+        it.appendChild(badge(st[0], st[1] + (m.date ? " · " + m.date : "")));
+        if (m.tag) {
+          it.appendChild(document.createTextNode(" "));
+          it.appendChild(m.status === "done" ? link("tag " + m.tag, REPO + "/tree/" + m.tag) : badge("", "计划 tag " + m.tag));
+        }
+        if (m.pr) { it.appendChild(document.createTextNode(" ")); it.appendChild(link("PR #" + m.pr, REPO + "/pull/" + m.pr)); }
+        var desc = el("div", "d", m.summary);
+        if (m.acceptance && m.status === "done") {
+          desc.appendChild(document.createTextNode(" 验收记录："));
+          desc.appendChild(link(m.acceptance, REPO + "/blob/main/" + m.acceptance));
+        }
+        it.appendChild(desc);
+        tl.appendChild(it);
+      });
+      ms.appendChild(tl);
+    });
+    document.getElementById("ms-updated").textContent = "版本与里程碑更新于 " + d.updated + "（来自 plan/milestones.json；只有 PR 合并进 main 才记为完成）";
+    // 渲染改变了页面高度，带锚点打开时重新定位
+    var target = location.hash && document.getElementById(location.hash.slice(1));
+    if (target) target.scrollIntoView();
+  }
+  fetch("milestones.json", {cache: "no-cache"})
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(render)
+    .catch(function () {
+      document.getElementById("ms-updated").textContent = "milestones.json 读取失败，下面显示的是静态内容，可能已过时。";
+    });
+})();
+</script>
 </body>
 </html>
