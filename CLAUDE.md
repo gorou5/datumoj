@@ -29,6 +29,12 @@
 - 代码、`docs/PLAN.md` 等其他文件照常提交。
 - 写好先校验：`bin/orch validate .orch/tasks`，然后 `bin/orch sync`（调度器在跑时也会自己同步）。
 
+### 里程碑记录（plan.datumoj.com）
+- 总览页 https://plan.datumoj.com/ 由 Cloudflare Pages 从 `main` 的 `plan/` 目录发布；“版本路线图”和“里程碑”两节由 `plan/milestones.json` 渲染。
+- **由主对话记录**，调度器派出的任务 agent 不改这个文件。节点：计划 PR 合并、任务 PR 合并、版本分支开工、检查点验收通过并打 tag、版本发布。
+- 记录方式：改 `plan/milestones.json`（`status`、`date`、`tag`、`pr`、`acceptance`，以及 `updated`），单独提 PR 进 `main`。
+- **只有对应的 PR 已合并进 `main` 才能写 `done`**；PR 还开着就写 `doing` 并填上 PR 号。
+
 ### 不要做
 - 不替人批准、否决、修改；人没说清楚就问。
 - 不在本会话里运行 `bin/orch run`（嵌套的 claude 会拒绝启动；要人在普通终端里跑）。
