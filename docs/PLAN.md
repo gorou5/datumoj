@@ -2,7 +2,7 @@
 
 > 计划第 3 版（2026-10-20）：改为**契约先行、7 条开发线并行**，每个版本用家纹作代号，当前版本是 **0.1 IVY（蔦）**（第 8 节）。第 2 版起，第 13 节的待定问题已按默认答案定下。任务拆分见 `docs/TASKS.md`。任务编号 `DATUMOJ-IVY-<序号>`，由调度器（orchestrator）派给 agent 执行。
 > 2026-10-22 修订：并入团队开源初始化包（PR #5：`AGENTS.md`、`CONTRIBUTING.md`、`SECURITY.md`、`docs/architecture.md`、`docs/interoperability.md`、`docs/data-sources.md`）的规则，逐条取舍见第 1.1 节；运行时以后落到网络存储（第 4.4 节）。
-> 输入资料：`handoff/digital-assets-20261020/`（旧项目 Digital Assets 0.9.1 的交接包）。旧代码在 `/Users/aaron/codex_workspace/digital-assets`，**只作参考，不迁移**。
+> 输入资料：`handoff/digital-assets-20261020/`（旧项目 Digital Assets 0.9.1 的交接包）。旧代码在 `<旧项目 digital-assets 目录>`，**只作参考，不迁移**。
 
 ---
 
@@ -305,7 +305,7 @@ datumoj/
 
 ## 9. 旧项目可复用的东西（只借鉴，不迁移代码）
 
-旧代码是 Node/TypeScript，新项目用 Python，所以**借鉴设计和测试样本，不搬代码**。旧仓库的规范版本在 `/Users/aaron/codex_workspace/digital-assets/repo/`（0.9.1）；同级的 `plugin-prototype/` 是 0.8 的旧副本，不要用。
+旧代码是 Node/TypeScript，新项目用 Python，所以**借鉴设计和测试样本，不搬代码**。旧仓库的规范版本在 `<旧项目 digital-assets 目录>/repo/`（0.9.1）；同级的 `plugin-prototype/` 是 0.8 的旧副本，不要用。
 
 | 可借鉴的 | 位置（旧仓库 `repo/plugin-prototype/` 下） | 在新项目里的用法 |
 |---|---|---|
