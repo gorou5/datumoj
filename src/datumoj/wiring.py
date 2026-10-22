@@ -97,6 +97,7 @@ class Wiring:
     run_crawl: Any = None
     crawl_deps_type: Any = None
     unavailable: dict[str, str] = field(default_factory=dict)
+    change_log: Any = None
 
     def require(self, feature: str) -> None:
         if feature in self.unavailable:
@@ -150,6 +151,7 @@ def build(data_dir: str | Path | None = None, overrides: dict[str, Any] | None =
     wiring.observations = _get(
         overrides, "observations", "datumoj.store.observations", "DuckDBObservationStore", root
     )
+    wiring.change_log = _get(overrides, "change_log", "datumoj.store.changes", "SqliteChangeLog", root / "changes.sqlite")
 
     if "registry" in overrides:
         wiring.registry = overrides["registry"]
@@ -204,6 +206,7 @@ def build(data_dir: str | Path | None = None, overrides: dict[str, Any] | None =
                 chunks=wiring.chunks, keyword=wiring.keyword, observations=wiring.observations,
                 catalog=wiring.catalog, vectors=wiring.vectors, parsers=overrides.get("parsers"),
                 vector_state_path=root / "vectors-state.json",
+                change_log=wiring.change_log,
             )
 
     if all((wiring.retriever, wiring.catalog, wiring.observations, wiring.chunks, wiring.manifest,
