@@ -1,0 +1,367 @@
+Command: make check T=tests/core/test_head_probe.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+..FE.F..F...........FE.....F............                                 [100%]
+==================================== ERRORS ====================================
+___ ERROR at teardown of test_matching_head_skips_get_and_has_no_body[200-0] ___
+
+httpserver = <HTTPServer host=localhost port=59935>
+
+    @pytest.fixture
+    def site(httpserver):
+        clock, sent = Clock(), []
+        opened = []
+        with httpx.Client(trust_env=False, timeout=5) as local:
+            def forward(request):
+                assert request.url.host == "example.go.jp", "测试禁止访问外网"
+                sent.append((request.method, request.url.path, clock(), request.headers))
+                response = local.request(
+                    request.method, httpserver.url_for(request.url.path),
+                    headers={k: v for k, v in request.headers.items() if k != "host"},
+                )
+                return httpx.Response(
+                    response.status_code, headers=response.headers, stream=httpx.ByteStream(response.content),
+                )
+    
+            def route(path="/file.pdf", *, method="HEAD", status=200, headers=None, missing_length=False):
+                def respond(request):
+                    response = Response(b"body", status=status, headers=HEADERS if headers is None else headers)
+                    if missing_length:
+                        response.automatically_set_content_length = False
+                        response.headers.pop("Content-Length", None)
+                    return response
+    
+                httpserver.expect_request(path, method=method).respond_with_handler(respond)
+    
+            def fetcher(**kwargs):
+                kwargs.setdefault("max_retries", 0)
+                client = PoliteHttpFetcher(
+                    ["example.go.jp"], transport=httpx.MockTransport(forward),
+                    clock=clock, sleep=clock.sleep, now=lambda: T0, **kwargs,
+                )
+                opened.append(client)
+                return client
+    
+            httpserver.expect_request("/robots.txt", method="GET").respond_with_data(status=404)
+            yield SimpleNamespace(route=route, fetcher=fetcher, sent=sent, clock=clock)
+            for client in opened:
+                client.close()
+>       httpserver.check_assertions()
+
+tests/core/test_head_probe.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <HTTPServer host=localhost port=59935>
+
+    def check_assertions(self) -> None:
+        """
+        Raise AssertionError when at least one assertion added
+    
+        The first assertion added by :py:meth:`add_assertion` will be raised and
+        it will be removed from the list.
+    
+        This method can be useful to get some insights into the errors happened in
+        the sever, and to have a proper error reporting in pytest.
+        """
+    
+        if self.assertions:
+            assertion = self.assertions.pop(0)
+            if isinstance(assertion, AssertionError):
+                raise assertion
+    
+>           raise AssertionError(assertion)
+E           AssertionError: No handler found for request <Request 'http://localhost:59935/file.pdf' [GET]> with data b''.Ordered matchers:
+E               none
+E           
+E           Oneshot matchers:
+E               none
+E           
+E           Persistent matchers:
+E               <RequestMatcher uri='/robots.txt' method='GET' query_string=None headers={} data=None json=<UNDEFINED>>
+E               <RequestMatcher uri='/file.pdf' method='HEAD' query_string=None headers={} data=None json=<UNDEFINED>>
+
+../../../datumoj/.venv/lib/python3.12/site-packages/pytest_httpserver/httpserver.py:858: AssertionError
+------------------------------ Captured log call -------------------------------
+INFO     werkzeug:_internal.py:97 127.0.0.1 - - [22/Oct/2026 17:50:43] "[33mGET /robots.txt HTTP/1.1[0m" 404 -
+INFO     werkzeug:_internal.py:97 127.0.0.1 - - [22/Oct/2026 17:50:43] "HEAD /file.pdf HTTP/1.1" 200 -
+INFO     werkzeug:_internal.py:97 127.0.0.1 - - [22/Oct/2026 17:50:43] "[35m[1mGET /file.pdf HTTP/1.1[0m" 500 -
+_______ ERROR at teardown of test_head_retries_before_fallback_get[http] _______
+
+httpserver = <HTTPServer host=localhost port=59935>
+
+    @pytest.fixture
+    def site(httpserver):
+        clock, sent = Clock(), []
+        opened = []
+        with httpx.Client(trust_env=False, timeout=5) as local:
+            def forward(request):
+                assert request.url.host == "example.go.jp", "测试禁止访问外网"
+                sent.append((request.method, request.url.path, clock(), request.headers))
+                response = local.request(
+                    request.method, httpserver.url_for(request.url.path),
+                    headers={k: v for k, v in request.headers.items() if k != "host"},
+                )
+                return httpx.Response(
+                    response.status_code, headers=response.headers, stream=httpx.ByteStream(response.content),
+                )
+    
+            def route(path="/file.pdf", *, method="HEAD", status=200, headers=None, missing_length=False):
+                def respond(request):
+                    response = Response(b"body", status=status, headers=HEADERS if headers is None else headers)
+                    if missing_length:
+                        response.automatically_set_content_length = False
+                        response.headers.pop("Content-Length", None)
+                    return response
+    
+                httpserver.expect_request(path, method=method).respond_with_handler(respond)
+    
+            def fetcher(**kwargs):
+                kwargs.setdefault("max_retries", 0)
+                client = PoliteHttpFetcher(
+                    ["example.go.jp"], transport=httpx.MockTransport(forward),
+                    clock=clock, sleep=clock.sleep, now=lambda: T0, **kwargs,
+                )
+                opened.append(client)
+                return client
+    
+            httpserver.expect_request("/robots.txt", method="GET").respond_with_data(status=404)
+            yield SimpleNamespace(route=route, fetcher=fetcher, sent=sent, clock=clock)
+            for client in opened:
+                client.close()
+>       httpserver.check_assertions()
+
+tests/core/test_head_probe.py:72: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <HTTPServer host=localhost port=59935>
+
+    def check_assertions(self) -> None:
+        """
+        Raise AssertionError when at least one assertion added
+    
+        The first assertion added by :py:meth:`add_assertion` will be raised and
+        it will be removed from the list.
+    
+        This method can be useful to get some insights into the errors happened in
+        the sever, and to have a proper error reporting in pytest.
+        """
+    
+        if self.assertions:
+            assertion = self.assertions.pop(0)
+            if isinstance(assertion, AssertionError):
+                raise assertion
+    
+>           raise AssertionError(assertion)
+E           AssertionError: No handler found for request <Request 'http://localhost:59935/robots.txt' [GET]> with data b''.Ordered matchers:
+E               <RequestMatcher uri='/file.pdf' method='HEAD' query_string=None headers={} data=None json=<UNDEFINED>>
+E           
+E           Oneshot matchers:
+E               none
+E           
+E           Persistent matchers:
+E               <RequestMatcher uri='/robots.txt' method='GET' query_string=None headers={} data=None json=<UNDEFINED>>
+E               <RequestMatcher uri='/file.pdf' method='HEAD' query_string=None headers={} data=None json=<UNDEFINED>>
+E               <RequestMatcher uri='/file.pdf' method='GET' query_string=None headers={} data=None json=<UNDEFINED>>
+
+../../../datumoj/.venv/lib/python3.12/site-packages/pytest_httpserver/httpserver.py:858: AssertionError
+------------------------------ Captured log call -------------------------------
+INFO     werkzeug:_internal.py:97 127.0.0.1 - - [22/Oct/2026 17:50:43] "[35m[1mGET /robots.txt HTTP/1.1[0m" 500 -
+INFO     werkzeug:_internal.py:97 127.0.0.1 - - [22/Oct/2026 17:50:43] "[35m[1mGET /robots.txt HTTP/1.1[0m" 500 -
+=================================== FAILURES ===================================
+_____________ test_matching_head_skips_get_and_has_no_body[200-0] ______________
+
+site = namespace(route=<function site.<locals>.route at 0x107b45260>, fetcher=<function site.<locals>.fetcher at 0x107b449a0>...f-modified-since': 'Tue, 20 Oct 2026 00:00:00 GMT'}))], clock=<tests.core.test_head_probe.Clock object at 0x1079bc170>)
+status = 200, size = 0
+
+    @pytest.mark.parametrize("status,size", [(200, 4), (202, 4), (200, 0)])
+    def test_matching_head_skips_get_and_has_no_body(site, status, size):
+        headers = {**HEADERS, "Content-Length": str(size), "Content-Encoding": "br"}
+        site.route(status=status, headers=headers)
+        result = site.fetcher(max_bytes=1).fetch(
+            URL, etag='"old"', last_modified=LM, size=size, head_probe=True,
+        )
+>       assert (result.outcome, result.http_status, result.content) == (FetchOutcome.not_modified, status, None)
+E       AssertionError: assert (<FetchOutcom...'>, 500, None) == (<FetchOutcom...'>, 200, None)
+E         
+E         At index 0 diff: <FetchOutcome.http_error: 'http_error'> != <FetchOutcome.not_modified: 'not_modified'>
+E         Use -v to get more diff
+
+tests/core/test_head_probe.py:86: AssertionError
+------------------------------ Captured log call -------------------------------
+INFO     werkzeug:_internal.py:97 127.0.0.1 - - [22/Oct/2026 17:50:43] "[33mGET /robots.txt HTTP/1.1[0m" 404 -
+INFO     werkzeug:_internal.py:97 127.0.0.1 - - [22/Oct/2026 17:50:43] "HEAD /file.pdf HTTP/1.1" 200 -
+INFO     werkzeug:_internal.py:97 127.0.0.1 - - [22/Oct/2026 17:50:43] "[35m[1mGET /file.pdf HTTP/1.1[0m" 500 -
+_ test_probe_mismatch_or_error_falls_back_to_conditional_get[headers1-200-False] _
+
+site = namespace(route=<function site.<locals>.route at 0x107b6f060>, fetcher=<function site.<locals>.fetcher at 0x107b6fc40>...om/gorou5/datumoj)', 'accept-encoding': 'identity'}))], clock=<tests.core.test_head_probe.Clock object at 0x107aa6bd0>)
+headers = {'Last-Modified': 'Tue, 20 Oct 2026 00:00:00 GMT', 'Content-Length': '5', 'ETag': '"new"'}
+status = 200, missing_length = False
+
+    @pytest.mark.parametrize("headers,status,missing_length", [
+        ({**HEADERS, "Last-Modified": "Wed, 21 Oct 2026 00:00:00 GMT"}, 200, False),
+        ({**HEADERS, "Content-Length": "5"}, 200, False),
+        ({"Content-Length": "4"}, 200, False),
+        ({"Last-Modified": LM}, 200, True),
+        ({**HEADERS, "Content-Length": "-4"}, 200, False),
+        (HEADERS, 405, False),
+        (HEADERS, 501, False),
+        (HEADERS, 503, False),
+        (HEADERS, 403, False),
+        (HEADERS, 304, False),
+    ])
+    def test_probe_mismatch_or_error_falls_back_to_conditional_get(site, headers, status, missing_length):
+        site.route(status=status, headers=headers, missing_length=missing_length)
+        site.route(method="GET")
+        result = site.fetcher().fetch(URL, etag='"old"', last_modified=LM, size=4, head_probe=True)
+>       assert (result.outcome, result.content) == (FetchOutcome.ok, b"body")
+E       AssertionError: assert (<FetchOutcom...ified'>, None) == (<FetchOutcom...ok'>, b'body')
+E         
+E         At index 0 diff: <FetchOutcome.not_modified: 'not_modified'> != <FetchOutcome.ok: 'ok'>
+E         Use -v to get more diff
+
+tests/core/test_head_probe.py:109: AssertionError
+------------------------------ Captured log call -------------------------------
+INFO     werkzeug:_internal.py:97 127.0.0.1 - - [22/Oct/2026 17:50:43] "[33mGET /robots.txt HTTP/1.1[0m" 404 -
+INFO     werkzeug:_internal.py:97 127.0.0.1 - - [22/Oct/2026 17:50:43] "HEAD /file.pdf HTTP/1.1" 200 -
+_ test_probe_mismatch_or_error_falls_back_to_conditional_get[headers4-200-False] _
+
+site = namespace(route=<function site.<locals>.route at 0x107b6f880>, fetcher=<function site.<locals>.fetcher at 0x107b6f6a0>...om/gorou5/datumoj)', 'accept-encoding': 'identity'}))], clock=<tests.core.test_head_probe.Clock object at 0x107933b30>)
+headers = {'Last-Modified': 'Tue, 20 Oct 2026 00:00:00 GMT', 'Content-Length': '-4', 'ETag': '"new"'}
+status = 200, missing_length = False
+
+    @pytest.mark.parametrize("headers,status,missing_length", [
+        ({**HEADERS, "Last-Modified": "Wed, 21 Oct 2026 00:00:00 GMT"}, 200, False),
+        ({**HEADERS, "Content-Length": "5"}, 200, False),
+        ({"Content-Length": "4"}, 200, False),
+        ({"Last-Modified": LM}, 200, True),
+        ({**HEADERS, "Content-Length": "-4"}, 200, False),
+        (HEADERS, 405, False),
+        (HEADERS, 501, False),
+        (HEADERS, 503, False),
+        (HEADERS, 403, False),
+        (HEADERS, 304, False),
+    ])
+    def test_probe_mismatch_or_error_falls_back_to_conditional_get(site, headers, status, missing_length):
+        site.route(status=status, headers=headers, missing_length=missing_length)
+        site.route(method="GET")
+        result = site.fetcher().fetch(URL, etag='"old"', last_modified=LM, size=4, head_probe=True)
+>       assert (result.outcome, result.content) == (FetchOutcome.ok, b"body")
+E       AssertionError: assert (<FetchOutcom...ified'>, None) == (<FetchOutcom...ok'>, b'body')
+E         
+E         At index 0 diff: <FetchOutcome.not_modified: 'not_modified'> != <FetchOutcome.ok: 'ok'>
+E         Use -v to get more diff
+
+tests/core/test_head_probe.py:109: AssertionError
+------------------------------ Captured log call -------------------------------
+INFO     werkzeug:_internal.py:97 127.0.0.1 - - [22/Oct/2026 17:50:43] "[33mGET /robots.txt HTTP/1.1[0m" 404 -
+INFO     werkzeug:_internal.py:97 127.0.0.1 - - [22/Oct/2026 17:50:43] "HEAD /file.pdf HTTP/1.1" 200 -
+_________________ test_head_retries_before_fallback_get[http] __________________
+
+site = namespace(route=<function site.<locals>.route at 0x107b6f6a0>, fetcher=<function site.<locals>.fetcher at 0x107b6f100>...om/gorou5/datumoj)', 'accept-encoding': 'identity'}))], clock=<tests.core.test_head_probe.Clock object at 0x107aa9520>)
+httpserver = <HTTPServer host=localhost port=59935>, failure = 'http'
+
+    @pytest.mark.parametrize("failure", ["http", "network"])
+    def test_head_retries_before_fallback_get(site, httpserver, failure):
+        if failure == "http":
+            httpserver.expect_ordered_request("/file.pdf", method="HEAD").respond_with_data(status=503)
+        else:
+            def disconnect(request):
+                raise httpx.ConnectError("synthetic HEAD connection failure", request=request)
+    
+            original = site.fetcher  # Inject one failure at the same transport boundary as a real socket error.
+    
+            def with_failure(**kwargs):
+                client = original(**kwargs)
+                send = client._client.send
+    
+                def send_once(request, **options):
+                    if request.method == "HEAD" and not getattr(client, "failed", False):
+                        client.failed = True
+                        site.sent.append(("HEAD", request.url.path, site.clock(), request.headers))
+                        disconnect(request)
+                    return send(request, **options)
+    
+                client._client.send = send_once
+                return client
+    
+            site.fetcher = with_failure
+        site.route(status=405)
+        site.route(method="GET")
+        result = site.fetcher(max_retries=1, backoff=3).fetch(URL, last_modified=LM, size=4, head_probe=True)
+>       assert result.outcome is FetchOutcome.ok
+E       AssertionError: assert <FetchOutcome.blocked_by_robots: 'blocked_by_robots'> is <FetchOutcome.ok: 'ok'>
+E        +  where <FetchOutcome.blocked_by_robots: 'blocked_by_robots'> = FetchResult(url='https://example.go.jp/file.pdf', final_url=None, outcome=<FetchOutcome.blocked_by_robots: 'blocked_by...ne, etag=None, last_modified=None, error='robots.txt 返回 HTTP 500，按 RFC 9309 视为全部禁止，未请求：https://example.go.jp/file.pdf').outcome
+E        +  and   <FetchOutcome.ok: 'ok'> = FetchOutcome.ok
+
+tests/core/test_head_probe.py:172: AssertionError
+------------------------------ Captured log call -------------------------------
+INFO     werkzeug:_internal.py:97 127.0.0.1 - - [22/Oct/2026 17:50:43] "[35m[1mGET /robots.txt HTTP/1.1[0m" 500 -
+INFO     werkzeug:_internal.py:97 127.0.0.1 - - [22/Oct/2026 17:50:43] "[35m[1mGET /robots.txt HTTP/1.1[0m" 500 -
+_ test_runner_passes_scope_flag_and_last_success_size_without_writing_head_raw[True-True] _
+
+site = namespace(route=<function site.<locals>.route at 0x1080bcf40>, fetcher=<function site.<locals>.fetcher at 0x1080bc900>...om/gorou5/datumoj)', 'accept-encoding': 'identity'}))], clock=<tests.core.test_head_probe.Clock object at 0x107933410>)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x107977ce0>
+flag = True, history = True
+
+    @pytest.mark.parametrize("flag", [True, False, "absent"])
+    @pytest.mark.parametrize("history", [True, False])
+    def test_runner_passes_scope_flag_and_last_success_size_without_writing_head_raw(site, monkeypatch, flag, history):
+        scope = {"urls": [URL, f"{BASE}/second.pdf"]}
+        if flag != "absent":
+            scope["head_probe"] = flag
+        spec = make_spec(scope=scope, max_files=1)
+        manifest, raw = FakeManifest(), FakeRawStore()
+        if history:
+            previous = make_snapshot(url=URL, data=b"body", etag='"old"', last_modified=LM)
+            raw.put(b"body")
+            manifest.record_snapshot(previous)
+            for i, outcome in enumerate([FetchOutcome.network_error, FetchOutcome.not_modified], 1):
+                manifest.record_snapshot(make_snapshot(
+                    url=URL, outcome=outcome, snapshot_id=f"later-{i}", fetched_at=T0 + timedelta(seconds=i),
+                ))
+    
+            def no_raw_write(data):
+                pytest.fail("HEAD / 304 未变化结果不应写 raw")
+    
+            monkeypatch.setattr(raw, "put", no_raw_write)
+        site.route()
+        site.route(method="GET", status=304 if history else 200)
+        fetcher = site.fetcher()
+        calls, fetch = [], fetcher.fetch
+    
+        def observe(url, **kwargs):
+            calls.append((url, kwargs))
+            return fetch(url, **kwargs)
+    
+        monkeypatch.setattr(fetcher, "fetch", observe)
+        deps = CrawlDeps(raw, manifest, fetcher, clock=site.clock, sleep=site.clock.sleep, now=lambda: T0)
+        report = run_crawl(spec, FakeCrawler(), deps)
+        assert calls == [(URL, {
+            "etag": '"old"' if history else None, "last_modified": LM if history else None,
+            "size": 4 if history else None, "head_probe": flag is True,
+        })]
+        assert methods(site) == (["HEAD"] if history and flag is True else ["GET"])
+        assert (report.new, report.unchanged, report.failures) == (int(not history), int(history), {})
+        assert report.stop_reason == "因上限停止：max_files=1"
+        snapshot = manifest.snapshots_for(spec.id)[-1]
+        assert snapshot.outcome is (FetchOutcome.not_modified if history else FetchOutcome.ok)
+>       assert snapshot.http_status == (200 if not history or flag is True else 304)
+E       AssertionError: assert 304 == 200
+E        +  where 304 = Snapshot(snapshot_id='later-2', source_id='jp-test', resource_url='https://example.go.jp/file.pdf', fetched_at=datetim...modified'>, sha256=None, size=None, content_type='text/plain', etag=None, last_modified=None, license=None, error=None).http_status
+
+tests/core/test_head_probe.py:248: AssertionError
+------------------------------ Captured log call -------------------------------
+INFO     werkzeug:_internal.py:97 127.0.0.1 - - [22/Oct/2026 17:50:44] "[33mGET /robots.txt HTTP/1.1[0m" 404 -
+INFO     werkzeug:_internal.py:97 127.0.0.1 - - [22/Oct/2026 17:50:44] "HEAD /file.pdf HTTP/1.1" 200 -
+=========================== short test summary info ============================
+FAILED tests/core/test_head_probe.py::test_matching_head_skips_get_and_has_no_body[200-0]
+FAILED tests/core/test_head_probe.py::test_probe_mismatch_or_error_falls_back_to_conditional_get[headers1-200-False]
+FAILED tests/core/test_head_probe.py::test_probe_mismatch_or_error_falls_back_to_conditional_get[headers4-200-False]
+FAILED tests/core/test_head_probe.py::test_head_retries_before_fallback_get[http]
+FAILED tests/core/test_head_probe.py::test_runner_passes_scope_flag_and_last_success_size_without_writing_head_raw[True-True]
+ERROR tests/core/test_head_probe.py::test_matching_head_skips_get_and_has_no_body[200-0]
+ERROR tests/core/test_head_probe.py::test_head_retries_before_fallback_get[http]
+5 failed, 33 passed, 2 errors in 0.96s
+make: *** [check] Error 1
+
+Exit code: 2
+

@@ -471,6 +471,30 @@ class HttpFetcherSuite:
         r = fetcher.fetch(url)
         assert r.outcome is FetchOutcome.ok and r.last_modified == lm
 
+    def test_size_alone_keeps_default_get(self, make_fetcher):
+        url = f"{BASE}/size"
+        r = make_fetcher({url: FakeResponse(200, b"body")}).fetch(url, size=4, head_probe=False)
+        assert (r.outcome, r.http_status, r.content) == (FetchOutcome.ok, 200, b"body")
+
+    def test_head_probe_matches_both_validators(self, make_fetcher):
+        url, lm = f"{BASE}/head", "Tue, 20 Oct 2026 00:00:00 GMT"
+        headers = {"Last-Modified": lm, "Content-Length": "4", "ETag": '"new"'}
+        fetcher = make_fetcher({url: FakeResponse(200, b"body", headers)})
+        r = fetcher.fetch(url, etag='"old"', last_modified=lm, size=4, head_probe=True)
+        assert (r.outcome, r.http_status, r.content) == (FetchOutcome.not_modified, 200, None)
+        assert (r.etag, r.last_modified) == ('"new"', lm)
+
+    def test_head_probe_size_mismatch_falls_back_to_conditional_get(self, make_fetcher):
+        url, lm = f"{BASE}/head", "Tue, 20 Oct 2026 00:00:00 GMT"
+        headers = {"Last-Modified": lm, "Content-Length": "4"}
+        fetcher = make_fetcher({url: FakeResponse(200, b"body", headers)})
+        r = fetcher.fetch(url, last_modified=lm, size=5, head_probe=True)
+        assert (r.outcome, r.http_status, r.content) == (FetchOutcome.not_modified, 304, None)
+
+    def test_head_probe_parameters_are_keyword_only(self, make_fetcher):
+        with pytest.raises(TypeError):
+            make_fetcher({}).fetch(f"{BASE}/head", None, None, 4, True)
+
     @pytest.mark.parametrize("status", [404, 500])
     def test_http_error(self, make_fetcher, status):
         url = f"{BASE}/missing"

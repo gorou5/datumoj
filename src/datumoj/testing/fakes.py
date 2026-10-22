@@ -312,7 +312,10 @@ class FakeHttpFetcher:
         self.now = now
         self.requests: list[str] = []
 
-    def fetch(self, url: str, etag: str | None = None, last_modified: str | None = None) -> FetchResult:
+    def fetch(
+        self, url: str, etag: str | None = None, last_modified: str | None = None,
+        *, size: int | None = None, head_probe: bool = False,
+    ) -> FetchResult:
         red = redact_url(url)
         if not url.lower().startswith(("http://", "https://")):
             raise UrlNotAllowed(f"只允许 http(s)：{red}")
@@ -323,6 +326,18 @@ class FakeHttpFetcher:
         base: dict[str, Any] = dict(url=red, fetched_at=self.now())
         if resp.network_error:
             return FetchResult(**base, outcome=FetchOutcome.network_error, error=resp.network_error)
+        if head_probe and last_modified is not None and size is not None:
+            headers = {k.lower(): v for k, v in resp.headers.items()}
+            length = headers.get("content-length", "")
+            try:
+                same_size = length.isascii() and length.isdecimal() and int(length) == size
+            except ValueError:
+                same_size = False
+            if 200 <= resp.status < 300 and headers.get("last-modified") == last_modified and same_size:
+                return FetchResult(
+                    **base, outcome=FetchOutcome.not_modified, http_status=resp.status,
+                    etag=headers.get("etag"), last_modified=headers.get("last-modified"),
+                )
         status, headers, body = resp.respond(etag, last_modified)
         base.update(http_status=status, etag=headers.get("etag"), last_modified=headers.get("last-modified"))
         if status == 304:
