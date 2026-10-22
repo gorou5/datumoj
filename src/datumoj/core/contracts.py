@@ -403,10 +403,17 @@ class HttpFetcher(Protocol):
     限速、重试、大小上限、允许的 host 在构造时配置（来自 SourceSpec）。
     """
 
-    def fetch(self, url: str, etag: str | None = None, last_modified: str | None = None) -> FetchResult:
+    def fetch(
+        self, url: str, etag: str | None = None, last_modified: str | None = None,
+        *, size: int | None = None, head_probe: bool = False,
+    ) -> FetchResult:
         """抓一个 URL（url 可以带 Key；结果和错误信息里的 URL 一律去 Key）。
 
         - 200 → ok；带 etag/last_modified 做条件请求，304 → not_modified；
+        - head_probe=True 且 last_modified、size 都非 None 时先发 HEAD；仅 2xx 且
+          Last-Modified、Content-Length 都相同时返回 not_modified（保留 HEAD 状态码和验证头）；
+          否则回退条件 GET。HEAD 同样遵守 robots、限速、重试、逐跳地址检查，不读取正文。
+          默认不发 HEAD，size 不影响原有条件 GET；
         - 其他 HTTP 错误（重试用尽后）→ http_error，带 http_status；连接失败、超时 → network_error；
         - 超过 max_bytes → too_large（边下边判，立即中止）；robots.txt 禁止 → blocked_by_robots，不发请求；
         - 重定向到不允许的地址 → network_error，error 写明被拦下的重定向。
