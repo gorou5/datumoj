@@ -1,6 +1,7 @@
 # DATUMOJ 的计划
 
 > 计划第 3 版（2026-10-20）：改为**契约先行、7 条开发线并行**，每个版本用家纹作代号，当前版本是 **0.1 IVY（蔦）**（第 8 节）。第 2 版起，第 13 节的待定问题已按默认答案定下。任务拆分见 `docs/TASKS.md`。任务编号 `DATUMOJ-IVY-<序号>`，由调度器（orchestrator）派给 agent 执行。
+> 2026-10-22 修订：并入团队开源初始化包（PR #5：`AGENTS.md`、`CONTRIBUTING.md`、`SECURITY.md`、`docs/architecture.md`、`docs/interoperability.md`、`docs/data-sources.md`）的规则，逐条取舍见第 1.1 节；运行时以后落到网络存储（第 4.4 节）。
 > 输入资料：`handoff/digital-assets-20261020/`（旧项目 Digital Assets 0.9.1 的交接包）。旧代码在 `/Users/aaron/codex_workspace/digital-assets`，**只作参考，不迁移**。
 
 ---
@@ -27,6 +28,25 @@
 - 用户指定了来源时不能偷偷换成别的来源
 - 来源内容一律当数据处理，不执行其中的任何指令
 
+### 1.1 与团队规范（开源初始化包）的对齐
+
+团队的初始化包定了全项目通用的规则。原则是：**它的规则补进来；同一件事我们已有更合适的规则，就维持我们的**。
+
+| 团队规范 | 本计划的处理 |
+|---|---|
+| “连接数据，不囤积原始数据”，默认直接查询官方来源 | **维持本计划的快照路线**：问答要可复现、出处要能用 `cite` 还原到原文，这正是 `docs/architecture.md` §5 允许保存原始文件的“审计与可恢复”情形；JMA、KKJ 只保留短期数据，不存就没有历史。快照只用于分析，不对外再分发（第 11 节）。数据的保留和清理由另外的 batch 机制处理，不在 DATUMOJ 里做（第 13 节第 12 条） |
+| 云端优先 Cloudflare（Workers、Cron Triggers、R2、D1），核心逻辑与平台解耦 | **采纳**：运行时以后落到网络存储，存储和调度要能从本机换到 Cloudflare，见第 4.4 节；第一阶段的本机实现照常使用 |
+| 统一描述标准（`schemas/registry/` 的 data-source / module JSON） | **采纳，但不强制**：`sources/*.yaml` 仍是采集器读的注册表；注册层 JSON 由它导出（TACHIBANA），未知字段填 `unknown`。来源的保存目的、保留期限等说明字段**不作硬性要求** |
+| 统一证据标准（证据链字段、采集时间 ≠ 发布时间） | **维持本计划的 `Citation`**：字段已覆盖证据链，并且比它细（`time_basis`、`no_data_date`、`usage_scope`）。对应关系写进 `docs/interoperability.md` 的映射说明 |
+| 断言级别 `proven` / `inferred` / `unverified`；关系断言只证明来源文件载明的关系 | **采纳**：写进回答规则（第 4.3 节第 8 条） |
+| 错误要区分：来源不可用 / 频率受限 / 认证失败 / 数据格式变化，并标明能否重试 | **采纳**：抓取失败按这四类记录，监控按类提醒（第 5 节抓取守则） |
+| 分支 + PR + CI + 人工审查，不直接推 `main`；AI 产出同样要审 | 与本计划一致（第 8 节、`docs/plans/0.2-tachibana.md` 第 0 节） |
+| CI（JSON/YAML/Schema 校验、密钥扫描，只读权限） | **采纳并补充**：加跑 pytest，Python 版本对齐 3.12（TACHIBANA H0） |
+| `AGENTS.md` 的任务结束报告格式 | 调度器派发的任务**维持调度器的任务包和报告格式**；其余场景按 `AGENTS.md` |
+| 测试用录制或模拟数据，不高频请求真实政府网站 | 与本计划一致（`tests/fixtures/`，测试全部离线） |
+| 密钥：`.env` 不提交，`.env.example` 只放虚构值；云端凭证用平台的 Secrets | **采纳**：Cloudflare 凭证按 `.env`；数据源的 API Key 维持放在 `.secrets/`（第 11 节） |
+| 模块目录 `connectors/`、`skills/`、`catalog/` 等，首个模块落地时再建 | 采集器维持在 `src/datumoj/crawlers/`；导出的注册层 JSON 放 `catalog/`（第 6 节） |
+
 ## 2. 目标
 
 **最终形态**：一个可以持续更新的本地“政府数据资料库”，外加一个 AI 分析入口。用户用日语、中文或英语提问，系统能：
@@ -37,7 +57,7 @@
 5. 能定期输出“变化分析”，例如本周新增的采购公告、修订的法令、更新的统计表。
 
 **第一阶段完成的标准**（M3 检查点，即 IVY 版本完成时）：
-- 日本 4 类来源已入库并能增量更新：法令、e-Gov 数据目录、统计（Dashboard 和精选的 e-Stat 表）、气象厅防灾 XML（每小时定时轮询）。采购公告（KKJ）在拆任务时已移到 0.2 TACHIBANA（2026-10-21 修订）
+- 日本 4 类来源已入库并能增量更新：法令、e-Gov 数据目录、统计（Dashboard 和精选的 e-Stat 表）、气象厅防灾 XML（每小时定时轮询）。采购公告（KKJ）在拆任务时移出 IVY（2026-10-21 修订），2026-10-22 讨论后也移出 TACHIBANA，以后再定
 - 每个抓取来源都可以在本机单独开关（`datumoj schedule`、管理页面 `datumoj admin`），新机器默认全部关闭
 - 有一套离线评测集（至少 60 题），检索命中率和数值准确率达到第 10 节的门槛
 - 在 Claude Code 或 Claude Desktop 里通过 MCP 提问，能拿到带出处的回答；不支持的问题会说清缺口
@@ -47,7 +67,7 @@
 - **不做实时查询**。问答只读本地库，回答一律标注数据截止时间
 - **不做全站镜像**。每个来源都有明确的抓取范围清单（白名单），不做“把某站点全部 API 都抓一遍”这种没有边界的任务
 - **不对数值做 RAG**。统计数字只能通过 SQL 查询得到，不能从文本块里“检索出一个数”
-- 第一阶段不做网页前端、不做公开部署、不做收费，也不上架插件市场
+- 第一阶段不做网页前端、不做公开部署、不做收费，也不上架插件市场。运行时以后会落到网络存储（Cloudflare R2 等，见第 4.4 节），那是存储位置的变化，不是对外公开数据
 - 不判断个案的法律问题、补贴资格、诊断或投资收益
 - 不采集个人信息。公告里出现的担当者姓名、电话等，入库前脱敏或不作为检索字段
 - 旧项目的 20 国范围先收缩：中国、俄罗斯、土耳其、印度等暂不做；欧美放到 M5
@@ -90,6 +110,7 @@ Citation = source_id + resource_url + snapshot_sha256 + fetched_at + locator
 - 原始文件放在 `data/raw/<sha256 前两位>/<sha256>`，内容相同的只存一份
 - `manifest`（SQLite）记录每次抓取，包括失败的抓取
 - 派生数据（Parquet、索引）都能从 raw 重新生成，所以只备份 raw 和 manifest
+- raw 只通过 `RawStore` 接口读写，存放位置可以从本机目录换成网络存储（第 4.4 节）
 
 ### 4.2 技术选型（第一阶段默认，用 ADR 记录，可以推翻）
 
@@ -104,7 +125,7 @@ Citation = source_id + resource_url + snapshot_sha256 + fetched_at + locator
 | 关键词检索 | SQLite FTS5 trigram（日文不分词也能搜） | 零依赖；需要时再换 tantivy |
 | 向量检索 | LanceDB，嵌入模型可替换 | 法令切块后约 100 万块，需要 ANN 索引，sqlite-vec 暴力检索撑不住；默认 bge-m3 通过本机 Ollama 运行，H5 在评测集上验证效果 |
 | 分析层 LLM | 第一阶段只通过 MCP 由宿主模型（Claude）调用工具，代码里不调用任何 LLM | 延续旧项目“不额外付费调用模型”的决定；查询改写由宿主模型做，代码只提供中英日术语对照表 |
-| 调度 | `make crawl` 加系统定时任务（macOS 用 launchd，Linux 用 cron 或 systemd timer） | 第一阶段不上云；定时配置不写死某台机器 |
+| 调度 | `make crawl` 加系统定时任务（macOS 用 launchd，Linux 用 cron 或 systemd timer） | 第一阶段不上云；定时配置不写死某台机器。以后可换成 Cloudflare Cron Triggers（第 4.4 节） |
 
 ### 4.3 检索与问答的关键规则
 
@@ -115,6 +136,14 @@ Citation = source_id + resource_url + snapshot_sha256 + fetched_at + locator
 5. **说明缺口**：库里没有就明确说没有，并给出离它最近的可查内容。不能拿别的来源顶替。要区分四种状态：**检索零命中**、**来源没有入库**、**抓取失败**、**超出范围**（旧项目把它们混在一起，用户分不清）。
 6. **跨语言检索**：用中文或英文提问时，先把查询改写成日文再做关键词检索，向量检索用多语言模型。旧项目直接拿中文词查日本来源，结果零命中。
 7. **多轮检索**：复杂问题要拆成几个子查询，分别检索后再汇总。旧项目只查一次，问“大阪 AI 创业政策”时就退回到了全国法令检索。
+8. **断言级别**（团队规范）：回答里的结论分三级——`proven`（引用的原文直接证明）、`inferred`（由多条证据推导，要写出依据）、`unverified`（待验证）。关系类结论只说来源文件载明的关系：例如采购公告只能证明“这份公告载明的采购关系”，不能外推出股权、控制或合作关系。
+
+### 4.4 运行环境与网络存储（2026-10-22 新增）
+
+- **方向**：运行时以后落到网络存储，云端优先 Cloudflare（R2 存原始文件和派生文件，Workers / Cron Triggers 跑定时抓取，D1 等按需选择），与团队规范 `docs/architecture.md` §4 一致。
+- **做法**：核心逻辑与平台解耦。所有存储经接口访问（`RawStore` 已有；manifest、chunk、目录、观测值、向量各有 Protocol），数据位置只由一处配置决定；平台相关的实现放在独立的适配层，本机实现继续可用。
+- **分步**：TACHIBANA 先把存储位置收拢到一处配置，并给 `RawStore` 加 S3 兼容（R2）实现，用契约测试套件在模拟存储上验证；SQLite 类的库（manifest、目录、chunk）上网络存储的方式（D1，或只同步备份）用 ADR 决定。真正部署到 Cloudflare，等账号、凭证和部署流程定下来以后另排版本。
+- **凭证**：R2 / Cloudflare 凭证只放 `.env` 或平台 Secrets，不进仓库；生产资源的创建和变更要人明确授权（`SECURITY.md`）。
 
 ## 5. 来源范围与优先级
 
@@ -129,7 +158,7 @@ Citation = source_id + resource_url + snapshot_sha256 + fetched_at + locator
 | P0 | jp-stat-dashboard | 统计 Dashboard API | 指标目录 + 精选指标的全地区时间序列 | 结构化 | 无需 Key；getData 每次最多 5 个指标、50 个地区，而且**没有分页**，需要分批规划；可以用 `modifiedFrom` 做增量 |
 | P1 | jp-estat-files | e-Stat 统计表文件（CSV / XLSX） | 精选表清单（按 statInfId 下载文件） | 结构化 | 旧项目实际可用的是这条路径；文件多为 cp932，响应头即使写着 UTF-8 也不能信 |
 | P2 | jp-estat-api | e-Stat API v3 | 统计表目录全量；数值只抓精选清单 | 结构化 | 需要 appId。旧项目读取凭据连续失败后被用户叫停，**要先在主对话里重新核实 appId 能用**再排任务；单次调用最多 10 万个单元格 |
-| P1 | jp-kkj | 官公需情报门户 KKJ | **没有分页**（每次最多 1000 条），按 `CFT_Issue_Date` 分日期段采集；再下载关联的 go.jp / lg.jp 文本 PDF | 文档 | 全文检索会把“システム”这类泛词匹配得太多，所以采集时不按关键词筛；担当者信息要脱敏 |
+| P1 | jp-kkj | 官公需情报门户 KKJ | **没有分页**（每次最多 1000 条），按 `CFT_Issue_Date` 分日期段采集；再下载关联的 go.jp / lg.jp 文本 PDF | 文档 | 全文检索会把“システム”这类泛词匹配得太多，所以采集时不按关键词筛；担当者信息要脱敏。**2026-10-22 讨论后移出 TACHIBANA，以后再排** |
 | P1 | jp-gov-web | 省厅和自治体政策网页（定向） | 种子 URL 清单，限定深度和域名（go.jp / lg.jp / metro.tokyo 等），抓 HTML 和 PDF | 文档 | **直接对应旧项目验收失败的场景**：问“大阪 AI 创业政策”时没有任何来源可查。只抓白名单种子，不做全网爬取 |
 | P1 | jp-bodik | BODIK ODCS（CKAN） | 复用 CKAN 采集器；DataStore 读取按 `_id` 排序，offset 按实际返回的行数推进 | 目录 + 两条轨道 | 资源逐个核对许可（多为 CC BY 4.0） |
 | P1 | jp-jma | 气象厅 XML（Atom feed）和平年值 | 轮询长期 feed（每小时更新，**只保留约 7 天**） | 文档 + 结构化 | 想要历史就必须**尽早开始持续轮询**，所以采集器排在 M2 末尾而不是 M4；不做实时预报 |
@@ -151,6 +180,8 @@ Citation = source_id + resource_url + snapshot_sha256 + fetched_at + locator
 - 用条件请求避免重复下载；失败按指数退避，重试有上限；失败要写进 manifest，不能静默跳过
 - 每个 Resource 都记录许可，回答时附上署名。许可**不能一概假定**为“公共データ利用規約 1.0”（例如国土地理院的数据可能涉及測量法），每个来源在注册表里记录 `usage_scope` 和“可否再分发”，逐个核对；核对完之前一律 `internal_only`
 - 单个来源设容量上限，超出就停下并报告，不能无边界地抓
+- 失败按类型记录：**来源不可用**、**频率受限**、**认证失败**、**数据格式变化**，并标明能否重试；调用方据此决定重试、退避或提醒（团队规范 `docs/data-sources.md` §4）
+- 来源注册表里的说明字段（保存目的、保留期限、更新机制等）能填就填，**不作硬性要求**；不知道的填 `unknown`，不编造
 
 ## 6. 目录结构
 
@@ -158,6 +189,9 @@ Citation = source_id + resource_url + snapshot_sha256 + fetched_at + locator
 datumoj/
 ├── pyproject.toml / uv.lock / Makefile
 ├── sources/                 # 来源注册表 *.yaml（范围白名单、许可、频率）
+├── catalog/                 # 由 sources/*.yaml 导出的注册层描述 JSON（团队描述标准，TACHIBANA 起）
+├── schemas/                 # 内部数据契约 *.schema.json（模型导出）＋ registry/ 注册层标准
+├── examples/                # 团队规范的最小真实示例
 ├── src/datumoj/
 │   ├── core/                # 配置、数据模型、manifest、raw 存储、HTTP 客户端
 │   ├── crawlers/            # 按来源类型分：ckan.py、egov_law.py、estat.py、kkj.py …
@@ -171,9 +205,11 @@ datumoj/
 │   └── …
 ├── eval/questions/*.yaml    # 评测题库
 ├── data/                    # raw/、parquet/、index/（不进 git）
-├── docs/                    # PLAN.md、ARCHITECTURE.md、adr/、sources.md
+├── docs/                    # PLAN.md、architecture.md、interoperability.md、data-sources.md、adr/、plans/、tasks/、acceptance/
 ├── docs/references/        # 外部提供的调研资料和参考样本（规范见该目录 README）
 ├── handoff/                 # 旧项目交接包（只读参考）
+├── .github/                 # CI 与 Issue / PR 模板
+├── AGENTS.md / CONTRIBUTING.md / SECURITY.md   # 团队协作规范
 └── .secrets/                # API Key（不进 git）
 ```
 
@@ -245,6 +281,7 @@ datumoj/
 - **tag**：
   - 版本完成后打 `v<版本>-<代号小写>`，例如 `v0.1.0-ivy`；
   - 版本内的检查点打 `v<版本>-<代号小写>-m<N>`，例如 `v0.1.0-ivy-m1`。
+  - 里程碑记录：计划合并、任务拆分、检查点、版本发布等节点，由主对话更新 `plan/milestones.json`（渲染到 https://plan.datumoj.com/ ），单独提 PR 进 `main`；**对应的 PR 合并进 `main` 才算完成**。规则见 `CLAUDE.md`。
   - 打 tag 的条件：对应的集成任务合并，并且人工验收通过（真实抓取一次，再用 5–10 个真实问题现场问答，记录到 `docs/acceptance/<tag>.md`）。tag 打在 `main` 上，由项目负责人推送。
 
 ### 8.2 版本表
@@ -252,7 +289,7 @@ datumoj/
 | 版本 | 代号 | 范围 | 状态 |
 |---|---|---|---|
 | **0.1** | **IVY（蔦）** | 契约 → 法令链路 → 目录与统计 → AI 分析入口（第一阶段） | **已完成**（2026-10-21，tag `v0.1.0-ivy`），48 个任务，验收见 `docs/acceptance/` |
-| 0.2 | **TACHIBANA（橘）** | 日本扩面与持续运营：KKJ 采购公告与 PDF、省厅和自治体政策网页、BODIK、抓取监控、每周变化报告，并补上 IVY 遗留的检索缺口 | 计划见 `docs/plans/0.2-tachibana.md`（计划 PR 审核中；KKJ 资料到位后合并，再拆任务另提 PR） |
+| 0.2 | **TACHIBANA（橘）** | 日本扩面与持续运营：省厅和自治体政策网页与 PDF、BODIK、抓取监控、每周变化报告、存储适配层（为网络存储做准备）、注册层描述导出，并补上 IVY 遗留的检索缺口。KKJ 采购公告移出本版本（2026-10-22） | 计划见 `docs/plans/0.2-tachibana.md`（计划已合并；拆任务另提 PR） |
 | 0.3 | 待定（候选：楓 Maple） | 欧美：data.europa.eu、Eurostat、英德法荷门户、Federal Register | 之后 |
 
 其他候选代号：片喰 Katabami、柏 Oak、桐 Paulownia、藤 Wisteria、葵 Aoi、桔梗 Bellflower、菊 Chrysanthemum。
@@ -315,8 +352,10 @@ datumoj/
 - API Key 放在 `.secrets/public-data.env`（在 .gitignore 里），日志和 manifest 中的 URL 要去掉 Key
 - 外部团队提供的资料放在 `docs/references/`，通过 PR 提交，不能含 Key、个人信息或许可不明的大文件（规范见 `docs/references/README.md`）
 - 来源正文可能含有“指令样式”的文本（提示注入），检索结果交给模型时要标注为数据；MCP 工具一律只读
-- 个人信息：KKJ 公告里的担当者姓名、电话、邮箱在入库前替换成占位符
-- 原始数据只供本地分析，不再对外分发；公开分享前要逐项核对许可
+- 个人信息：公告类来源（例如以后接入的 KKJ）里的担当者姓名、电话、邮箱在入库前替换成占位符
+- 原始数据只供分析，不再对外分发；放到网络存储以后也是私有存储，不公开访问。公开分享前要逐项核对许可
+- Cloudflare / R2 凭证放 `.env`（在 .gitignore 里，`.env.example` 只放虚构值）或平台 Secrets；来自 fork 的 PR 拿不到任何凭证；创建或变更生产资源要人明确授权（`SECURITY.md`）
+- 项目许可证尚未确定（候选 MIT / Apache-2.0），由维护者决定后再加 `LICENSE`
 
 ## 12. 风险
 
@@ -349,3 +388,5 @@ datumoj/
 | 9 | e-Stat appId | 第一阶段只用文件下载，不用 API。API 放在 P2，届时在主对话里只发一次有限请求核实 |
 | 10 | jp-gov-web 种子清单 | 内阁府、经产省、总务省、东京都、大阪府、大阪市，M4 开始前再细化到具体栏目 |
 | 11 | 旧项目真实样本 | 从 `local-runtime-evidence/` 挑小样本（每个来源几 MB 以内）放进 `tests/fixtures/`，缺的在 H1 和 H3 里补录 |
+| 12 | 数据保留与清理（2026-10-22） | DATUMOJ 不做数据清理；保留和清理由另外的 batch 机制处理 |
+| 13 | 来源说明字段（2026-10-22） | 保存目的、保留期限等说明不作硬性要求；注册层描述 JSON 由 `sources/*.yaml` 导出 |
