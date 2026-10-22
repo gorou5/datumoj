@@ -10,7 +10,7 @@ import {
   listGovAgencies, listGovNumbers, govNumbersByAgency,
 } from './lib/compose.js';
 import {
-  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero,
+  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES,
 } from './lib/render.js';
 
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
@@ -21,6 +21,38 @@ function html(body, status = 200, cache = CACHE_HUB) {
   return new Response(body, { status, headers: { ...HTML, 'cache-control': cache } });
 }
 
+// Draw one random really-designated number and build its hero payload.
+// Never throws: returns null when D1 is unavailable (e.g. free-tier daily
+// quota exhausted), so callers can fall back to FALLBACK_HEROES and the
+// homepage hero never dead-ends on placeholders.
+async function drawRandomHero(db) {
+  try {
+    const types = ['fixed', 'mobile', 'ip050', 'free0120', 'free0800', 'navi0570', 'm2m020'];
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const lt = types[Math.floor(Math.random() * types.length)];
+      const brow = await db
+        .prepare(
+          "SELECT prefix FROM number_block_allocation WHERE line_type = ? AND carrier_id IS NOT NULL AND status = 'designated' AND length(prefix) >= 6 ORDER BY RANDOM() LIMIT 1"
+        )
+        .bind(lt)
+        .first();
+      if (!brow) continue;
+      const ltRow = await db.prepare('SELECT digits FROM line_type WHERE code = ?').bind(lt).first();
+      let digits = brow.prefix;
+      while (digits.length < ltRow.digits) digits += Math.floor(Math.random() * 10);
+      const facts = await composeNumber(db, digits);
+      if (facts) return randomHero(facts);
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function pickFallbackHero() {
+  return FALLBACK_HEROES[Math.floor(Math.random() * FALLBACK_HEROES.length)];
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -29,7 +61,11 @@ export default {
 
     try {
       if (path === '/') {
-        return html(homePage());
+        // Server-render the hero with a real drawn number (short edge cache
+        // so the example rotates); fall back to verified static heroes when
+        // D1 is unavailable instead of shipping XXXX placeholders.
+        const hero = (await drawRandomHero(db)) || pickFallbackHero();
+        return html(homePage(hero, FALLBACK_HEROES), 200, 'public, max-age=0, s-maxage=300');
       }
       if (path === '/about') {
         return html(aboutPage(await listTpSources(db)));
@@ -96,24 +132,8 @@ export default {
         // Homepage hero: draw a real designated block at random (type first,
         // so all line types rotate), fill it out with random subscriber
         // digits, and return the fullest explanation compose can give.
-        const types = ['fixed', 'mobile', 'ip050', 'free0120', 'free0800', 'navi0570', 'm2m020'];
-        let payload = null;
-        for (let attempt = 0; attempt < 6 && !payload; attempt++) {
-          const lt = types[Math.floor(Math.random() * types.length)];
-          const brow = await db
-            .prepare(
-              "SELECT prefix FROM number_block_allocation WHERE line_type = ? AND carrier_id IS NOT NULL AND status = 'designated' AND length(prefix) >= 6 ORDER BY RANDOM() LIMIT 1"
-            )
-            .bind(lt)
-            .first();
-          if (!brow) continue;
-          const ltRow = await db.prepare('SELECT digits FROM line_type WHERE code = ?').bind(lt).first();
-          let digits = brow.prefix;
-          while (digits.length < ltRow.digits) digits += Math.floor(Math.random() * 10);
-          const facts = await composeNumber(db, digits);
-          if (facts) payload = randomHero(facts);
-        }
-        if (!payload) return new Response('{}', { status: 503, headers: { 'cache-control': 'no-store' } });
+        // Degrades to a verified static hero (still 200) when D1 is down.
+        const payload = (await drawRandomHero(db)) || pickFallbackHero();
         return new Response(JSON.stringify(payload), {
           headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
         });
