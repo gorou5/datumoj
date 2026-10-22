@@ -33,19 +33,42 @@ export async function composeNumber(db, digits) {
     },
   };
 
-  // 2) Geography for fixed lines: area summary + MA detail (views).
+  // 2) Geography for fixed lines. The area code comes from the area_code
+  // table (longest match), NOT from the matched block: official designation
+  // blocks are 6-digit (area+exchange) rows, so block.prefix is not the area
+  // code. When the block knows its charge area (MA), the number belongs to
+  // exactly that one MA; otherwise fall back to all MAs of the area code.
   if (block.line_type === 'fixed') {
-    facts.areaCode = block.prefix;
-    const sum = await db
-      .prepare('SELECT prefecture FROM v_area_summary WHERE area_code = ?')
-      .bind(block.prefix)
+    const acRow = await db
+      .prepare(
+        `SELECT area_code FROM area_code
+          WHERE ? LIKE area_code || '%' ORDER BY length(area_code) DESC LIMIT 1`
+      )
+      .bind(digits)
       .first();
-    facts.prefecture = sum ? sum.prefecture : null;
-    const mas = await db
-      .prepare('SELECT * FROM v_charge_area_detail WHERE area_code = ? ORDER BY zone_code')
-      .bind(block.prefix)
-      .all();
-    facts.mas = mas.results || [];
+    facts.areaCode = acRow ? acRow.area_code : null;
+    if (facts.areaCode) {
+      const sum = await db
+        .prepare('SELECT prefecture FROM v_area_summary WHERE area_code = ?')
+        .bind(facts.areaCode)
+        .first();
+      facts.prefecture = sum ? sum.prefecture : null;
+    }
+    if (block.charge_area_id) {
+      const ma = await db
+        .prepare('SELECT * FROM v_charge_area_detail WHERE charge_area_id = ?')
+        .bind(block.charge_area_id)
+        .first();
+      facts.mas = ma ? [ma] : [];
+    } else if (facts.areaCode) {
+      const mas = await db
+        .prepare('SELECT * FROM v_charge_area_detail WHERE area_code = ? ORDER BY zone_code')
+        .bind(facts.areaCode)
+        .all();
+      facts.mas = mas.results || [];
+    } else {
+      facts.mas = [];
+    }
   }
 
   // 3) Government-numbers database: is this number a government agency's?
@@ -136,11 +159,17 @@ export async function listLineTypes(db) {
 export async function getLineTypeHub(db, code) {
   const lt = await db.prepare('SELECT * FROM line_type WHERE code = ?').bind(code).first();
   if (!lt) return null;
+  // Hub pages list band-level blocks only; the tens of thousands of official
+  // 6-digit designation blocks are counted, not listed.
   const blocks = await db
-    .prepare('SELECT * FROM number_block_allocation WHERE line_type = ? ORDER BY prefix')
+    .prepare('SELECT * FROM number_block_allocation WHERE line_type = ? AND length(prefix) < 6 ORDER BY prefix')
     .bind(code)
     .all();
-  return { lineType: lt, blocks: blocks.results || [] };
+  const dc = await db
+    .prepare('SELECT COUNT(*) AS n FROM number_block_allocation WHERE line_type = ? AND length(prefix) >= 6')
+    .bind(code)
+    .first();
+  return { lineType: lt, blocks: blocks.results || [], detailCount: dc ? dc.n : 0 };
 }
 
 export async function listTpSources(db) {

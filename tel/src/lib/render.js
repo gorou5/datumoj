@@ -308,7 +308,9 @@ export function typePage(hub) {
 <p class="crumbs"><a href="/">ホーム</a> › ${esc(lt.name_ja)}</p>
 <h1>${esc(lt.name_ja)}</h1>
 <p>${esc(lt.note || '')}（${lt.digits}桁）</p>
-<div class="card"><h2>番号帯</h2><table>${rows}</table></div>
+<div class="card"><h2>番号帯</h2><table>${rows}</table>
+${hub.detailCount ? `<p class="meta">このほか、総務省の指定状況に基づく事業者別区画（6桁単位）が ${hub.detailCount} 件あり、各番号のページで割当事業者として表示されます。</p>` : ''}
+</div>
 ${searchForm()}`;
   return layout({
     title: `${lt.name_ja} の番号帯一覧`,
