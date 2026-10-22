@@ -1,0 +1,7 @@
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+....                                                                     [100%]
+4 passed in 1.31s
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+........................................................................ [ 98%]
+.                                                                        [100%]
+73 passed in 3.16s
