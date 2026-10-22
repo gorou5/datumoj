@@ -112,9 +112,14 @@ export async function composeNumber(db, digits) {
   facts.tpFlags = flags.results || [];
 
   // 7) Indexing tier (DESIGN.md §6). Government numbers are Tier 1 by
-  // definition: they carry a verified, sourced fact.
+  // definition: they carry a verified, sourced fact. A number whose block
+  // carries an official carrier designation (6+ digit block from the MIC
+  // designation files) is likewise a factual, differentiated page, so it is
+  // indexable too; band-only pages stay Tier 2 (noindex).
   const hasABFlag = facts.tpFlags.some((f) => f.source_tier === 'A' || f.source_tier === 'B');
-  facts.tier = facts.gov || facts.business || facts.reportCount > 0 || hasABFlag ? 1 : 2;
+  const designated = !!(block.carrier_name && block.prefix && block.prefix.length >= 6);
+  facts.designated = designated;
+  facts.tier = facts.gov || facts.business || facts.reportCount > 0 || hasABFlag || designated ? 1 : 2;
 
   return facts;
 }

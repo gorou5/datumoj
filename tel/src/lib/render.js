@@ -235,15 +235,53 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
     .join(' ／ ');
   sections += `<div class="card"><h2>近い番号</h2><p>${nbLinks}</p></div>`;
 
+  // FAQ: visible Q&A generated from this number's facts, mirrored into
+  // FAQPage structured data below (the two must stay in sync).
+  const who = f.block.carrierName
+    ? `割当事業者は ${f.block.carrierName} です。`
+    : '割当事業者の詳細データは整備中です。';
+  const faq = [
+    {
+      q: `${formatted} はどこからの電話ですか？`,
+      a: `${formatted} は${f.lineTypeName}の番号です。${who}${f.prefecture ? `地域は${f.prefecture}です。` : ''}${f.portable ? '番号ポータビリティの対象のため、現在の契約事業者が割当事業者と異なる場合があります。' : ''}なお発信者番号は偽装されることもあるため、番号表示だけで相手を断定はできません。`,
+    },
+    {
+      q: `${formatted} に電話をかけると料金はかかりますか？`,
+      a:
+        f.lineType === 'free0120' || f.lineType === 'free0800'
+          ? `${formatted} は着信課金（フリーダイヤル）の番号で、発信者の通話料は無料です（着信側が負担します）。`
+          : f.lineType === 'navi0570'
+            ? 'ナビダイヤル（0570）は発信者負担の有料通話で、通話時間に応じた料金がかかります。'
+            : `${formatted} への通話は発信者に通話料がかかります（金額はご契約のプランによります）。`,
+    },
+    {
+      q: '知らない番号から着信がありました。どうすればいいですか？',
+      a: 'すぐに折り返さず、まず番号の情報を確認してください。不在着信だけでは通話料は発生しません。金銭の振り込みや個人情報を求められた場合は応じず一度切り、消費生活の相談は消費者ホットライン「188」、事件性がある場合は警察相談専用電話「#9110」へご相談ください。',
+    },
+  ];
+  sections += `<div class="card"><h2>よくある質問</h2>${faq.map((x) => `<h3>${esc(x.q)}</h3><p>${esc(x.a)}</p>`).join('')}</div>`;
+
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'WebPage',
-    name: `${formatted} の電話番号情報`,
-    url: `https://tel.datumoj.com/${f.digits}`,
-    breadcrumb: {
-      '@type': 'BreadcrumbList',
-      itemListElement: crumbs.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: c.url })),
-    },
+    '@graph': [
+      {
+        '@type': 'WebPage',
+        name: `${formatted} の電話番号情報`,
+        url: `https://tel.datumoj.com/${f.digits}`,
+        breadcrumb: {
+          '@type': 'BreadcrumbList',
+          itemListElement: crumbs.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: c.url })),
+        },
+      },
+      {
+        '@type': 'FAQPage',
+        mainEntity: faq.map((x) => ({
+          '@type': 'Question',
+          name: x.q,
+          acceptedAnswer: { '@type': 'Answer', text: x.a },
+        })),
+      },
+    ],
   };
   const body = `
 <p class="crumbs">${crumbHtml}</p>

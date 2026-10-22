@@ -65,6 +65,10 @@ export default {
           ...prefs.map((p) => `https://tel.datumoj.com/pref/${encodeURIComponent(p)}`),
           ...areas.map((a) => `https://tel.datumoj.com/area/${a.area_code}`),
           ...govNumbers.map((n) => `https://tel.datumoj.com/${n}`),
+          // Numbers tracked by the SEO watch (tel/seo/SEO_LOG.md):
+          // indexable designated-block pages surfaced for discovery.
+          'https://tel.datumoj.com/08007779633',
+          'https://tel.datumoj.com/0120923499',
         ];
         const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
           .map((u) => `<url><loc>${u}</loc></url>`)
