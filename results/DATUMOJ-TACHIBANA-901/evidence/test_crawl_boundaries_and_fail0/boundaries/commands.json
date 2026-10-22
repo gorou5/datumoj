@@ -1,0 +1,26 @@
+[
+  {
+    "args": [
+      "crawl",
+      "jp-gov-web"
+    ],
+    "exit_code": 1,
+    "output": "来源：jp-gov-web\n新增 4，未变化 0，失败 3\n失败分类：{\n  \"blocked_by_robots\": 1,\n  \"spa_shell\": 1,\n  \"empty_body\": 1\n}\n"
+  },
+  {
+    "args": [
+      "parse",
+      "jp-gov-web"
+    ],
+    "exit_code": 1,
+    "output": "解析完成：成功 2，跳过 0，无解析器 0\n解析失败：{\n  \"da8009028cd84280a3be6f862d5cf186\": \"ParseError: empty_content: HTML 页面正文少于 100 字\",\n  \"00302960eebd42aaa392d2654b9fa1f5\": \"ParseError: empty_content: HTML 页面正文少于 100 字\"\n}\n"
+  },
+  {
+    "args": [
+      "index",
+      "--rebuild"
+    ],
+    "exit_code": 1,
+    "output": "索引重建完成：3 个块\n解析失败：{\n  \"da8009028cd84280a3be6f862d5cf186\": \"ParseError: empty_content: HTML 页面正文少于 100 字\",\n  \"00302960eebd42aaa392d2654b9fa1f5\": \"ParseError: empty_content: HTML 页面正文少于 100 字\"\n}\n"
+  }
+]

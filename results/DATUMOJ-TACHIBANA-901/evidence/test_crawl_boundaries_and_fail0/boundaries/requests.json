@@ -1,0 +1,86 @@
+[
+  {
+    "path": "/robots.txt",
+    "headers": {
+      "Host": "localhost:64070",
+      "Accept": "*/*",
+      "Connection": "keep-alive",
+      "User-Agent": "DATUMOJ/0.1 (+https://github.com/gorou5/datumoj)",
+      "Accept-Encoding": "identity"
+    },
+    "status": 200,
+    "body_bytes": 49
+  },
+  {
+    "path": "/policy/startup/index.html",
+    "headers": {
+      "Host": "localhost:64070",
+      "Accept": "*/*",
+      "Connection": "keep-alive",
+      "User-Agent": "DATUMOJ/0.1 (+https://github.com/gorou5/datumoj)",
+      "Accept-Encoding": "identity"
+    },
+    "status": 200,
+    "body_bytes": 1935
+  },
+  {
+    "path": "/policy/startup/detail-a.html",
+    "headers": {
+      "Host": "localhost:64070",
+      "Accept": "*/*",
+      "Connection": "keep-alive",
+      "User-Agent": "DATUMOJ/0.1 (+https://github.com/gorou5/datumoj)",
+      "Accept-Encoding": "identity"
+    },
+    "status": 200,
+    "body_bytes": 1287
+  },
+  {
+    "path": "/policy/startup/guide.pdf",
+    "headers": {
+      "Host": "localhost:64070",
+      "Accept": "*/*",
+      "Connection": "keep-alive",
+      "User-Agent": "DATUMOJ/0.1 (+https://github.com/gorou5/datumoj)",
+      "Accept-Encoding": "identity"
+    },
+    "status": 200,
+    "body_bytes": 674
+  },
+  {
+    "path": "/policy/startup/deeper/detail-b.html",
+    "headers": {
+      "Host": "localhost:64070",
+      "Accept": "*/*",
+      "Connection": "keep-alive",
+      "User-Agent": "DATUMOJ/0.1 (+https://github.com/gorou5/datumoj)",
+      "Accept-Encoding": "identity"
+    },
+    "status": 200,
+    "body_bytes": 1142
+  },
+  {
+    "path": "/spa/index.html",
+    "headers": {
+      "Host": "localhost:64070",
+      "Accept": "*/*",
+      "Connection": "keep-alive",
+      "User-Agent": "DATUMOJ/0.1 (+https://github.com/gorou5/datumoj)",
+      "Accept-Encoding": "identity"
+    },
+    "status": 200,
+    "body_bytes": 85904
+  },
+  {
+    "path": "/empty/index.html",
+    "headers": {
+      "Host": "localhost:64070",
+      "Accept": "*/*",
+      "Connection": "keep-alive",
+      "User-Agent": "DATUMOJ/0.1 (+https://github.com/gorou5/datumoj)",
+      "Accept-Encoding": "identity"
+    },
+    "status": 200,
+    "body_bytes": 0
+  }
+]
