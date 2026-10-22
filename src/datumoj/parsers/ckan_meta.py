@@ -53,7 +53,7 @@ def _resource_url(record: Mapping[str, object]) -> str | None:
 
 class CkanMetaParser(Parser):
     name = "ckan_meta"
-    version = "1"
+    version = "2"
     source_kind = "ckan"
     # CKAN servers and proxies do not consistently set a reliable media type.
     content_type = "*"
@@ -69,6 +69,11 @@ class CkanMetaParser(Parser):
         package = payload.get("result", payload)
         if not isinstance(package, dict):
             raise ParseError("CKAN 元数据缺少 package 对象")
+
+        return self._parse_package(snapshot, package)
+
+    def _parse_package(self, snapshot: Snapshot, package: Mapping[str, object], *, locator: str | None = None) -> ParseResult:
+        """Parse one package; package_search callers provide its position in the saved page."""
 
         package_id = _text(package.get("id")) or _text(package.get("name"))
         if not package_id or not package_id.strip():
@@ -108,6 +113,8 @@ class CkanMetaParser(Parser):
                 tags=_tags(package.get("tags")),
                 modified_at=modified_at,
                 extras=extras,
+                snapshot_sha256=snapshot.sha256 if locator is not None else None,
+                locator=locator,
             )
         except ValueError as exc:
             raise ParseError("CKAN package 字段无效") from exc

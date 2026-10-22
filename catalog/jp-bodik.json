@@ -1,0 +1,18 @@
+{
+  "access_method": "api",
+  "auth_required": false,
+  "country_region": "JP",
+  "id": "jp-bodik",
+  "last_verified": "unknown",
+  "license": {
+    "allows_redistribution": "unknown",
+    "name": "unknown",
+    "requires_attribution": true,
+    "url": "https://odcs.bodik.jp/about/"
+  },
+  "name": "BODIK ODCS 自治体オープンデータ",
+  "official_url": "https://data.bodik.jp/api/3/action/",
+  "publisher": "各自治体の BODIK ODCS データセット",
+  "rate_limit": "0.5 req/s",
+  "status": "experimental"
+}

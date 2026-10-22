@@ -1,0 +1,17 @@
+{
+  "access_method": "web",
+  "auth_required": false,
+  "country_region": "JP",
+  "id": "jp-gov-web",
+  "last_verified": "unknown",
+  "license": {
+    "allows_redistribution": "unknown",
+    "name": "unknown",
+    "requires_attribution": "unknown"
+  },
+  "name": "省庁・自治体の政策栏目（精選種子）",
+  "official_url": "https://www8.cao.go.jp/cstp/openinnovation/",
+  "publisher": "unknown",
+  "rate_limit": "0.3333333333333333 req/s",
+  "status": "experimental"
+}

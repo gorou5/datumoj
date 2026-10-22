@@ -12,9 +12,10 @@ import json
 import re
 import sys
 from collections.abc import Iterable, Mapping
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
+from hashlib import sha256 as _sha256
 from pathlib import Path
 from typing import Annotated, Any, Generic, Literal, TypeVar
 from urllib.parse import unquote_plus
@@ -44,6 +45,31 @@ class FetchOutcome(StrEnum):
     blocked_by_robots = "blocked_by_robots"
     empty_body = "empty_body"
     spa_shell = "spa_shell"
+
+
+class DocKind(StrEnum):
+    law = "law"
+    html_page = "html_page"
+    pdf = "pdf"
+    dataset = "dataset"
+    bulletin = "bulletin"
+
+
+class ChangeKind(StrEnum):
+    added = "added"
+    modified = "modified"
+    removed = "removed"
+    fetch_failed = "fetch_failed"
+    parse_failed = "parse_failed"
+
+
+class FailureKind(StrEnum):
+    source_unavailable = "source_unavailable"
+    rate_limited = "rate_limited"
+    auth_failed = "auth_failed"
+    format_changed = "format_changed"
+    policy = "policy"
+    other = "other"
 
 
 FAILED_OUTCOMES = frozenset(
@@ -263,6 +289,116 @@ class _Model(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+class FailureClass(_Model):
+    kind: FailureKind
+    retryable: bool
+
+
+# 失败分类表：明确的 outcome 优先于 HTTP 状态；成功永远不算失败。
+_OUTCOME_FAILURES = {
+    FetchOutcome.network_error: (FailureKind.source_unavailable, True),
+    FetchOutcome.spa_shell: (FailureKind.format_changed, False),
+    FetchOutcome.empty_body: (FailureKind.format_changed, False),
+    FetchOutcome.too_large: (FailureKind.policy, False),
+    FetchOutcome.blocked_by_robots: (FailureKind.policy, False),
+}
+_HTTP_FAILURES = {
+    408: (FailureKind.source_unavailable, True),
+    404: (FailureKind.source_unavailable, False),
+    410: (FailureKind.source_unavailable, False),
+    429: (FailureKind.rate_limited, True),
+    401: (FailureKind.auth_failed, False),
+    403: (FailureKind.auth_failed, False),
+    407: (FailureKind.auth_failed, False),
+}
+# HTTP 500..599 → source_unavailable / True；其余和未知 → other / False。
+
+
+def classify_failure(outcome: FetchOutcome, http_status: int | None) -> FailureClass | None:
+    """分类抓取失败；outcome 描述正文/策略失败时，以 outcome 为准。"""
+    if outcome in (FetchOutcome.ok, FetchOutcome.not_modified):
+        return None
+    fallback = (FailureKind.source_unavailable, True) if http_status is not None and 500 <= http_status <= 599 else (
+        FailureKind.other, False
+    )
+    kind, retryable = _OUTCOME_FAILURES.get(outcome, _HTTP_FAILURES.get(http_status, fallback))
+    return FailureClass(kind=kind, retryable=retryable)
+
+
+def classify_parse_failure() -> FailureClass:
+    return FailureClass(kind=FailureKind.format_changed, retryable=False)
+
+
+META_PARENT_URL = "parent_url"
+META_PARENT_SHA256 = "parent_sha256"
+
+
+def parent_ref(meta: Mapping[str, Any]) -> tuple[str, str] | None:
+    """父页面引用，随 FetchTask.meta 写入 manifest，解析器原样复制到 Document.metadata。
+
+    不完整、格式不合法或 URL 尚未去 Key 时返回 None，不替调用方修补出处。
+    """
+    url, digest = meta.get(META_PARENT_URL), meta.get(META_PARENT_SHA256)
+    if not isinstance(url, str) or not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        return None
+    try:
+        _check_url(url)
+    except ValueError:
+        return None
+    return url, digest
+
+
+class ChangeEvent(_Model):
+    """一条变化。ID 是六个身份字段的规范 JSON 的 SHA-256，不含时间、摘要和位置。"""
+
+    event_id: Sha256
+    source_id: SourceId
+    kind: ChangeKind
+    doc_key: DocKey | None = None
+    resource_url: RedactedUrl | None = None
+    old_sha256: Sha256 | None = None
+    new_sha256: Sha256 | None = None
+    detected_at: AwareDatetime
+    summary: Annotated[Text, Field(pattern=r"^[^\r\n\x0b\x0c\x85\u2028\u2029]+$")]
+    locator: Locator | None = None
+
+    @staticmethod
+    def _event_id(source_id: str, kind: ChangeKind, doc_key: str | None, resource_url: str | None,
+                  old_sha256: str | None, new_sha256: str | None) -> str:
+        identity = [source_id, kind, doc_key, resource_url, old_sha256, new_sha256]
+        return _sha256(json.dumps(identity, ensure_ascii=False, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+    @classmethod
+    def make(cls, *, source_id: str, kind: ChangeKind, detected_at: datetime, summary: str,
+             doc_key: str | None = None, resource_url: str | None = None, old_sha256: str | None = None,
+             new_sha256: str | None = None, locator: str | None = None) -> ChangeEvent:
+        return cls(
+            event_id=cls._event_id(source_id, kind, doc_key, resource_url, old_sha256, new_sha256),
+            source_id=source_id, kind=kind, doc_key=doc_key, resource_url=resource_url,
+            old_sha256=old_sha256, new_sha256=new_sha256, detected_at=detected_at, summary=summary, locator=locator,
+        )
+
+    @model_validator(mode="after")
+    def _consistent(self) -> ChangeEvent:
+        if self.doc_key is None and self.resource_url is None:
+            raise ValueError("doc_key 和 resource_url 至少一个必填")
+        if self.doc_key is not None:
+            _check_key_belongs(self.doc_key, self.source_id, "doc_key")
+        if self.kind is ChangeKind.added and (self.new_sha256 is None or self.old_sha256 is not None):
+            raise ValueError("added 必须有 new_sha256 且没有 old_sha256")
+        if self.kind is ChangeKind.removed and self.old_sha256 is None:
+            raise ValueError("removed 必须有 old_sha256")
+        if self.kind is ChangeKind.modified and (
+            self.old_sha256 is None or self.new_sha256 is None or self.old_sha256 == self.new_sha256
+        ):
+            raise ValueError("modified 必须有不同的 old_sha256 和 new_sha256")
+        if self.event_id != self._event_id(
+            self.source_id, self.kind, self.doc_key, self.resource_url, self.old_sha256, self.new_sha256
+        ):
+            raise ValueError("event_id 与变化身份字段不一致")
+        return self
+
+
 # ---------- 来源与目录 ----------
 
 
@@ -308,10 +444,14 @@ class Dataset(_Model):
     published_at: date | None = None
     modified_at: AwareDatetime | None = None
     extras: dict[str, JsonValue] = Field(default_factory=dict)
+    snapshot_sha256: Sha256 | None = None
+    locator: Locator | None = None
 
     @model_validator(mode="after")
     def _key_matches(self) -> Dataset:
         _check_key_belongs(self.dataset_key, self.source_id, "dataset_key")
+        if self.locator is not None and self.snapshot_sha256 is None:
+            raise ValueError("有 locator 时 snapshot_sha256 必填")
         return self
 
 
@@ -377,6 +517,7 @@ class Document(_Model):
     snapshot_sha256: Sha256
     title: Text
     lang: Lang
+    kind: DocKind | None = None
     content_type: str | None = None
     published_at: date | None = None
     effective_at: date | None = None
@@ -622,6 +763,11 @@ class ToolResult(_Model, Generic[T]):
 
 SCHEMA_TYPES: dict[str, Any] = {
     "FetchOutcome": FetchOutcome,
+    "DocKind": DocKind,
+    "ChangeKind": ChangeKind,
+    "ChangeEvent": ChangeEvent,
+    "FailureKind": FailureKind,
+    "FailureClass": FailureClass,
     "UsageScope": UsageScope,
     "Redistribution": Redistribution,
     "TimeBasis": TimeBasis,

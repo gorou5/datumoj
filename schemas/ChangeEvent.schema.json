@@ -1,0 +1,115 @@
+{
+  "$defs": {
+    "ChangeKind": {
+      "enum": [
+        "added",
+        "modified",
+        "removed",
+        "fetch_failed",
+        "parse_failed"
+      ],
+      "title": "ChangeKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "一条变化。ID 是六个身份字段的规范 JSON 的 SHA-256，不含时间、摘要和位置。",
+  "properties": {
+    "event_id": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "source_id": {
+      "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+      "title": "Source Id",
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/ChangeKind"
+    },
+    "doc_key": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+:\\S(?:.*\\S)?$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Doc Key"
+    },
+    "resource_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resource Url"
+    },
+    "old_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Old Sha256"
+    },
+    "new_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "New Sha256"
+    },
+    "detected_at": {
+      "format": "date-time",
+      "title": "Detected At",
+      "type": "string"
+    },
+    "summary": {
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "locator": {
+      "anyOf": [
+        {
+          "pattern": "^(?:art|para|item|suppl|table|page|sheet|cell|row|entry|section|feature|member)=(?:[^%;=\\x00-\\x1f\\x7f]|%(?:25|3B|3D))+(?:;(?:art|para|item|suppl|table|page|sheet|cell|row|entry|section|feature|member)=(?:[^%;=\\x00-\\x1f\\x7f]|%(?:25|3B|3D))+)*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Locator"
+    }
+  },
+  "required": [
+    "event_id",
+    "source_id",
+    "kind",
+    "detected_at",
+    "summary"
+  ],
+  "title": "ChangeEvent",
+  "type": "object"
+}

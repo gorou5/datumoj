@@ -1,0 +1,27 @@
+Sitemap: https://www.sangyo-rodo.metro.tokyo.lg.jp/sitemap.xml
+
+User-agent: *
+Disallow: /*combo*
+Disallow: /*minifierType=js*
+Disallow: /*?fbclid=
+Disallow: /*?utm_
+Disallow: /*?gclid=
+Disallow: /*?yclid=
+Disallow: /*?categoryID=
+Disallow: /*&categoryID=
+Disallow: /*?page=
+Disallow: /*&page=
+Disallow: /*?organizationID=
+Disallow: /*&organizationID=
+Disallow: /information/press/2019/
+Disallow: /information/press/2020/
+Disallow: /information/press/2021/
+Disallow: /web/
+Disallow: /group/
+Disallow: /delete_page/
+Disallow: /sign-in
+Disallow: /*/web/guest/
+Disallow: /documents/d/guest/0_-1
+Disallow: /documents/d/guest/mytokyo_-_ver1-1
+Disallow: /documents/d/guest/mytokyo-_ver3-00
+Disallow: /information/-/asset_publisher/
