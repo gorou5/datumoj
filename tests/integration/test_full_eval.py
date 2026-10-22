@@ -11,6 +11,7 @@ import asyncio
 import hashlib
 import json
 import os
+import shutil
 import threading
 import weakref
 from datetime import date, datetime, timezone
@@ -43,6 +44,7 @@ from datumoj.testing.samples import ParseSample, make_snapshot
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "tests/fixtures"
+IVY_BANKS = ("law.yaml", "stats.yaml", "catalog.yaml", "behavior.yaml")
 EXTRA = FIXTURES / "eval_extra"
 NOW = datetime(2026, 10, 21, tzinfo=timezone.utc)
 
@@ -263,11 +265,20 @@ def test_real_dependencies_and_complete_corpus(full_chain):
     assert not any("degraded=true" in warning for warning in found.warnings)
 
 
-def test_all_questions_pass_every_gate(full_chain):
+def _ivy_questions(tmp_path):
+    # TACHIBANA 的题库要配政策网页语料，由 903 评测；这里只评 IVY 的四个题库。
+    directory = tmp_path / "ivy-questions"
+    directory.mkdir()
+    for name in IVY_BANKS:
+        shutil.copy(ROOT / "eval/questions" / name, directory / name)
+    return directory
+
+
+def test_all_questions_pass_every_gate(full_chain, tmp_path):
     deps = full_chain["deps"]
-    questions = load_questions(ROOT / "eval/questions")
+    questions = load_questions(_ivy_questions(tmp_path))
     assert len(questions) >= 60
-    assert {Path(q._source_file).name for q in questions} == {"law.yaml", "stats.yaml", "catalog.yaml", "behavior.yaml"}
+    assert {Path(q._source_file).name for q in questions} == set(IVY_BANKS)
 
     def cite(citation):
         restored = deps.tools.cite(citation.snapshot_sha256, citation.locator)
@@ -290,7 +301,8 @@ def test_cli_eval_reports_and_gate_exit_codes(full_chain, monkeypatch, tmp_path)
     deps = full_chain["deps"]
     monkeypatch.setattr(cli.wiring, "build", lambda path: deps)
     runner = CliRunner()
-    args = ["eval", "--gate", "--report", str(tmp_path / "full")]
+    ivy = _ivy_questions(tmp_path)
+    args = ["eval", "--gate", "--report", str(tmp_path / "full"), "--questions", str(ivy)]
     result = runner.invoke(cli.app, args)
     commands = [{"args": args, "exit_code": result.exit_code, "output": result.output}]
     assert result.exit_code == 0, result.output
@@ -301,6 +313,7 @@ def test_cli_eval_reports_and_gate_exit_codes(full_chain, monkeypatch, tmp_path)
     try:
         monkeypatch.setattr(cli.wiring, "build", lambda path: empty)
         for flags, expected in ((["--gate"], 1), ([], 0)):
+            flags = [*flags, "--questions", str(ivy)]
             result = runner.invoke(cli.app, ["eval", *flags])
             commands.append({"args": ["eval", *flags], "exit_code": result.exit_code, "output": result.output})
             assert result.exit_code == expected, result.output

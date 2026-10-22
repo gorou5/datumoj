@@ -18,7 +18,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install validators
         run: pip install jsonschema pyyaml
@@ -65,6 +65,21 @@ jobs:
             echo 'ERROR: .env.example 疑似包含真实密钥'; exit 1
           fi
           echo '.env.example clean'
+
+  test:
+    # 全部测试离线（录制样本 + 本地假服务器），不需要任何密钥
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: uv sync --frozen --python 3.12
+
+      - name: Run tests
+        run: uv run --frozen pytest -q
 
       # 注意：部署工作流尚未配置。在配置 CLOUDFLARE_API_TOKEN 等
       # Secrets 并明确部署流程前，不添加任何自动部署步骤。

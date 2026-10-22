@@ -14,13 +14,14 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
-from pydantic import JsonValue, TypeAdapter
+from pydantic import AwareDatetime, JsonValue, TypeAdapter
 
 from datumoj.core.contracts import (
     DuplicateError,
     FailureSummary,
     NotFoundError,
     ParseRecord,
+    ParseStatus,
     SchemaVersionError,
 )
 from datumoj.core.models import FetchOutcome, Freshness, Snapshot, redact_url
@@ -176,3 +177,18 @@ class SqliteManifest:
             (sha256, parser, version),
         ).fetchone()
         return None if row is None else ParseRecord(sha256=row[0], parser=row[1], version=row[2], status=row[3], error=row[4])
+
+    def parse_stats(self, source_id: str, since: datetime | None = None) -> dict[ParseStatus, int]:
+        args: list[object] = [source_id]
+        boundary = ""
+        if since is not None:
+            args.append(_ts(TypeAdapter(AwareDatetime).validate_python(since)))
+            boundary = " AND s.fetched_at >= ?"
+        # INSERT OR REPLACE 分配新 rowid，因此最大 rowid 就是最后写入的解析记录。
+        rows = self._db.execute(
+            "SELECT p.status, COUNT(*) FROM snapshots s JOIN parsed p ON p.sha256=s.sha256"
+            " AND p.rowid=(SELECT MAX(latest.rowid) FROM parsed latest WHERE latest.sha256=s.sha256)"
+            " WHERE s.source_id=?" + boundary + " GROUP BY p.status",
+            args,
+        ).fetchall()
+        return {ParseStatus(status): count for status, count in rows}

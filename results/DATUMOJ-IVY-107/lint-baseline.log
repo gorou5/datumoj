@@ -1,5 +1,0 @@
-$ git show HEAD:src/datumoj/cli.py | rg -n 'queries: list|report: Path'
-179:    queries: list[str] = typer.Argument(..., help="一个或多个检索词"),
-250:    report: Path | None = typer.Option(None, "--report", help="报告目录（默认使用临时目录）"),
-
-exit_code=0

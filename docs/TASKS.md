@@ -186,5 +186,5 @@ agent 只能跑 pytest，不能联网、不能装依赖。所以凡是要**联�
 
 | 版本 | 预计任务 |
 |---|---|
-| 0.2（代号待定，日本扩面与增量） | B 线：KKJ 按日期分段采集、PDF 解析（按页 locator，扫描件标 `needs_ocr`）、个人信息脱敏、jp-gov-web 定向采集与 HTML 正文抽取。D 线：BODIK（复用 CKAN，加 DataStore）。A 线：增量调度（launchd 生成器）。F 线：变化检测与每周变化报告。G 线：M4 来源评测题 |
+| 0.2（代号待定，日本扩面与增量；**已由 `docs/plans/0.2-tachibana.md` 取代**，KKJ 于 2026-10-22 移出 0.2） | B 线：KKJ 按日期分段采集、PDF 解析（按页 locator，扫描件标 `needs_ocr`）、个人信息脱敏、jp-gov-web 定向采集与 HTML 正文抽取。D 线：BODIK（复用 CKAN，加 DataStore）。A 线：增量调度（launchd 生成器）。F 线：变化检测与每周变化报告。G 线：M4 来源评测题 |
 | 0.3（代号待定，欧美） | D 线：CKAN 多语言适配（data.europa.eu、英德法荷）。C 线：Eurostat SDMX、World Bank WDI。B 线：Federal Register 采集器。G 线：多语言检索评测 |

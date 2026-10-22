@@ -13,20 +13,22 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import subprocess
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from datetime import date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import datumoj
+from datumoj.core.storage import load_storage_config
 from datumoj.analysis.glossary import expand_terms, normalize
 from datumoj.core.contracts import (
     CatalogFilter,
     CatalogHit,
     CatalogStore,
+    ChangeLog,
     ChunkStore,
     ContentState,
     CorruptedBlob,
@@ -45,7 +47,10 @@ from datumoj.core.contracts import (
 )
 from datumoj.core.models import (
     Chunk,
+    ChangeEvent,
+    ChangeKind,
     Citation,
+    DocKind,
     Document,
     FetchOutcome,
     Freshness,
@@ -129,6 +134,52 @@ def _usage_warning(notices: Iterable[str | None], warnings: list[str]) -> None:
         warnings.append(f"部分结果的来源{INTERNAL_ONLY}（internal_only 或许可未核对），不得对外分发")
 
 
+def _skip_json_space(text: str, index: int) -> int:
+    while index < len(text) and text[index].isspace():
+        index += 1
+    return index
+
+
+def _json_object_value_span(text: str, start: int, name: str) -> tuple[int, int] | None:
+    """Return the source span of an object's last member named ``name``."""
+    decoder = json.JSONDecoder()
+    index = _skip_json_space(text, start + 1)
+    found = None
+    while index < len(text) and text[index] != "}":
+        key, index = decoder.raw_decode(text, index)
+        index = _skip_json_space(text, index)
+        if index >= len(text) or text[index] != ":":
+            raise ValueError("invalid JSON object")
+        value_start = _skip_json_space(text, index + 1)
+        _, value_end = decoder.raw_decode(text, value_start)
+        if key == name:
+            found = (value_start, value_end)
+        index = _skip_json_space(text, value_end)
+        if index < len(text) and text[index] == ",":
+            index = _skip_json_space(text, index + 1)
+        elif index >= len(text) or text[index] != "}":
+            raise ValueError("invalid JSON object")
+    return found
+
+
+def _json_array_item_span(text: str, start: int, wanted: int) -> tuple[int, int] | None:
+    decoder = json.JSONDecoder()
+    index = _skip_json_space(text, start + 1)
+    item = 0
+    while index < len(text) and text[index] != "]":
+        value_start = index
+        _, value_end = decoder.raw_decode(text, value_start)
+        if item == wanted:
+            return value_start, value_end
+        item += 1
+        index = _skip_json_space(text, value_end)
+        if index < len(text) and text[index] == ",":
+            index = _skip_json_space(text, index + 1)
+        elif index >= len(text) or text[index] != "]":
+            raise ValueError("invalid JSON array")
+    return None
+
+
 def _check_int(value: Any, name: str, lo: int, hi: int) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or not lo <= value <= hi:
         raise ValueError(f"{name} 必须是 {lo}–{hi} 的整数")
@@ -160,6 +211,33 @@ def _to_date(value: Any, name: str) -> date | None:
         except ValueError:
             pass
     raise ValueError(f"{name} 必须是日期或 YYYY-MM-DD")
+
+
+def _to_datetime(value: Any, name: str, *, end_of_day: bool = False) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        result = value
+    elif isinstance(value, date):
+        result = datetime.combine(value, time.max if end_of_day else time.min, tzinfo=UTC)
+    elif isinstance(value, str):
+        text = value.strip()
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+            try:
+                day = date.fromisoformat(text)
+            except ValueError as exc:
+                raise ValueError(f"{name} 必须是带时区的 ISO-8601 日期时间或 YYYY-MM-DD") from exc
+            result = datetime.combine(day, time.max if end_of_day else time.min, tzinfo=UTC)
+        else:
+            try:
+                result = datetime.fromisoformat(text.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise ValueError(f"{name} 必须是带时区的 ISO-8601 日期时间或 YYYY-MM-DD") from exc
+    else:
+        raise ValueError(f"{name} 必须是带时区的 ISO-8601 日期时间或 YYYY-MM-DD")
+    if result.utcoffset() is None:
+        raise ValueError(f"{name} 必须带时区")
+    return result
 
 
 def _iso_date(value: Any) -> date | None:
@@ -208,6 +286,7 @@ class AnalysisTools:
         manifest: Manifest,
         raw: RawStore,
         registry: Registry,
+        change_log: ChangeLog | None = None,
         parsers: Mapping[tuple[str, str], type[Parser]] | None = None,
         data_dir: str | Path | None = None,
         index_built_at: Callable[[], datetime | None] | None = None,
@@ -219,8 +298,9 @@ class AnalysisTools:
         self.manifest = manifest
         self.raw = raw
         self.registry = registry
+        self.change_log = change_log
         self.parsers = parsers
-        self.data_dir = Path(data_dir if data_dir is not None else os.environ.get("DATUMOJ_DATA_DIR", "./data"))
+        self.data_dir = load_storage_config(data_dir=data_dir).data_dir
         self.index_built_at = index_built_at
 
     # ----- 出处 -----
@@ -325,24 +405,47 @@ class AnalysisTools:
         k: int = 10,
         sources: str | Sequence[str] | None = None,
         since: date | str | None = None,
+        kinds: str | Sequence[str] | None = None,
     ) -> dict[str, Any]:
         """文本检索（法令、公告等）。中文、英文查询按对照表追加日文词一起检索（``data.queries`` 是实际用的查询）。
 
-        ``since`` 按块的发布日 / 施行日过滤，两者都没有的块会被排除。
+        ``since`` 按块的发布日 / 施行日过滤，两者都没有的块会被排除；``kinds`` 按文档类型过滤。
         """
         qs = _str_list(queries, "queries")
         k = _check_int(k, "k", 1, MAX_K)
         source_ids = _str_list(sources, "sources")
+        kind_values = _str_list(kinds, "kinds")
+        doc_kinds = None
+        if kind_values is not None:
+            try:
+                doc_kinds = [DocKind(value) for value in kind_values]
+            except ValueError as exc:
+                raise ValueError(f"kinds 只能包含 {', '.join(kind.value for kind in DocKind)}") from exc
         since_d = _to_date(since, "since")
         used = list(qs)
         for q in qs:
             nq = normalize(q)
             used.extend(t for t in expand_terms(q)["ja_terms"] if normalize(t) not in nq and t not in used)
-        res = self.retriever.search(used, k=k, source_ids=source_ids, date_range=None if since_d is None else (since_d, None))
+        res = self.retriever.search(
+            used, k=MAX_K if doc_kinds is not None else k, source_ids=source_ids,
+            date_range=None if since_d is None else (since_d, None),
+        )
+        hits = list(res.data)
+        if doc_kinds is not None:
+            hits = [
+                hit for hit in hits
+                if (doc := self.chunks.get_document(hit.doc_key, hit.citation.snapshot_sha256)) is not None
+                and doc.kind in doc_kinds
+            ][:k]
         warnings = list(res.warnings)
-        hits = [self._hit_view(hit, warnings) for hit in res.data]
-        _usage_warning((h["usage_notice"] for h in hits), warnings)
-        return _result({"queries": used, "hits": hits}, res.gap_state, res.freshness, warnings, res.gap_detail)
+        views = [self._hit_view(hit, warnings) for hit in hits]
+        _usage_warning((h["usage_notice"] for h in views), warnings)
+        if doc_kinds is not None and res.data and not hits and res.gap_state is GapState.ok:
+            gap_state, gap_detail = GapState.zero_hits, "指定的文档类型没有命中"
+        else:
+            gap_state, gap_detail = res.gap_state, res.gap_detail
+        freshness = _freshness((hit.citation.source_id, hit.citation.fetched_at) for hit in hits)
+        return _result({"queries": used, "hits": views}, gap_state, freshness, warnings, gap_detail)
 
     def _hit_view(self, hit: Hit, warnings: list[str]) -> dict[str, Any]:
         doc = self.chunks.get_document(hit.doc_key, hit.citation.snapshot_sha256)
@@ -351,6 +454,95 @@ class AnalysisTools:
             "matched_by": hit.matched_by, "snippet": hit.snippet, "citation": hit.citation,
             "usage_notice": _usage_notice(hit.citation.usage_scope), "law": self._law_info(doc, warnings),
         }
+
+    # ----- list_changes -----
+
+    def list_changes(
+        self,
+        since: datetime | date | str | None = None,
+        until: datetime | date | str | None = None,
+        sources: str | Sequence[str] | None = None,
+        kinds: str | Sequence[str] | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        """列出变化日志；默认窗口是最近七天，事件按检测时间升序。"""
+        since_dt = _to_datetime(since, "since")
+        if since_dt is None:
+            since_dt = datetime.now(UTC) - timedelta(days=7)
+        until_dt = _to_datetime(until, "until", end_of_day=True)
+        if until_dt is not None and since_dt > until_dt:
+            raise ValueError("since 不能晚于 until")
+        source_ids = _str_list(sources, "sources")
+        kind_values = _str_list(kinds, "kinds")
+        change_kinds = None
+        if kind_values is not None:
+            try:
+                change_kinds = [ChangeKind(value) for value in kind_values]
+            except ValueError as exc:
+                raise ValueError(f"kinds 只能包含 {', '.join(kind.value for kind in ChangeKind)}") from exc
+        limit = _check_int(limit, "limit", 0, MAX_ROWS)
+        if self.change_log is None:
+            return _result([], GapState.not_ingested, gap_detail="变化日志尚未接入工具层")
+
+        events = self.change_log.list(
+            since=since_dt, until=until_dt, source_ids=source_ids, kinds=change_kinds, limit=limit,
+        )
+        warnings: list[str] = []
+        freshness: list[tuple[str, datetime]] = []
+        rows = []
+        for event in events:
+            snapshot_sha = (
+                event.old_sha256 if event.kind is ChangeKind.removed else (event.new_sha256 or event.old_sha256)
+            )
+            snap = self._snapshot(snapshot_sha, event.source_id) if snapshot_sha is not None else None
+            doc = self.chunks.get_document(event.doc_key, snapshot_sha) if event.doc_key and snapshot_sha else None
+            if doc is None and snapshot_sha is not None:
+                chunk = next((
+                    item for item in self.chunks.iter_chunks([event.source_id])
+                    if item.snapshot_sha256 == snapshot_sha
+                ), None)
+                if chunk is not None:
+                    doc = self.chunks.get_document(chunk.doc_key, snapshot_sha)
+            citation = self._change_citation(event, snap, doc)
+            if citation is None:
+                warnings.append(f"变化事件 {event.event_id} 缺少可引用的成功快照")
+            else:
+                freshness.append((event.source_id, citation.fetched_at))
+            rows.append({
+                "kind": event.kind, "source_id": event.source_id, "doc_key": event.doc_key,
+                "title": None if doc is None else _st(doc.title),
+                "summary": SourceText(content=event.summary), "detected_at": event.detected_at,
+                "citation": citation,
+            })
+        return _result(rows, GapState.ok if rows else GapState.zero_hits, _freshness(freshness), warnings)
+
+    def _change_citation(
+        self, event: ChangeEvent, snap: Snapshot | None, doc: Document | None,
+    ) -> Citation | None:
+        if snap is None or snap.sha256 is None:
+            return None
+        license_info = self._license(event.source_id)
+        if doc is not None:
+            chunks = self.chunks.chunks_for(doc.doc_key, doc.snapshot_sha256)
+            chunk = (
+                next((c for c in chunks if c.locator == event.locator), None)
+                if event.locator else next(iter(chunks), None)
+            )
+            if chunk is not None:
+                return citation_for_chunk(chunk, snap, license_info)
+        if event.locator is None:
+            return None
+        basis = TimeBasis.effective if doc and doc.effective_at else (
+            TimeBasis.published if doc and doc.published_at else TimeBasis.no_data_date
+        )
+        return Citation(
+            source_id=event.source_id, resource_url=snap.resource_url, snapshot_sha256=snap.sha256,
+            fetched_at=snap.fetched_at, locator=event.locator,
+            published_at=doc.published_at if doc else None, effective_at=doc.effective_at if doc else None,
+            time_basis=basis, license=license_info.name if license_info else None,
+            attribution=license_info.attribution if license_info else None,
+            usage_scope=license_info.usage_scope if license_info else None,
+        )
 
     # ----- search_catalog -----
 
@@ -377,7 +569,7 @@ class AnalysisTools:
             state, detail = self._scope_gap(source_ids, "目录检索零命中")
             return _result({"datasets": []}, state, gap_detail=detail)
         warnings: list[str] = []
-        items = [self._catalog_view(h) for h in hits]
+        items = [self._catalog_view(h, warnings) for h in hits]
         only_catalog = sum(1 for h in hits if h.state is ContentState.catalog_only)
         if only_catalog:
             warnings.append(f"{only_catalog} 个数据集只有目录信息（catalog_only），正文尚未入库，不能当作已读到内容")
@@ -385,9 +577,24 @@ class AnalysisTools:
         freshness = _merge_freshness(self.manifest.freshness(sid) for sid in dict.fromkeys(h.dataset.source_id for h in hits))
         return _result({"datasets": items}, GapState.ok, freshness, warnings)
 
-    def _catalog_view(self, hit: CatalogHit) -> dict[str, Any]:
+    def _catalog_view(self, hit: CatalogHit, warnings: list[str]) -> dict[str, Any]:
         d = hit.dataset
         lic = self._license(d.source_id) or LicenseInfo()
+        citation = None
+        if d.snapshot_sha256 is None or d.locator is None:
+            warnings.append("该记录缺少快照引用，重新解析后可还原")
+        else:
+            snap = self._snapshot(d.snapshot_sha256, d.source_id)
+            if snap is None:
+                warnings.append("该记录引用的快照不在 manifest 中，无法生成 citation")
+            else:
+                citation = Citation(
+                    source_id=d.source_id, resource_url=snap.resource_url, snapshot_sha256=snap.sha256,
+                    fetched_at=snap.fetched_at, locator=d.locator,
+                    published_at=d.modified_at.date() if d.modified_at is not None else None,
+                    time_basis=TimeBasis.published if d.modified_at is not None else TimeBasis.no_data_date,
+                    license=lic.name, attribution=lic.attribution, usage_scope=lic.usage_scope,
+                )
         resources = []
         for entry in hit.resources:
             r = entry.resource
@@ -401,6 +608,7 @@ class AnalysisTools:
             "dataset_key": d.dataset_key, "source_id": d.source_id, "kind": d.kind, "title": _st(d.title),
             "description": _st(d.description), "publisher": _st(d.publisher), "tags": [_st(t) for t in d.tags],
             "license": _st(d.license), "state": hit.state, "score": hit.score, "resources": resources,
+            "citation": citation,
             "provenance": {
                 "source_id": d.source_id, "url": d.url,
                 "time_basis": TimeBasis.published if d.published_at else TimeBasis.no_data_date,
@@ -499,7 +707,7 @@ class AnalysisTools:
             raise ValueError("snapshot_sha256 必须是 64 位小写十六进制")
         if not isinstance(locator, str):
             raise ValueError("locator 必须是字符串")
-        parse_locator(locator)
+        locator_parts = parse_locator(locator)
 
         def not_found(reason: str) -> dict[str, Any]:
             data = {"status": "not_found", "snapshot_sha256": snapshot_sha256, "locator": locator, "passages": []}
@@ -515,6 +723,42 @@ class AnalysisTools:
             return not_found("raw 里没有这个快照的原始字节")
         except CorruptedBlob:
             return not_found("raw 里的内容和 sha256 不一致，不能用来还原")
+        entry_spec = self.registry.get(snap.source_id) if "entry" in locator_parts else None
+        if "entry" in locator_parts and entry_spec is not None and entry_spec.kind == "ckan":
+            if set(locator_parts) != {"entry"}:
+                return not_found("CKAN package_search 的 entry locator 不能包含其他段")
+            raw_index = locator_parts["entry"]
+            if re.fullmatch(r"[0-9]+", raw_index) is None:
+                return not_found("entry locator 必须是非负整数")
+            try:
+                entry_index = int(raw_index)
+            except ValueError:
+                return not_found("entry locator 必须是非负整数")
+            action = urlsplit(snap.resource_url).path.rstrip("/").rsplit("/", 1)[-1]
+            if action != "package_search":
+                return not_found("entry locator 只适用于 CKAN package_search 快照")
+            try:
+                text = raw.decode("utf-8")
+                payload = json.loads(text)
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                return not_found("CKAN package_search 快照不是有效的 UTF-8 JSON")
+            page = payload.get("result") if isinstance(payload, dict) else None
+            records = page.get("results") if isinstance(page, dict) else None
+            if not isinstance(payload, dict) or payload.get("success") is not True or not isinstance(records, list):
+                return not_found("快照不是有效的 CKAN package_search JSON")
+            if entry_index >= len(records):
+                return not_found(f"entry 下标 {entry_index} 超出 results 数组范围（共 {len(records)} 条）")
+            try:
+                result_span = _json_object_value_span(text, 0, "result")
+                records_span = None if result_span is None else _json_object_value_span(text, result_span[0], "results")
+                entry_span = None if records_span is None else _json_array_item_span(text, records_span[0], entry_index)
+            except (ValueError, json.JSONDecodeError):
+                entry_span = None
+            if entry_span is None or not isinstance(records[entry_index], dict):
+                return not_found("无法从 CKAN package_search 原文定位该目录记录")
+            passage = {"kind": "catalog_entry", "text": SourceText(content=text[entry_span[0]:entry_span[1]])}
+            data = {"status": "ok", "snapshot_sha256": snapshot_sha256, "locator": locator, "passages": [passage]}
+            return _result(data, GapState.ok, _freshness([(snap.source_id, snap.fetched_at)]))
         spec = self.registry.get(snap.source_id)
         if spec is None:
             return not_found(f"注册表里没有来源 {snap.source_id}，无法选择解析器")

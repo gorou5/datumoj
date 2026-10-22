@@ -1,0 +1,170 @@
+questions:
+  - id: gov-web-cao-procurement-ja
+    question: 内閣府はスタートアップによる公共調達を進めるため、どの施策資料を案内していますか？
+    lang: ja
+    kind: retrieval
+    queries:
+      - スタートアップ 公共調達 施策 ガイドブック
+      - 内閣府 オープンイノベーション 公共調達
+    source_ids: [jp-gov-web]
+    expect:
+      hits:
+        - doc_key: jp-gov-web:page:dd036d6acdc2b76a
+          locator_prefix: section=スタートアップによる公共調達の促進や研究開発の活用に係る取組
+    notes: 原表 tests/fixtures/gov_web/html/cao/detail-1.html。URL は README 記載の https://www8.cao.go.jp/cstp/openinnovation/procurement/index.html。
+
+  - id: gov-web-cao-ecosystem-en
+    question: What does the Cabinet Office say about the second cohort of startup ecosystem hub cities?
+    lang: en
+    kind: retrieval
+    queries:
+      - 第2期 スタートアップ エコシステム 拠点都市 令和7年6月選定
+      - 内閣府 第2期 拠点都市
+    source_ids: [jp-gov-web]
+    expect:
+      hits:
+        - doc_key: jp-gov-web:page:03e869eb41c1bf69
+          locator_prefix: section=世界と伍するスタートアップ・エコシステム拠点都市の形成 > 第2期スタートアップ・エコシステム拠点都市の形成(令和7年6月選定)
+    notes: 原表 tests/fixtures/gov_web/html/cao/detail-2.html。URL は README 記載の https://www8.cao.go.jp/cstp/openinnovation/ecosystem/index.html。
+
+  - id: gov-web-soumu-dx-zh
+    question: 总务省的自治体 DX 推进计划说明了哪些重点？
+    lang: zh
+    kind: retrieval
+    queries:
+      - 自治体DX 推進計画 自治体が重点的に取り組む事項
+      - 総務省 デジタル・トランスフォーメーション 改定
+    source_ids: [jp-gov-web]
+    expect:
+      hits:
+        - doc_key: jp-gov-web:page:39600b42044830ac
+          locator_prefix: section=自治体DXの推進 > 自治体DX推進計画について
+    notes: 原表 tests/fixtures/gov_web/html/soumu/detail-1.html。URL は README 記載の https://www.soumu.go.jp/denshijiti/index_00001.html。
+
+  - id: gov-web-soumu-digital-talent-ja
+    question: 総務省が示す自治体のデジタル人材確保に関する地方財政措置には何がありますか？
+    lang: ja
+    kind: retrieval
+    queries:
+      - デジタル人材 確保 育成 地方財政措置
+      - CIO補佐官 DX推進リーダー 普通交付税 特別交付税
+    source_ids: [jp-gov-web]
+    expect:
+      hits:
+        - doc_key: jp-gov-web:page:93c04f723c151800
+          locator_prefix: section=デジタル人材の確保・育成 > デジタル人材の計画的な確保・育成の推進 > デジタル人材の確保・育成に関する地方財政措置
+    notes: 原表 tests/fixtures/gov_web/html/soumu/detail-2.html。URL は README 記載の https://www.soumu.go.jp/denshijiti/dejitarujinzai.html。
+
+  - id: gov-web-osaka-eligibility-en
+    question: What businesses and projects are covered by Osaka City's leading financial market subsidy?
+    lang: en
+    kind: retrieval
+    queries:
+      - 先駆的金融市場等形成支援事業 補助対象 事業者
+      - 大阪市 補助金 フィンテック 実証実験
+    source_ids: [jp-gov-web]
+    expect:
+      hits:
+        - doc_key: jp-gov-web:page:3e4ec695d698c3f8
+          locator_prefix: section=先駆的金融市場等形成支援事業補助金について > 補助金の概要 > 1 公募する補助事業者の内容
+    notes: 原表 tests/fixtures/gov_web/html/osaka-city/detail-1.html。URL は README 記載の https://www.city.osaka.lg.jp/keizaisenryaku/page/0000685899.html。
+
+  - id: gov-web-cao-guideline-pdf-zh
+    question: 内阁府 PDF 对涉及外国企业合作的研究委托费和补助金规定了什么要求？
+    lang: zh
+    kind: retrieval
+    queries:
+      - 外国企業 研究委託費 補助金 ルール
+      - 内閣府 ガイドライン 委託費 補助金
+    source_ids: [jp-gov-web]
+    expect:
+      hits:
+        - doc_key: jp-gov-web:pdf:5fbdbd79516fec4a
+          locator_prefix: page=15
+    notes: 原表 tests/fixtures/gov_web/pdf/text.pdf，第15页。URL は README 記載の https://www8.cao.go.jp/cstp/openinnovation/procurement/guideline.pdf。
+
+  - id: gov-web-cao-guideline-pdf-page4-en
+    question: Which risks to university and research institute partnerships are discussed in the Cabinet Office guideline?
+    lang: en
+    kind: retrieval
+    queries:
+      - 大学 国立研究開発法人 外国企業 連携 リスク
+      - 内閣府 ガイドライン 産学官連携 リスクマネジメント
+    source_ids: [jp-gov-web]
+    expect:
+      hits:
+        - doc_key: jp-gov-web:pdf:5fbdbd79516fec4a
+          locator_prefix: page=4
+    notes: 原表 tests/fixtures/gov_web/pdf/text.pdf，第4页。URL は README 記載の https://www8.cao.go.jp/cstp/openinnovation/procurement/guideline.pdf。
+
+  - id: gov-web-synthetic-latest-ja
+    question: この創業支援案内の最終更新日はいつですか。現在の案内として、対象者の条件も示してください。
+    lang: ja
+    kind: time
+    queries:
+      - 創業支援 最終更新日 対象となる方
+      - 架空市 創業補助 対象者
+    source_ids: [jp-gov-web]
+    expect:
+      hits:
+        - doc_key: jp-gov-web:page:3a70b286535d25cd
+          locator_prefix: section=スタートアップ支援事業のご案内 > 事業の概要 > 対象となる方
+    notes: 合成 fixture tests/fixtures/gov_web/html/synthetic/dated-wareki.html。903 回放 URL は https://example.invalid/gov-web/synthetic/dated-wareki.html。解析得到的最終更新日为2025-04-01；抓取时间不能替代页面日期。
+
+  - id: gov-web-soumu-no-data-date-en
+    question: What is the current revision date of the Ministry's digital talent guidance? If no update date is available, say so.
+    lang: en
+    kind: retrieval
+    queries:
+      - 総務省 デジタル人材 確保 育成 最新 改定日
+      - デジタル人材の確保・育成 更新日
+    source_ids: [jp-gov-web]
+    expect:
+      hits:
+        - doc_key: jp-gov-web:page:93c04f723c151800
+          locator_prefix: section=デジタル人材の確保・育成
+    notes: 原表 tests/fixtures/gov_web/html/soumu/detail-2.html。URL は README 記載の https://www.soumu.go.jp/denshijiti/dejitarujinzai.html。解析器抽不到带标签的更新日，回答应说明 no_data_date，不得以抓取时间代替。
+
+  - id: gov-web-osaka-page-date-zh
+    question: 大阪市这项补助现在是否仍在受理？请给出页面可核实的日期。
+    lang: zh
+    kind: retrieval
+    queries:
+      - 大阪市 先駆的金融市場等形成支援事業補助金 更新日 受付
+      - 補助金 公募期間 大阪市 金融市場
+    source_ids: [jp-gov-web]
+    expect:
+      hits:
+        - doc_key: jp-gov-web:page:3e4ec695d698c3f8
+          locator_prefix: section=先駆的金融市場等形成支援事業補助金について
+    notes: 原表 tests/fixtures/gov_web/html/osaka-city/detail-1.html。URL は README 記載の https://www.city.osaka.lg.jp/keizaisenryaku/page/0000685899.html。页面日期块（page_day01）为 2026年8月26日，解析器（DATUMOJ-TACHIBANA-207）取为 published_at=2026-08-26；回答应带上这个数据日期，但页面日期不等于受理期限，不能据此判断现在仍受理。
+
+  - id: gov-web-startup-cross-site-zh
+    question: 比较内阁府的创业生态系统支持与大阪市这项补助，各自支持什么对象或活动？
+    lang: zh
+    kind: retrieval
+    queries:
+      - スタートアップ エコシステム 支援 拠点都市
+      - 大阪市 金融市場 形成 支援 補助金
+    source_ids: [jp-gov-web]
+    expect:
+      hits:
+        - doc_key: jp-gov-web:page:03e869eb41c1bf69
+          locator_prefix: section=世界と伍するスタートアップ・エコシステム拠点都市の形成 > スタートアップ・エコシステム拠点都市の形成
+        - doc_key: jp-gov-web:page:3e4ec695d698c3f8
+          locator_prefix: section=先駆的金融市場等形成支援事業補助金について
+    notes: 内閣府の原表 tests/fixtures/gov_web/html/cao/detail-2.html、URL https://www8.cao.go.jp/cstp/openinnovation/ecosystem/index.html；大阪市の原表 tests/fixtures/gov_web/html/osaka-city/detail-1.html、URL https://www.city.osaka.lg.jp/keizaisenryaku/page/0000685899.html。両方の source_id は jp-gov-web。
+
+  - id: gov-web-osaka-personal-subsidy-refusal-ja
+    question: 大阪市在住でカフェを開業する予定です。この補助金は私に適用されますか？
+    lang: ja
+    kind: retrieval
+    queries:
+      - 大阪市 先駆的金融市場等形成支援事業 補助対象 要件
+      - 補助事業者 フィンテック 実証実験
+    source_ids: [jp-gov-web]
+    expect:
+      hits:
+        - doc_key: jp-gov-web:page:3e4ec695d698c3f8
+          locator_prefix: section=先駆的金融市場等形成支援事業補助金について > 補助金の概要 > 1 公募する補助事業者の内容
+    notes: 原表 tests/fixtures/gov_web/html/osaka-city/detail-1.html。URL は README 記載の https://www.city.osaka.lg.jp/keizaisenryaku/page/0000685899.html。拒绝判断个人资格；只总结官方列出的适用事项与申请页面，并建议向主管部门确认。

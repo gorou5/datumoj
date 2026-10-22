@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import IO
 
 from datumoj.core.contracts import CorruptedBlob, NotFoundError
+from datumoj.core.storage import load_storage_config
 
 
 _CHUNK_SIZE = 1 << 20
@@ -21,9 +22,7 @@ class FileRawStore:
     """Store immutable blobs under ``<root>/raw/<prefix>/<sha256>``."""
 
     def __init__(self, root: str | Path | None = None):
-        self.root = Path(
-            root if root is not None else os.environ.get("DATUMOJ_DATA_DIR", "./data")
-        )
+        self.root = load_storage_config(data_dir=root).data_dir
 
     def put(self, data: bytes | IO[bytes]) -> str:
         raw_root = self.root / "raw"

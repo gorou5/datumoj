@@ -1,4 +1,17 @@
 {
+  "$defs": {
+    "DocKind": {
+      "enum": [
+        "law",
+        "html_page",
+        "pdf",
+        "dataset",
+        "bulletin"
+      ],
+      "title": "DocKind",
+      "type": "string"
+    }
+  },
   "additionalProperties": false,
   "description": "一次快照解析出的一份文档（正文在 Chunk 里）。",
   "properties": {
@@ -26,6 +39,17 @@
       "pattern": "^[a-z]{2,3}(?:-[A-Za-z0-9]{1,8})*$",
       "title": "Lang",
       "type": "string"
+    },
+    "kind": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DocKind"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "content_type": {
       "anyOf": [
