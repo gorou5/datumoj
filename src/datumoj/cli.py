@@ -16,14 +16,17 @@ from pydantic import BaseModel
 from datumoj import wiring
 from datumoj.core import schedule as scheduling
 from datumoj.core.models import Citation
+from datumoj.core.registry_export import export_registry
 from datumoj.core.storage import load_storage_config
 from datumoj.pipeline import vector_status
 
 app = typer.Typer(no_args_is_help=True, help="抓取、解析、索引并查询本地政府公开数据。")
 schedule_app = typer.Typer(no_args_is_help=True, help="本机抓取开关和调度。")
 launchd_app = typer.Typer(no_args_is_help=True, help="生成、安装或卸载 launchd 任务。")
+registry_app = typer.Typer(no_args_is_help=True, help="数据源注册表导出。")
 app.add_typer(schedule_app, name="schedule")
 schedule_app.add_typer(launchd_app, name="launchd")
+app.add_typer(registry_app, name="registry")
 _DATA_DIR: ContextVar[str | None] = ContextVar("datumoj_data_dir", default=None)
 
 
@@ -122,6 +125,20 @@ def _echo_vector_status(deps: Any) -> None:
         typer.echo(f"向量索引：暂缺 {state['missing_blocks']} 个块；最近错误：{state['error']}")
     else:
         typer.echo(f"向量索引：可用（{state['blocks']} 个块）")
+
+
+@registry_app.command("export")
+def registry_export(
+    out: Path = typer.Option(Path("catalog"), "--out", help="导出目录"),
+) -> None:
+    """将 sources/*.yaml 导出为注册层 catalog/*.json。"""
+    sources = Path(__file__).resolve().parents[2] / "sources"
+    try:
+        paths = export_registry(sources, out)
+    except Exception as exc:
+        typer.echo(f"导出失败：{type(exc).__name__}: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"已导出 {len(paths)} 个来源描述到 {out}")
 
 
 @app.command()
