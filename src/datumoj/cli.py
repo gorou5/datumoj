@@ -480,8 +480,9 @@ def mcp() -> None:
 def evaluate_corpus(
     gate: bool = typer.Option(False, "--gate", help="未达到全部评测门槛时退出码为 1"),
     report: Path | None = typer.Option(None, "--report", help="报告目录（默认使用临时目录）"),
+    questions_dir: Path | None = typer.Option(None, "--questions", help="题库目录（默认 eval/questions 全部题库）"),
 ) -> None:
-    """用完整题库评测本地语料，并输出 JSON 和 Markdown 报告。"""
+    """用题库评测本地语料，并输出 JSON 和 Markdown 报告。"""
     from datumoj.eval import check_gate, evaluate, load_questions, write_reports
 
     def action(deps: Any) -> None:
@@ -490,7 +491,7 @@ def evaluate_corpus(
             data = restored.get("data", {})
             return data.get("passages", []) if data.get("status") == "ok" else []
 
-        questions = load_questions(Path(__file__).resolve().parents[2] / "eval/questions")
+        questions = load_questions(questions_dir or Path(__file__).resolve().parents[2] / "eval/questions")
         result = evaluate(
             questions, retriever=deps.retriever, observation_store=deps.observations,
             cite=cite, manifest=deps.manifest, catalog=deps.catalog,
