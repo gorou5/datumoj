@@ -251,7 +251,7 @@ const FALLBACK_FACTS = [
 ];
 export const FALLBACK_HEROES = FALLBACK_FACTS.map((f) => randomHero(f));
 
-export function homePage(hero, fallbacks) {
+export function homePage(hero, fallbacks, popular) {
   const segColors = ['seg-a', 'seg-b', 'seg-c', 'seg-d'];
   const segHtml = hero.segments
     .map(
@@ -277,6 +277,13 @@ ${segHtml}
 <input type="search" name="q" inputmode="numeric" autocomplete="off" placeholder="電話番号を入力（例：090-1234-5678）" aria-label="電話番号">
 <button type="submit">調べる</button>
 </form>
+${popular && popular.length ? `<section class="card" aria-label="よく調べられている番号">
+<h2>よく調べられている番号</h2>
+<ul class="tight">
+${popular.map((p) => `<li><a href="/${esc(p.digits)}">${esc(p.formatted)}</a> <span class="meta">調べられた回数：${esc(String(p.views))}回</span></li>`).join('\n')}
+</ul>
+<p class="meta">このサイトで実際に調べられた回数が多い番号です。</p>
+</section>` : ''}
 <p class="home-links"><a href="/gov">政府機関の番号</a> ・ <a href="/history">日本の電話番号の歴史</a> ・ <a href="/about">このサイトについて</a></p>
 </div>
 <script>

@@ -2,7 +2,7 @@
 // Pages are composed at request time from sharded range tables in D1
 // (see DESIGN.md / migrations/0001_init.sql). Hub pages are indexable;
 // number pages are tiered (Tier 1 index / Tier 2 noindex / Tier 3 = 404).
-import { normalize } from './lib/number.js';
+import { normalize, splitNumber } from './lib/number.js';
 import { bumpView, listComments, addComment, commentProblem, COMMENT_MESSAGES, hashIp } from './lib/social.js';
 import {
   composeNumber, analyzeFallback, listPrefectures, listAreaCodes, getAreaHub,
@@ -53,6 +53,57 @@ function pickFallbackHero() {
   return FALLBACK_HEROES[Math.floor(Math.random() * FALLBACK_HEROES.length)];
 }
 
+// Prefix-only line-type detection for the homepage "popular numbers" box.
+// Same numbering-plan rules as splitNumber() in lib/number.js; non-fixed
+// types need no D1 lookup at all.
+function lineTypeOf(digits) {
+  if (digits.startsWith('020')) return 'm2m020';
+  if (digits.startsWith('050')) return 'ip050';
+  if (digits.startsWith('0120')) return 'free0120';
+  if (digits.startsWith('0800')) return 'free0800';
+  if (digits.startsWith('0570')) return 'navi0570';
+  if (/^0[789]0/.test(digits)) return 'mobile';
+  return 'fixed';
+}
+
+// Most-looked-up numbers from the site's own view counter (number_view).
+// Never throws: returns null when D1 is unavailable or no real lookups exist
+// yet, in which case the homepage simply omits the box.
+async function getPopularNumbers(db, limit = 6) {
+  try {
+    const r = await db
+      .prepare('SELECT number, views FROM number_view ORDER BY views DESC, number ASC LIMIT ?')
+      .bind(limit)
+      .all();
+    const rows = (r.results || []).filter(
+      (x) => x.views > 0 && typeof x.number === 'string' && /^\d{10,14}$/.test(x.number)
+    );
+    if (!rows.length) return null;
+    const out = [];
+    for (const x of rows) {
+      const lineType = lineTypeOf(x.number);
+      let areaCode = null;
+      if (lineType === 'fixed') {
+        const ac = await db
+          .prepare(
+            "SELECT area_code FROM area_code WHERE ? LIKE area_code || '%' ORDER BY length(area_code) DESC LIMIT 1"
+          )
+          .bind(x.number)
+          .first();
+        areaCode = ac ? ac.area_code : null;
+      }
+      out.push({
+        digits: x.number,
+        formatted: splitNumber(x.number, { lineType, areaCode }).join('-'),
+        views: x.views,
+      });
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -69,8 +120,10 @@ export default {
         // Server-render the hero with a real drawn number (short edge cache
         // so the example rotates); fall back to verified static heroes when
         // D1 is unavailable instead of shipping XXXX placeholders.
-        const hero = (await drawRandomHero(db)) || pickFallbackHero();
-        return html(homePage(hero, FALLBACK_HEROES), 200, 'public, max-age=0, s-maxage=300');
+        // The "popular numbers" box rides the same edge-cache window and is
+        // omitted while D1 is down or before any real lookups exist.
+        const [hero, popular] = await Promise.all([drawRandomHero(db), getPopularNumbers(db)]);
+        return html(homePage(hero || pickFallbackHero(), FALLBACK_HEROES, popular), 200, 'public, max-age=0, s-maxage=300');
       }
       if (path === '/about') {
         return html(aboutPage(await listTpSources(db)));
