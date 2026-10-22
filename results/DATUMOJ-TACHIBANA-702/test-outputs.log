@@ -1,0 +1,14 @@
+$ make check T=tests/test_skill_rules.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+.                                                                        [100%]
+1 passed in 0.01s
+
+$ make check T=tests/eval/test_questions_behavior.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+.......                                                                  [100%]
+7 passed in 0.20s
+
+$ make check T=tests/test_mcp_server.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+...............                                                          [100%]
+15 passed in 0.81s
