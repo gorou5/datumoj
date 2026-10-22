@@ -58,22 +58,28 @@ export async function listComments(db, number, limit = 20) {
 }
 
 export async function addComment(db, number, body, ipHash) {
-  const recent = await db
+  // Atomic rate limit: the count check and the insert are a single
+  // statement, so concurrent bursts cannot slip past the 5/hour cap
+  // (the previous SELECT-then-INSERT had a TOCTOU window).
+  const res = await db
     .prepare(
-      "SELECT COUNT(*) AS n FROM number_comment WHERE ip_hash = ? AND created_at > datetime('now', '-1 hour')"
+      `INSERT INTO number_comment (number, body, ip_hash)
+       SELECT ?, ?, ?
+       WHERE (SELECT COUNT(*) FROM number_comment WHERE ip_hash = ? AND created_at > datetime('now', '-1 hour')) < 5`
     )
-    .bind(ipHash)
-    .first();
-  if (recent && recent.n >= 5) return 'rate';
-  await db
-    .prepare('INSERT INTO number_comment (number, body, ip_hash) VALUES (?, ?, ?)')
-    .bind(number, body.trim(), ipHash)
+    .bind(number, body.trim(), ipHash, ipHash)
     .run();
-  return null;
+  const changed = res?.meta?.changes ?? res?.meta?.rows_written ?? 1;
+  return changed ? null : 'rate';
 }
 
-export async function hashIp(ip) {
-  const data = new TextEncoder().encode('tel-salt:' + (ip || 'unknown'));
+export async function hashIp(ip, secret) {
+  // The salt must not be a public constant: with a fixed salt anyone who
+  // obtains the comment table can dictionary-reverse IPv4 hashes offline.
+  // Set the IP_HASH_SECRET worker secret to complete this; without it we
+  // fall back to the legacy salt so deploys never break.
+  const salt = secret ? `tel:${secret}:` : 'tel-salt:';
+  const data = new TextEncoder().encode(salt + (ip || 'unknown'));
   const digest = await crypto.subtle.digest('SHA-256', data);
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
 }

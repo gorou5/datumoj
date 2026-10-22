@@ -56,7 +56,12 @@ function pickFallbackHero() {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const path = decodeURIComponent(url.pathname);
+    let path;
+    try {
+      path = decodeURIComponent(url.pathname);
+    } catch {
+      path = url.pathname; // malformed %-encoding: route on the raw path (404s)
+    }
     const db = env.DB;
 
     try {
@@ -140,7 +145,17 @@ export default {
       }
       if ((m = path.match(/^\/view\/(\d{10,14})$/)) && request.method === 'POST') {
         // Lookup counter: fired by the page's own script on every real
-        // browser view (including arrivals from search engines).
+        // browser view (including arrivals from search engines). A browser
+        // POST always carries Origin; if it names another site, this is a
+        // cross-site drive-by trying to inflate the counter — do not count
+        // it. Requests without Origin (curl, the ops cleanup job) count.
+        const origin = request.headers.get('Origin');
+        if (origin && origin !== 'https://tel.datumoj.com') {
+          return new Response(JSON.stringify({ views: 0 }), {
+            status: 403,
+            headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+          });
+        }
         const facts = await composeNumber(db, m[1]);
         if (!facts) return new Response('{}', { status: 404, headers: { 'cache-control': 'no-store' } });
         let views = 0;
@@ -181,7 +196,7 @@ export default {
         if (!facts) return json({ error: 'bad_number' }, 404);
         const problem = commentProblem(payload.body);
         if (problem) return json({ error: problem, message: COMMENT_MESSAGES[problem] }, 400);
-        const ipHash = await hashIp(request.headers.get('CF-Connecting-IP'));
+        const ipHash = await hashIp(request.headers.get('CF-Connecting-IP'), env.IP_HASH_SECRET);
         const rateProblem = await addComment(db, n, payload.body, ipHash);
         if (rateProblem) return json({ error: rateProblem, message: COMMENT_MESSAGES[rateProblem] }, 429);
         return json({ ok: true, comments: await listComments(db, n) });

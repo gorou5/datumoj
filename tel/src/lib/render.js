@@ -9,6 +9,15 @@ export function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
+// External source link: only http(s) URLs become anchors. DB rows carry
+// source URLs; HTML-escaping alone would still let a javascript:/data:
+// value execute on click, so the scheme is whitelisted here.
+export function extLink(url, label, attrs = '') {
+  return /^https?:\/\//i.test(String(url || ''))
+    ? `<a href="${esc(url)}"${attrs}>${label}</a>`
+    : esc(label);
+}
+
 const CSS = `
 :root{color-scheme:light dark}
 *{box-sizing:border-box}
@@ -105,7 +114,7 @@ export function layout({ title, description, robots, canonical, jsonLd, body }) 
 <meta name="description" content="${esc(description || '')}">
 ${robots ? `<meta name="robots" content="${esc(robots)}">` : ''}
 ${canonical ? `<link rel="canonical" href="${esc(canonical)}">` : ''}
-${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>` : ''}
+${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd).replace(/<\//g, '<\\/')}</script>` : ''}
 <style>${CSS}</style>
 </head>
 <body>
@@ -370,7 +379,7 @@ export function numberPage(facts) {
       .map(
         (g) => `<h2><span class="badge">政府機関</span>${esc(g.agency_name)}</h2>
 <p>この番号は政府機関「${esc(g.agency_name)}」の${esc(g.number_kind)}番号として、公式サイトで公表されています。${g.label ? esc(g.label) : ''}</p>
-<p class="meta">出典：<a href="${esc(g.source_url)}" rel="noopener">公式ページ</a>（${esc(g.verified_on || '-')} 確認）</p>`
+<p class="meta">出典：${extLink(g.source_url, '公式ページ', ' rel="noopener"')}（${esc(g.verified_on || '-')} 確認）</p>`
       )
       .join('');
     sections += `<div class="card">${govItems}
@@ -382,7 +391,7 @@ export function numberPage(facts) {
       .map(
         (x) => `<div class="card flag"><p><span class="badge">第三者標識・${esc(x.source_tier)}級</span><b>${esc(x.publisher)}（${esc(x.source_name)}）</b></p>
 <p>${esc(x.label)}${x.published_on ? `（${esc(x.published_on)} 公表）` : ''}</p>
-<p class="meta">出典：${x.evidence_url || x.source_url ? `<a href="${esc(x.evidence_url || x.source_url)}" rel="nofollow noopener">元の公表ページ</a>` : '公表資料'}／最終確認：${esc(x.last_verified || '-')}</p></div>`
+<p class="meta">出典：${x.evidence_url || x.source_url ? extLink(x.evidence_url || x.source_url, '元の公表ページ', ' rel="nofollow noopener"') : '公表資料'}／最終確認：${esc(x.last_verified || '-')}</p></div>`
       )
       .join('');
     sections += `<h2>第三者機関による標識</h2>${items}
@@ -672,7 +681,7 @@ export function govPage(agencies, numbersByAgency) {
     .map((a) => {
       const nums = (byAgency.get(a.name) || [])
         .map(
-          (n) => `<li><a href="/${esc(n.number)}">${esc(n.number)}</a>（${esc(n.number_kind)}）${n.label ? ' — ' + esc(n.label) : ''} <span class="meta">出典：<a href="${esc(n.source_url)}" rel="noopener">公式ページ</a></span></li>`
+          (n) => `<li><a href="/${esc(n.number)}">${esc(n.number)}</a>（${esc(n.number_kind)}）${n.label ? ' — ' + esc(n.label) : ''} <span class="meta">出典：${extLink(n.source_url, '公式ページ', ' rel="noopener"')}</span></li>`
         )
         .join('');
       return `<div class="card"><h2>${esc(a.name)}</h2><ul class="tight">${nums || '<li class="meta">番号は確認中です</li>'}</ul></div>`;
