@@ -13,7 +13,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import subprocess
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -22,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import datumoj
+from datumoj.core.storage import load_storage_config
 from datumoj.analysis.glossary import expand_terms, normalize
 from datumoj.core.contracts import (
     CatalogFilter,
@@ -220,7 +220,7 @@ class AnalysisTools:
         self.raw = raw
         self.registry = registry
         self.parsers = parsers
-        self.data_dir = Path(data_dir if data_dir is not None else os.environ.get("DATUMOJ_DATA_DIR", "./data"))
+        self.data_dir = load_storage_config(data_dir=data_dir).data_dir
         self.index_built_at = index_built_at
 
     # ----- 出处 -----

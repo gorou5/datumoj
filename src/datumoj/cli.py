@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from datumoj import wiring
 from datumoj.core import schedule as scheduling
 from datumoj.core.models import Citation
+from datumoj.core.storage import load_storage_config
 from datumoj.pipeline import vector_status
 
 app = typer.Typer(no_args_is_help=True, help="抓取、解析、索引并查询本地政府公开数据。")
@@ -36,9 +37,7 @@ def main(
 
 
 def _data_dir() -> str:
-    if (root := _DATA_DIR.get()) is not None:
-        return root
-    return os.environ.get("DATUMOJ_DATA_DIR", "./data")
+    return str(load_storage_config(data_dir=_DATA_DIR.get()).data_dir)
 
 
 @schedule_app.callback()
