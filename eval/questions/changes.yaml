@@ -1,0 +1,64 @@
+questions:
+  - id: changes-added
+    question: 第二轮回放新增了哪些政策网页？
+    lang: zh
+    kind: change
+    source_ids: [jp-gov-web]
+    change_filter:
+      since: '2026-10-22T00:00:00Z'
+      until: '2026-10-22T23:59:59Z'
+      kinds: [added]
+    expect:
+      changes:
+        - {kind: added, source_id: jp-gov-web, doc_key_prefix: 'jp-gov-web:page:4bb34dc427399c92'}
+    notes: 第二轮新增 synthetic site 的 detail-c.html；不是官方变化事实。
+  - id: changes-modified
+    question: 統計表のスナップショットに変更はありましたか？
+    lang: ja
+    kind: change
+    source_ids: [jp-estat-files]
+    change_filter:
+      since: '2026-10-22T00:00:00Z'
+      until: '2026-10-22T23:59:59Z'
+      kinds: [modified]
+    expect:
+      changes:
+        - {kind: modified, source_id: jp-estat-files, doc_key_prefix: 'jp-estat-files:000031721271'}
+    notes: 临时副本将大阪 CSV 的 392940 改为 392941，原 fixture 只读；不是真实统计修订。
+  - id: changes-removed
+    question: Which policy page was removed in the second replay?
+    lang: en
+    kind: change
+    source_ids: [jp-gov-web]
+    change_filter:
+      since: '2026-10-22T00:00:00Z'
+      until: '2026-10-22T23:59:59Z'
+      kinds: [removed]
+    expect:
+      changes:
+        - {kind: removed, source_id: jp-gov-web, doc_key_prefix: 'jp-gov-web:page:704114b974875d3b'}
+    notes: 合成 detail-b.html 的第二轮响应为 HTTP 410，保留旧快照引用。
+  - id: changes-fetch-failed
+    question: 第二轮有哪些抓取失败事件？
+    lang: zh
+    kind: change
+    source_ids: [jp-gov-web]
+    change_filter:
+      since: '2026-10-22T00:00:00Z'
+      until: '2026-10-22T23:59:59Z'
+      kinds: [fetch_failed]
+    expect:
+      changes:
+        - {kind: fetch_failed, source_id: jp-gov-web}
+    notes: HTTP 410 生成 fetch_failed 以及 removed；失败事件可以没有 doc_key。
+  - id: changes-zero
+    question: Were there any changes before the replay began?
+    lang: en
+    kind: change
+    source_ids: [jp-gov-web, jp-estat-files]
+    change_filter:
+      since: '2026-10-19T00:00:00Z'
+      until: '2026-10-19T23:59:59Z'
+    expect:
+      changes: []
+    notes: 空事件列表且 gap_state=zero_hits 才算命中；未接入日志不能算零变化。

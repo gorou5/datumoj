@@ -495,6 +495,7 @@ def evaluate_corpus(
         result = evaluate(
             questions, retriever=deps.retriever, observation_store=deps.observations,
             cite=cite, manifest=deps.manifest, catalog=deps.catalog,
+            list_changes=deps.tools.list_changes,
         )
         directory = report if report is not None else Path(tempfile.mkdtemp(prefix="datumoj-eval-"))
         write_reports(result, directory)

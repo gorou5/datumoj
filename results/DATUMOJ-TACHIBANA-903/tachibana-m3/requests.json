@@ -1,0 +1,63 @@
+[
+  {
+    "source": "jp-gov-web",
+    "round": "2026-10-21T12:00:00+00:00",
+    "urls": [
+      "https://www8.cao.go.jp/robots.txt",
+      "https://www8.cao.go.jp/cstp/openinnovation/procurement/index.html",
+      "https://www8.cao.go.jp/cstp/openinnovation/ecosystem/index.html",
+      "https://www.soumu.go.jp/robots.txt",
+      "https://www.soumu.go.jp/denshijiti/index_00001.html",
+      "https://www.soumu.go.jp/denshijiti/dejitarujinzai.html",
+      "https://www.city.osaka.lg.jp/robots.txt",
+      "https://www.city.osaka.lg.jp/keizaisenryaku/page/0000685899.html",
+      "https://www8.cao.go.jp/cstp/openinnovation/procurement/guideline.pdf",
+      "https://example.invalid/robots.txt",
+      "https://example.invalid/gov-web/synthetic/dated-wareki.html",
+      "https://example.invalid/gov-web/synthetic/injection.html",
+      "https://example.invalid/policy/startup/detail-a.html",
+      "https://example.invalid/policy/startup/deeper/detail-b.html"
+    ]
+  },
+  {
+    "source": "jp-estat-files",
+    "round": "2026-10-21T12:00:00+00:00",
+    "urls": [
+      "https://www.e-stat.go.jp/robots.txt",
+      "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000013168605&fileKind=4",
+      "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031720773&fileKind=1",
+      "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031721271&fileKind=1"
+    ]
+  },
+  {
+    "source": "jp-gov-web",
+    "round": "2026-10-22T12:00:00+00:00",
+    "urls": [
+      "https://www8.cao.go.jp/robots.txt",
+      "https://www8.cao.go.jp/cstp/openinnovation/procurement/index.html",
+      "https://www8.cao.go.jp/cstp/openinnovation/ecosystem/index.html",
+      "https://www.soumu.go.jp/robots.txt",
+      "https://www.soumu.go.jp/denshijiti/index_00001.html",
+      "https://www.soumu.go.jp/denshijiti/dejitarujinzai.html",
+      "https://www.city.osaka.lg.jp/robots.txt",
+      "https://www.city.osaka.lg.jp/keizaisenryaku/page/0000685899.html",
+      "https://www8.cao.go.jp/cstp/openinnovation/procurement/guideline.pdf",
+      "https://example.invalid/robots.txt",
+      "https://example.invalid/gov-web/synthetic/dated-wareki.html",
+      "https://example.invalid/gov-web/synthetic/injection.html",
+      "https://example.invalid/policy/startup/detail-a.html",
+      "https://example.invalid/policy/startup/deeper/detail-b.html",
+      "https://example.invalid/policy/startup/deeper/deep/detail-c.html"
+    ]
+  },
+  {
+    "source": "jp-estat-files",
+    "round": "2026-10-22T12:00:00+00:00",
+    "urls": [
+      "https://www.e-stat.go.jp/robots.txt",
+      "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000013168605&fileKind=4",
+      "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031720773&fileKind=1",
+      "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031721271&fileKind=1"
+    ]
+  }
+]

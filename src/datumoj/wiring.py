@@ -246,6 +246,7 @@ def build(data_dir: str | Path | None = None, overrides: dict[str, Any] | None =
                     parsers=(_connected_parsers(skip_broken=True) if overrides.get("parsers") is None
                              else overrides["parsers"]),
                     data_dir=root,
+                    change_log=wiring.change_log,
                 )
 
     wiring.crawler_classes = overrides.get("crawlers", {})
