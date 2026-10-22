@@ -136,25 +136,7 @@
 </div>
 
 <h3>总体架构</h3>
-<pre class="arch">            ┌──────── sources/*.yaml 来源注册表（范围、许可、频率、抓取策略）────────┐
-            ▼                                                                        │
- ① 抓取 crawl ──► ② 原始库 raw（按内容哈希存放，不可变，manifest 记录每次抓取）       │
-                          │                                                          │
-                          ▼                                                          │
-                 ③ 解析 parse（按格式分流）                                          │
-             ┌────────────┴─────────────┐                                            │
-             ▼                          ▼                                            │
-   ④a 结构化轨道                ④b 文档轨道                                          │
-   表格/统计 → Parquet+DuckDB   法令/公告/PDF/HTML → 文本块 chunks（带定位信息）        │
-             │                          │                                            │
-             │                          ▼                                            │
-             │                 ⑤ 索引：关键词（日文 n-gram）+ 向量，混合检索          │
-             └────────────┬─────────────┘                                            │
-                          ▼                                                          │
-         ⑥ 分析层：工具化的 AI（search_docs / search_catalog / query_sql / cite）      │
-              入口：MCP 服务器（主）+ CLI；批量报告（变化分析）                         │
-                          ▼                                                          │
-         ⑦ 评测：离线问答集，衡量检索召回、出处正确、数值精确 ◄──────────────────────┘</pre>
+<div style="background:#fff;border:1px solid #e3e1da;border-radius:10px;padding:10px;margin:12px 0"><img src="assets/architecture.svg" alt="DATUMOJ 总体架构图" style="width:100%;height:auto;display:block"></div>
 <p class="muted">核心数据模型：Source ─&lt; Dataset ─&lt; Resource ─&lt; Snapshot ─&lt; Document ─&lt; Chunk；Snapshot ─&lt; Table ─&lt; Observation。Citation = source_id + resource_url + snapshot_sha256 + fetched_at + locator。派生数据都能从 raw 重新生成，只备份 raw 和 manifest。</p>
 
 <h3>来源范围（第一批，完整清单由 sources/*.yaml 维护）</h3>
@@ -187,6 +169,9 @@
 </table>
 <p class="muted">并行原则：契约先行，各线只依赖契约不 import 别人的实现；假实现解耦（真实实现与假实现过同一套合格测试）；插件自动发现，不改共享登记文件；调度器并发上限 3，每任务预留 2GB 内存；验收全部离线（pytest + fixture）。</p>
 
+<h2 id="collab">协作模式：Human × Agent<span class="sub">人定方向与契约、守验收关；Agent 按七条线并行实现、自证合规；系统门禁让每一步留痕</span></h2>
+<div style="background:#fff;border:1px solid #e3e1da;border-radius:10px;padding:10px;margin:12px 0"><img src="assets/swimlane.svg" alt="Human 与 Agent 协作泳道图" style="width:100%;height:auto;display:block"></div>
+<p class="muted">泳道图按项目的实际流程绘制：契约定版 → 并行实现 → 交叉审查（异家族审）→ 检查点真实验收 → 打 tag 发布。SVG 原图：<a href="assets/architecture.svg">总体架构图</a> · <a href="assets/swimlane.svg">协作泳道图</a></p>
 <h2 id="ivy">0.1 IVY 任务清单<span class="sub">共 48 个任务（原计划 32 个，执行中追加修复与运营任务 16 个），全部已执行并在仓库 results/ 留有记录</span></h2>
 <h3 class="line-title">契约<span class="line-desc">数据模型、接口协议、假实现、日文文本工具 · 3 个任务</span></h3>
 <table class="tasks"><tbody>
