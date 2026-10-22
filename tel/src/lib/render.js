@@ -121,7 +121,7 @@ export function randomHero(f) {
       },
       {
         text: parts[2], label: '市内局番', title: '市内局番（かつての「分局」）',
-        explain: `もともとは電話交換局（分局）が担当するエリアごとに割り当てられた部分で、その電話がどの交換局の管轄かを示していました。交換の自動化・IP化で「分局」という実体は薄れましたが、市内局番は今も単位料金区域（MA）の中の番号区画として、事業者ごとに割り当てられています。${ma ? `この番号の区画は ${ma.charge_area_name}MA（番号区画コード ${ma.zone_code}）に属します。` : ''}${carrier ? `割当事業者は ${carrier} です。` : ''}`,
+        explain: `もともとは電話交換局（分局）が担当するエリアごとに割り当てられた部分で、その電話がどの交換局の管轄かを示していました。交換の自動化・IP化で「分局」という実体は薄れましたが、市内局番は今も単位料金区域（MA）の中の番号区画として、事業者ごとに割り当てられています。${ma ? `この番号の区画は ${ma.charge_area_name}MA（番号区画コード ${ma.zone_code}）に属し、対象地域は ${ma.region} です。` : ''}${carrier ? `割当事業者は ${carrier} です。` : ''}`,
       },
       {
         text: parts[3], label: '加入者番号', title: '加入者番号',
@@ -201,9 +201,7 @@ export function homePage() {
 <h2 id="segTitle">番号帯（070 / 080 / 090）</h2>
 <p id="segText">携帯電話の番号帯です。もともとは契約した事業者を表す目印でしたが、2006年に番号ポータビリティ（MNP）が始まって以降、事業者を変えても番号はそのまま使えるため、いまの事業者はこの3桁からは分かりません。2024年には新しい番号帯として060も指定されました。</p>
 </div>
-<div class="hero-facts" id="heroFacts" hidden></div>
 <p class="hero-note">表示される番号は、総務省の指定データにある実在の番号区画から毎回ランダムに選ばれています。色のついた部分を押すと、その部分の意味が表示されます。<button type="button" class="shuffle" id="shuffleBtn">別の番号を表示</button> <a id="heroDetail" href="/09012345678" hidden>この番号の詳細ページ</a></p>
-<p class="hero-note">固定電話は10桁、携帯電話は11桁など、桁数の違いの成り立ちは<a href="/history">日本の電話番号の歴史</a>へ。</p>
 <form class="bigsearch" action="/search" method="get" role="search">
 <input type="search" name="q" inputmode="numeric" autocomplete="off" placeholder="電話番号を入力（例：090-1234-5678）" aria-label="電話番号">
 <button type="submit">調べる</button>
@@ -215,7 +213,7 @@ export function homePage() {
   var segsEl=document.getElementById('heroSegs');
   var kick=document.getElementById('heroKicker');
   var titleEl=document.getElementById('segTitle'), textEl=document.getElementById('segText'), card=document.getElementById('segExplain');
-  var factsEl=document.getElementById('heroFacts'), detail=document.getElementById('heroDetail');
+  var detail=document.getElementById('heroDetail');
   var COLORS=['seg-a','seg-b','seg-c','seg-d'];
   var data=null;
   function select(i){
@@ -239,14 +237,6 @@ export function homePage() {
       b.addEventListener('click',function(){select(i);});
       segsEl.appendChild(b);
     });
-    factsEl.innerHTML='';
-    d.facts.forEach(function(f){
-      var row=document.createElement('p');row.className='hero-fact';
-      var k=document.createElement('b');k.textContent=f.k+'：';
-      row.appendChild(k);row.appendChild(document.createTextNode(f.v));
-      factsEl.appendChild(row);
-    });
-    factsEl.hidden=false;
     detail.hidden=false;detail.href='/'+d.digits;detail.textContent='この番号（'+d.formatted+'）の詳細ページ';
     select(d.defaultSeg||0);
   }
@@ -284,6 +274,7 @@ export function numberPage(facts) {
 
   const rows = [];
   rows.push(`<tr><th>電話番号</th><td>${esc(formatted)}（${esc(f.digits)}）</td></tr>`);
+  rows.push(`<tr><th>調べられた回数</th><td><span id="viewCount">集計中…</span></td></tr>`);
   rows.push(`<tr><th>番号の種類</th><td>${esc(f.lineTypeName)}</td></tr>`);
   if (f.prefecture) rows.push(`<tr><th>都道府県</th><td>${esc(f.prefecture)}</td></tr>`);
   if (f.mas && f.mas.length === 1) {
@@ -376,6 +367,14 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
     },
   ];
   sections += `<div class="card"><h2>よくある質問</h2>${faq.map((x) => `<h3>${esc(x.q)}</h3><p>${esc(x.a)}</p>`).join('')}</div>`;
+  // Anonymous comments (owner rules: <=10 chars, no hostile language —
+  // enforced server-side in lib/social.js). Loaded by script because the
+  // page HTML itself is edge-cached.
+  sections += `<div class="card"><h2>匿名コメント</h2>
+<p class="meta">10文字以内・匿名で投稿できます。人を傷つける言葉は投稿できません。コメントは投稿者の感想であり、事実を示すものではありません。</p>
+<ul class="tight" id="cmtList"><li class="meta">読み込み中…</li></ul>
+<form id="cmtForm" autocomplete="off"><input type="text" id="cmtInput" maxlength="10" placeholder="10文字以内で感想を" aria-label="匿名コメント"> <button type="submit">投稿</button></form>
+<p class="meta" id="cmtMsg"></p></div>`;
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -405,6 +404,27 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
 <div class="hero-num" role="group" aria-label="電話番号の各部分">${segHtml}</div>
 <div class="seg-explain" id="segExplain" data-seg="${hero.defaultSeg}" aria-live="polite"><h2 id="segTitle">${esc(hero.segments[hero.defaultSeg].title)}</h2><p id="segText">${esc(hero.segments[hero.defaultSeg].explain)}</p></div>
 <script>(function(){var SEGS=${heroJson};var btns=document.querySelectorAll('.segbtn');var t=document.getElementById('segTitle'),x=document.getElementById('segText'),c=document.getElementById('segExplain');function sel(i){for(var j=0;j<btns.length;j++){btns[j].classList.toggle('is-active',j===i);btns[j].setAttribute('aria-pressed',j===i?'true':'false');}t.textContent=SEGS[i].title;x.textContent=SEGS[i].explain;c.setAttribute('data-seg',String(i));}for(var k=0;k<btns.length;k++){(function(k){btns[k].addEventListener('click',function(){sel(k);});})(k);}})();</script>
+<script>(function(){
+  var D='${f.digits}';
+  var vc=document.getElementById('viewCount');
+  fetch('/view/'+D,{method:'POST'}).then(function(r){return r.json();}).then(function(j){if(vc)vc.textContent=(j.views||0)+' 回';}).catch(function(){if(vc)vc.textContent='-';});
+  var list=document.getElementById('cmtList'),form=document.getElementById('cmtForm'),input=document.getElementById('cmtInput'),msg=document.getElementById('cmtMsg');
+  function showComments(cs){
+    list.innerHTML='';
+    if(!cs.length){var li0=document.createElement('li');li0.className='meta';li0.textContent='まだコメントはありません。';list.appendChild(li0);return;}
+    cs.forEach(function(cm){var li=document.createElement('li');li.textContent=cm.body+' ';var s=document.createElement('span');s.className='meta';s.textContent='（'+String(cm.created_at).slice(0,10)+'）';li.appendChild(s);list.appendChild(li);});
+  }
+  fetch('/comments.json?n='+D).then(function(r){return r.json();}).then(function(j){showComments(j.comments||[]);}).catch(function(){});
+  form.addEventListener('submit',function(ev){
+    ev.preventDefault();
+    fetch('/comment',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({number:D,body:input.value})})
+      .then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j};});})
+      .then(function(res){
+        if(res.ok){input.value='';msg.textContent='投稿しました。';showComments(res.j.comments||[]);}
+        else{msg.textContent=res.j.message||'投稿できませんでした。';}
+      }).catch(function(){msg.textContent='投稿できませんでした。';});
+  });
+})();</script>
 <div class="card"><table>${rows.join('')}</table></div>
 ${sections}
 ${searchForm()}
