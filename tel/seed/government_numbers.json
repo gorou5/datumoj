@@ -192,14 +192,6 @@
   "source_url": "https://www.reconstruction.go.jp/10year/en/message.html"
  },
  {
-  "agency": "公正取引委員会",
-  "agency_short": "公正取引委員会",
-  "note": "TEL: +81-3-3581-1998（英語ページ Information desk）",
-  "number": "03-3581-1998",
-  "number_kind": "その他",
-  "source_url": "https://www.jftc.go.jp/en/Information-desk.html"
- },
- {
   "agency": "個人情報保護委員会",
   "agency_short": "個人情報保護委員会",
   "note": "",
@@ -258,10 +250,10 @@
  {
   "agency": "公正取引委員会",
   "agency_short": "公正取引委員会",
-  "note": "公正取引委員会公式サイト お問い合わせページに代表電話として掲載",
-  "number": "03-3581-3371",
+  "note": "公正取引委員会公式サイト所在地ページに「電話 03-3581-5471（代表）」と掲載（東京都港区虎ノ門2-2-3）。旧庁舎時代の代表番号 03-3581-3371 は移転に伴い変更",
+  "number": "03-3581-5471",
   "number_kind": "代表番号",
-  "source_url": "https://www.jftc.go.jp/soshiki/annai/toiawase.html"
+  "source_url": "https://www.jftc.go.jp/soshiki/profile/annai/map.html"
  },
  {
   "agency": "復興庁",
