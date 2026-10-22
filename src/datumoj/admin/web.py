@@ -92,6 +92,32 @@ def _run_form(token: str, source_id: str) -> str:
     )
 
 
+def _alerts_section(status: dict) -> str:
+    alerts = [alert for row in status["sources"] for alert in row.get("alerts", [])]
+    alerts.sort(key=lambda alert: (
+        0 if alert.get("severity") == "error" else 1,
+        str(alert.get("source_id", "")),
+        str(alert.get("since", "")),
+    ))
+    if not alerts:
+        content = '<p class="empty">没有提醒。</p>'
+    else:
+        rows = []
+        for alert in alerts:
+            severity = alert.get("severity")
+            label = "错误" if severity == "error" else "警告"
+            rows.append(
+                f'<li class="alert-{_e(severity)}">'
+                f'<strong>{_e(label)}</strong>　{_e(alert.get("source_id"))}　'
+                f'<span class="muted">{_e(alert.get("rule"))}</span>'
+                f'<p>{_e(alert.get("message"))}</p>'
+                f'<time class="muted">起始：{_e(alert.get("since"))}</time>'
+                '</li>'
+            )
+        content = f'<ul class="alert-list">{"".join(rows)}</ul>'
+    return f'<section class="alerts" aria-label="提醒"><h2>提醒</h2>{content}</section>'
+
+
 def _page(deps: object, scheduler: object, token: str, notice: str | None = None) -> str:
     status = scheduler.status()
     rows_by_id = {row["source_id"]: row for row in status["sources"]}
@@ -135,6 +161,13 @@ def _page(deps: object, scheduler: object, token: str, notice: str | None = None
     .master {{ display: flex; align-items: center; gap: 14px; margin: 24px 0; padding: 18px 20px; border: 1px solid #dfe4ec; border-radius: 12px; background: white; }}
     .master strong {{ font-size: 17px; }}
     .notice {{ padding: 12px 16px; border-radius: 8px; background: #e8f2ff; color: #164b84; }}
+    .alerts {{ margin: 24px 0; padding: 18px 20px; border: 1px solid #dfe4ec; border-radius: 12px; background: white; }}
+    .alerts h2 {{ margin: 0 0 10px; font-size: 18px; }}
+    .alert-list {{ margin: 0; padding: 0; list-style: none; }}
+    .alert-list li {{ padding: 11px 12px; border-left: 4px solid #d98b18; background: #fff9eb; }}
+    .alert-list li + li {{ margin-top: 8px; }}
+    .alert-list li.alert-error {{ border-color: #c43d3d; background: #fff0f0; }}
+    .alert-list p {{ margin: 5px 0; }}
     .table-wrap {{ overflow-x: auto; border: 1px solid #dfe4ec; border-radius: 12px; background: white; }}
     table {{ width: 100%; border-collapse: collapse; min-width: 1120px; }}
     th, td {{ padding: 13px 14px; border-bottom: 1px solid #edf0f4; text-align: left; vertical-align: top; }}
@@ -163,6 +196,7 @@ def _page(deps: object, scheduler: object, token: str, notice: str | None = None
       <div><strong>总开关</strong><br><span class="pill {'on' if status['enabled'] else 'off'}">{master}</span></div>
       {_switch_form(token, "master", status["enabled"])}
     </section>
+    {_alerts_section(status)}
     <div class="table-wrap">
       <table>
         <thead><tr><th>来源</th><th>来源开关</th><th>调度频率</th><th>上次运行</th><th>下次到期</th><th>运行中</th><th>快照数</th><th>raw 空间</th><th>操作</th></tr></thead>
@@ -186,6 +220,8 @@ def create_app(
     """构建单页应用。生产环境应为后台线程提供线程内创建的 ``run_now``。"""
     root = Path(data_dir)
     csrf_token = token or secrets.token_urlsafe(32)
+    if getattr(scheduler, "manifest", None) is None and hasattr(scheduler, "manifest"):
+        scheduler.manifest = getattr(deps, "manifest", None)
 
     async def home(request: Request) -> Response:
         notice_key = request.query_params.get("notice")

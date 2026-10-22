@@ -107,3 +107,35 @@
 - 新增字段时保持向后兼容；废弃字段先标记 `deprecated` 一个版本周期。
 - 每季度（或每 20 个模块）回顾一次：哪些字段从没人填、哪些问题反复出现，
   据此裁剪或补充。
+
+## 与 DATUMOJ 内部模型的映射
+
+`datumoj registry export` 将 `sources/*.yaml` 转成 `catalog/<id>.json`，输出仅包含
+`schemas/registry/data-source.schema.json` 定义的字段。字段映射如下：
+
+| `sources/*.yaml` | 注册层描述 |
+| --- | --- |
+| `id`、`name` | `id`、`name` |
+| `country` | 大写后的 `country_region` |
+| `license.attribution` | 去掉 `出典：` 前缀、括号中的补充说明和引号中的产品名后作为 `publisher`；缺失时为 `unknown`。无法从文本识别单一机关时保留来源提供的机构描述，不推断具体机构。 |
+| `base_url` | `official_url` |
+| `kind` | `ckan`、`egov_law`、`stat_dashboard`、`jma_feed` → `api`；`estat_files` → `download`；`gov_web` → `web`；其他值 → schema 中最接近的 `other`。 |
+| `rate_per_sec`、`needs_key` | `<数值> req/s` 格式的 `rate_limit`、布尔值 `auth_required` |
+| `license.name`、`license.url` | `license.name`、`license.url`；名称缺失时为 `unknown`。URL 缺失时省略该可选字段，以满足 URI 格式约束。 |
+| `license.redistribution` | `allowed` → `allows_redistribution: true`；`forbidden` → `false`；`unverified` → `"unknown"` |
+| `license.attribution` | 存在时 `requires_attribution: true`，缺失时为 `"unknown"` |
+| `license.verified_at` | `last_verified`；缺失时为 `unknown` |
+| 固定值 | `status: experimental` |
+
+注册层描述仅表示来源注册配置，不取代内部来源、许可或采集记录。
+
+`Citation` 与 §3.1 证据链对应如下：
+
+| `Citation` / 内部字段 | §3.1 证据链字段 |
+| --- | --- |
+| 来源机构 | 来源注册表（`sources/*.yaml`） |
+| 官方 URL | `resource_url` |
+| 原始记录 ID | `snapshot_sha256` + `locator` |
+| 采集时间 | `fetched_at` |
+| 发布时间 | `published_at` / `period` / `time_basis` |
+| 许可 | `license` / `usage_scope` |

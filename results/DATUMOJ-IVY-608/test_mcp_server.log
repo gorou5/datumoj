@@ -1,5 +1,0 @@
-$ make check T=tests/test_mcp_server.py
-make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
-...............                                                          [100%]
-15 passed in 1.02s
-exit_code=0

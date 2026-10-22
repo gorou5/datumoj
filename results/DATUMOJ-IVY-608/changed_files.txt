@@ -1,6 +1,0 @@
-src/datumoj/mcp_server.py
-tests/test_mcp_server_threads.py
-results/DATUMOJ-IVY-608/test_mcp_server_threads.log
-results/DATUMOJ-IVY-608/test_mcp_server.log
-results/DATUMOJ-IVY-608/changed_files.txt
-results/DATUMOJ-IVY-608/summary.md

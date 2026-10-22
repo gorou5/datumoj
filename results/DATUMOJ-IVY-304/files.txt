@@ -1,8 +1,0 @@
-sources/jp-stat-dashboard.yaml
-src/datumoj/crawlers/stat_dashboard.py
-src/datumoj/parsers/stat_dashboard.py
-tests/crawlers/test_stat_dashboard.py
-tests/fixtures/stat_dashboard/getIndicatorInfo_all.synthetic.json
-results/DATUMOJ-IVY-304/files.txt
-results/DATUMOJ-IVY-304/summary.md
-results/DATUMOJ-IVY-304/test-output.log

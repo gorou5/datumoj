@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 import time
+import unicodedata
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -13,6 +14,9 @@ from datumoj.text import normalize
 
 _TITLE_WEIGHT = 5.0  # bm25 列权重：标题路径命中比正文命中更靠前
 _MIN_FTS_CHARS = 3
+# Only discard a result when both signals are weak.
+MIN_KEYWORD_COVERAGE = 0.5
+MIN_KEYWORD_BM25 = 0.01
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS entries (
@@ -30,21 +34,51 @@ def _like_pattern(q: str) -> str:
     return "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
 
 
+def _query_terms(query: str) -> list[str]:
+    terms = []
+    current = []
+    for char in query:
+        if char.isspace() or unicodedata.category(char).startswith("P"):
+            if current:
+                terms.append("".join(current))
+                current = []
+        else:
+            current.append(char)
+    if current:
+        terms.append("".join(current))
+    return list(dict.fromkeys(terms)) or [query]
+
+
+def _trigrams(term: str) -> list[str]:
+    return list(dict.fromkeys(term[i : i + _MIN_FTS_CHARS] for i in range(len(term) - 2)))
+
+
 class SqliteKeywordIndex:
     """``path`` 是 SQLite 文件路径，或 ``:memory:``。
 
     ``like_limit``：短查询（LIKE 扫描）最多收集的命中条数；``like_timeout``：LIKE 扫描的秒数上限。
+    ``min_keyword_coverage`` 和 ``min_keyword_bm25``：低覆盖率命中的过滤门槛。
     """
 
     def __init__(
-        self, path: str | Path, timeout: float = 30.0, like_limit: int = 1000, like_timeout: float = 2.0
+        self,
+        path: str | Path,
+        timeout: float = 30.0,
+        like_limit: int = 1000,
+        like_timeout: float = 2.0,
+        min_keyword_coverage: float = MIN_KEYWORD_COVERAGE,
+        min_keyword_bm25: float = MIN_KEYWORD_BM25,
     ) -> None:
         if timeout <= 0 or like_timeout <= 0:
             raise ValueError("timeout 必须 > 0")
         if like_limit < 1:
             raise ValueError("like_limit 必须 ≥ 1")
+        if not 0 <= min_keyword_coverage <= 1 or not min_keyword_bm25 >= 0:
+            raise ValueError("关键词覆盖率必须在 [0, 1] 内，BM25 下限必须 ≥ 0")
         self.like_limit = like_limit
         self.like_timeout = like_timeout
+        self.min_keyword_coverage = min_keyword_coverage
+        self.min_keyword_bm25 = min_keyword_bm25
         db_path = str(path)
         if db_path != ":memory:":
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -118,48 +152,33 @@ class SqliteKeywordIndex:
         if source_ids is not None:
             where = f" AND e.source_id IN ({','.join('?' * len(source_ids))})"
             params = list(source_ids)
-        terms = list(dict.fromkeys(q.split()))
-        if len(terms) == 1:
-            term = terms[0]
-            if len(term) < _MIN_FTS_CHARS:
-                found, _, warnings = self._search_like([term], where, params, mixed=False)
-                items = sorted(found.values(), key=lambda h: (-h.score, h.chunk_id))
-                return IndexResult(items=items[:k], warnings=warnings)
-            phrase = '"' + term.replace('"', '""') + '"'
-            rows = self._db.execute(
-                "SELECT e.chunk_id, e.doc_key, -bm25(chunks_fts, ?, 1.0) AS score FROM chunks_fts "
-                "JOIN entries e ON e.id = chunks_fts.rowid "
-                f"WHERE chunks_fts MATCH ?{where} ORDER BY score DESC, e.chunk_id LIMIT ?",
-                [_TITLE_WEIGHT, phrase, *params, k],
-            ).fetchall()
-            return IndexResult(items=[ScoredChunk(chunk_id=r[0], doc_key=r[1], score=r[2]) for r in rows])
+        terms = _query_terms(q)
+        if len(terms) == 1 and len(terms[0]) >= _MIN_FTS_CHARS:
+            terms = _trigrams(terms[0])
 
         fts_terms = [term for term in terms if len(term) >= _MIN_FTS_CHARS]
         like_terms = [term for term in terms if len(term) < _MIN_FTS_CHARS]
         matches: dict[str, set[str]] = {}
         found: dict[str, ScoredChunk] = {}
+        bm25_scores: dict[str, float] = {}
 
         if fts_terms:
             phrases = ['"' + term.replace('"', '""') + '"' for term in fts_terms]
             rows = self._db.execute(
-                "SELECT e.chunk_id, e.doc_key, -bm25(chunks_fts, ?, 1.0) AS score FROM chunks_fts "
+                "SELECT e.chunk_id, e.doc_key, -bm25(chunks_fts, ?, 1.0) AS score, "
+                "chunks_fts.title_path, chunks_fts.text FROM chunks_fts "
                 "JOIN entries e ON e.id = chunks_fts.rowid "
                 f"WHERE chunks_fts MATCH ?{where} ORDER BY score DESC, e.chunk_id",
                 [_TITLE_WEIGHT, " OR ".join(phrases), *params],
             ).fetchall()
-            found.update({r[0]: ScoredChunk(chunk_id=r[0], doc_key=r[1], score=r[2]) for r in rows})
-            if len(fts_terms) == 1:
-                for r in rows:
-                    matches.setdefault(r[0], set()).add(fts_terms[0])
-            else:
-                for term, phrase in zip(fts_terms, phrases):
-                    hits = self._db.execute(
-                        "SELECT e.chunk_id FROM chunks_fts JOIN entries e ON e.id = chunks_fts.rowid "
-                        f"WHERE chunks_fts MATCH ?{where}",
-                        [phrase, *params],
-                    ).fetchall()
-                    for (chunk_id,) in hits:
-                        matches.setdefault(chunk_id, set()).add(term)
+            for chunk_id, doc_key, score, title, text in rows:
+                found[chunk_id] = ScoredChunk(chunk_id=chunk_id, doc_key=doc_key, score=score)
+                bm25_scores[chunk_id] = score
+                folded_title, folded_text = title.casefold(), text.casefold()
+                matches[chunk_id] = {
+                    term for term in fts_terms
+                    if term.casefold() in folded_title or term.casefold() in folded_text
+                }
 
         warnings: list[str] = []
         if like_terms:
@@ -171,6 +190,15 @@ class SqliteKeywordIndex:
             for chunk_id, hit_terms in like_matches.items():
                 matches.setdefault(chunk_id, set()).update(hit_terms)
 
+        if not found:
+            return IndexResult(warnings=warnings)
+
+        found = {
+            chunk_id: hit
+            for chunk_id, hit in found.items()
+            if len(matches.get(chunk_id, ())) / len(terms) >= self.min_keyword_coverage
+            or bm25_scores.get(chunk_id, 0.0) >= self.min_keyword_bm25
+        }
         if not found:
             return IndexResult(warnings=warnings)
 

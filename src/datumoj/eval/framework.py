@@ -8,6 +8,7 @@ import unicodedata
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Literal
@@ -24,6 +25,7 @@ from datumoj.core.contracts import (
     citation_for_observation,
 )
 from datumoj.core.models import (
+    ChangeKind,
     Citation,
     DocKey,
     FetchOutcome,
@@ -37,7 +39,7 @@ from datumoj.core.models import (
 )
 
 
-QuestionKind = Literal["retrieval", "numeric", "gap", "time", "injection", "cross_source"]
+QuestionKind = Literal["retrieval", "numeric", "gap", "time", "injection", "cross_source", "change"]
 
 
 class _StrictModel(BaseModel):
@@ -69,10 +71,38 @@ class ExpectedValue(_StrictModel):
         return self
 
 
+class ExpectedChange(_StrictModel):
+    kind: ChangeKind
+    source_id: SourceId
+    doc_key_prefix: str | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def _source_prefix(self) -> ExpectedChange:
+        if self.doc_key_prefix is not None and not self.doc_key_prefix.startswith(f"{self.source_id}:"):
+            raise ValueError("doc_key_prefix 必须属于 source_id")
+        return self
+
+
+class ChangeFilter(_StrictModel):
+    since: datetime
+    until: datetime
+    kinds: list[ChangeKind] | None = None
+    limit: int = Field(default=1000, ge=1, le=1000)
+
+    @model_validator(mode="after")
+    def _window(self) -> ChangeFilter:
+        if self.since.utcoffset() is None or self.until.utcoffset() is None:
+            raise ValueError("变化窗口必须带时区")
+        if self.since > self.until:
+            raise ValueError("since 不能晚于 until")
+        return self
+
+
 class Expect(_StrictModel):
     hits: list[ExpectedHit] | None = None
     value: ExpectedValue | None = None
     gap_state: GapState | None = None
+    changes: list[ExpectedChange] | None = None
 
 
 class Question(_StrictModel):
@@ -80,7 +110,8 @@ class Question(_StrictModel):
     question: str = Field(min_length=1)
     lang: Lang
     kind: QuestionKind
-    queries: list[str] = Field(min_length=1)
+    queries: list[str] = Field(default_factory=list)
+    change_filter: ChangeFilter | None = None
     source_ids: list[SourceId] | None = None
     expect: Expect
     must_not: list[str] = Field(default_factory=list)
@@ -93,6 +124,13 @@ class Question(_StrictModel):
             raise ValueError("question 不能为空白")
         if any(not query.strip() for query in self.queries):
             raise ValueError("queries 不能包含空白查询")
+        if self.kind == "change":
+            if self.expect.changes is None or self.change_filter is None:
+                raise ValueError("change 题必须填写 expect.changes（零变化为 []）和 change_filter")
+            if self.expect.hits is not None or self.expect.value is not None or self.expect.gap_state is not None:
+                raise ValueError("change 题只能使用 expect.changes")
+        elif not self.queries or self.change_filter is not None or self.expect.changes is not None:
+            raise ValueError("非 change 题必须填写 queries，且不能填写变化字段")
         if self.kind in {"retrieval", "numeric", "time", "injection", "cross_source"} and not self.expect.hits:
             raise ValueError(f"{self.kind} 题必须填写非空 expect.hits")
         if self.kind == "numeric" and self.expect.value is None:
@@ -127,6 +165,7 @@ METRIC_NAMES = (
     "time_semantics_accuracy",
     "injection_containment_accuracy",
     "citation_recoverability",
+    "change_hit_rate",
 )
 
 
@@ -225,6 +264,7 @@ def evaluate(
     cite: Callable[[Citation], Any] | None,
     manifest: Manifest | None = None,
     catalog: CatalogStore | None = None,
+    list_changes: Callable[..., Mapping[str, Any]] | None = None,
     k: int = 10,
 ) -> EvaluationReport:
     """通过契约注入检索器、只读 SQL 库、可选快照清单及出处还原函数，离线计算题库指标。"""
@@ -238,6 +278,52 @@ def evaluate(
 
     for question in questions:
         reasons: list[str] = []
+        if question.kind == "change":
+            metrics = {name: None for name in METRIC_NAMES}
+            expected = question.expect.changes
+            matches = None
+            try:
+                if list_changes is None:
+                    raise ValueError("变化日志尚未接入评测")
+                response = list_changes(
+                    **question.change_filter.model_dump(mode="python"), sources=question.source_ids,
+                )
+                rows = response["data"]
+                if not isinstance(rows, list) or response["gap_state"] not in {"ok", "zero_hits"}:
+                    raise ValueError("list_changes 未返回可评测的事件列表")
+                if bool(rows) != (response["gap_state"] == "ok"):
+                    raise ValueError("事件列表与 gap_state 不一致")
+                matches = [any(
+                    row["kind"] == item.kind and row["source_id"] == item.source_id
+                    and (item.doc_key_prefix is None or (row.get("doc_key") or "").startswith(item.doc_key_prefix))
+                    for row in rows
+                ) for item in expected]
+                score = sum(matches) / len(expected) if expected else float(
+                    not rows and response["gap_state"] == "zero_hits"
+                )
+                metrics["change_hit_rate"] = score
+                if score < 1.0:
+                    reasons.append("预期变化事件未全部命中，或零变化窗口返回了事件")
+            except Exception as exc:
+                metrics["change_hit_rate"] = 0.0
+                reasons.append(f"变化评测失败：{type(exc).__name__}: {exc}")
+            all_metrics.append((metrics, 0))
+            languages[question.lang].add(metrics)
+            question_sources = {item.source_id for item in expected} or set(question.source_ids or ["unknown"])
+            for source in sorted(question_sources):
+                scoped = dict(metrics)
+                if matches is not None:
+                    source_matches = [matched for item, matched in zip(expected, matches, strict=True)
+                                      if item.source_id == source]
+                    if source_matches:
+                        scoped["change_hit_rate"] = sum(source_matches) / len(source_matches)
+                sources[source].add(scoped)
+            question_rows.append({"id": question.id, "file": question._source_file, "kind": question.kind,
+                                  "lang": question.lang, "metrics": metrics, "failures": reasons})
+            if reasons:
+                failure_rows.append({"id": question.id, "file": question._source_file,
+                                     "kind": question.kind, "reasons": reasons})
+            continue
         result = retriever.search(question.queries, k=max(10, k, 3), source_ids=question.source_ids)
         hits = result.data
         catalog_results = []
@@ -531,8 +617,11 @@ def check_gate(
 ) -> GateResult:
     """按默认门槛或传入覆盖值判定；未评测到的门槛指标视为失败。"""
     selected = dict(DEFAULT_THRESHOLDS)
+    rows = report.questions if isinstance(report, EvaluationReport) else report.get("questions", [])
+    if any(row.get("kind") == "change" for row in rows):
+        selected["change_hit_rate"] = 1.0
     if thresholds is not None:
-        unknown = set(thresholds) - set(DEFAULT_THRESHOLDS)
+        unknown = set(thresholds) - (set(DEFAULT_THRESHOLDS) | {"change_hit_rate"})
         if unknown:
             raise ValueError(f"未知门槛指标：{', '.join(sorted(unknown))}")
         selected.update(thresholds)

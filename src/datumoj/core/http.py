@@ -342,15 +342,28 @@ class PoliteHttpFetcher:
     def __exit__(self, *exc: object) -> None:
         self.close()
 
-    def fetch(self, url: str, etag: str | None = None, last_modified: str | None = None) -> FetchResult:
+    def fetch(
+        self, url: str, etag: str | None = None, last_modified: str | None = None,
+        *, size: int | None = None, head_probe: bool = False,
+    ) -> FetchResult:
+        if head_probe and last_modified is not None and size is not None:
+            probe = self._fetch(url, last_modified=last_modified, size=size, method="HEAD")
+            if probe.outcome in (FetchOutcome.not_modified, FetchOutcome.blocked_by_robots):
+                return probe
+        return self._fetch(url, etag=etag, last_modified=last_modified)
+
+    def _fetch(
+        self, url: str, etag: str | None = None, last_modified: str | None = None,
+        *, size: int | None = None, method: str = "GET",
+    ) -> FetchResult:
         red = redact_url(url)
         start = _parse_url(url)
         if (problem := self._url_problem(start)) is not None:
             raise UrlNotAllowed(f"{problem}：{red}")
         headers = {}
-        if etag:
+        if etag and method == "GET":
             headers["If-None-Match"] = etag
-        if last_modified:
+        if last_modified and method == "GET":
             headers["If-Modified-Since"] = last_modified
         current, redirected = start, False
 
@@ -362,7 +375,7 @@ class PoliteHttpFetcher:
             here = redact_url(str(current))
             if (reason := self._robots_block(current)) is not None:
                 return result(FetchOutcome.blocked_by_robots, error=f"{reason}，未请求：{here}")
-            reply = self._get(current, headers, self.max_bytes)
+            reply = self._request(current, headers, self.max_bytes, method=method)
             if reply.status is None:
                 return result(FetchOutcome.network_error, error=f"{reply.error}：{here}")
             hop = self._next_hop(current, reply)
@@ -376,13 +389,21 @@ class PoliteHttpFetcher:
                 http_status=reply.status, etag=reply.headers.get("etag"),
                 last_modified=reply.headers.get("last-modified"),
             )
-            if reply.status == 304:
+            if method == "GET" and reply.status == 304:
                 return result(FetchOutcome.not_modified, **meta)
             if not 200 <= reply.status < 300:
                 note = f"；{reply.error}" if reply.error else ""
                 return result(FetchOutcome.http_error, error=f"HTTP {reply.status}：{here}{note}", **meta)
             if reply.error:
                 return result(FetchOutcome.network_error, error=f"{reply.error}：{here}", **meta)
+            if method == "HEAD" and reply.headers.get("last-modified") == last_modified:
+                length = reply.headers.get("content-length", "")
+                try:
+                    same_size = length.isascii() and length.isdecimal() and int(length) == size
+                except ValueError:
+                    same_size = False
+                if same_size:
+                    return result(FetchOutcome.not_modified, **meta)
             if reply.too_large:
                 return result(
                     FetchOutcome.too_large, error=f"正文超过上限 {self.max_bytes} 字节，已中止下载：{here}", **meta
@@ -433,7 +454,7 @@ class PoliteHttpFetcher:
         """按 RFC 9309 解读：2xx 解析；4xx 视为没有限制；429、5xx、网络错误视为全部禁止；最多跟 5 次重定向。"""
         current = robots_url
         for _ in range(ROBOTS_MAX_REDIRECTS + 1):
-            reply = self._get(current, {}, ROBOTS_MAX_BYTES, truncate=True)
+            reply = self._request(current, {}, ROBOTS_MAX_BYTES, truncate=True)
             if reply.status is None:
                 return RobotsRules(unreachable=f"robots.txt 无法获取（{reply.error}），按 RFC 9309 视为全部禁止")
             hop = self._next_hop(current, reply)
@@ -475,13 +496,16 @@ class PoliteHttpFetcher:
             when = when.replace(tzinfo=timezone.utc)
         return max(0.0, (when - self._now()).total_seconds())
 
-    def _get(self, url: httpx.URL, headers: Mapping[str, str], limit: int | None, *, truncate: bool = False) -> _Reply:
-        """GET（含重试）。只捕获 httpx 的网络错误；其他异常（例如回放未登记的 URL）照常抛出。"""
+    def _request(
+        self, url: httpx.URL, headers: Mapping[str, str], limit: int | None,
+        *, truncate: bool = False, method: str = "GET",
+    ) -> _Reply:
+        """GET / HEAD（含重试）。只捕获 httpx 的网络错误；其他异常照常抛出。"""
         for attempt in range(self.max_retries + 1):
             self._throttle(url.host)
             backoff = min(self.backoff * 2**attempt, self.max_wait)
             try:
-                reply = self._attempt(url, headers, limit, truncate)
+                reply = self._attempt(url, headers, limit, truncate, method)
             except httpx.TransportError as exc:
                 reply = _Reply(None, error=_redact_text(f"{type(exc).__name__}: {exc}"))
                 wait = backoff
@@ -500,11 +524,13 @@ class PoliteHttpFetcher:
             self._sleep(wait)
         return reply
 
-    def _attempt(self, url: httpx.URL, headers: Mapping[str, str], limit: int | None, truncate: bool) -> _Reply:
-        response = self._client.send(self._client.build_request("GET", url, headers=headers), stream=True)
+    def _attempt(
+        self, url: httpx.URL, headers: Mapping[str, str], limit: int | None, truncate: bool, method: str,
+    ) -> _Reply:
+        response = self._client.send(self._client.build_request(method, url, headers=headers), stream=True)
         try:
             reply = _Reply(response.status_code, response.headers)
-            if 200 <= response.status_code < 300:
+            if method != "HEAD" and 200 <= response.status_code < 300:
                 try:
                     reply.body, reply.too_large = _read_body(response, limit, truncate)
                 except _BodyError as exc:

@@ -1,0 +1,18 @@
+{
+  "access_method": "api",
+  "auth_required": false,
+  "country_region": "JP",
+  "id": "jp-stat-dashboard",
+  "last_verified": "unknown",
+  "license": {
+    "allows_redistribution": "unknown",
+    "name": "政府標準利用規約（第2.0版）",
+    "requires_attribution": true,
+    "url": "https://www.e-stat.go.jp/terms-of-use"
+  },
+  "name": "統計ダッシュボード（精選指標）",
+  "official_url": "https://dashboard.e-stat.go.jp/api/1.0/",
+  "publisher": "総務省統計局",
+  "rate_limit": "0.5 req/s",
+  "status": "experimental"
+}
