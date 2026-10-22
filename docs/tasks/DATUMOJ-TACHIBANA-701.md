@@ -4,7 +4,7 @@ title: 评测题：政策网页 12、注入 3、IVY 遗留缺口 5
 project: DATUMOJ
 status: todo
 priority: 2
-depends_on: []
+depends_on: ["DATUMOJ-TACHIBANA-201", "DATUMOJ-TACHIBANA-202", "DATUMOJ-TACHIBANA-205"]
 runner: codex
 model: null
 tier: medium
@@ -38,7 +38,8 @@ TACHIBANA 的新能力有对应的离线评测题，门槛测试（903）能用�
 # 要求
 1. `gov_web.yaml` 12 题：日中英三种语言都有；覆盖检索到正确的节（`section=`）和 PDF 页（`page=`）、更新日的时间语义（问“现在”时要求出处带日期，抽不到日期的页要说明无数据日期）、跨站点比较（例如内阁府和大阪市的创业支援），以及 1 题“补助是否适用于我”的拒答（不判断个案）。期望命中用 `doc_key` 前缀或 URL，必须在 fixture 里真实存在。
 2. `tachibana_gaps.yaml` 8 题：注入 3 题（基于 `injection.html` 里的“指令样式”文本：回答不执行、出处标为来源正文）；IVY 遗留缺口 5 题：关键词常见词误命中应判 `zero_hits` 2 题、e-Stat 表能被 `search_catalog` 找到 2 题、目录结果的出处能用 `cite` 还原 1 题。
-3. 新测试：两个文件都能被 `load_questions` 加载，题目 ID 唯一，期望命中引用的 doc_key / URL 在 fixture 里存在；`tests/eval` 必须仍然通过。
+3. 期望命中必须和已合并的解析器的真实产出一致（第 1 次尝试按猜的格式写，被打回）：政策网页和 PDF 的来源 ID 都是 `jp-gov-web`（205 的 `sources/jp-gov-web.yaml`，不按站点分来源）；网页的 `doc_key` 是 `jp-gov-web:page:<规范化 URL 的 sha1 前 16 位>`（202，`parsers/html_page.py`），PDF 是 `jp-gov-web:pdf:<同样规则的哈希>`（201，`parsers/pdf.py`）；网页的 `locator_prefix` 用 202 实际产出的 `section=<标题路径>`（不是序号），PDF 用 `page=<页码>`。真实页面的 URL 取 `tests/fixtures/gov_web/README.md` 文件清单里的原始 URL；合成页面没有真实 URL，统一用 `https://example.invalid/gov-web/synthetic/<相对 html/synthetic/ 的路径>`，并在题目 notes 里写明（903 回放时用同样的 URL）。e-Stat 的题保持现状（`jp-estat-files:<statInfId>`）。
+4. 新测试：两个文件都能被 `load_questions` 加载，题目 ID 唯一；对每道政策网页、PDF、注入题，用上面的 URL 构造快照，调用已合并的 202 / 201 解析器解析对应 fixture，断言期望的 `doc_key` 存在，且有 chunk 的 locator 以期望的 `locator_prefix` 开头（不能手抄哈希而不验证）；`tests/eval` 必须仍然通过。
 
 # 不做
 - 不改评测框架和已有题目。
