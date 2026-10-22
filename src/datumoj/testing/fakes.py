@@ -21,7 +21,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import IO, Any
 
-from pydantic import JsonValue, TypeAdapter
+from pydantic import AwareDatetime, JsonValue, TypeAdapter
 
 from datumoj.core.contracts import (
     OBSERVATION_COLUMNS,
@@ -42,10 +42,11 @@ from datumoj.core.contracts import (
     ModelMismatch,
     NotFoundError,
     ObservationCatalog,
-    Parser,
     ParseError,
+    Parser,
     ParseRecord,
     ParseResult,
+    ParseStatus,
     QueryError,
     QueryRejected,
     QueryResult,
@@ -60,8 +61,13 @@ from datumoj.core.contracts import (
     max_state,
 )
 from datumoj.core.models import (
+    META_PARENT_SHA256,
+    META_PARENT_URL,
+    ChangeEvent,
+    ChangeKind,
     Chunk,
     Dataset,
+    DocKind,
     Document,
     FetchOutcome,
     Freshness,
@@ -73,11 +79,12 @@ from datumoj.core.models import (
     Snapshot,
     SourceText,
     ToolResult,
+    parent_ref,
     redact_url,
 )
 
 __all__ = [
-    "CrawlStep", "FakeCatalogStore", "FakeChunkStore", "FakeCrawler", "FakeEmbedder",
+    "CrawlStep", "FakeCatalogStore", "FakeChangeLog", "FakeChunkStore", "FakeCrawler", "FakeEmbedder",
     "FakeHttpFetcher", "FakeKeywordIndex", "FakeManifest", "FakeObservationStore", "FakeParser", "FakeRawStore",
     "FakeRegistry", "FakeResponse", "FakeRetriever", "FakeVectorIndex", "UnregisteredUrl", "drive_crawler",
 ]
@@ -159,10 +166,6 @@ class FakeRawStore:
         if hashlib.sha256(self.get(sha256)).hexdigest() != sha256:
             raise CorruptedBlob(f"raw 内容和哈希不一致：{sha256}")
 
-    def path_for(self, sha256: str) -> Path:
-        _check_sha(sha256)
-        return self.root / "raw" / sha256[:2] / sha256
-
 
 # ---------- Manifest ----------
 
@@ -221,10 +224,46 @@ class FakeManifest:
         return Freshness(as_of=as_of, oldest_fetched_at=min(per_resource.values()), by_source={source_id: as_of})
 
     def record_parse(self, record: ParseRecord) -> None:
-        self._parse[(record.sha256, record.parser, record.version)] = record
+        key = (record.sha256, record.parser, record.version)
+        self._parse.pop(key, None)  # 覆盖也算最后一次写入
+        self._parse[key] = record
 
     def get_parse(self, sha256: str, parser: str, version: str) -> ParseRecord | None:
         return self._parse.get((sha256, parser, version))
+
+    def parse_stats(self, source_id: str, since: datetime | None = None) -> dict[ParseStatus, int]:
+        if since is not None:
+            since = TypeAdapter(AwareDatetime).validate_python(since)
+        latest = {record.sha256: record.status for record in self._parse.values()}
+        return dict(Counter(
+            latest[s.sha256] for s in self._snaps
+            if s.source_id == source_id and (since is None or s.fetched_at >= since) and s.sha256 in latest
+        ))
+
+
+class FakeChangeLog:
+    def __init__(self) -> None:
+        self._events: dict[str, ChangeEvent] = {}
+
+    def append(self, events: Iterable[ChangeEvent]) -> None:
+        for event in events:
+            self._events.setdefault(event.event_id, event)
+
+    def list(self, since: datetime | None = None, until: datetime | None = None,
+             source_ids: Sequence[str] | None = None, kinds: Sequence[ChangeKind] | None = None,
+             limit: int = 1000) -> list[ChangeEvent]:
+        if limit < 0:
+            raise ValueError("limit 必须非负")
+        if since is not None:
+            since = TypeAdapter(AwareDatetime).validate_python(since)
+        if until is not None:
+            until = TypeAdapter(AwareDatetime).validate_python(until)
+        events = (
+            e for e in self._events.values()
+            if (since is None or e.detected_at >= since) and (until is None or e.detected_at <= until)
+            and (source_ids is None or e.source_id in source_ids) and (kinds is None or e.kind in kinds)
+        )
+        return sorted(events, key=lambda e: e.detected_at)[:limit]
 
 
 # ---------- HTTP ----------
@@ -273,7 +312,10 @@ class FakeHttpFetcher:
         self.now = now
         self.requests: list[str] = []
 
-    def fetch(self, url: str, etag: str | None = None, last_modified: str | None = None) -> FetchResult:
+    def fetch(
+        self, url: str, etag: str | None = None, last_modified: str | None = None,
+        *, size: int | None = None, head_probe: bool = False,
+    ) -> FetchResult:
         red = redact_url(url)
         if not url.lower().startswith(("http://", "https://")):
             raise UrlNotAllowed(f"只允许 http(s)：{red}")
@@ -284,6 +326,18 @@ class FakeHttpFetcher:
         base: dict[str, Any] = dict(url=red, fetched_at=self.now())
         if resp.network_error:
             return FetchResult(**base, outcome=FetchOutcome.network_error, error=resp.network_error)
+        if head_probe and last_modified is not None and size is not None:
+            headers = {k.lower(): v for k, v in resp.headers.items()}
+            length = headers.get("content-length", "")
+            try:
+                same_size = length.isascii() and length.isdecimal() and int(length) == size
+            except ValueError:
+                same_size = False
+            if 200 <= resp.status < 300 and headers.get("last-modified") == last_modified and same_size:
+                return FetchResult(
+                    **base, outcome=FetchOutcome.not_modified, http_status=resp.status,
+                    etag=headers.get("etag"), last_modified=headers.get("last-modified"),
+                )
         status, headers, body = resp.respond(etag, last_modified)
         base.update(http_status=status, etag=headers.get("etag"), last_modified=headers.get("last-modified"))
         if status == 304:
@@ -338,9 +392,11 @@ class FakeParser(Parser):
         doc_id = (meta or {}).get("doc_id") or snapshot.resource_url.rstrip("/").rsplit("/", 1)[-1]
         doc_key = f"{snapshot.source_id}:{doc_id}"
         title = paras[0].splitlines()[0][:100]
+        parent = parent_ref(meta or {})
         doc = Document(
             doc_key=doc_key, source_id=snapshot.source_id, snapshot_sha256=snapshot.sha256, title=title, lang="ja",
-            content_type="text/plain",
+            content_type="text/plain", kind=DocKind.bulletin,
+            metadata={} if parent is None else {META_PARENT_URL: parent[0], META_PARENT_SHA256: parent[1]},
         )
         chunks = [
             Chunk(

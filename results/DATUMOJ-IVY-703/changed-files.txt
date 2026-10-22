@@ -1,6 +1,0 @@
-eval/questions/catalog.yaml
-eval/questions/stats.yaml
-tests/eval/test_questions_stats.py
-results/DATUMOJ-IVY-703/acceptance.log
-results/DATUMOJ-IVY-703/changed-files.txt
-results/DATUMOJ-IVY-703/summary.md
