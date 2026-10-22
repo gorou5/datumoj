@@ -1,0 +1,14 @@
+$ make check T=tests/parsers/test_estat_dataset.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+.........                                                                [100%]
+9 passed in 8.62s
+
+$ make check T=tests/crawlers/test_estat_files.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+...................................................................      [100%]
+67 passed in 8.59s
+
+$ make check T=tests/integration/test_stats_e2e.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+........................                                                 [100%]
+24 passed in 6.35s
