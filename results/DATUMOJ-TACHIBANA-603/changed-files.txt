@@ -1,7 +1,0 @@
-src/datumoj/analysis/tools.py
-src/datumoj/mcp_server.py
-tests/analysis/test_list_changes.py
-tests/test_mcp_server.py
-results/DATUMOJ-TACHIBANA-603/acceptance.log
-results/DATUMOJ-TACHIBANA-603/changed-files.txt
-results/DATUMOJ-TACHIBANA-603/summary.md

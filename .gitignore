@@ -32,3 +32,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# 调度器任务的完成说明和评测输出（含本机路径），只留在本地
+/results/

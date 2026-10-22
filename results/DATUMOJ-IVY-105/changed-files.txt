@@ -1,6 +1,0 @@
-src/datumoj/core/runner.py
-tests/core/test_runner.py
-results/DATUMOJ-IVY-105/acceptance.log
-results/DATUMOJ-IVY-105/contracts.log
-results/DATUMOJ-IVY-105/changed-files.txt
-results/DATUMOJ-IVY-105/summary.md

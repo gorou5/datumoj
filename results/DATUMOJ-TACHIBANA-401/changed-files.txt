@@ -1,6 +1,0 @@
-src/datumoj/crawlers/ckan.py
-sources/jp-bodik.yaml
-tests/crawlers/test_ckan_datastore.py
-results/DATUMOJ-TACHIBANA-401/acceptance.log
-results/DATUMOJ-TACHIBANA-401/changed-files.txt
-results/DATUMOJ-TACHIBANA-401/summary.md
