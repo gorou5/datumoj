@@ -25,7 +25,7 @@
   - `human`：等人 `approve`；
   - `none`：验收过了直接合并。
 - `max_attempts`：失败几次后转 blocked 等人，一般 2。
-- 验收命令要用调度器进程能找到的程序。项目有自己的虚拟环境时，写绝对路径，例如 `/Users/aaron/workspace/<项目>/.venv/bin/pytest -q tests/test_x.py`。
+- 验收命令要用调度器进程能找到的程序。项目有自己的虚拟环境时，写绝对路径，例如 `<项目目录>/.venv/bin/pytest -q tests/test_x.py`。
 
 ## 3. 确认与提交
 1. 把任务列表（ID、标题、依赖、验收命令）念给人确认。
