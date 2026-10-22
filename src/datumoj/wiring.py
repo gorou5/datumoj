@@ -18,7 +18,7 @@ class _CkanPages(CkanMetaParser):
     """把采集器的分页逐项交给现有 package 解析器；资源文件不当作目录 JSON。"""
 
     name = "ckan_pages"
-    version = "1"
+    version = "2"
 
     def parse(self, snapshot, data, meta=None):
         if meta and meta.get("role") in {"resource", "activity"}:
@@ -33,8 +33,11 @@ class _CkanPages(CkanMetaParser):
         if payload.get("success") is not True or not isinstance(page["results"], list):
             raise ParseError("CKAN package_search 响应无效")
         datasets, resources, warnings = [], [], []
-        for package in page["results"]:
-            parsed = super().parse(snapshot, json.dumps({"result": package}).encode(), meta)
+        for index, package in enumerate(page["results"]):
+            if not isinstance(package, dict):
+                warnings.append(f"results[{index}] 不是对象，已跳过")
+                continue
+            parsed = self._parse_package(snapshot, package, locator=f"entry={index}")
             datasets.extend(parsed.datasets)
             resources.extend(parsed.resources)
             warnings.extend(parsed.warnings)
