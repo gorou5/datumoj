@@ -24,7 +24,7 @@ from urllib.parse import parse_qs, urlsplit
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError, model_validator
 
 from datumoj.core.contracts import ParseError, Parser, ParseResult
-from datumoj.core.models import Observation, Snapshot, Text, TimeGranularity
+from datumoj.core.models import Chunk, Dataset, Document, Observation, Resource, Snapshot, Text, TimeGranularity
 from datumoj.reference.areas import lookup, normalize_area_label
 from datumoj.tabular import RawCell, RawTable, read_csv, read_xlsx, sniff
 
@@ -33,6 +33,10 @@ LAYOUT_FORMATS: dict[str, tuple[str, int]] = {
     "census_area_by_measure": ("csv", 1),
 }
 """版式 → (文件内容应有的格式, e-Stat 下载用的 fileKind)。"""
+_MEDIA_TYPES = {
+    "csv": "text/csv",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
 
 # 有的表文件里不写调查名（人口推計的表只写“補間補正人口”）。这里列出调查本身特有的用语，
 # 文件里调查名和这些用语都找不到时核对失败。新增条目要先在真实文件里核实。
@@ -52,6 +56,7 @@ class TableEntry(BaseModel):
     """文件里的表题须包含它（比较前做 NFKC、去空白、统一顿号和破折号）。"""
     layout: Literal["wide_area_by_year", "census_area_by_measure"]
     expected_area_level: Literal["prefecture"]
+    publisher: Text | None = None
     area_code: Annotated[str, Field(pattern=r"^[0-9]{5}$")] | None = None
     """census_area_by_measure 一个文件只有一个地区，必须写明；wide_area_by_year 含全国和全部都道府県，不写。"""
 
@@ -100,6 +105,15 @@ def _value(cell: RawCell) -> tuple[Decimal | None, str | None]:
 def _check_title(text: str, entry: TableEntry, where: str) -> None:
     if _norm(entry.title) not in text:
         raise ParseError(f"{where} 里找不到清单的表题 {entry.title!r}")
+
+
+def _title_cell(tables: Sequence[RawTable], entry: TableEntry) -> RawCell:
+    for table in tables:
+        for row in table.rows:
+            for cell in row:
+                if _norm(entry.title) in _norm(cell.raw):
+                    return cell
+    raise ParseError(f"文件里找不到包含清单表题 {entry.title!r} 的单元格")
 
 
 def _check_survey(header: str, whole: str, entry: TableEntry, where: str) -> None:
@@ -354,6 +368,73 @@ class EstatTableParser(Parser):
             raise ParseError(f"读取 {fmt} 失败：{type(exc).__name__}: {exc}") from exc
         try:
             observations, warnings = _CONVERTERS[entry.layout](tables, snapshot, entry)
-            return ParseResult(observations=observations, warnings=warnings)
+            if not observations:
+                raise ParseError("统计表没有观测值，无法确定统计期间")
+            earliest_observation = min(
+                (obs for obs in observations if obs.time_start is not None),
+                key=lambda obs: obs.time_start,
+                default=None,
+            )
+            latest_observation = max(
+                (obs for obs in observations if obs.time_start is not None),
+                key=lambda obs: obs.time_start,
+                default=None,
+            )
+            if earliest_observation is None or latest_observation is None:
+                raise ParseError("统计表观测值没有时间标签，无法确定统计期间")
+            earliest, latest = earliest_observation.time_label, latest_observation.time_label
+            dataset_key = f"{snapshot.source_id}:{entry.stat_inf_id}"
+            title_cell = _title_cell(tables, entry)
+            dataset = Dataset(
+                dataset_key=dataset_key,
+                source_id=snapshot.source_id,
+                title=entry.title,
+                kind="stat_table",
+                description=(
+                    f"调查：{entry.survey}；统计期间：{earliest}～{latest}；"
+                    f"地区层级：{entry.expected_area_level}"
+                ),
+                publisher=entry.publisher,
+                url=snapshot.resource_url,
+                tags=[entry.survey],
+                extras={
+                    "stat_inf_id": entry.stat_inf_id,
+                    "survey": entry.survey,
+                    "time_labels": {"earliest": earliest, "latest": latest},
+                    "area_level": entry.expected_area_level,
+                },
+                snapshot_sha256=snapshot.sha256,
+                locator=title_cell.locator,
+            )
+            document = Document(
+                doc_key=dataset_key,
+                source_id=snapshot.source_id,
+                snapshot_sha256=snapshot.sha256,
+                title=entry.title,
+                lang="ja",
+                kind="dataset",
+                content_type=_MEDIA_TYPES[fmt],
+            )
+            title_chunk = Chunk(
+                chunk_id=f"{dataset_key}#{title_cell.locator}",
+                doc_key=dataset_key,
+                locator=title_cell.locator,
+                text=title_cell.raw,
+                title_path=[entry.title],
+                snapshot_sha256=snapshot.sha256,
+                lang="ja",
+            )
+            resource = Resource(
+                resource_id=f"{entry.stat_inf_id}:file",
+                dataset_key=dataset_key,
+                source_id=snapshot.source_id,
+                url=snapshot.resource_url,
+                format=fmt,
+                media_type=_MEDIA_TYPES[fmt],
+            )
+            return ParseResult(
+                documents=[document], chunks=[title_chunk], observations=observations,
+                datasets=[dataset], resources=[resource], warnings=warnings,
+            )
         except ValueError as exc:
             raise ParseError(f"{entry.layout} 转换失败：{exc}") from exc

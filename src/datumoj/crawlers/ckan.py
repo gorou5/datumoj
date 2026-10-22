@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import unicodedata
 from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone
@@ -15,9 +16,12 @@ from datumoj.core.models import FetchOutcome
 DEFAULT_ROWS = 100
 DEFAULT_ACTIVITY_LIMIT = 100
 DEFAULT_MAX_FILE_BYTES = 50 * 1024 * 1024
+DEFAULT_DATASTORE_LIMIT = 1000
+DEFAULT_DATASTORE_MAX_ROWS = 100_000
 _API_ROLES = ("package_search", "activity", "package_show")
 _HTML_FORMATS = frozenset({"html", "htm", "xhtml", "php", "asp", "aspx", "jsp"})
 _HTML_HEADS = (b"<!doctype html", b"<html")
+log = logging.getLogger(__name__)
 
 
 def _norm_format(value: Any) -> str:
@@ -80,6 +84,8 @@ class CkanCrawler(Crawler):
     ``spec.base_url`` 是 action 基址（如 ``https://data.e-gov.go.jp/data/api/action``）。scope 可选键：
 
     - ``q``（默认 ``*:*``）、``rows``（每页条数，默认 100）、``incremental``（默认 true）、``activity_limit``；
+    - 可选 ``datastore: true`` 会读取 ``resources[].datastore_active`` 资源，按 ``datastore_limit``（默认 1000）分页，
+      最多读取 ``datastore_max_rows``（默认 100000）条；
     - 白名单：``formats``（规范化后比较）、``organizations``（组织 name 或 title）、``max_file_bytes``
       （默认 50 MiB）；资源所在 host 也必须在 ``allowed_hosts`` 内。不在白名单的资源只留元数据（已在
       数据集快照里），不下载。
@@ -112,6 +118,19 @@ class CkanCrawler(Crawler):
         role = task.meta.get("role")
         if role == "activity":
             return self._after_activity(task, result, ctx)
+        if role == "datastore":
+            content = result.content
+            if result.outcome is FetchOutcome.not_modified:
+                previous = ctx.manifest.last_success(task.url)
+                if previous is None or previous.sha256 is None:
+                    return ()
+                content = ctx.raw.get(previous.sha256)
+            elif result.outcome is not FetchOutcome.ok:
+                return ()
+            data = _json_object(content)
+            if not _api_ok(data):
+                return ()
+            return self._after_datastore(task, data["result"], ctx)
         content = result.content
         if role == "package_search" and result.outcome is FetchOutcome.not_modified:
             previous = ctx.manifest.last_success(task.url)
@@ -132,7 +151,7 @@ class CkanCrawler(Crawler):
         if result.outcome is not FetchOutcome.ok or result.content is None:
             return None
         role = task.meta.get("role")
-        if role in _API_ROLES:
+        if role in (*_API_ROLES, "datastore"):
             return None if _api_ok(_json_object(result.content)) else FetchOutcome.empty_body
         if role != "resource":
             return None
@@ -348,6 +367,69 @@ class CkanCrawler(Crawler):
             tasks.append(self._search_task(ctx, next_start, previous_page=(task.meta["start"], count)))
         return tasks
 
+    def _datastore_task(
+        self,
+        ctx: CrawlContext,
+        *,
+        dataset_id: str,
+        resource_id: str,
+        resource_url: str | None,
+        license_id: str | None,
+        offset: int = 0,
+        limit: int | None = None,
+    ) -> FetchTask:
+        scope = ctx.spec.scope
+        page_limit = limit or _positive_int(scope, "datastore_limit", DEFAULT_DATASTORE_LIMIT)
+        max_rows = _positive_int(scope, "datastore_max_rows", DEFAULT_DATASTORE_MAX_ROWS)
+        page_limit = min(page_limit, max_rows - offset)
+        query = urlencode(
+            {"resource_id": resource_id, "limit": page_limit, "sort": "_id asc", "offset": offset},
+            quote_via=quote,
+        )
+        return FetchTask(url=f"{self._base(ctx)}/datastore_search?{query}", meta={
+            "role": "datastore", "resource_id": resource_id, "resource_url": resource_url,
+            "dataset_id": dataset_id, "license": license_id, "limit": page_limit,
+            "offset": offset, "max_rows": max_rows, "run_started": self._started(ctx),
+        })
+
+    def _after_datastore(self, task: FetchTask, payload: Any, ctx: CrawlContext) -> Iterable[FetchTask]:
+        result = payload if isinstance(payload, dict) else {}
+        records = result.get("records")
+        if not isinstance(records, list):
+            log.warning("CKAN DataStore 响应缺少 records 数组，停止分页：dataset_id=%s resource_id=%s",
+                        task.meta.get("dataset_id"), task.meta.get("resource_id"))
+            return ()
+        count = len(records)
+        if count == 0:
+            return ()
+
+        offset, limit, max_rows = task.meta["offset"], task.meta["limit"], task.meta["max_rows"]
+        next_offset = offset + count
+        total = result.get("total")
+        total = total if isinstance(total, int) and not isinstance(total, bool) and total >= 0 else None
+        if total is not None and next_offset >= total:
+            return ()
+        if next_offset >= max_rows:
+            log.warning(
+                "CKAN DataStore 达到 scope.datastore_max_rows=%s，停止分页；dataset_id=%s resource_id=%s",
+                max_rows, task.meta.get("dataset_id"), task.meta.get("resource_id"),
+            )
+            return ()
+        # CKAN 有时会在 total 尚未到达时返回短页；有可信 total 时按实际条数继续，
+        # 否则短页作为末页，避免在没有终止依据时无限请求。
+        if count < limit and total is None:
+            return ()
+
+        return (self._datastore_task(
+            ctx,
+            dataset_id=task.meta["dataset_id"],
+            resource_id=task.meta["resource_id"],
+            resource_url=task.meta.get("resource_url"),
+            license_id=task.meta.get("license"),
+            offset=next_offset,
+            limit=limit,
+        ),)
+
     def _resource_tasks(self, package: Any, ctx: CrawlContext) -> list[FetchTask]:
         if not isinstance(package, dict) or not isinstance(package.get("id"), str):
             return []
@@ -355,6 +437,9 @@ class CkanCrawler(Crawler):
             return []
         self._seen.add(package["id"])
         scope = ctx.spec.scope
+        datastore = scope.get("datastore", False)
+        if not isinstance(datastore, bool):
+            raise ValueError("scope.datastore 必须是布尔值")
         formats = _str_list(scope, "formats")
         orgs = _str_list(scope, "organizations")
         max_bytes = _positive_int(scope, "max_file_bytes", DEFAULT_MAX_FILE_BYTES)
@@ -364,6 +449,15 @@ class CkanCrawler(Crawler):
             return []
         tasks = []
         for res in package.get("resources") or []:
+            if datastore and isinstance(res, dict) and res.get("datastore_active") is True:
+                resource_id = res.get("id")
+                if isinstance(resource_id, str) and resource_id:
+                    resource_url = _clean(res.get("url")) or _clean(res.get("download_url"))
+                    tasks.append(self._datastore_task(
+                        ctx, dataset_id=package["id"], resource_id=resource_id,
+                        resource_url=resource_url,
+                        license_id=_clean(res.get("license_id")) or _clean(package.get("license_id")),
+                    ))
             url = _clean(res.get("url")) or _clean(res.get("download_url")) if isinstance(res, dict) else None
             if not url or not url.lower().startswith(("http://", "https://")):
                 continue

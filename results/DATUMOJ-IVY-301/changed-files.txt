@@ -1,5 +1,0 @@
-src/datumoj/tabular/__init__.py
-tests/tabular/test_readers.py
-results/DATUMOJ-IVY-301/acceptance.log
-results/DATUMOJ-IVY-301/changed-files.txt
-results/DATUMOJ-IVY-301/summary.md

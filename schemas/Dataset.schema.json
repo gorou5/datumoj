@@ -112,6 +112,32 @@
       },
       "title": "Extras",
       "type": "object"
+    },
+    "snapshot_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Snapshot Sha256"
+    },
+    "locator": {
+      "anyOf": [
+        {
+          "pattern": "^(?:art|para|item|suppl|table|page|sheet|cell|row|entry|section|feature|member)=(?:[^%;=\\x00-\\x1f\\x7f]|%(?:25|3B|3D))+(?:;(?:art|para|item|suppl|table|page|sheet|cell|row|entry|section|feature|member)=(?:[^%;=\\x00-\\x1f\\x7f]|%(?:25|3B|3D))+)*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Locator"
     }
   },
   "required": [

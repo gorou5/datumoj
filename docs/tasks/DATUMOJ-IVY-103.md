@@ -24,7 +24,7 @@ max_attempts: 2
 所有采集器共用一个对政府站点礼貌的 HTTP 客户端，测试时可以无网络回放录制样本。
 
 # 背景
-开发线：A 抓取基础。参考旧项目 `/Users/aaron/codex_workspace/digital-assets/repo/plugin-prototype/runtime/src/adapters/http-readonly.ts` 的安全设计，再补上限速和重试。PLAN 第 5 节“抓取守则”。
+开发线：A 抓取基础。参考旧项目 `<旧项目 digital-assets 目录>/repo/plugin-prototype/runtime/src/adapters/http-readonly.ts` 的安全设计，再补上限速和重试。PLAN 第 5 节“抓取守则”。
 
 计划见 `docs/PLAN.md`，任务总表、开发线和跨任务约定见 `docs/TASKS.md`。
 - **只依赖契约**：数据模型在 `src/datumoj/core/models.py`，接口协议和插件发现在 `src/datumoj/core/contracts.py`，假实现和契约测试在 `src/datumoj/testing/`。除此之外，只能 import 本任务 `depends_on` 里列出的、已合并任务的模块（例如 304 用 302 的地区码表）；其他任务的实现模块一律不 import（集成任务 9xx 除外）。

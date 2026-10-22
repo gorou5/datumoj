@@ -1,0 +1,1 @@
+{"description":"tel.datumoj.com — Japanese phone-number database (Cloudflare Worker + D1)","name":"tel","private":true,"scripts":{"build-seed":"python3 scripts/build_seed.py && python3 scripts/build_gov_seed.py","deploy":"wrangler deploy","dev":"wrangler dev"},"type":"module"}
