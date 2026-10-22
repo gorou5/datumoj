@@ -75,6 +75,7 @@ def test_source_configuration_and_disabled_default(tmp_path):
         "/cstp/openinnovation/", "/denshijiti/", "/keizaisenryaku/",
     ]
     assert spec.scope["max_depth"] == 2 and spec.scope["max_pages_per_seed"] == 500
+    assert spec.scope["max_pdfs_per_seed"] == 500 and spec.max_files == 3000
     assert spec.scope["follow_pdf"] is True
     assert spec.scope["pdf_recheck_days"] == 7 and spec.scope["head_probe"] is True
     assert spec.license.redistribution == "unverified" and spec.license.usage_scope == "internal_only"
@@ -188,10 +189,11 @@ def test_per_seed_cap_is_visible_in_persisted_meta(local_site, caplog, limit):
     fetcher, _ = local_site
     report, manifest, _ = run(spec_for(max_pages_per_seed=limit), fetcher)
     snapshots = manifest.snapshots_for("jp-gov-web")
-    assert len(snapshots) == limit
     metadata = [manifest.snapshot_meta(s.snapshot_id) for s in snapshots]
-    assert sorted(m["seed_task_number"] for m in metadata) == list(range(1, limit + 1))
-    assert sum(m["seed_limit_reached"] for m in metadata) == 1
+    page_metadata = [m for m in metadata if m.get("role") == "page"]
+    assert len(page_metadata) == limit
+    assert sorted(m["seed_task_number"] for m in page_metadata) == list(range(1, limit + 1))
+    assert sum(m["seed_limit_reached"] for m in page_metadata) == 1
     assert "max_pages_per_seed=" + str(limit) in caplog.text
     assert report.stop_reason is None  # Per-seed exhaustion does not stop other seeds.
 
@@ -201,11 +203,14 @@ def test_budgets_are_independent_and_duplicates_do_not_consume_budget():
     ctx = context(spec_for(seeds=seeds, max_pages_per_seed=2))
     crawler = GovWebCrawler()
     tasks = list(crawler.plan(ctx))
-    body = page_with_links('<a href="a.html">a</a>', '<a href="a.html#dup">dup</a>', '<a href="b.html">b</a>')
+    body = page_with_links('<a href="a.html">a</a>', '<a href="a.html#dup">dup</a>',
+                           '<a href="guide.pdf">pdf</a>', '<a href="b.html">b</a>')
     for seed in tasks:
         children = list(crawler.after_fetch(seed, fetched(seed, body), ctx))
-        assert len(children) == 1
-        assert children[0].meta["seed_task_number"] == 2 and children[0].meta["seed_limit_reached"]
+        assert [child.meta["role"] for child in children] == ["page", "pdf"]
+        page, pdf = children
+        assert page.meta["seed_task_number"] == 2 and page.meta["seed_limit_reached"]
+        assert pdf.meta["seed_pdf_number"] == 1 and "seed_task_number" not in pdf.meta
         assert list(crawler.after_fetch(seed, fetched(seed, body), ctx)) == []
 
 

@@ -83,10 +83,12 @@ class GovWebCrawler(Crawler):
         scope = ctx.spec.scope
         self._max_depth = scope.get("max_depth", 2)
         self._max_pages = scope.get("max_pages_per_seed", 200)
+        self._max_pdfs = scope.get("max_pdfs_per_seed", self._max_pages)
         self._follow_pdf = scope.get("follow_pdf", True)
         self._pdf_recheck_days = scope.get("pdf_recheck_days")
         for name, value, minimum in (("max_depth", self._max_depth, 0),
-                                     ("max_pages_per_seed", self._max_pages, 1)):
+                                     ("max_pages_per_seed", self._max_pages, 1),
+                                     ("max_pdfs_per_seed", self._max_pdfs, 1)):
             if type(value) is not int or value < minimum:
                 raise ValueError(f"scope.{name} 必须是 >= {minimum} 的整数")
         if self._pdf_recheck_days is not None and (
@@ -100,9 +102,10 @@ class GovWebCrawler(Crawler):
             raise ValueError("scope.seeds 必须是非空列表")
         self._hosts = {host.lower() for host in ctx.spec.allowed_hosts}
         self._prefixes: dict[str, str] = {}
-        self._counts: dict[str, int] = {}
+        self._counts: dict[str, dict[str, int]] = {}
+        self._pending: dict[str, dict[str, list[FetchTask]]] = {}
         self._seen: set[str] = set()
-        self._warned: set[str] = set()
+        self._warned: set[tuple[str, str]] = set()
         tasks = []
         for seed in seeds:
             if not isinstance(seed, dict) or not isinstance(seed.get("url"), str):
@@ -126,22 +129,59 @@ class GovWebCrawler(Crawler):
                 continue
             seed_key = redact_url(url)
             self._prefixes[seed_key] = prefix
-            self._counts[seed_key] = 0
+            self._counts[seed_key] = {"page": 0, "pdf": 0}
+            self._pending[seed_key] = {"page": [], "pdf": []}
             tasks.append(self._task(url, seed_key, 0, "page", {"label": label}))
         return tasks
 
     def _task(self, url: str, seed: str, depth: int, role: str, meta: dict) -> FetchTask:
         self._seen.add(url)
-        self._counts[seed] += 1
-        return FetchTask(url=url, meta={
-            **meta, "role": role, "seed": seed, "depth": depth,
-            "max_pages_per_seed": self._max_pages,
-            "seed_task_number": self._counts[seed],
-            "seed_limit_reached": self._counts[seed] == self._max_pages,
-        })
+        self._counts[seed][role] += 1
+        task = FetchTask(url=url, meta={**meta, "role": role, "seed": seed, "depth": depth})
+        self._set_role_meta(task, role, self._counts[seed][role])
+        self._pending[seed][role].append(task)
+        return task
+
+    def _set_role_meta(self, task: FetchTask, role: str, number: int) -> None:
+        for key in ("max_pages_per_seed", "seed_task_number", "seed_limit_reached",
+                    "max_pdfs_per_seed", "seed_pdf_number", "seed_pdf_limit_reached"):
+            task.meta.pop(key, None)
+        if role == "pdf":
+            task.meta.update(max_pdfs_per_seed=self._max_pdfs, seed_pdf_number=number,
+                             seed_pdf_limit_reached=number == self._max_pdfs)
+        else:
+            task.meta.update(max_pages_per_seed=self._max_pages, seed_task_number=number,
+                             seed_limit_reached=number == self._max_pages)
+
+    def _renumber_pending(self, seed: str, role: str) -> None:
+        pending = self._pending[seed][role]
+        first = self._counts[seed][role] - len(pending) + 1
+        for offset, task in enumerate(pending):
+            self._set_role_meta(task, role, first + offset)
+
+    def _set_task_role(self, task: FetchTask, role: str) -> None:
+        previous = task.meta["role"]
+        if previous == role:
+            return
+        seed = task.meta["seed"]
+        self._pending[seed][previous].remove(task)
+        self._counts[seed][previous] -= 1
+        self._counts[seed][role] += 1
+        self._pending[seed][role].insert(0, task)
+        task.meta["role"] = role
+        self._renumber_pending(seed, previous)
+        self._renumber_pending(seed, role)
+
+    def _finish_task(self, task: FetchTask) -> None:
+        seed, role = task.meta["seed"], task.meta["role"]
+        pending = self._pending[seed][role]
+        if task in pending:
+            pending.remove(task)
+            self._renumber_pending(seed, role)
 
     def classify(self, task: FetchTask, result: FetchResult) -> FetchOutcome | None:
         if result.outcome is not FetchOutcome.ok or result.content is None:
+            self._finish_task(task)
             return None
         page = _page(result.content)
         if page is None:
@@ -149,9 +189,11 @@ class GovWebCrawler(Crawler):
                 (result.content_type or "").split(";", 1)[0].strip().lower() == "application/pdf"
             ):
                 # Metadata is persisted by the runner after classify, before after_fetch.
-                task.meta["role"] = "pdf"
+                self._set_task_role(task, "pdf")
+            self._finish_task(task)
             return None
-        task.meta["role"] = "page"
+        self._set_task_role(task, "page")
+        self._finish_task(task)
         for hidden in page.xpath("//head | //script | //style | //template"):
             hidden.drop_tree()
         if len("".join(page.text_content().split())) < 100:
@@ -207,13 +249,20 @@ class GovWebCrawler(Crawler):
                 self._seen.add(url)
                 skipped_pdfs += 1
                 continue
-            if self._counts[seed] >= self._max_pages:
-                if seed not in self._warned:
-                    log.warning("gov_web seed=%s max_pages_per_seed=%s reached; further tasks omitted",
-                                redact_url(seed), self._max_pages)
-                    self._warned.add(seed)
-                break
-            tasks.append(self._task(url, seed, depth, "pdf" if pdf else "page", {
+            role = "pdf" if pdf else "page"
+            limit = self._max_pdfs if pdf else self._max_pages
+            if self._counts[seed][role] >= limit:
+                warning_key = (seed, role)
+                if warning_key not in self._warned:
+                    if pdf:
+                        log.warning("gov_web seed=%s max_pdfs_per_seed=%s reached; further tasks omitted",
+                                    redact_url(seed), self._max_pdfs)
+                    else:
+                        log.warning("gov_web seed=%s max_pages_per_seed=%s reached; further tasks omitted",
+                                    redact_url(seed), self._max_pages)
+                    self._warned.add(warning_key)
+                continue
+            tasks.append(self._task(url, seed, depth, role, {
                 META_PARENT_URL: redact_url(result.url), META_PARENT_SHA256: digest,
             }))
         if skipped_pdfs:
