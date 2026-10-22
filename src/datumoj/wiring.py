@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from datumoj.core.contracts import ParseError, ParseResult, discover_parsers
+from datumoj.core.storage import load_storage_config
 from datumoj.parsers.ckan_meta import CkanMetaParser
 from datumoj.store.catalog import SqliteCatalogStore
 
@@ -121,14 +122,18 @@ def _get(overrides: dict[str, Any], key: str, module: str, symbol: str, *args: A
     return implementation(*args)
 
 
-def build(data_dir: str | Path, overrides: dict[str, Any] | None = None) -> Wiring:
+def build(data_dir: str | Path | None = None, overrides: dict[str, Any] | None = None) -> Wiring:
     """按协议组装依赖。``overrides`` 可替换任意命名依赖，供测试和嵌入式调用注入。"""
     overrides = dict(overrides or {})
-    root = Path(data_dir)
+    config = load_storage_config(data_dir=data_dir)
+    root = config.data_dir
     root.mkdir(parents=True, exist_ok=True)
     wiring = Wiring(data_dir=root)
 
-    wiring.raw = _get(overrides, "raw", "datumoj.core.rawstore", "FileRawStore", root)
+    if config.raw_backend == "s3":
+        wiring.raw = _get(overrides, "raw", "datumoj.core.rawstore_s3", "S3RawStore", config)
+    else:
+        wiring.raw = _get(overrides, "raw", "datumoj.core.rawstore", "FileRawStore", root)
     wiring.manifest = _get(
         overrides, "manifest", "datumoj.core.manifest", "SqliteManifest", root / "manifest.sqlite"
     )
@@ -251,6 +256,6 @@ def build(data_dir: str | Path, overrides: dict[str, Any] | None = None) -> Wiri
 
 def build_tools() -> Any:
     """MCP 的无参工厂：在服务器工作线程里创建存储及工具层。"""
-    deps = build(os.environ.get("DATUMOJ_DATA_DIR", "./data"))
+    deps = build(str(load_storage_config().data_dir))
     deps.require("search")
     return deps.tools
