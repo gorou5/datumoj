@@ -1,0 +1,11 @@
+{
+  "enum": [
+    "law",
+    "html_page",
+    "pdf",
+    "dataset",
+    "bulletin"
+  ],
+  "title": "DocKind",
+  "type": "string"
+}

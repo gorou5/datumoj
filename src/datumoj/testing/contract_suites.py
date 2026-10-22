@@ -20,7 +20,7 @@ import io
 import math
 import re
 from collections.abc import Callable, Sequence
-from datetime import date, timedelta
+from datetime import date, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 from urllib.parse import urlsplit
@@ -31,6 +31,7 @@ from datumoj.core.contracts import (
     KIND_PATTERN,
     CatalogFilter,
     CatalogStore,
+    ChangeLog,
     ChunkStore,
     ContentState,
     CorruptedBlob,
@@ -61,7 +62,17 @@ from datumoj.core.contracts import (
     VectorIndex,
     citation_for_chunk,
 )
-from datumoj.core.models import FetchOutcome, GapState, LicenseInfo, Redistribution, SourceText, UsageScope, redact_url
+from datumoj.core.models import (
+    ChangeEvent,
+    ChangeKind,
+    FetchOutcome,
+    GapState,
+    LicenseInfo,
+    Redistribution,
+    SourceText,
+    UsageScope,
+    redact_url,
+)
 from datumoj.testing.fakes import FakeEmbedder, FakeManifest, FakeRawStore, FakeResponse, drive_crawler
 from datumoj.testing.samples import (
     T0,
@@ -175,14 +186,9 @@ class RawStoreSuite:
 
     @pytest.mark.parametrize("bad", ["", "abc", "AB" * 32, "g" * 64, "../" + "a" * 61])
     def test_invalid_sha_rejected(self, store, bad):
-        for call in (store.get, store.exists, store.path_for):
+        for call in (store.get, store.open, store.exists, store.verify):
             with pytest.raises(ValueError):
                 call(bad)
-
-    def test_path_layout(self, store):
-        digest = sha(b"x")
-        path = store.path_for(digest)
-        assert (path.parent.parent.name, path.parent.name, path.name) == ("raw", digest[:2], digest)
 
     def test_verify_detects_corruption(self, store):
         digest = store.put(b"original bytes")
@@ -317,6 +323,109 @@ class ManifestSuite:
         assert manifest.get_parse(digest, "p", "1") == ok
         assert manifest.get_parse(digest, "p", "2") is None
         assert manifest.get_parse(digest, "q", "1") is None
+
+    def test_parse_stats_counts_snapshots_by_fetch_time(self, manifest):
+        assert manifest.parse_stats("jp-test") == {}
+        for sid, source, body, when in [
+            ("old", "jp-test", b"same", T0),
+            ("boundary", "jp-test", b"same", T0 + H),
+            ("new", "jp-test", b"other", T0 + 2 * H),
+            ("unparsed", "jp-test", b"unparsed", T0 + 3 * H),
+            ("foreign", "jp-other", b"same", T0 + 4 * H),
+        ]:
+            manifest.record_snapshot(make_snapshot(source, data=body, snapshot_id=sid, fetched_at=when))
+        manifest.record_snapshot(make_snapshot(snapshot_id="error", outcome=FetchOutcome.network_error,
+                                               fetched_at=T0 + 4 * H))
+        manifest.record_parse(ParseRecord(sha256=sha(b"same"), parser="p", version="1", status=ParseStatus.ok))
+        manifest.record_parse(ParseRecord(sha256=sha(b"other"), parser="-", version="0", status=ParseStatus.no_parser))
+        # 没有对应快照的解析记录不参与统计。
+        manifest.record_parse(ParseRecord(sha256=sha(b"orphan"), parser="p", version="1", status=ParseStatus.ok))
+        assert manifest.parse_stats("jp-test") == {ParseStatus.ok: 2, ParseStatus.no_parser: 1}
+        boundary = (T0 + H).astimezone(timezone(timedelta(hours=9)))
+        assert manifest.parse_stats("jp-test", boundary) == {ParseStatus.ok: 1, ParseStatus.no_parser: 1}
+        assert manifest.parse_stats("jp-test", T0 + 3 * H) == {}
+        assert manifest.parse_stats("jp-other") == {ParseStatus.ok: 1}
+        assert manifest.parse_stats("jp-missing") == {}
+
+    def test_parse_stats_uses_last_write_across_versions_and_parsers(self, manifest):
+        snap = make_snapshot()
+        manifest.record_snapshot(snap)
+        first = ParseRecord(sha256=snap.sha256, parser="p", version="9", status=ParseStatus.ok)
+        manifest.record_parse(first)
+        manifest.record_parse(ParseRecord(sha256=snap.sha256, parser="p", version="10",
+                                          status=ParseStatus.failed, error="bad format"))
+        assert manifest.parse_stats(snap.source_id) == {ParseStatus.failed: 1}
+        manifest.record_parse(ParseRecord(sha256=snap.sha256, parser="q", version="1", status=ParseStatus.no_parser))
+        assert manifest.parse_stats(snap.source_id) == {ParseStatus.no_parser: 1}
+        manifest.record_parse(first)
+        assert manifest.parse_stats(snap.source_id) == {ParseStatus.ok: 1}
+
+    def test_parse_stats_rejects_naive_boundary(self, manifest):
+        with pytest.raises(ValueError):
+            manifest.parse_stats("jp-test", T0.replace(tzinfo=None))
+
+
+class ChangeLogSuite:
+    """fixture ``change_log``：一个空的 ChangeLog。"""
+
+    @pytest.fixture
+    def change_log(self) -> ChangeLog:
+        return _missing("change_log")
+
+    @staticmethod
+    def event(doc_id="a", **overrides):
+        fields = {"source_id": "jp-test", "kind": ChangeKind.added, "doc_key": f"jp-test:{doc_id}",
+                  "new_sha256": sha(b"new"), "detected_at": T0, "summary": "新增文档"}
+        fields.update(overrides)
+        return ChangeEvent.make(**fields)
+
+    def test_conforms(self, change_log):
+        assert isinstance(change_log, ChangeLog)
+        assert change_log.list() == []
+
+    def test_idempotent_append_preserves_first(self, change_log):
+        first = self.event()
+        repeat = self.event(detected_at=T0 + H, summary="再次发现", locator="page=2")
+        assert first.event_id == repeat.event_id
+        change_log.append(iter([first, first]))
+        change_log.append([repeat])
+        assert change_log.list() == [first]
+
+    def test_order_limit_and_ties(self, change_log):
+        a, b, c = self.event("a", detected_at=T0 + H), self.event("b"), self.event("c")
+        change_log.append([a, b, c])
+        assert change_log.list() == [b, c, a]
+        assert change_log.list(limit=2) == [b, c]
+        assert change_log.list(limit=0) == []
+        with pytest.raises(ValueError):
+            change_log.list(limit=-1)
+
+    def test_filters_are_combined(self, change_log):
+        a = self.event()
+        b = self.event("b", kind=ChangeKind.fetch_failed, new_sha256=None)
+        c = self.event(source_id="jp-other", doc_key="jp-other:c")
+        change_log.append([a, b, c])
+        assert change_log.list(source_ids=["jp-other"]) == [c]
+        assert change_log.list(kinds=[ChangeKind.fetch_failed]) == [b]
+        assert change_log.list(source_ids=["jp-test"], kinds=[ChangeKind.added]) == [a]
+        assert change_log.list(source_ids=["jp-test", "jp-other"], kinds=[ChangeKind.added]) == [a, c]
+        assert change_log.list(source_ids=[]) == []
+        assert change_log.list(kinds=[]) == []
+
+    def test_inclusive_time_boundaries(self, change_log):
+        a, b, c = (self.event(str(i), detected_at=T0 + i * H) for i in range(3))
+        change_log.append([c, a, b])
+        assert change_log.list(since=T0 + H) == [b, c]
+        assert change_log.list(until=T0 + H) == [a, b]
+        same_instant = (T0 + H).astimezone(timezone(timedelta(hours=9)))
+        assert change_log.list(since=same_instant, until=T0 + H) == [b]
+        assert change_log.list(since=T0 + 2 * H, until=T0) == []
+        assert change_log.list(since=T0 + H, until=T0 + 2 * H, kinds=[ChangeKind.added], limit=1) == [b]
+
+    @pytest.mark.parametrize("field", ["since", "until"])
+    def test_naive_time_rejected(self, change_log, field):
+        with pytest.raises(ValueError):
+            change_log.list(**{field: T0.replace(tzinfo=None)})
 
 
 # ---------- HttpFetcher ----------

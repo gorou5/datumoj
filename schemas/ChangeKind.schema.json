@@ -1,0 +1,11 @@
+{
+  "enum": [
+    "added",
+    "modified",
+    "removed",
+    "fetch_failed",
+    "parse_failed"
+  ],
+  "title": "ChangeKind",
+  "type": "string"
+}
