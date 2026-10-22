@@ -7,7 +7,7 @@
 2. **建仓库**：还不是 git 仓库时，运行 `git init -b main`；然后 `git add -A && git commit -m "从模版初始化"`。
    调度器要求仓库至少有一个提交。
 3. **注册到调度器**：
-   - 要加的一项（缩进与 `/Users/aaron/workspace/orchestrator/projects.yaml` 现有项一致）：
+   - 要加的一项（缩进与 `<调度器仓库>/projects.yaml` 现有项一致）：
      ```yaml
      - name: <项目名>
        repo: <本目录的绝对路径>

@@ -1,0 +1,5 @@
+#!/bin/sh
+# 本项目调用调度器的入口（示例）。用法：cp bin/orch.example bin/orch && chmod +x bin/orch，
+# 再按本机改 ORCH_HOME；bin/orch 被 .gitignore 忽略，本机路径不进仓库。换调度器配置时只改 bin/orch。
+ORCH_HOME="${ORCH_HOME:-$HOME/workspace/orchestrator}"
+exec "$ORCH_HOME/.venv/bin/python" -m orch --config "${ORCH_CONFIG:-$ORCH_HOME/orch.yaml}" "$@"

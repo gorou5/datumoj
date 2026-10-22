@@ -12,8 +12,8 @@
 
 ### 路径
 - 命令：一律在仓库根目录用 `bin/orch …`。它是个包装脚本，里面写好了调度器的 Python 和配置文件路径；换配置只改它。
-- 操作规则：严格按 `/Users/aaron/workspace/orchestrator/docs/AGENT-GUIDE.md`。
-- 任务文件：`.orch/tasks/`。格式见 `/Users/aaron/workspace/orchestrator/docs/formats.md` 第 1 节，模版是 `docs/templates/task.md`。
+- 操作规则：严格按 `<调度器仓库>/docs/AGENT-GUIDE.md`（调度器仓库的位置见本机 `bin/orch`；没有就从 `bin/orch.example` 复制）。
+- 任务文件：`.orch/tasks/`。格式见 `<调度器仓库>/docs/formats.md` 第 1 节，模版是 `docs/templates/task.md`。
 
 ### 每次对话开始
 1. 先跑 `bin/orch attention --project DATUMOJ`，用人话讲给人听：卡在哪、是什么、可选的处理。没有卡点就说没有。
