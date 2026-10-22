@@ -1,6 +1,6 @@
 {
   "_说明": "plan/index.html 的“版本路线图”和“里程碑”两节由本文件渲染。由主对话在节点上更新，调度器派出的任务 agent 不改本文件。status 只有对应的 PR 已合并进 main 才能写 done（IVY 期间直接推送 main，pr 为 null）。规则见 CLAUDE.md 与 docs/PLAN.md 第 8.1 节。",
-  "updated": "2026-10-22",
+  "updated": "2026-10-23",
   "versions": [
     {
       "version": "0.1",
@@ -15,19 +15,19 @@
       "version": "0.2",
       "codename": "TACHIBANA（橘）",
       "status": "doing",
-      "label": "开发完成，待人工验收",
-      "summary": "日本扩面与持续运营：省厅和自治体政策网页与 PDF、BODIK、抓取监控、每周变化报告、存储适配层（为网络存储做准备）、注册层描述导出，并补上 IVY 遗留的检索缺口。KKJ 采购公告已移出本版本（修订稿 PR #7 审核中）。",
+      "label": "开发完成，已合并进 main，待 H4 验收",
+      "summary": "日本扩面与持续运营：省厅和自治体政策网页与 PDF、BODIK、抓取监控、每周变化报告、存储适配层（为网络存储做准备）、注册层描述导出，并补上 IVY 遗留的检索缺口。24 个任务完成，feature/0.2 已合并进 main（PR #15）。KKJ 移出本版本；Actions 运行和一周试运行移到 0.3。",
       "tag": null,
       "plan": "docs/plans/0.2-tachibana.md"
     },
     {
       "version": "0.3",
-      "codename": "待定（候选：楓 Maple）",
+      "codename": "MAPLE（楓）",
       "status": "planned",
-      "label": "方向已定",
-      "summary": "欧美扩面：data.europa.eu、Eurostat、英德法荷门户、Federal Register 等。TACHIBANA 完成后再细拆。",
+      "label": "计划 PR 审核中",
+      "summary": "云端运行（GitHub Actions 定时抓取，raw 和索引上 R2、可重建、按来源设频率；一周试运行）、欧美来源、日本新来源（e-Stat API、命名文件）。",
       "tag": null,
-      "plan": null
+      "plan": "docs/plans/0.3-maple.md"
     }
   ],
   "milestones": [
@@ -101,8 +101,8 @@
       "version": "0.2",
       "id": "P2",
       "title": "计划修订：移出 KKJ、对齐团队规范",
-      "status": "doing",
-      "date": null,
+      "status": "done",
+      "date": "2026-10-23",
       "tag": null,
       "pr": 7,
       "summary": "KKJ 移出 0.2；并入团队初始化包规则；加入存储适配层和注册层描述导出。",
@@ -112,34 +112,34 @@
       "version": "0.2",
       "id": "P3",
       "title": "任务拆分",
-      "status": "doing",
-      "date": null,
+      "status": "done",
+      "date": "2026-10-23",
       "tag": null,
       "pr": 9,
-      "summary": "19 个任务文件（docs/tasks/DATUMOJ-TACHIBANA-*.md）。按用户要求先开工、PR 有意见再调整。",
+      "summary": "24 个任务文件（docs/tasks/DATUMOJ-TACHIBANA-*.md）：原计划 19 个，加上真实抓取后补的 206、207、104、208、209。",
       "acceptance": null
     },
     {
       "version": "0.2",
       "id": "开工",
-      "title": "feature/0.2 开发：19 个任务全部完成",
-      "status": "doing",
+      "title": "feature/0.2 开发：24 个任务全部完成",
+      "status": "done",
       "date": "2026-10-22",
       "tag": null,
-      "pr": null,
-      "summary": "19 个任务都已合并进 feature/0.2，全量测试 2080 项通过；评测 85 题全部达标（Recall@10 0.986，变化题命中率 1.0）。东京都、大阪府、经产省不进 0.2。等人工验收后由 feature/0.2 向 main 提 PR。",
+      "pr": 15,
+      "summary": "24 个任务都已合并进 feature/0.2，全量测试 2159 项通过；feature/0.2 已合并进 main（PR #15）。东京都、大阪府、经产省不进 0.2。",
       "acceptance": null
     },
     {
       "version": "0.2",
       "id": "M1",
       "title": "政策网页 + PDF",
-      "status": "doing",
-      "date": null,
+      "status": "done",
+      "date": "2026-10-22",
       "tag": "v0.2.0-tachibana-m1",
-      "pr": null,
-      "summary": "政策网页和链接的 PDF 端到端入库，含真实抓取验收（集成任务 901）。自动化验收已通过，等人工验收和 tag。",
-      "acceptance": null
+      "pr": 15,
+      "summary": "政策网页和链接的 PDF 端到端入库；真实抓取 5 次，现场检索 5/5 命中；验收中发现的问题由 206、207、104、208、209 修复并复验。",
+      "acceptance": "docs/acceptance/v0.2.0-tachibana-m1.md"
     },
     {
       "version": "0.2",
@@ -171,8 +171,19 @@
       "date": null,
       "tag": "v0.2.0-tachibana",
       "pr": null,
-      "summary": "feature/0.2 向 main 的 PR 合并、H4 验收通过后打 tag。",
+      "summary": "feature/0.2 已合并进 main（PR #15）；H4 真实问答验收通过后打 tag。",
       "acceptance": "docs/acceptance/v0.2.0-tachibana.md"
+    },
+    {
+      "version": "0.3",
+      "id": "P1",
+      "title": "计划合并",
+      "status": "doing",
+      "date": null,
+      "tag": null,
+      "pr": 16,
+      "summary": "MAPLE 计划（云端运行、欧美来源、日本新来源）。",
+      "acceptance": null
     }
   ]
 }
