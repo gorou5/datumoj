@@ -1,0 +1,50 @@
+[
+  {
+    "args": [
+      "crawl",
+      "jp-gov-web"
+    ],
+    "exit_code": 0,
+    "output": "来源：jp-gov-web\n新增 3，未变化 0，失败 0\n"
+  },
+  {
+    "args": [
+      "parse",
+      "jp-gov-web"
+    ],
+    "exit_code": 0,
+    "output": "解析完成：成功 3，跳过 0，无解析器 0\n"
+  },
+  {
+    "args": [
+      "index",
+      "--rebuild"
+    ],
+    "exit_code": 0,
+    "output": "索引重建完成：42 个块\n"
+  },
+  {
+    "args": [
+      "crawl",
+      "jp-gov-web"
+    ],
+    "exit_code": 0,
+    "output": "来源：jp-gov-web\n新增 0，未变化 3，失败 0\n"
+  },
+  {
+    "args": [
+      "parse",
+      "jp-gov-web"
+    ],
+    "exit_code": 0,
+    "output": "解析完成：成功 0，跳过 3，无解析器 0\n"
+  },
+  {
+    "args": [
+      "index",
+      "--rebuild"
+    ],
+    "exit_code": 0,
+    "output": "索引重建完成：42 个块\n"
+  }
+]

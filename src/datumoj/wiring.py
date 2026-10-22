@@ -9,7 +9,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from datumoj.core.contracts import ParseError, ParseResult, discover_parsers
+from datumoj.core.contracts import ParseError, ParseResult, Parser, discover_parsers
 from datumoj.core.storage import load_storage_config
 from datumoj.parsers.ckan_meta import CkanMetaParser
 from datumoj.store.catalog import SqliteCatalogStore
@@ -45,13 +45,35 @@ class _CkanPages(CkanMetaParser):
         return ParseResult(datasets=datasets, resources=resources, warnings=warnings)
 
 
+class _GovWebContent(Parser):
+    """网页附件共用分派入口；按正文选择已有实现，避免错误响应头选错解析器。"""
+
+    name = "gov-web-content"
+    version = "1"
+    source_kind = "gov_web"
+    content_type = "*"
+
+    def parse(self, snapshot, data, meta=None):
+        from datumoj.parsers.html_page import HtmlPageParser
+        from datumoj.parsers.pdf import PdfParser
+
+        parser = PdfParser() if data.lstrip().startswith(b"%PDF-") else HtmlPageParser()
+        return parser.parse(snapshot, data, meta)
+
+
+def _connected_parsers(*, skip_broken=False):
+    parsers = discover_parsers(skip_broken=skip_broken)
+    parsers[("ckan", "*")] = _CkanPages
+    for media in ("text/html", "application/pdf", "*"):
+        parsers[("gov_web", media)] = _GovWebContent
+    return parsers
+
+
 def _parse_pending(deps, source_id=None):
     from datumoj.pipeline import parse_pending
 
     if deps.parsers is None:
-        parsers = discover_parsers()
-        parsers[("ckan", "*")] = _CkanPages
-        deps = replace(deps, parsers=parsers)
+        deps = replace(deps, parsers=_connected_parsers())
     return parse_pending(deps, source_id)
 
 
@@ -221,7 +243,9 @@ def build(data_dir: str | Path | None = None, overrides: dict[str, Any] | None =
                 wiring.tools = tools_type(
                     retriever=wiring.retriever, catalog=wiring.catalog, observations=wiring.observations,
                     chunks=wiring.chunks, manifest=wiring.manifest, raw=wiring.raw, registry=wiring.registry,
-                    parsers=overrides.get("parsers"), data_dir=root,
+                    parsers=(_connected_parsers(skip_broken=True) if overrides.get("parsers") is None
+                             else overrides["parsers"]),
+                    data_dir=root,
                 )
 
     wiring.crawler_classes = overrides.get("crawlers", {})
