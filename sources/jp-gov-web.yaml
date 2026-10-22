@@ -30,5 +30,7 @@ scope:
   max_depth: 2
   max_pages_per_seed: 500
   follow_pdf: true
+  pdf_recheck_days: 7
+  head_probe: true
 # New sources are disabled by control.json defaults; switches do not belong in YAML.
 retention_note: 日次の限定巡回。raw は出典再現用の不変スナップショット。保存期限・削除方針は unknown。

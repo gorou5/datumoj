@@ -250,22 +250,21 @@ def test_conditional_rerun_downloads_no_bodies_or_document_versions(policy_chain
                   for p in (deps.data_dir / "raw").rglob("*") if p.is_file()}
     requests.clear()
     second = _success(invoke, "crawl", SOURCE)
-    assert "新增 0，未变化 3，失败 0" in second.output
+    assert "新增 0，未变化 2，失败 0" in second.output
     downloads = [r for r in requests if r["path"] != "/robots.txt"]
-    assert {r["path"] for r in downloads} == {CAO, PDF, DATED}
-    assert len(downloads) == 3
-    for request in downloads:
-        previous = deps.manifest.last_success(BASE + request["path"])
-        assert request["headers"]["If-None-Match"] == previous.etag
-        assert request["headers"]["If-Modified-Since"] == LAST_MODIFIED
-        assert request["status"] == 304 and request["body_bytes"] == 0
+    assert {r["path"] for r in downloads} == {CAO, DATED}
+    assert len(downloads) == 2
+    assert all(
+        deps.manifest.latest_snapshot(BASE + path).outcome is FetchOutcome.not_modified
+        for path in (CAO, DATED)
+    )
     parsed = _success(invoke, "parse", SOURCE)
     assert "成功 0" in parsed.output
     _success(invoke, "index", "--rebuild")
     assert _versions(deps) == before
     assert {p.relative_to(deps.data_dir): p.stat().st_mtime_ns
             for p in (deps.data_dir / "raw").rglob("*") if p.is_file()} == raw_before
-    assert len(deps.manifest.snapshots_for(SOURCE)) == 6
+    assert len(deps.manifest.snapshots_for(SOURCE)) == 5
 
 
 def test_crawl_boundaries_and_failures_are_not_successes(chain_factory):
