@@ -1,0 +1,158 @@
+{
+  "enabled": false,
+  "sources": [
+    {
+      "source_id": "jp-bodik",
+      "enabled": false,
+      "effective_enabled": false,
+      "schedule": "daily",
+      "last_run": null,
+      "next_due": "2026-10-22T12:00:00+00:00",
+      "running": false,
+      "alerts": []
+    },
+    {
+      "source_id": "jp-egov-data",
+      "enabled": false,
+      "effective_enabled": false,
+      "schedule": "daily",
+      "last_run": null,
+      "next_due": "2026-10-22T12:00:00+00:00",
+      "running": false,
+      "alerts": []
+    },
+    {
+      "source_id": "jp-egov-law",
+      "enabled": false,
+      "effective_enabled": false,
+      "schedule": "daily",
+      "last_run": null,
+      "next_due": "2026-10-22T12:00:00+00:00",
+      "running": false,
+      "alerts": []
+    },
+    {
+      "source_id": "jp-estat-files",
+      "enabled": false,
+      "effective_enabled": false,
+      "schedule": "monthly",
+      "last_run": null,
+      "next_due": "2026-10-22T12:00:00+00:00",
+      "running": false,
+      "alerts": []
+    },
+    {
+      "source_id": "jp-eval-fetchfail",
+      "enabled": false,
+      "effective_enabled": false,
+      "schedule": null,
+      "last_run": null,
+      "next_due": null,
+      "running": false,
+      "alerts": []
+    },
+    {
+      "source_id": "jp-eval-injection",
+      "enabled": false,
+      "effective_enabled": false,
+      "schedule": null,
+      "last_run": null,
+      "next_due": null,
+      "running": false,
+      "alerts": []
+    },
+    {
+      "source_id": "jp-eval-noingest",
+      "enabled": false,
+      "effective_enabled": false,
+      "schedule": null,
+      "last_run": null,
+      "next_due": null,
+      "running": false,
+      "alerts": []
+    },
+    {
+      "source_id": "jp-gov-web",
+      "enabled": false,
+      "effective_enabled": false,
+      "schedule": "daily",
+      "last_run": {
+        "source_id": "jp-gov-web",
+        "started_at": "2026-10-22T11:00:00+00:00",
+        "ended_at": "2026-10-22T11:00:00+00:00",
+        "status": "completed",
+        "exit_status": 1
+      },
+      "next_due": "2026-10-23T11:00:00+00:00",
+      "running": false,
+      "alerts": [
+        {
+          "source_id": "jp-gov-web",
+          "rule": "consecutive_failures",
+          "severity": "error",
+          "message": "最近 3 次运行均失败：来源不可用 1 次。",
+          "since": "2026-10-22T09:00:00Z",
+          "details": {
+            "recent_failure_summary": {
+              "counts_by_kind": {
+                "source_unavailable": 1
+              },
+              "retryability_by_kind": {
+                "source_unavailable": {
+                  "retryable": 0,
+                  "not_retryable": 1
+                }
+              }
+            },
+            "count": 3
+          }
+        }
+      ]
+    },
+    {
+      "source_id": "jp-jma",
+      "enabled": false,
+      "effective_enabled": false,
+      "schedule": "hourly",
+      "last_run": {
+        "source_id": "jp-jma",
+        "started_at": "2026-10-12T12:00:00+00:00",
+        "ended_at": "2026-10-12T12:00:00+00:00",
+        "status": "completed",
+        "exit_status": 0
+      },
+      "next_due": "2026-10-12T13:00:00+00:00",
+      "running": false,
+      "alerts": [
+        {
+          "source_id": "jp-jma",
+          "rule": "retention_gap",
+          "severity": "error",
+          "message": "短保留来源在 2026-10-12T12:00:00+00:00 至 2026-10-22T12:00:00+00:00 出现超过 6 小时缺口；缺口超过来源保留期后将无法补回。",
+          "since": "2026-10-12T12:00:00Z",
+          "details": {
+            "recent_failure_summary": {
+              "counts_by_kind": {},
+              "retryability_by_kind": {}
+            },
+            "gap_start": "2026-10-12T12:00:00+00:00",
+            "gap_end": "2026-10-22T12:00:00+00:00",
+            "duration_seconds": 864000,
+            "retention_note": "长期 feed 为约 7 天滑动窗口，轮询频率为每小时"
+          }
+        }
+      ]
+    },
+    {
+      "source_id": "jp-stat-dashboard",
+      "enabled": false,
+      "effective_enabled": false,
+      "schedule": "monthly",
+      "last_run": null,
+      "next_due": "2026-10-22T12:00:00+00:00",
+      "running": false,
+      "alerts": []
+    }
+  ],
+  "alert_count": 2
+}

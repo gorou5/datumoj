@@ -1,0 +1,62 @@
+[
+  {
+    "event_id": "daa0552f0dd6b5a6eb01d4abba797d8966b799b5ea95b386daaacb919558399f",
+    "source_id": "jp-estat-files",
+    "kind": "modified",
+    "doc_key": "jp-estat-files:000031721271",
+    "resource_url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031721271&fileKind=1",
+    "old_sha256": "bda4a4467ca86dd32b7d695005ac1d0d21b3459c8b890b3376bd04fc42bc1c13",
+    "new_sha256": "8af7011e8586cf59151b2605106c66c5752d8e00cb04b7f422c2fdb903d14983",
+    "detected_at": "2026-10-22T12:00:00Z",
+    "summary": "统计表快照内容变化",
+    "locator": null
+  },
+  {
+    "event_id": "05729942aaaa8a65386a10f64581869ada39ea0f0f79fd75550528ef7fc76455",
+    "source_id": "jp-gov-web",
+    "kind": "modified",
+    "doc_key": "jp-gov-web:page:708924680fc22468",
+    "resource_url": "https://example.invalid/policy/startup/detail-a.html",
+    "old_sha256": "8256883aa4b34016a8b0b34e163ced6e80469619810a79352f426fd593457c5b",
+    "new_sha256": "2ed3a82fbabb4b7938b9e3512b45294e2414061d1cf2f62f6a3e2f99fadcea01",
+    "detected_at": "2026-10-22T12:00:00Z",
+    "summary": "正文文字变化约 8.2%",
+    "locator": null
+  },
+  {
+    "event_id": "35de2642cb5291de3970c0b4d1ac4b59df22c20cd8303817d467b3e1a0e082e7",
+    "source_id": "jp-gov-web",
+    "kind": "added",
+    "doc_key": "jp-gov-web:page:4bb34dc427399c92",
+    "resource_url": "https://example.invalid/policy/startup/deeper/deep/detail-c.html",
+    "old_sha256": null,
+    "new_sha256": "493bd830100e7be9bad4c7136021cda7050418f3be76b8d37567144afee8e4de",
+    "detected_at": "2026-10-22T12:00:00Z",
+    "summary": "新增文档：記入例",
+    "locator": null
+  },
+  {
+    "event_id": "a485b8500c6940243a0604a6211f8e85880d9c98caff0cb53b51c9910bfdce1b",
+    "source_id": "jp-gov-web",
+    "kind": "fetch_failed",
+    "doc_key": null,
+    "resource_url": "https://example.invalid/policy/startup/deeper/detail-b.html",
+    "old_sha256": "040e41eb01ebe363e6fea4eb9ce530a7a7a5597f86255cab18ab6693c5cadd3c",
+    "new_sha256": null,
+    "detected_at": "2026-10-22T12:00:00Z",
+    "summary": "抓取失败 [source_unavailable]；快照 c1803a49c0ba44319c6ba8c5cf623d17：HTTP 410：https://example.invalid/policy/startup/deeper/detail-b.html",
+    "locator": null
+  },
+  {
+    "event_id": "bbcbd59137f0c5bc95d080d8a1f462cdc00a52d92c916e071fbbd2a209699b1a",
+    "source_id": "jp-gov-web",
+    "kind": "removed",
+    "doc_key": "jp-gov-web:page:704114b974875d3b",
+    "resource_url": "https://example.invalid/policy/startup/deeper/detail-b.html",
+    "old_sha256": "040e41eb01ebe363e6fea4eb9ce530a7a7a5597f86255cab18ab6693c5cadd3c",
+    "new_sha256": null,
+    "detected_at": "2026-10-22T12:00:00Z",
+    "summary": "文档已移除；HTTP 410；快照 c1803a49c0ba44319c6ba8c5cf623d17",
+    "locator": null
+  }
+]
