@@ -125,8 +125,8 @@ questions:
           locator_prefix: section=デジタル人材の確保・育成
     notes: 原表 tests/fixtures/gov_web/html/soumu/detail-2.html。URL は README 記載の https://www.soumu.go.jp/denshijiti/dejitarujinzai.html。解析器抽不到带标签的更新日，回答应说明 no_data_date，不得以抓取时间代替。
 
-  - id: gov-web-osaka-no-data-date-zh
-    question: 大阪市这项补助现在是否仍在受理？请给出页面可核实的日期；没有更新日期时明确说明。
+  - id: gov-web-osaka-page-date-zh
+    question: 大阪市这项补助现在是否仍在受理？请给出页面可核实的日期。
     lang: zh
     kind: retrieval
     queries:
@@ -137,7 +137,7 @@ questions:
       hits:
         - doc_key: jp-gov-web:page:3e4ec695d698c3f8
           locator_prefix: section=先駆的金融市場等形成支援事業補助金について
-    notes: 原表 tests/fixtures/gov_web/html/osaka-city/detail-1.html。URL は README 記載の https://www.city.osaka.lg.jp/keizaisenryaku/page/0000685899.html。正文有未标注为更新日的日期，但解析器不给 published_at；回答应说明 no_data_date，不能据此判断现在仍受理。
+    notes: 原表 tests/fixtures/gov_web/html/osaka-city/detail-1.html。URL は README 記載の https://www.city.osaka.lg.jp/keizaisenryaku/page/0000685899.html。页面日期块（page_day01）为 2026年8月26日，解析器（DATUMOJ-TACHIBANA-207）取为 published_at=2026-08-26；回答应带上这个数据日期，但页面日期不等于受理期限，不能据此判断现在仍受理。
 
   - id: gov-web-startup-cross-site-zh
     question: 比较内阁府的创业生态系统支持与大阪市这项补助，各自支持什么对象或活动？

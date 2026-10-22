@@ -93,7 +93,7 @@ GOV_WEB_FIXTURES = {
             "html",
         ),
     ],
-    "gov-web-osaka-no-data-date-zh": [
+    "gov-web-osaka-page-date-zh": [
         (
             "gov_web/html/osaka-city/detail-1.html",
             "https://www.city.osaka.lg.jp/keizaisenryaku/page/0000685899.html",
@@ -219,7 +219,9 @@ def test_expected_gov_web_and_injection_hits_match_201_202_parser_output():
 
         if question_id == "gov-web-synthetic-latest-ja":
             assert document.published_at == date(2025, 4, 1)
-        if question_id in {"gov-web-soumu-no-data-date-en", "gov-web-osaka-no-data-date-zh"}:
+        if question_id == "gov-web-osaka-page-date-zh":
+            assert document.published_at == date(2026, 8, 26)
+        if question_id == "gov-web-soumu-no-data-date-en":
             assert document.published_at is None
 
 
