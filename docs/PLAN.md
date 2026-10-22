@@ -290,7 +290,7 @@ datumoj/
 |---|---|---|---|
 | **0.1** | **IVY（蔦）** | 契约 → 法令链路 → 目录与统计 → AI 分析入口（第一阶段） | **已完成**（2026-10-21，tag `v0.1.0-ivy`），48 个任务，验收见 `docs/acceptance/` |
 | 0.2 | **TACHIBANA（橘）** | 日本扩面与持续运营：省厅和自治体政策网页与 PDF、BODIK、抓取监控、每周变化报告、存储适配层（为网络存储做准备）、注册层描述导出，并补上 IVY 遗留的检索缺口。KKJ 采购公告移出本版本（2026-10-22） | **开发完成**，已合并进 `main`（#15，2026-10-22），检查点 m1 已打 tag；H4 真实问答验收待做。计划见 `docs/plans/0.2-tachibana.md` |
-| 0.3 | 待定（候选：楓 Maple） | 欧美：data.europa.eu、Eurostat、英德法荷门户、Federal Register；从 0.2 移来（2026-10-22）：在 GitHub Actions 上运行抓取（raw 和索引上 R2、可从 R2 重建、按来源设同步频率，即 ADR 0002 的实现），以及新来源一周试运行观察（原 0.2 H3） | 之后 |
+| 0.3 | **MAPLE（楓）** | 云端运行（GitHub Actions 定时抓取，raw 和索引上 R2、可从 R2 重建、按来源设频率，即 ADR 0002 的实现；一周试运行）；欧美来源（data.europa.eu、Eurostat、英德法荷门户、Federal Register、世界银行 WDI）；日本新来源（e-Stat API、国土数值信息、2024 经济普查、医疗开放数据、ABR 地址） | 计划见 `docs/plans/0.3-maple.md` |
 
 其他候选代号：片喰 Katabami、柏 Oak、桐 Paulownia、藤 Wisteria、葵 Aoi、桔梗 Bellflower、菊 Chrysanthemum。
 
