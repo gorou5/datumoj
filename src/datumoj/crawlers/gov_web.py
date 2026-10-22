@@ -173,9 +173,15 @@ class GovWebCrawler(Crawler):
         base = normalize_url(result.final_url or task.url)
         if base is None or urlsplit(base).hostname not in self._hosts or not urlsplit(base).path.startswith(prefix):
             return ()
+        link_base = base
+        base_elements = page.xpath("//base[@href]")
+        if base_elements:
+            declared_base = normalize_url(base_elements[0].get("href", ""), base)
+            if declared_base is not None:
+                link_base = declared_base
         tasks = []
         for link in page.xpath("//a[@href] | //area[@href]"):
-            url = normalize_url(link.get("href", ""), base)
+            url = normalize_url(link.get("href", ""), link_base)
             if url is None or url in self._seen:
                 continue
             parts = urlsplit(url)
