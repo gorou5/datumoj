@@ -25,7 +25,7 @@ INSERT OR IGNORE INTO government_number (number, agency_id, number_kind, label, 
 INSERT INTO government_agency (id, name, name_short, kind, url) VALUES (12,'国土交通省','国土交通省','省',NULL);
 INSERT OR IGNORE INTO government_number (number, agency_id, number_kind, label, source_url, verified_on) VALUES ('0352538111',12,'代表','国土交通省公式サイト各ページに Tel: +81-3-5253-8111 と掲載','https://www.mlit.go.jp/chotatsu/shikakushinsa/html/1/1-05.html','2026-10-22');
 INSERT INTO government_agency (id, name, name_short, kind, url) VALUES (13,'気象庁','気象庁','庁',NULL);
-INSERT OR IGNORE INTO government_number (number, agency_id, number_kind, label, source_url, verified_on) VALUES ('0367583900',13,'代表','国土交通省「一元受付機関問い合わせ先一覧」に気象庁（港区虎ノ門3-6-9・総務部）の連絡先として掲載。旧大手町庁舎時代の番号とは異なる現行番号','https://www.mlit.go.jp/chotatsu/shikakushinsa/html/1/1-05.html','2026-10-22');
+INSERT OR IGNORE INTO government_number (number, agency_id, number_kind, label, source_url, verified_on) VALUES ('0367583900',13,'代表','気象庁公式サイト「気象庁へのアクセス」に代表電話として掲載（港区虎ノ門3-6-9）。旧大手町庁舎時代の番号とは異なる現行番号','https://www.jma.go.jp/jma/about/access/index.html','2026-10-22');
 INSERT INTO government_agency (id, name, name_short, kind, url) VALUES (14,'海上保安庁','海上保安庁','庁',NULL);
 INSERT OR IGNORE INTO government_number (number, agency_id, number_kind, label, source_url, verified_on) VALUES ('0335916361',14,'代表','電話番号 03-3591-6361（代表）','https://www1.kaiho.mlit.go.jp/copyright.html','2026-10-22');
 INSERT INTO government_agency (id, name, name_short, kind, url) VALUES (15,'環境省','環境省','省',NULL);
@@ -53,3 +53,14 @@ INSERT OR IGNORE INTO government_number (number, agency_id, number_kind, label, 
 INSERT OR IGNORE INTO government_number (number, agency_id, number_kind, label, source_url, verified_on) VALUES ('0364579680',25,'その他','Phone: +81-3-6457-9680','https://www.ppc.go.jp/en/contactus/piinquiry/','2026-10-22');
 INSERT INTO government_agency (id, name, name_short, kind, url) VALUES (26,'国立国会図書館','国立国会図書館','図書館',NULL);
 INSERT OR IGNORE INTO government_number (number, agency_id, number_kind, label, source_url, verified_on) VALUES ('0335812331',26,'代表','電話: 03-3581-2331（代表）','https://www.ndl.go.jp/koukai/seido','2026-10-22');
+INSERT INTO government_agency (id, name, name_short, kind, url) VALUES (27,'宮内庁','宮内庁','庁',NULL);
+INSERT OR IGNORE INTO government_number (number, agency_id, number_kind, label, source_url, verified_on) VALUES ('0332131111',27,'代表','宮内庁公式サイト アクセスページに代表電話として掲載','https://www.kunaicho.go.jp/about/access/access.html','2026-10-22');
+INSERT INTO government_agency (id, name, name_short, kind, url) VALUES (28,'こども家庭庁','こども家庭庁','庁',NULL);
+INSERT OR IGNORE INTO government_number (number, agency_id, number_kind, label, source_url, verified_on) VALUES ('0367718000',28,'代表','こども家庭庁公式サイトに代表電話として掲載','https://www.cfa.go.jp/about/access','2026-10-22');
+INSERT INTO government_agency (id, name, name_short, kind, url) VALUES (29,'会計検査院','会計検査院','院',NULL);
+INSERT OR IGNORE INTO government_number (number, agency_id, number_kind, label, source_url, verified_on) VALUES ('0335813251',29,'代表','会計検査院公式サイト 所在地ページに代表電話として掲載','https://www.jbaudit.go.jp/about/access.html','2026-10-22');
+INSERT INTO government_agency (id, name, name_short, kind, url) VALUES (30,'最高裁判所','最高裁判所','その他',NULL);
+INSERT OR IGNORE INTO government_number (number, agency_id, number_kind, label, source_url, verified_on) VALUES ('0332648111',30,'代表','裁判所公式サイト 最高裁判所案内に代表電話として掲載','https://www.courts.go.jp/about/access/saibansho/saikousai.html','2026-10-22');
+INSERT OR IGNORE INTO government_number (number, agency_id, number_kind, label, source_url, verified_on) VALUES ('0335813371',24,'代表','公正取引委員会公式サイト お問い合わせページに代表電話として掲載','https://www.jftc.go.jp/soshiki/annai/toiawase.html','2026-10-22');
+INSERT OR IGNORE INTO government_number (number, agency_id, number_kind, label, source_url, verified_on) VALUES ('0363281170',23,'代表','復興庁公式サイト「復興庁の組織と所在地」に代表電話として掲載','https://www.reconstruction.go.jp/about/soshiki.html','2026-10-22');
+INSERT OR IGNORE INTO government_number (number, agency_id, number_kind, label, source_url, verified_on) VALUES ('0570016811',20,'相談窓口','金融サービス利用者相談室（金融庁公式サイトに掲載）','https://www.fsa.go.jp/receipt/soudan/index.html','2026-10-22');
