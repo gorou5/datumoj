@@ -6,15 +6,18 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 from datumoj.core.contracts import (
     NO_PARSER,
     CatalogFilter,
     CatalogStore,
+    ChangeLog,
     ChunkStore,
     ContentState,
     KeywordIndex,
@@ -31,10 +34,14 @@ from datumoj.core.contracts import (
     max_state,
     select_parser,
 )
-from datumoj.core.models import FetchOutcome, Observation, Snapshot
+from datumoj.changes import detect
+from datumoj.core.models import (
+    ChangeEvent, ChangeKind, FetchOutcome, Observation, Snapshot, classify_failure, classify_parse_failure,
+)
 
 _BATCH = 500
 _NO_PARSER_VERSION = "-"
+_LOG = logging.getLogger(__name__)
 
 
 @dataclass
@@ -53,6 +60,7 @@ class PipelineDeps:
     """向量暂缺状态文件；None 时状态仅保存在本 deps 实例中（便于测试和嵌入调用）。"""
     vector_state: dict[str, object] = field(default_factory=lambda: {"missing": {}, "last_error": None}, repr=False)
     vector_state_dirty: bool = field(default=False, repr=False)
+    change_log: ChangeLog | None = None
 
 
 @dataclass
@@ -82,7 +90,8 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
             raise ValueError(f"注册表里没有来源 {source_id!r}")
     summary = ParseSummary()
     for spec in specs:
-        for snap in deps.manifest.snapshots_for(spec.id):
+        snapshots = deps.manifest.snapshots_for(spec.id)
+        for snap in snapshots:
             if snap.outcome is not FetchOutcome.ok or snap.sha256 is None:
                 continue
             cls = select_parser(parsers, spec.kind, snap.content_type)
@@ -109,6 +118,7 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
                     sha256=snap.sha256, parser=cls.name, version=cls.version, status=ParseStatus.failed, error=reason,
                 ))
                 summary.failed[snap.snapshot_id] = reason
+                _record_parse_failure(deps, snap, reason)
             else:
                 deps.manifest.record_parse(
                     ParseRecord(sha256=snap.sha256, parser=cls.name, version=cls.version, status=ParseStatus.ok)
@@ -117,7 +127,67 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
                 (summary.retried if is_retry else summary.newly_parsed).append(snap.snapshot_id)
                 if vector_errors:
                     summary.vectors_missing[snap.snapshot_id] = "; ".join(vector_errors)
+        if deps.change_log is not None:
+            try:
+                _record_fetch_changes(deps, snapshots)
+            except Exception:
+                _LOG.warning("抓取变化检测失败：%s", spec.id, exc_info=True)
     return summary
+
+
+def _record_parse_failure(deps: PipelineDeps, snap: Snapshot, reason: str) -> None:
+    if deps.change_log is None:
+        return
+    try:
+        deps.change_log.append([ChangeEvent.make(
+            source_id=snap.source_id, kind=ChangeKind.parse_failed, resource_url=snap.resource_url,
+            new_sha256=snap.sha256, detected_at=datetime.now(UTC),
+            summary=" ".join(f"解析失败 [{classify_parse_failure().kind.value}]；快照 {snap.snapshot_id}：{reason}".split()),
+        )])
+    except Exception:
+        _LOG.warning("解析失败事件写入失败：%s", snap.snapshot_id, exc_info=True)
+
+
+def _record_fetch_changes(deps: PipelineDeps, snapshots: list[Snapshot]) -> None:
+    latest = {s.resource_url: s for s in snapshots}
+    for url, snap in latest.items():
+        failure = classify_failure(snap.outcome, snap.http_status)
+        if failure is None:
+            continue
+        successful = [s for s in snapshots if s.resource_url == url and s.outcome is FetchOutcome.ok]
+        old_sha = successful[-1].sha256 if successful else None
+        summary = " ".join(
+            f"抓取失败 [{failure.kind.value}]；快照 {snap.snapshot_id}：{snap.error or snap.outcome.value}".split()
+        )
+        events = [ChangeEvent.make(
+            source_id=snap.source_id, kind=ChangeKind.fetch_failed, resource_url=url,
+            old_sha256=old_sha, detected_at=datetime.now(UTC), summary=summary,
+        )]
+        if successful and snap.outcome is FetchOutcome.http_error and snap.http_status in (404, 410):
+            hashes = {s.sha256 for s in successful}
+            # 日志的 URL 关联也能找到没有检索块的文档；旧资料由当前块的快照引用关联。
+            history = deps.change_log.list(source_ids=[snap.source_id], limit=2**63 - 1)
+            urls_by_doc = defaultdict(set)
+            keys = set()
+            for event in history:
+                if event.doc_key and event.resource_url and event.kind in (ChangeKind.added, ChangeKind.modified):
+                    urls_by_doc[event.doc_key].add(event.resource_url)
+                    if event.resource_url == url:
+                        keys.add(event.doc_key)
+            for chunk in deps.chunks.iter_chunks([snap.source_id]):
+                if chunk.snapshot_sha256 in hashes and (
+                    not urls_by_doc[chunk.doc_key] or url in urls_by_doc[chunk.doc_key]
+                ):
+                    keys.add(chunk.doc_key)
+            for key in sorted(keys):
+                doc = deps.chunks.get_document(key)
+                if doc is not None and doc.snapshot_sha256 in hashes:
+                    events.append(ChangeEvent.make(
+                        source_id=snap.source_id, kind=ChangeKind.removed, doc_key=key, resource_url=url,
+                        old_sha256=doc.snapshot_sha256, detected_at=datetime.now(UTC),
+                        summary=" ".join(f"文档已移除；HTTP {snap.http_status}；快照 {snap.snapshot_id}".split()),
+                    ))
+        deps.change_log.append(events)
 
 
 def _process(deps: PipelineDeps, parser: Parser, snap: Snapshot) -> list[str]:
@@ -126,7 +196,7 @@ def _process(deps: PipelineDeps, parser: Parser, snap: Snapshot) -> list[str]:
     meta = deps.manifest.snapshot_meta(snap.snapshot_id)
     result = parser.parse(snap, data, meta)
     result.check_against(snap)
-    vector_errors = _dispatch(deps, result, snap.snapshot_id)
+    vector_errors = _dispatch(deps, result, snap)
     state = ContentState.observations_loaded if result.observations else ContentState.content_fetched
     dataset_keys = {resource.dataset_key for resource in result.resources if resource.url == snap.resource_url}
     dataset_id = meta.get("dataset_id")
@@ -140,7 +210,7 @@ def _process(deps: PipelineDeps, parser: Parser, snap: Snapshot) -> list[str]:
     return vector_errors
 
 
-def _dispatch(deps: PipelineDeps, result: ParseResult, snapshot_id: str) -> list[str]:
+def _dispatch(deps: PipelineDeps, result: ParseResult, snap: Snapshot) -> list[str]:
     vector_errors: list[str] = []
     if result.datasets or result.resources:
         deps.catalog.upsert(result.datasets, result.resources)
@@ -154,11 +224,32 @@ def _dispatch(deps: PipelineDeps, result: ParseResult, snapshot_id: str) -> list
         by_doc[c.doc_key].append(c)
     for doc in result.documents:
         chunks = by_doc[doc.doc_key]
+        compare = deps.change_log is not None
+        old_doc, old_text = None, ""
+        if compare:
+            try:
+                # 重试或解析器升级可能重放旧快照；已写过的版本不生成反向变化。
+                compare = deps.chunks.get_document(doc.doc_key, doc.snapshot_sha256) is None
+                if compare:
+                    old_doc = deps.chunks.get_document(doc.doc_key)
+                    old_text = "\n".join(c.text for c in deps.chunks.chunks_for(doc.doc_key))
+            except Exception:
+                compare = False
+                _LOG.warning("读取旧文档供变化检测失败：%s", doc.doc_key, exc_info=True)
         deps.chunks.put_document(doc, chunks)
+        if compare:
+            try:
+                event = detect(old_doc, old_text, doc, "\n".join(c.text for c in chunks), detected_at=datetime.now(UTC))
+                if event is not None:
+                    deps.change_log.append([ChangeEvent.make(
+                        **event.model_dump(exclude={"event_id", "resource_url"}), resource_url=snap.resource_url,
+                    )])
+            except Exception:
+                _LOG.warning("文档变化检测失败：%s", doc.doc_key, exc_info=True)
         deps.keyword.delete(doc.doc_key)
         deps.keyword.add(chunks)
         if deps.vectors is not None:
-            error = _write_vector_document(deps, doc.doc_key, chunks, snapshot_id)
+            error = _write_vector_document(deps, doc.doc_key, chunks, snap.snapshot_id)
             if error:
                 vector_errors.append(error)
     tables: dict[tuple[str, str], list[Observation]] = defaultdict(list)

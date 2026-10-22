@@ -1,0 +1,7 @@
+$ make check T=tests/store/test_changes.py
+make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
+.................                                                        [100%]
+17 passed in 0.42s
+
+exit_code=0
+

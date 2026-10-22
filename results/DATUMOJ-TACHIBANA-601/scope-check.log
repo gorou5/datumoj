@@ -1,0 +1,6 @@
+$ git diff --check
+exit_code=0
+仅修改任务 scope 的源文件、测试和 results/DATUMOJ-TACHIBANA-601/ 证据。
+Python 断言核对 git ls-files 与任务 scope、changed-files.txt：
+Scope verified: 15 changed files, all allowed; changed-files.txt is complete.
+exit_code=0
