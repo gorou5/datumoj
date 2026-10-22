@@ -9,7 +9,7 @@ import {
   listGovAgencies, listGovNumbers, govNumbersByAgency,
 } from './lib/compose.js';
 import {
-  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage,
+  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage,
 } from './lib/render.js';
 
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
@@ -32,6 +32,9 @@ export default {
       }
       if (path === '/about') {
         return html(aboutPage(await listTpSources(db)));
+      }
+      if (path === '/history') {
+        return html(historyPage());
       }
       if (path === '/gov') {
         const [agencies, numbers] = await Promise.all([listGovAgencies(db), govNumbersByAgency(db)]);
@@ -56,6 +59,7 @@ export default {
         const urls = [
           'https://tel.datumoj.com/',
           'https://tel.datumoj.com/about',
+          'https://tel.datumoj.com/history',
           'https://tel.datumoj.com/gov',
           ...types.map((t) => `https://tel.datumoj.com/type/${t.code}`),
           ...prefs.map((p) => `https://tel.datumoj.com/pref/${encodeURIComponent(p)}`),

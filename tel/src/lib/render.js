@@ -36,6 +36,8 @@ th{width:11rem;color:#555;font-weight:600}
 .searchbox input{flex:1;font-size:1.1rem;padding:.6rem;border:1px solid #bbb;border-radius:8px}
 .searchbox button{font-size:1.05rem;padding:.6rem 1.1rem;border-radius:8px;border:1px solid #0b57d0;background:#0b57d0;color:#fff;cursor:pointer}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.4rem .8rem}
+.fig-link{display:block;border-radius:18px}
+.fig-link:hover svg{box-shadow:0 4px 22px rgba(70,60,30,.13)}
 .home{max-width:940px;margin:5vh auto 0;text-align:center}
 .home svg{width:100%;height:auto;display:block}
 .bigsearch{display:flex;gap:.5rem;max-width:620px;margin:26px auto 0}
@@ -81,111 +83,120 @@ function searchForm(value = '') {
 }
 
 // Complete structural deconstruction of Japanese phone numbers, drawn as one
-// inline SVG (no client JS, no image request). Calm low-saturation palette:
-// pale blue = band / area segment, pale sage = middle segment, pale sand =
-// subscriber segment, pale rose = toll-free band.
+// inline SVG (no client JS, no image request). Organized BY DIGIT COUNT so the
+// "how many digits" question is answered at a glance: 10 digits = fixed line
+// and business/service numbers; 11 digits = mobile and IP; exceptions last.
+// Calm low-saturation palette: pale blue = band / area segment, pale sage =
+// middle segment, pale sand = subscriber segment, pale rose = toll-free band.
 const STRUCTURE_SVG = `
-<svg viewBox="0 0 960 690" role="img" aria-label="日本の電話番号の構造図" xmlns="http://www.w3.org/2000/svg">
-<rect x="1" y="1" width="958" height="688" rx="18" fill="#fdfcf8" stroke="#e7e1d2"/>
-<text x="36" y="46" font-size="21" font-weight="700" fill="#33424f">日本の電話番号の構造</text>
-<text x="36" y="70" font-size="12.5" fill="#71808d">先頭の「0」は国内専用の印（トランク）。海外からかける国際表記では「+81」に置き換わります。</text>
+<svg viewBox="0 0 960 806" role="img" aria-label="日本の電話番号の構造図" xmlns="http://www.w3.org/2000/svg">
+<rect x="1" y="1" width="958" height="804" rx="18" fill="#fdfcf8" stroke="#e7e1d2"/>
+<text x="36" y="46" font-size="21" font-weight="700" fill="#33424f">日本の電話番号は、基本「10桁」か「11桁」</text>
+<text x="36" y="70" font-size="12.5" fill="#71808d">覚え方：家・お店に固定された電話は10桁、持ち歩く電話は11桁。先頭の「0」は国内専用の印で、国際表記では「+81」になります。</text>
 <text x="924" y="46" font-size="12" fill="#a3aeb8" text-anchor="end">tel.datumoj.com</text>
 
-<text x="36" y="112" font-size="13.5" font-weight="700" fill="#33424f">固定電話</text>
-<text x="36" y="132" font-size="11.5" fill="#71808d">10桁</text>
+<rect x="24" y="88" width="912" height="40" rx="10" fill="#e8eff4"/>
+<rect x="36" y="96" width="86" height="24" rx="12" fill="#6f97b3"/>
+<text x="79" y="113" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">10桁</text>
+<text x="138" y="114" font-size="13.5" font-weight="700" fill="#33424f">固定電話と、企業・相談窓口の番号</text>
+
+<text x="36" y="166" font-size="13.5" font-weight="700" fill="#33424f">固定電話</text>
 <g font-size="16.5" font-weight="600" fill="#33424f" text-anchor="middle">
-<rect x="112" y="92" width="92" height="38" rx="8" fill="#b9cfdf"/><text x="158" y="117">03</text>
-<rect x="212" y="92" width="150" height="38" rx="8" fill="#c3d4b8"/><text x="287" y="117">XXXX</text>
-<rect x="370" y="92" width="150" height="38" rx="8" fill="#ecd9ac"/><text x="445" y="117">XXXX</text>
-<rect x="112" y="152" width="150" height="38" rx="8" fill="#b9cfdf"/><text x="187" y="177">01372</text>
-<rect x="270" y="152" width="56" height="38" rx="8" fill="#c3d4b8"/><text x="298" y="177">X</text>
-<rect x="334" y="152" width="150" height="38" rx="8" fill="#ecd9ac"/><text x="409" y="177">XXXX</text>
+<rect x="112" y="146" width="92" height="38" rx="8" fill="#b9cfdf"/><text x="158" y="171">03</text>
+<rect x="212" y="146" width="150" height="38" rx="8" fill="#c3d4b8"/><text x="287" y="171">XXXX</text>
+<rect x="370" y="146" width="150" height="38" rx="8" fill="#ecd9ac"/><text x="445" y="171">XXXX</text>
+<rect x="112" y="206" width="150" height="38" rx="8" fill="#b9cfdf"/><text x="187" y="231">01372</text>
+<rect x="270" y="206" width="56" height="38" rx="8" fill="#c3d4b8"/><text x="298" y="231">X</text>
+<rect x="334" y="206" width="150" height="38" rx="8" fill="#ecd9ac"/><text x="409" y="231">XXXX</text>
 </g>
 <g font-size="11" fill="#71808d" text-anchor="middle">
-<text x="158" y="145">市外局番（東京）</text><text x="287" y="145">市内局番</text><text x="445" y="145">加入者番号</text>
-<text x="187" y="205">市外局番（北海道・鹿部）</text><text x="298" y="205">市内局番</text><text x="409" y="205">加入者番号</text>
+<text x="158" y="199">市外局番（東京）</text><text x="287" y="199">市内局番</text><text x="445" y="199">加入者番号</text>
+<text x="187" y="259">市外局番（北海道・鹿部）</text><text x="298" y="259">市内局番</text><text x="409" y="259">加入者番号</text>
 </g>
-<text x="548" y="112" font-size="12" fill="#71808d">市外局番は2〜5桁。長いほど市内局番は短く、</text>
-<text x="548" y="132" font-size="12" fill="#71808d">合計は常に10桁です（0AB〜J方式）。</text>
-<text x="548" y="168" font-size="12" fill="#71808d">市外局番が地域（単位料金区域＝MA）を決めます。</text>
+<text x="548" y="166" font-size="12" fill="#71808d">市外局番は2〜5桁。長いほど市内局番は短く、</text>
+<text x="548" y="186" font-size="12" fill="#71808d">合計は常に10桁です（0AB〜J方式）。</text>
+<text x="548" y="224" font-size="12" fill="#71808d">市外局番が地域（単位料金区域＝MA）を決めます。</text>
 
-<text x="36" y="252" font-size="13.5" font-weight="700" fill="#33424f">携帯電話</text>
-<text x="36" y="272" font-size="11.5" fill="#71808d">11桁</text>
+<text x="36" y="306" font-size="13.5" font-weight="700" fill="#33424f">企業・窓口</text>
 <g font-size="16.5" font-weight="600" fill="#33424f" text-anchor="middle">
-<rect x="112" y="232" width="92" height="38" rx="8" fill="#b9cfdf"/><text x="158" y="257">090</text>
-<rect x="212" y="232" width="150" height="38" rx="8" fill="#c3d4b8"/><text x="287" y="257">XXXX</text>
-<rect x="370" y="232" width="150" height="38" rx="8" fill="#ecd9ac"/><text x="445" y="257">XXXX</text>
+<rect x="112" y="286" width="110" height="38" rx="8" fill="#e3c3c8"/><text x="167" y="311">0120</text>
+<rect x="230" y="286" width="110" height="38" rx="8" fill="#ecd9ac"/><text x="285" y="311">XXX</text>
+<rect x="348" y="286" width="110" height="38" rx="8" fill="#ecd9ac"/><text x="403" y="311">XXX</text>
+<rect x="486" y="286" width="110" height="38" rx="8" fill="#b9cfdf"/><text x="541" y="311">0570</text>
+<rect x="604" y="286" width="110" height="38" rx="8" fill="#ecd9ac"/><text x="659" y="311">XXX</text>
+<rect x="722" y="286" width="110" height="38" rx="8" fill="#ecd9ac"/><text x="777" y="311">XXX</text>
 </g>
 <g font-size="11" fill="#71808d" text-anchor="middle">
-<text x="158" y="285">番号帯</text><text x="287" y="285">加入者番号</text><text x="445" y="285">加入者番号</text>
+<text x="285" y="339">フリーダイヤル（通話料は着信側負担）</text><text x="659" y="339">ナビダイヤル（全国共通・最寄りの窓口へ）</text>
 </g>
-<text x="548" y="252" font-size="12" fill="#71808d">番号帯は 070 / 080 / 090（060 は 2024 年指定・開始延期中）。</text>
-<text x="548" y="272" font-size="12" fill="#71808d">番号ポータビリティで事業者は移るため、帯域から現在の事業者は特定できません。</text>
 
-<text x="36" y="330" font-size="13.5" font-weight="700" fill="#33424f">IP電話</text>
-<text x="36" y="350" font-size="11.5" fill="#71808d">11桁</text>
+<rect x="24" y="360" width="912" height="40" rx="10" fill="#ebf0e6"/>
+<rect x="36" y="368" width="86" height="24" rx="12" fill="#7d9b76"/>
+<text x="79" y="385" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">11桁</text>
+<text x="138" y="386" font-size="13.5" font-weight="700" fill="#33424f">携帯電話とIP電話（持ち歩く・回線に縛られない番号）</text>
+
+<text x="36" y="438" font-size="13.5" font-weight="700" fill="#33424f">携帯電話</text>
 <g font-size="16.5" font-weight="600" fill="#33424f" text-anchor="middle">
-<rect x="112" y="310" width="92" height="38" rx="8" fill="#b9cfdf"/><text x="158" y="335">050</text>
-<rect x="212" y="310" width="150" height="38" rx="8" fill="#c3d4b8"/><text x="287" y="335">XXXX</text>
-<rect x="370" y="310" width="150" height="38" rx="8" fill="#ecd9ac"/><text x="445" y="335">XXXX</text>
+<rect x="112" y="418" width="92" height="38" rx="8" fill="#b9cfdf"/><text x="158" y="443">090</text>
+<rect x="212" y="418" width="150" height="38" rx="8" fill="#c3d4b8"/><text x="287" y="443">XXXX</text>
+<rect x="370" y="418" width="150" height="38" rx="8" fill="#ecd9ac"/><text x="445" y="443">XXXX</text>
 </g>
 <g font-size="11" fill="#71808d" text-anchor="middle">
-<text x="158" y="363">050番号帯</text><text x="287" y="363">加入者番号</text><text x="445" y="363">加入者番号</text>
+<text x="158" y="471">番号帯</text><text x="287" y="471">加入者番号</text><text x="445" y="471">加入者番号</text>
 </g>
-<text x="548" y="330" font-size="12" fill="#71808d">インターネット回線の電話。地域に紐づかない全国共通の番号帯です。</text>
+<text x="548" y="438" font-size="12" fill="#71808d">番号帯は 070 / 080 / 090（060 は 2024 年指定・開始予定）。</text>
+<text x="548" y="458" font-size="12" fill="#71808d">1999年に10桁から11桁化され、容量が大きく増えました。</text>
 
-<text x="36" y="408" font-size="13.5" font-weight="700" fill="#33424f">フリー</text>
-<text x="36" y="428" font-size="11.5" fill="#71808d">10 / 11桁</text>
+<text x="36" y="518" font-size="13.5" font-weight="700" fill="#33424f">IP電話ほか</text>
 <g font-size="16.5" font-weight="600" fill="#33424f" text-anchor="middle">
-<rect x="112" y="388" width="110" height="38" rx="8" fill="#e3c3c8"/><text x="167" y="413">0120</text>
-<rect x="230" y="388" width="110" height="38" rx="8" fill="#ecd9ac"/><text x="285" y="413">XXX</text>
-<rect x="348" y="388" width="110" height="38" rx="8" fill="#ecd9ac"/><text x="403" y="413">XXX</text>
-<rect x="486" y="388" width="110" height="38" rx="8" fill="#e3c3c8"/><text x="541" y="413">0800</text>
-<rect x="604" y="388" width="110" height="38" rx="8" fill="#ecd9ac"/><text x="659" y="413">XXX</text>
-<rect x="722" y="388" width="110" height="38" rx="8" fill="#ecd9ac"/><text x="777" y="413">XXXX</text>
+<rect x="112" y="498" width="92" height="38" rx="8" fill="#b9cfdf"/><text x="158" y="523">050</text>
+<rect x="212" y="498" width="150" height="38" rx="8" fill="#c3d4b8"/><text x="287" y="523">XXXX</text>
+<rect x="370" y="498" width="150" height="38" rx="8" fill="#ecd9ac"/><text x="445" y="523">XXXX</text>
+<rect x="548" y="498" width="110" height="38" rx="8" fill="#e3c3c8"/><text x="603" y="523">0800</text>
+<rect x="666" y="498" width="110" height="38" rx="8" fill="#ecd9ac"/><text x="721" y="523">XXX</text>
+<rect x="784" y="498" width="110" height="38" rx="8" fill="#ecd9ac"/><text x="839" y="523">XXXX</text>
 </g>
 <g font-size="11" fill="#71808d" text-anchor="middle">
-<text x="285" y="441">フリーダイヤル（10桁）</text><text x="659" y="441">フリーコール（11桁）</text>
+<text x="287" y="551">050 IP電話（地域に縛られない）</text><text x="721" y="551">0800 フリーコール（11桁のフリーダイヤル）</text>
 </g>
-<text x="36" y="470" font-size="12" fill="#71808d">通話料は着信側（企業など）が負担します。0570 のナビダイヤル（10桁）は全国共通番号で、発信地に応じて最寄りの窓口につながります。</text>
 
-<text x="36" y="512" font-size="13.5" font-weight="700" fill="#33424f">M2M専用</text>
-<text x="36" y="532" font-size="11.5" fill="#71808d">12〜14桁</text>
+<rect x="24" y="572" width="912" height="40" rx="10" fill="#f0ede4"/>
+<rect x="36" y="580" width="86" height="24" rx="12" fill="#9aa5ad"/>
+<text x="79" y="597" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">例外</text>
+<text x="138" y="598" font-size="13.5" font-weight="700" fill="#33424f">桁数が違う特殊な番号</text>
+
+<text x="36" y="650" font-size="13.5" font-weight="700" fill="#33424f">M2M専用</text>
 <g font-size="16.5" font-weight="600" fill="#33424f" text-anchor="middle">
-<rect x="112" y="492" width="92" height="38" rx="8" fill="#b9cfdf"/><text x="158" y="517">020</text>
-<rect x="212" y="492" width="308" height="38" rx="8" fill="#ecd9ac"/><text x="366" y="517">XXXX XXXX X</text>
+<rect x="112" y="630" width="92" height="38" rx="8" fill="#b9cfdf"/><text x="158" y="655">020</text>
+<rect x="212" y="630" width="308" height="38" rx="8" fill="#ecd9ac"/><text x="366" y="655">XXXX XXXX X</text>
 </g>
 <g font-size="11" fill="#71808d" text-anchor="middle">
-<text x="158" y="545">020番号帯</text><text x="366" y="545">機器ごとの識別番号</text>
+<text x="366" y="683">12〜14桁：IoT機器など「モノ」の識別番号（音声通話用ではありません）</text>
 </g>
-<text x="548" y="512" font-size="12" fill="#71808d">IoT機器・データ通信専用。音声通話の番号ではありません。</text>
 
-<text x="36" y="592" font-size="13.5" font-weight="700" fill="#33424f">3桁番号</text>
-<text x="36" y="612" font-size="11.5" fill="#71808d">特殊番号</text>
+<text x="36" y="650" font-size="13.5" font-weight="700" fill="#33424f"></text>
 <g font-size="12" fill="#33424f" text-anchor="middle">
-<rect x="112" y="566" width="86" height="32" rx="16" fill="#efe9db"/><text x="155" y="587">110 警察</text>
-<rect x="206" y="566" width="122" height="32" rx="16" fill="#efe9db"/><text x="267" y="587">119 消防・救急</text>
-<rect x="336" y="566" width="122" height="32" rx="16" fill="#efe9db"/><text x="397" y="587">118 海上保安庁</text>
-<rect x="466" y="566" width="104" height="32" rx="16" fill="#efe9db"/><text x="518" y="587">104 番号案内</text>
-<rect x="578" y="566" width="76" height="32" rx="16" fill="#efe9db"/><text x="616" y="587">117 時報</text>
-<rect x="662" y="566" width="104" height="32" rx="16" fill="#efe9db"/><text x="714" y="587">177 天気予報</text>
-<rect x="112" y="608" width="170" height="32" rx="16" fill="#efe9db"/><text x="197" y="629">188 消費者ホットライン</text>
-<rect x="290" y="608" width="128" height="32" rx="16" fill="#efe9db"/><text x="354" y="629">189 児童相談所</text>
-<rect x="426" y="608" width="122" height="32" rx="16" fill="#efe9db"/><text x="487" y="629">#9110 警察相談</text>
+<rect x="548" y="630" width="86" height="32" rx="16" fill="#efe9db"/><text x="591" y="651">110 警察</text>
+<rect x="642" y="630" width="122" height="32" rx="16" fill="#efe9db"/><text x="703" y="651">119 消防・救急</text>
+<rect x="772" y="630" width="122" height="32" rx="16" fill="#efe9db"/><text x="833" y="651">118 海上保安庁</text>
+<rect x="548" y="670" width="104" height="32" rx="16" fill="#efe9db"/><text x="600" y="691">104 番号案内</text>
+<rect x="660" y="670" width="170" height="32" rx="16" fill="#efe9db"/><text x="745" y="691">188 消費者ホットライン</text>
+<rect x="838" y="670" width="56" height="32" rx="16" fill="#efe9db"/><text x="866" y="691">189</text>
 </g>
-<text x="570" y="629" font-size="12" fill="#71808d">短い番号は緊急・公共サービス専用です。</text>
+<text x="36" y="724" font-size="12" fill="#71808d">3桁番号は緊急・公共サービス専用。詳しい成り立ちは「日本の電話番号の歴史」で紹介しています。</text>
+<text x="36" y="776" font-size="12.5" fill="#a3aeb8">この図をクリックすると、日本の電話番号の歴史ページへ移動します。</text>
 </svg>`;
 
 export function homePage() {
   const body = `
 <div class="home">
 <h1 class="sr-only">日本の電話番号データベース</h1>
-${STRUCTURE_SVG}
+<a class="fig-link" href="/history" title="日本の電話番号の歴史">${STRUCTURE_SVG}</a>
 <form class="bigsearch" action="/search" method="get" role="search">
 <input type="search" name="q" inputmode="numeric" autocomplete="off" placeholder="電話番号を入力（例：090-1234-5678）" aria-label="電話番号">
 <button type="submit">調べる</button>
 </form>
-<p class="home-links"><a href="/gov">政府機関の番号</a> ・ <a href="/about">このサイトについて</a></p>
+<p class="home-links"><a href="/gov">政府機関の番号</a> ・ <a href="/history">日本の電話番号の歴史</a> ・ <a href="/about">このサイトについて</a></p>
 </div>`;
   return layout({
     title: '電話番号検索｜tel.datumoj.com',
@@ -380,6 +391,47 @@ export function aboutPage(tpSources) {
     title: 'データについて｜tel.datumoj.com',
     description: 'tel.datumoj.com のデータ出典、番号ページの生成方法、第三者標識の転載方針について。',
     canonical: 'https://tel.datumoj.com/about',
+    body,
+  });
+}
+
+export function historyPage() {
+  const events = [
+    ['1890年', '日本で電話サービスが始まります（東京・横浜）。交換手が手作業で回線をつなぐ時代で、番号は短い通し番号でした。'],
+    ['1927年', '火災を知らせる番号として「112」が導入されます。かけ間違いが多かったため、1948年に現在の「119」へ変更されました。'],
+    ['1948年', '警察への緊急番号「110」が始まります。'],
+    ['1950〜70年代', 'ダイヤル式への自動化と市外局番の整備が進み、固定電話は「市外局番＋市内局番＋加入者番号」で合計10桁（0AB〜J方式）の形に統一されていきます。'],
+    ['1979年', '自動車電話が始まります（030＋7桁＝10桁）。持ち運べる電話、すなわち携帯電話の源流です。'],
+    ['1985年', '0120フリーダイヤルが始まります。通話料を着信側が負担する仕組みで、企業の窓口番号として広がりました。'],
+    ['1987年', '携帯電話サービスが始まります。当初の番号はまだ10桁でした。'],
+    ['1995年', 'PHSが始まります（070番号帯）。のちにこの070は携帯電話にも使われるようになります。'],
+    ['1999年1月', '携帯電話・PHSの番号が10桁から11桁になります（090へ集約）。契約数の爆発的な増加に番号容量が追いつかなくなったためです。「固定電話＝10桁、携帯電話＝11桁」という現代の形はここで決まりました。'],
+    ['1990年代末', '0570ナビダイヤルが始まります。全国共通の10桁番号で、発信地に応じて最寄りの窓口につながります。'],
+    ['2000年', '海上保安庁の緊急番号「118」が始まります。'],
+    ['2002年3月', '携帯電話に080番号帯が開放されます（090だけでは足りなくなったため）。'],
+    ['2003年', '050番号を使うIP電話が広がります。インターネット回線の電話で、11桁・地域に縛られません。'],
+    ['2006年10月24日', '番号ポータビリティ（MNP）が始まります。事業者を変えても番号をそのまま使えるようになり、「番号帯＝現在の事業者」とは言えなくなりました。'],
+    ['2013年11月', '070番号帯が携帯電話にも開放されます（元はPHS専用でした）。'],
+    ['2015年7月', '3桁の公共番号が拡充されます：消費者ホットライン「188」、児童相談所「189」。'],
+    ['2019年', '020番号帯がM2M（モノ同士の通信）用に運用開始。人ではなく機器のための番号で、12〜14桁あります。'],
+    ['2024年12月', '060番号帯が携帯電話用として新たに指定されます（利用開始は2026年予定）。090/080/070に続く4つ目の携帯番号帯です。'],
+    ['2025年1月', '固定電話網のIP網への移行が完了します。メタル回線の時代は終わりましたが、10桁の固定番号そのものはIP網の上で使われ続けています。'],
+    ['現在', '携帯電話の契約は2億回線を超えました。番号は「人の声をつなぐ住所」から、「モノの識別子」にまで役割を広げています。'],
+  ];
+  const rows = events
+    .map(([y, t]) => `<tr><th style="width:8.5rem;white-space:nowrap">${esc(y)}</th><td>${esc(t)}</td></tr>`)
+    .join('\n');
+  const body = `
+<p class="crumbs"><a href="/">ホーム</a> › 日本の電話番号の歴史</p>
+<h1>日本の電話番号の歴史</h1>
+<p>いまの電話番号の形——固定電話は10桁、携帯電話は11桁——は、130年あまりの積み重ねの結果です。桁数が変わるたびに、その背景には「番号が足りなくなる」という問題がありました。</p>
+<div class="card"><table>${rows}</table></div>
+<p class="meta">本ページは総務省「電気通信番号制度」関係資料など公的資料に基づく概説です。個別の番号の割当状況は、各番号のページで確認できます。</p>
+${searchForm()}`;
+  return layout({
+    title: '日本の電話番号の歴史｜tel.datumoj.com',
+    description: '1890年の電話開通から、1999年の携帯11桁化、MNP、020や060の新番号帯まで。日本の電話番号が10桁と11桁に分かれた理由をたどる概説。',
+    canonical: 'https://tel.datumoj.com/history',
     body,
   });
 }
