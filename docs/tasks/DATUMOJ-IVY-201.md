@@ -24,7 +24,7 @@ max_attempts: 2
 实现 `kind=egov_law` 的采集器插件：法令列表分页，生成每部法令现行版 XML 的抓取任务，支持增量和 LIMIT。
 
 # 背景
-开发线：B 文档线。接口说明：`/Users/aaron/codex_workspace/digital-assets/analysis/eGov_Law_API_v2_Agent_Guide.md`。样本在 `tests/fixtures/egov_law/`（见 README.md）。测试里用契约的假实现驱动采集器，不需要等执行器 DATUMOJ-IVY-105。
+开发线：B 文档线。接口说明：`<旧项目 digital-assets 目录>/analysis/eGov_Law_API_v2_Agent_Guide.md`。样本在 `tests/fixtures/egov_law/`（见 README.md）。测试里用契约的假实现驱动采集器，不需要等执行器 DATUMOJ-IVY-105。
 
 计划见 `docs/PLAN.md`，任务总表、开发线和跨任务约定见 `docs/TASKS.md`。
 - **只依赖契约**：数据模型在 `src/datumoj/core/models.py`，接口协议和插件发现在 `src/datumoj/core/contracts.py`，假实现和契约测试在 `src/datumoj/testing/`。除此之外，只能 import 本任务 `depends_on` 里列出的、已合并任务的模块（例如 304 用 302 的地区码表）；其他任务的实现模块一律不 import（集成任务 9xx 除外）。

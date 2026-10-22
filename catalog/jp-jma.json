@@ -1,0 +1,18 @@
+{
+  "access_method": "api",
+  "auth_required": false,
+  "country_region": "JP",
+  "id": "jp-jma",
+  "last_verified": "unknown",
+  "license": {
+    "allows_redistribution": "unknown",
+    "name": "気象庁ホームページ利用規約",
+    "requires_attribution": true,
+    "url": "https://www.jma.go.jp/jma/kishou/info/coment.html"
+  },
+  "name": "気象庁 防災情報XML",
+  "official_url": "https://www.data.jma.go.jp/developer/xml/feed/regular_l.xml",
+  "publisher": "気象庁",
+  "rate_limit": "1 req/s",
+  "status": "experimental"
+}

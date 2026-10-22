@@ -1,0 +1,18 @@
+{
+  "access_method": "api",
+  "auth_required": false,
+  "country_region": "JP",
+  "id": "jp-egov-data",
+  "last_verified": "unknown",
+  "license": {
+    "allows_redistribution": "unknown",
+    "name": "unknown",
+    "requires_attribution": true,
+    "url": "https://data.e-gov.go.jp/info/terms"
+  },
+  "name": "e-Gov データポータル（CKAN）",
+  "official_url": "https://data.e-gov.go.jp/data/api/action",
+  "publisher": "e-Govデータポータル",
+  "rate_limit": "0.5 req/s",
+  "status": "experimental"
+}

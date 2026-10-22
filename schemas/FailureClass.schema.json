@@ -1,0 +1,32 @@
+{
+  "$defs": {
+    "FailureKind": {
+      "enum": [
+        "source_unavailable",
+        "rate_limited",
+        "auth_failed",
+        "format_changed",
+        "policy",
+        "other"
+      ],
+      "title": "FailureKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "$ref": "#/$defs/FailureKind"
+    },
+    "retryable": {
+      "title": "Retryable",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "kind",
+    "retryable"
+  ],
+  "title": "FailureClass",
+  "type": "object"
+}

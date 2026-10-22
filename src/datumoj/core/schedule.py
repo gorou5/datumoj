@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import fcntl
 import json
 import os
 import plistlib
@@ -15,7 +14,18 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from datumoj.core.contracts import SourceSpec
+from datumoj.core.contracts import Manifest, SourceSpec
+from datumoj.core.monitor import evaluate_alerts
+
+try:
+    import fcntl
+except ImportError:
+    import errno
+    import msvcrt
+    import time
+    fcntl = None
+
+_WINDOWS_LOCK_OFFSET = 1 << 20
 
 
 def utcnow() -> datetime:
@@ -63,15 +73,36 @@ def _atomic_write(path: Path, content: bytes) -> None:
 def _locked(path: Path, *, blocking: bool = True) -> Iterator[Any]:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a+", encoding="utf-8") as stream:
-        try:
-            fcntl.flock(stream, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
-        except BlockingIOError:
-            yield None
+        if fcntl is not None:
+            try:
+                fcntl.flock(stream, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
+            except BlockingIOError:
+                yield None
+                return
+            try:
+                yield stream
+            finally:
+                fcntl.flock(stream, fcntl.LOCK_UN)
             return
+
+        while True:
+            stream.seek(_WINDOWS_LOCK_OFFSET)
+            try:
+                msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+            except OSError as exc:
+                if exc.errno != errno.EACCES:
+                    raise
+                if not blocking:
+                    yield None
+                    return
+                time.sleep(0.05)
+            else:
+                break
         try:
             yield stream
         finally:
-            fcntl.flock(stream, fcntl.LOCK_UN)
+            stream.seek(_WINDOWS_LOCK_OFFSET)
+            msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 def write_control(data_dir: str | Path, control: dict[str, Any]) -> None:
@@ -113,12 +144,13 @@ def next_due(schedule: str | None, last_start: datetime | None, now: datetime) -
 class Scheduler:
     def __init__(
         self, data_dir: str | Path, sources: Iterable[SourceSpec], execute: Callable[[SourceSpec], Any],
-        *, now: Callable[[], datetime] = utcnow,
+        *, now: Callable[[], datetime] = utcnow, manifest: Manifest | None = None,
     ) -> None:
         self.data_dir = Path(data_dir)
         self.sources = {spec.id: spec for spec in sources}
         self.execute = execute
         self.now = now
+        self.manifest = manifest
 
     def _lock_path(self, source_id: str) -> Path:
         # SourceSpec validates IDs; lookup also rejects arbitrary path components from callers.
@@ -150,20 +182,27 @@ class Scheduler:
     def status(self) -> dict[str, Any]:
         control = read_control(self.data_dir)
         now = self.now()
+        history = self._history()
         rows = []
         for spec in self.sources.values():
-            last = self._last(spec.id)
+            last = next((row for row in reversed(history) if row["source_id"] == spec.id), None)
             due = next_due(spec.schedule, datetime.fromisoformat(last["started_at"]) if last else None, now)
             with _locked(self._lock_path(spec.id), blocking=False) as lock:
                 running = lock is None
             enabled = control["sources"].get(spec.id, {}).get("enabled", False)
+            effective_enabled = control["enabled"] and enabled
+            alerts = [
+                alert.model_dump(mode="json")
+                for alert in evaluate_alerts(spec, history, self.manifest, now, enabled=effective_enabled)
+            ]
             rows.append({
                 "source_id": spec.id, "enabled": enabled,
-                "effective_enabled": control["enabled"] and enabled,
+                "effective_enabled": effective_enabled,
                 "schedule": spec.schedule, "last_run": last,
-                "next_due": due.isoformat() if due else None, "running": running,
+                "next_due": due.isoformat() if due else None, "running": running, "alerts": alerts,
             })
-        return {"enabled": control["enabled"], "sources": rows}
+        return {"enabled": control["enabled"], "sources": rows,
+                "alert_count": sum(len(row["alerts"]) for row in rows)}
 
     def _run(self, source_id: str, *, scheduled: bool) -> dict[str, Any]:
         if source_id not in self.sources:
@@ -176,8 +215,8 @@ class Scheduler:
         with _locked(self._lock_path(source_id), blocking=False) as lock:
             if lock is None:
                 return skip("正在运行")
-            # Never unlink lock files: waiters must share the same inode. A crashed process's
-            # flock is released by the kernel, so stale PID metadata can simply be overwritten.
+            # 不要删除锁文件，否则等待者可能锁住不同文件。
+            # 进程退出时内核会释放锁，旧 PID 元数据可直接覆盖。
             control = read_control(self.data_dir)
             if not control["enabled"]:
                 return skip("总开关关闭")

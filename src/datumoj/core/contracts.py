@@ -26,13 +26,14 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from enum import StrEnum
 from hashlib import sha256 as _sha256
-from pathlib import Path
 from typing import IO, Annotated, Any, ClassVar, Protocol, runtime_checkable
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from datumoj.core.models import (
     FAILED_OUTCOMES,
+    ChangeEvent,
+    ChangeKind,
     Chunk,
     Citation,
     Dataset,
@@ -228,10 +229,6 @@ class RawStore(Protocol):
         """重新计算哈希；不一致抛 CorruptedBlob，不存在抛 NotFoundError。"""
         ...
 
-    def path_for(self, sha256: str) -> Path:
-        """存放位置 ``<根>/raw/<前两位>/<sha256>``；纯计算，不管文件是否存在。"""
-        ...
-
 
 # ---------- manifest ----------
 
@@ -320,6 +317,34 @@ class Manifest(Protocol):
     def get_parse(self, sha256: str, parser: str, version: str) -> ParseRecord | None:
         ...
 
+    def parse_stats(self, source_id: str, since: datetime | None = None) -> dict[ParseStatus, int]:
+        """按快照 fetched_at >= since（带时区）统计该来源的最新解析状态。
+
+        每条快照计一次；同一 sha256 取最后一次 record_parse 写入的状态（跨解析器/版本），
+        未解析或无 sha256 的快照不计入；只返回出现过的状态。
+        """
+        ...
+
+
+# ---------- 变化日志 ----------
+
+
+@runtime_checkable
+class ChangeLog(Protocol):
+    def append(self, events: Iterable[ChangeEvent]) -> None:
+        """按 event_id 幂等追加；重复 ID 保留第一次写入的事件。"""
+        ...
+
+    def list(self, since: datetime | None = None, until: datetime | None = None,
+             source_ids: Sequence[str] | None = None, kinds: Sequence[ChangeKind] | None = None,
+             limit: int = 1000) -> list[ChangeEvent]:
+        """按 detected_at 升序，同一时间按写入顺序；闭区间 since <= detected_at <= until。
+
+        时间边界必须带时区；None 不过滤，空的筛选列表不匹配任何事件。
+        limit 必须非负，0 返回空列表。
+        """
+        ...
+
 
 # ---------- HTTP ----------
 
@@ -378,10 +403,17 @@ class HttpFetcher(Protocol):
     限速、重试、大小上限、允许的 host 在构造时配置（来自 SourceSpec）。
     """
 
-    def fetch(self, url: str, etag: str | None = None, last_modified: str | None = None) -> FetchResult:
+    def fetch(
+        self, url: str, etag: str | None = None, last_modified: str | None = None,
+        *, size: int | None = None, head_probe: bool = False,
+    ) -> FetchResult:
         """抓一个 URL（url 可以带 Key；结果和错误信息里的 URL 一律去 Key）。
 
         - 200 → ok；带 etag/last_modified 做条件请求，304 → not_modified；
+        - head_probe=True 且 last_modified、size 都非 None 时先发 HEAD；仅 2xx 且
+          Last-Modified、Content-Length 都相同时返回 not_modified（保留 HEAD 状态码和验证头）；
+          否则回退条件 GET。HEAD 同样遵守 robots、限速、重试、逐跳地址检查，不读取正文。
+          默认不发 HEAD，size 不影响原有条件 GET；
         - 其他 HTTP 错误（重试用尽后）→ http_error，带 http_status；连接失败、超时 → network_error；
         - 超过 max_bytes → too_large（边下边判，立即中止）；robots.txt 禁止 → blocked_by_robots，不发请求；
         - 重定向到不允许的地址 → network_error，error 写明被拦下的重定向。
@@ -400,7 +432,9 @@ class FetchTask(_Model):
     """要抓的 URL；可以带 Key（只在内存里，落盘和输出前一律 redact_url）。"""
     meta: dict[str, JsonValue] = Field(default_factory=dict)
     """采集器自定的附加信息：任务类型、施行基准日、未施行修改等。执行器原样交给 after_fetch，
-    并随快照写进 manifest（``Manifest.record_snapshot(..., meta)``），解析器由此拿到。"""
+    并随快照写进 manifest（``Manifest.record_snapshot(..., meta)``），解析器由此拿到。
+    父快照用 models.META_PARENT_URL / META_PARENT_SHA256；URL 必须先去 Key，
+    解析器把这两个键原样放入 Document.metadata（校验用 models.parent_ref）。"""
 
     @model_validator(mode="after")
     def _http_url(self) -> FetchTask:
