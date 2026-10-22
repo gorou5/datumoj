@@ -36,11 +36,14 @@ max_attempts: 2
 - 测试不能写入仓库里受 git 跟踪的路径；临时文件一律放 `tmp_path`。
 
 # 要求
-1. `analysis/reports.py`：`weekly_report(deps, since, until) -> str`，按来源分节，每节列新增、修改、删除、抓取失败、解析失败（按 `ChangeKind` 分组，各自计数），每条一行：文档标题、`summary`、出处（`Citation.render()` 的一行文字）。
-2. 报告开头是总览表（每个来源各类事件的数量）；末尾列出本周的提醒（`evaluate_alerts`）、`needs_ocr` 的 PDF 数量和页数（来自文档 metadata），以及“本周有缺口的来源”（短保留来源的 `retention_gap` 提醒）。
-3. CLI：`datumoj report weekly [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--out PATH]`，默认最近 7 天、写到 `<data_dir>/reports/weekly-<ISO 年>-W<周>.md`，并打印路径。
-4. 没有任何变化时也生成报告，写明“本周没有变化”。来源正文的片段不直接拼进 Markdown 标题等结构里（避免注入），一律作为普通文本并转义 Markdown 特殊字符。
-5. 新测试用假的变化日志和假提醒生成报告并逐节断言；`tests/test_cli.py` 必须仍然通过。
+1. `analysis/reports.py`：`weekly_report(deps, since, until, alerts) -> str`，按来源分节，每节列新增、修改、删除、抓取失败、解析失败（按 `ChangeKind` 分组，各自计数），每条一行：文档标题（取得到时）、`summary`、出处。
+2. 出处（2026-10-22 人定，不改契约）：事件有快照（`new_sha256`，删除类用 `old_sha256`）且 manifest 里能找到该快照时，用契约的 Citation 规则生成并输出 `Citation.render()` 的一行文字；事件没有 `locator` 时按整份文档引用（locator 的写法与现有 `cite` 能接受的一致，写清做法）。没有快照或在 manifest 里找不到快照的事件（例如首次抓取就失败的 `fetch_failed`），不拼造出处，改为输出 `resource_url`（或 `doc_key`）、`detected_at` 和失败类型，并标明“没有快照，无法还原”。不得伪造哈希或 locator。
+3. 提醒（2026-10-22 人定）：报告模块不读取调度器的运行记录或开关文件；`alerts` 由调用方传入（`core/monitor.py` 的 `Alert` 列表，或 `Scheduler.status()` 各来源 `alerts` 汇总后的同样内容）。CLI 从 `Scheduler.status()` 取出提醒传给 `weekly_report`。报告末尾列出这些提醒，以及“本周有缺口的来源”（其中 `retention_gap` 规则的提醒）。
+4. `needs_ocr`（2026-10-22 人定）：只统计**本周有变化事件**的 PDF（按事件的 `doc_key` 取文档 metadata 的 `needs_ocr_pages` 和 `pages`），不统计全库；报告里写明统计口径是“本周有变化的 PDF”。
+5. 报告开头是总览表（每个来源各类事件的数量）。
+6. CLI：`datumoj report weekly [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--out PATH]`，默认最近 7 天、写到 `<data_dir>/reports/weekly-<ISO 年>-W<周>.md`，并打印路径。
+7. 没有任何变化时也生成报告，写明“本周没有变化”。来源正文的片段不直接拼进 Markdown 标题等结构里（避免注入），一律作为普通文本并转义 Markdown 特殊字符。
+8. 新测试用假的变化日志和假提醒生成报告并逐节断言；`tests/test_cli.py` 必须仍然通过。
 
 # 不做
 - 不做主动推送。
