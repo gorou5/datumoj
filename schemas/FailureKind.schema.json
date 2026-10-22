@@ -1,0 +1,12 @@
+{
+  "enum": [
+    "source_unavailable",
+    "rate_limited",
+    "auth_failed",
+    "format_changed",
+    "policy",
+    "other"
+  ],
+  "title": "FailureKind",
+  "type": "string"
+}
