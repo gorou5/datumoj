@@ -45,11 +45,19 @@ class _CkanPages(CkanMetaParser):
         return ParseResult(datasets=datasets, resources=resources, warnings=warnings)
 
 
+class _GovWebContentVersion:
+    def __get__(self, instance, owner) -> str:
+        from datumoj.parsers.html_page import HtmlPageParser
+        from datumoj.parsers.pdf import PdfParser
+
+        return f"pdf-{PdfParser.version}+html-{HtmlPageParser.version}"
+
+
 class _GovWebContent(Parser):
     """网页附件共用分派入口；按正文选择已有实现，避免错误响应头选错解析器。"""
 
     name = "gov-web-content"
-    version = "1"
+    version = _GovWebContentVersion()
     source_kind = "gov_web"
     content_type = "*"
 

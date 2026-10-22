@@ -41,6 +41,10 @@ _BLOCK_TAGS = frozenset({"p", "li", "td", "th", "blockquote", "pre", "dt", "dd",
 _CONTAINER_TAGS = frozenset({"div", "section", "article", "main", "ul", "ol", "dl", "table", "tbody", "thead", "tfoot", "tr"})
 _UPDATE_LABELS = ("最終更新日", "更新日", "最終更新", "更新")
 _OTHER_DATE_LABELS = ("掲載日", "公開日", "作成日")
+_PAGE_DATE_BLOCKS = {
+    "class": frozenset({"page_day01"}),
+    "id": frozenset(),
+}
 _DATE_TOKEN = (
     r"(?:令和|平成|昭和|大正)\s*(?:元|\d+|[〇零一二三四五六七八九十百千万億兆]+)年\s*"
     r"\d+月\s*\d+日"
@@ -60,7 +64,7 @@ _META_CONTENT_CHARSET_RE = re.compile(
 
 class HtmlPageParser(Parser):
     name = "gov-web-html-page"
-    version = "1"
+    version = "2"
     source_kind = "gov_web"
     content_type = "text/html"
 
@@ -301,6 +305,15 @@ def _published_at(root, page_text: str) -> date | None:
                 if parsed is not None:
                     candidates.append(parsed)
                     break
+
+    for element in root.iter():
+        if (
+            _PAGE_DATE_BLOCKS["id"].intersection({element.get("id", "")})
+            or _PAGE_DATE_BLOCKS["class"].intersection(element.get("class", "").split())
+        ):
+            parsed = _parse_date(_element_text(element))
+            if parsed is not None:
+                candidates.append(parsed)
     return max(candidates) if candidates else None
 
 

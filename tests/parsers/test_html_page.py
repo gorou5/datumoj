@@ -182,11 +182,11 @@ def test_western_date_formats_and_update_date_selection(label, value, expected):
     assert result.documents[0].published_at == expected
 
 
-def test_osaka_unlabeled_page_date_is_not_treated_as_published_date():
+def test_osaka_page_date_is_treated_as_published_date():
     sample = _site_samples()[2]
     result = HtmlPageParser().parse(sample.snapshot, sample.data, sample.meta)
 
-    assert result.documents[0].published_at is None
+    assert result.documents[0].published_at == date(2026, 8, 26)
 
 
 def test_update_date_from_page_metadata():
