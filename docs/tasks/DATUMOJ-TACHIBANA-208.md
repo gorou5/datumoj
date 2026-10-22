@@ -9,9 +9,9 @@ runner: codex
 model: null
 tier: low
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/crawlers/gov_web.py", "sources/jp-gov-web.yaml", "tests/crawlers/test_gov_web_recheck.py", "tests/crawlers/test_gov_web.py", "results/DATUMOJ-TACHIBANA-208/**"]
+scope: ["src/datumoj/crawlers/gov_web.py", "sources/jp-gov-web.yaml", "tests/crawlers/test_gov_web_recheck.py", "tests/crawlers/test_gov_web.py", "tests/integration/test_gov_web_e2e.py", "results/DATUMOJ-TACHIBANA-208/**"]
 out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", ".github/**"]
-protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**", "tests/integration/test_gov_web_e2e.py"]
+protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
   automated:
     - cmd: make check T=tests/crawlers/test_gov_web_recheck.py
@@ -41,7 +41,8 @@ max_attempts: 2
 2. 时间一律取可注入的时钟（沿用 `ctx` 里已有的写法），测试不依赖真实时钟。
 3. `sources/jp-gov-web.yaml`：`scope.pdf_recheck_days: 7`，`scope.head_probe: true`。`tests/crawlers/test_gov_web.py` 里检查配置的那条断言随之调整（只改这一处）。
 4. 新测试 `tests/crawlers/test_gov_web_recheck.py`：6 天前成功的 PDF 不生成任务、8 天前的生成、从没成功过的生成、不设 `pdf_recheck_days` 时都生成、非法值报错；网页任务不受影响。
-5. `tests/crawlers` 和 `tests/integration/test_gov_web_e2e.py` 必须仍然通过。
+5. `tests/integration/test_gov_web_e2e.py::test_conditional_rerun_downloads_no_bodies_or_document_versions` 读的是真实的 `sources/jp-gov-web.yaml`，原来断言第二次运行时 PDF 也被条件请求（`新增 0，未变化 3`）；设了 `pdf_recheck_days: 7` 后 PDF 在 7 天内不再请求，这是 2026-10-22 人定的新行为。只改这一个测试，改为断言新行为：网页仍走条件请求（未变化 2）、PDF 没有被请求、文档版本不变；同一文件的其他测试一律不改。（第 1、2 次尝试因该文件被设为受保护而卡在这里，其余验收都通过。）
+6. `tests/crawlers` 和 `tests/integration/test_gov_web_e2e.py` 必须仍然通过。
 
 # 不做
 - 不改执行器和 HTTP 客户端（104 已做）。
