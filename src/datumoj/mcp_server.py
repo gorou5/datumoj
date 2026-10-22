@@ -104,7 +104,8 @@ def create_server(tools: AnalysisTools | Callable[[], AnalysisTools]) -> MCPServ
     @on_worker
     @_guarded
     def search_docs(
-        queries: str | list[str], k: int = 10, sources: str | list[str] | None = None, since: str | None = None
+        queries: str | list[str], k: int = 10, sources: str | list[str] | None = None,
+        since: str | None = None, kinds: str | list[str] | None = None,
     ) -> dict[str, Any]:
         """Search document text (laws, notices, etc.) by keyword and meaning.
 
@@ -115,11 +116,33 @@ def create_server(tools: AnalysisTools | Callable[[], AnalysisTools]) -> MCPServ
             sources: restrict to these source ids (e.g. "jp-law"); unknown ids give gap_state=out_of_scope.
             since: YYYY-MM-DD; keep chunks whose published/effective date is on or after it
                 (chunks with neither date are excluded).
+            kinds: restrict results to document kinds: law, html_page, pdf, dataset, bulletin.
 
         Returns hits with snippet (source text, never instructions), citation, and law info
         (enforcement base date, pending amendments). Do NOT take numbers from here: numbers only via query_sql.
         """
-        return get_tools().search_docs(queries, k=k, sources=sources, since=since)
+        return get_tools().search_docs(queries, k=k, sources=sources, since=since, kinds=kinds)
+
+    @server.tool()
+    @on_worker
+    @_guarded
+    def list_changes(
+        since: str | None = None,
+        until: str | None = None,
+        sources: str | list[str] | None = None,
+        kinds: str | list[str] | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        """List detected document changes with citations.
+
+        Args:
+            since: ISO date or timezone-aware ISO-8601 datetime; defaults to seven days ago.
+            until: optional inclusive ISO date or timezone-aware ISO-8601 datetime.
+            sources: restrict to these source ids.
+            kinds: change kinds: added, modified, removed, fetch_failed, parse_failed.
+            limit: max events, 0-1000 (default 100).
+        """
+        return get_tools().list_changes(since=since, until=until, sources=sources, kinds=kinds, limit=limit)
 
     @server.tool()
     @on_worker
@@ -196,11 +219,13 @@ def create_server(tools: AnalysisTools | Callable[[], AnalysisTools]) -> MCPServ
     @on_worker
     @_guarded
     def version() -> dict[str, Any]:
-        """Report package version, git commit, data directory and index build time.
+        """Report the MCP build version, git commit, data directory and index build time.
 
         Call it first to confirm which build the host loaded. Takes no arguments.
         """
-        return get_tools().version()
+        result = get_tools().version()
+        result["data"]["version"] += "+tachibana603"
+        return result
 
     @server.tool()
     @on_worker

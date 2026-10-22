@@ -1,0 +1,17 @@
+{
+  "access_method": "api",
+  "auth_required": false,
+  "country_region": "JP",
+  "id": "jp-egov-law",
+  "last_verified": "unknown",
+  "license": {
+    "allows_redistribution": "unknown",
+    "name": "unknown",
+    "requires_attribution": "unknown"
+  },
+  "name": "e-Gov 法令 API v2",
+  "official_url": "https://laws.e-gov.go.jp/api/2",
+  "publisher": "unknown",
+  "rate_limit": "1 req/s",
+  "status": "experimental"
+}

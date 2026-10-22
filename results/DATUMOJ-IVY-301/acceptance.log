@@ -1,4 +1,0 @@
-$ make check T=tests/tabular/
-make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
-..............................................                           [100%]
-46 passed in 1.79s

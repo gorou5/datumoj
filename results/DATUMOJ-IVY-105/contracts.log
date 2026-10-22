@@ -1,5 +1,0 @@
-$ make check T='tests/core/test_rawstore.py::TestFileRawStore tests/core/test_manifest.py::TestSqliteManifest tests/core/test_http.py::TestPoliteHttpFetcherSuite tests/core/test_registry.py::TestRegistryConformance'
-make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
-...................................................                      [100%]
-51 passed in 0.77s
-exit_code=0

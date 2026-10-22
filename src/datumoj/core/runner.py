@@ -129,6 +129,9 @@ def run_crawl(
     抓取器报告超过总上限时，或累计字节超过总上限时，记 too_large、不写 raw，完成本次 after_fetch 后停止。
     空正文 / SPA 原文仍存 raw 以便诊断。存储错误直接抛出，不能把未成功落库的运行报告为成功。
     """
+    head_probe = spec.scope.get("head_probe", False)
+    if not isinstance(head_probe, bool):
+        raise ValueError("scope.head_probe 必须是布尔值（true / false）")
     started = deps.clock()
     report = CrawlReport(source_id=spec.id)
     ctx = CrawlContext(spec=spec, manifest=deps.manifest, raw=deps.raw, now=deps.now(), limit=limit)
@@ -188,7 +191,10 @@ def run_crawl(
                     deps.sleep(wait)
             last_fetch = deps.clock()
             try:
-                result = deps.fetcher.fetch(task.url, etag=prev and prev.etag, last_modified=prev and prev.last_modified)
+                result = deps.fetcher.fetch(
+                    task.url, etag=prev and prev.etag, last_modified=prev and prev.last_modified,
+                    size=prev and prev.size, head_probe=head_probe,
+                )
             except UrlNotAllowed as exc:
                 result = FetchResult(
                     url=url, outcome=FetchOutcome.network_error, fetched_at=deps.now(), error=str(exc),

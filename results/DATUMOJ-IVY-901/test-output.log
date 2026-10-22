@@ -1,5 +1,0 @@
-Command: make check T=tests/integration/test_law_e2e.py
-make check: uv 不可用（可能在沙箱里），改用 /Users/aaron/workspace/datumoj/.venv/bin/python
-...                                                                      [100%]
-3 passed in 3.12s
-Exit code: 0

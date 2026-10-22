@@ -7,6 +7,7 @@ import os
 import tempfile
 from collections.abc import Callable
 from contextvars import ContextVar
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -14,15 +15,22 @@ import typer
 from pydantic import BaseModel
 
 from datumoj import wiring
+from datumoj.analysis.reports import weekly_report
 from datumoj.core import schedule as scheduling
 from datumoj.core.models import Citation
+from datumoj.core.registry_export import export_registry
+from datumoj.core.storage import load_storage_config
 from datumoj.pipeline import vector_status
 
 app = typer.Typer(no_args_is_help=True, help="抓取、解析、索引并查询本地政府公开数据。")
 schedule_app = typer.Typer(no_args_is_help=True, help="本机抓取开关和调度。")
 launchd_app = typer.Typer(no_args_is_help=True, help="生成、安装或卸载 launchd 任务。")
+registry_app = typer.Typer(no_args_is_help=True, help="数据源注册表导出。")
+report_app = typer.Typer(no_args_is_help=True, help="生成资料库变化报告。")
 app.add_typer(schedule_app, name="schedule")
 schedule_app.add_typer(launchd_app, name="launchd")
+app.add_typer(registry_app, name="registry")
+app.add_typer(report_app, name="report")
 _DATA_DIR: ContextVar[str | None] = ContextVar("datumoj_data_dir", default=None)
 
 
@@ -36,9 +44,7 @@ def main(
 
 
 def _data_dir() -> str:
-    if (root := _DATA_DIR.get()) is not None:
-        return root
-    return os.environ.get("DATUMOJ_DATA_DIR", "./data")
+    return str(load_storage_config(data_dir=_DATA_DIR.get()).data_dir)
 
 
 @schedule_app.callback()
@@ -125,6 +131,20 @@ def _echo_vector_status(deps: Any) -> None:
         typer.echo(f"向量索引：可用（{state['blocks']} 个块）")
 
 
+@registry_app.command("export")
+def registry_export(
+    out: Path = typer.Option(Path("catalog"), "--out", help="导出目录"),
+) -> None:
+    """将 sources/*.yaml 导出为注册层 catalog/*.json。"""
+    sources = Path(__file__).resolve().parents[2] / "sources"
+    try:
+        paths = export_registry(sources, out)
+    except Exception as exc:
+        typer.echo(f"导出失败：{type(exc).__name__}: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"已导出 {len(paths)} 个来源描述到 {out}")
+
+
 @app.command()
 def crawl(
     source: str = typer.Argument(..., help="来源 ID"),
@@ -175,8 +195,50 @@ def _scheduler_at(root: str | Path) -> tuple[Any, scheduling.Scheduler]:
     deps = wiring.build(root)
     if deps.registry is None:
         raise wiring.FeatureNotConnected("该功能尚未接入：没有来源注册表")
-    scheduler = scheduling.Scheduler(root, deps.registry.all(), lambda spec: _crawl_report(deps, spec))
+    scheduler = scheduling.Scheduler(
+        root, deps.registry.all(), lambda spec: _crawl_report(deps, spec), manifest=deps.manifest,
+    )
     return deps, scheduler
+
+
+@report_app.command("weekly")
+def report_weekly(
+    since: str | None = typer.Option(None, "--since", help="开始日期（YYYY-MM-DD）"),
+    until: str | None = typer.Option(None, "--until", help="结束日期（YYYY-MM-DD）"),
+    out: Path | None = typer.Option(None, "--out", help="报告输出路径"),
+) -> None:
+    """生成带出处的每周变化 Markdown。"""
+    def parse_date(value: str | None, name: str) -> date | None:
+        if value is None:
+            return None
+        try:
+            parsed = date.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError(f"{name} 必须是 YYYY-MM-DD") from exc
+        if parsed.isoformat() != value:
+            raise ValueError(f"{name} 必须是 YYYY-MM-DD")
+        return parsed
+
+    def action(deps: Any) -> None:
+        if any(item is None for item in (deps.registry, deps.manifest, deps.chunks, deps.change_log)):
+            raise wiring.FeatureNotConnected("周报所需的注册表、快照、文档或变化日志尚未接入")
+        now = datetime.now(UTC)
+        end_day = parse_date(until, "until") or now.date()
+        start_day = parse_date(since, "since") or (end_day - timedelta(days=6))
+        if start_day > end_day:
+            raise ValueError("since 不能晚于 until")
+        scheduler = scheduling.Scheduler(
+            deps.data_dir, deps.registry.all(), lambda spec: _crawl_report(deps, spec), manifest=deps.manifest,
+        )
+        status = scheduler.status()
+        alerts = [alert for source in status["sources"] for alert in source["alerts"]]
+        content = weekly_report(deps, start_day, end_day, alerts)
+        iso_year, iso_week, _ = end_day.isocalendar()
+        path = out or deps.data_dir / "reports" / f"weekly-{iso_year}-W{iso_week:02d}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        typer.echo(str(path))
+    _run("report", action)
 
 
 def _schedule_call(action: Callable[[], Any]) -> None:
@@ -418,8 +480,9 @@ def mcp() -> None:
 def evaluate_corpus(
     gate: bool = typer.Option(False, "--gate", help="未达到全部评测门槛时退出码为 1"),
     report: Path | None = typer.Option(None, "--report", help="报告目录（默认使用临时目录）"),
+    questions_dir: Path | None = typer.Option(None, "--questions", help="题库目录（默认 eval/questions 全部题库）"),
 ) -> None:
-    """用完整题库评测本地语料，并输出 JSON 和 Markdown 报告。"""
+    """用题库评测本地语料，并输出 JSON 和 Markdown 报告。"""
     from datumoj.eval import check_gate, evaluate, load_questions, write_reports
 
     def action(deps: Any) -> None:
@@ -428,10 +491,11 @@ def evaluate_corpus(
             data = restored.get("data", {})
             return data.get("passages", []) if data.get("status") == "ok" else []
 
-        questions = load_questions(Path(__file__).resolve().parents[2] / "eval/questions")
+        questions = load_questions(questions_dir or Path(__file__).resolve().parents[2] / "eval/questions")
         result = evaluate(
             questions, retriever=deps.retriever, observation_store=deps.observations,
             cite=cite, manifest=deps.manifest, catalog=deps.catalog,
+            list_changes=deps.tools.list_changes,
         )
         directory = report if report is not None else Path(tempfile.mkdtemp(prefix="datumoj-eval-"))
         write_reports(result, directory)
