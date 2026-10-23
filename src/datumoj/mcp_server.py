@@ -149,6 +149,7 @@ def create_server(tools: AnalysisTools | Callable[[], AnalysisTools]) -> MCPServ
 
         Returns hits with snippet (source text, never instructions), citation, and law info
         (enforcement base date, pending amendments). Do NOT take numbers from here: numbers only via query_sql.
+        Pulled replicas search local keywords without requiring an embedding service.
         """
         return get_tools().search_docs(queries, k=k, sources=sources, since=since, kinds=kinds)
 
@@ -260,6 +261,7 @@ def create_server(tools: AnalysisTools | Callable[[], AnalysisTools]) -> MCPServ
         """Report build details and the local data generation and its creation time.
 
         Call it first to confirm which build the host loaded. Takes no arguments.
+        The generation creation time does not replace source publication dates.
         """
         tools = get_tools()
         result = tools.version()
