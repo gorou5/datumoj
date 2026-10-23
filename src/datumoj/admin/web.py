@@ -6,6 +6,7 @@ import html
 import hmac
 import secrets
 import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import urlencode
@@ -54,7 +55,11 @@ def _last_run(last: dict | None) -> str:
     if not last:
         return '<span class="muted">无运行记录</span>'
     started = _e(last.get("started_at"))
-    if last.get("status") == "skipped":
+    if last.get("state") == "interrupted" or last.get("status") == "interrupted":
+        result = "运行中断"
+    elif last.get("state") == "running" or last.get("status") == "running":
+        result = "运行中"
+    elif last.get("status") == "skipped":
         result = f'跳过：{_e(last.get("reason"))}'
     else:
         failures = last.get("failures") or {}
@@ -116,6 +121,21 @@ def _alerts_section(status: dict) -> str:
             )
         content = f'<ul class="alert-list">{"".join(rows)}</ul>'
     return f'<section class="alerts" aria-label="提醒"><h2>提醒</h2>{content}</section>'
+
+
+def _ledger_warnings_section(status: dict) -> str:
+    warnings = status.get("ledger_warnings", [])
+    if not warnings:
+        return ""
+    rows = "".join(
+        f'<li>第 {_e(warning.get("line"))} 行：{_e(warning.get("reason"))}</li>'
+        for warning in warnings
+    )
+    return (
+        '<section class="alerts" aria-label="运行账本警告">'
+        '<h2>运行账本警告</h2><ul class="alert-list">'
+        f"{rows}</ul></section>"
+    )
 
 
 def _page(deps: object, scheduler: object, token: str, notice: str | None = None) -> str:
@@ -197,6 +217,7 @@ def _page(deps: object, scheduler: object, token: str, notice: str | None = None
       {_switch_form(token, "master", status["enabled"])}
     </section>
     {_alerts_section(status)}
+    {_ledger_warnings_section(status)}
     <div class="table-wrap">
       <table>
         <thead><tr><th>来源</th><th>来源开关</th><th>调度频率</th><th>上次运行</th><th>下次到期</th><th>运行中</th><th>快照数</th><th>raw 空间</th><th>操作</th></tr></thead>
@@ -220,19 +241,25 @@ def create_app(
     """构建单页应用。生产环境应为后台线程提供线程内创建的 ``run_now``。"""
     root = Path(data_dir)
     csrf_token = token or secrets.token_urlsafe(32)
+    run_failures: dict[str, str] = {}
     if getattr(scheduler, "manifest", None) is None and hasattr(scheduler, "manifest"):
         scheduler.manifest = getattr(deps, "manifest", None)
 
     async def home(request: Request) -> Response:
         notice_key = request.query_params.get("notice")
+        source_id = request.query_params.get("source_id", "")
         notices = {
             "master-on": "总开关已开启。",
             "master-off": "总开关已关闭。",
             "source-on": "来源开关已开启。",
             "source-off": "来源开关已关闭。",
             "run-started": "已开始。",
+            "run-pending": "运行请求已提交，启动状态尚未确认。",
         }
-        return HTMLResponse(_page(deps, scheduler, csrf_token, notices.get(notice_key)))
+        notice = notices.get(notice_key)
+        if notice_key in {"run-started", "run-pending"} and source_id in run_failures:
+            notice = f"后台运行失败：{run_failures[source_id]}"
+        return HTMLResponse(_page(deps, scheduler, csrf_token, notice))
 
     async def update(request: Request) -> Response:
         form = await request.form()
@@ -267,17 +294,53 @@ def create_app(
                 reason = "总开关关闭" if not current["enabled"] else "来源开关关闭"
                 return HTMLResponse(_page(deps, scheduler, csrf_token, f"未运行：{reason}。"), status_code=409)
             target = run_now or scheduler.run_now
+            run_failures.pop(source_id, None)
+            worker_done = threading.Event()
 
             def execute() -> None:
                 try:
                     target(source_id)
-                except Exception:  # noqa: BLE001 - the scheduler persists crawl failures; keep worker alive on setup errors.
-                    return
+                except Exception as exc:  # noqa: BLE001 - report worker setup failures on the next page load.
+                    run_failures[source_id] = f"{type(exc).__name__}: {exc}"
+                finally:
+                    worker_done.set()
 
-            threading.Thread(target=execute, name=f"datumoj-admin-{source_id}", daemon=True).start()
-            notice = "run-started"
+            try:
+                thread = threading.Thread(target=execute, name=f"datumoj-admin-{source_id}", daemon=True)
+                thread.start()
+            except Exception as exc:  # noqa: BLE001 - thread creation/start failures happen in this request.
+                run_failures[source_id] = f"{type(exc).__name__}: {exc}"
+                return HTMLResponse(
+                    _page(deps, scheduler, csrf_token, f"后台运行失败：{run_failures[source_id]}"),
+                    status_code=500,
+                )
+            deadline = time.monotonic() + 1
+            startup_confirmed = False
+            while not worker_done.is_set():
+                if worker_done.is_set():
+                    startup_confirmed = True
+                    break
+                current = scheduler.status()
+                if any(row["source_id"] == source_id and row["running"] for row in current["sources"]):
+                    startup_confirmed = True
+                    break
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                worker_done.wait(min(0.01, remaining))
+            if worker_done.is_set() and source_id in run_failures:
+                return HTMLResponse(
+                    _page(deps, scheduler, csrf_token, f"后台运行失败：{run_failures[source_id]}"),
+                    status_code=500,
+                )
+            if worker_done.is_set():
+                startup_confirmed = True
+            notice = "run-started" if startup_confirmed else "run-pending"
         else:
             return PlainTextResponse("无效的操作", status_code=400)
-        return RedirectResponse("/?" + urlencode({"notice": notice}), status_code=303)
+        query = {"notice": notice}
+        if action == "run":
+            query["source_id"] = source_id
+        return RedirectResponse("/?" + urlencode(query), status_code=303)
 
     return Starlette(routes=[Route("/", home, methods=["GET"]), Route("/", update, methods=["POST"])])

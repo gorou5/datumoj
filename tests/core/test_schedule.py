@@ -137,14 +137,16 @@ def test_tick_due_and_run_now_bypasses_due_with_append_only_records(tmp_path):
     assert calls == ["jp-test0", "jp-test0", "jp-test0", "jp-test1"]
     assert (tmp_path / "runs.jsonl").read_bytes().startswith(original)
     rows = [json.loads(line) for line in (tmp_path / "runs.jsonl").read_text().splitlines()]
-    assert len(rows) == 4
-    assert rows[0] == {
+    assert len(rows) == 8
+    assert [row["state"] for row in rows] == ["running", "final"] * 4
+    assert all(rows[index]["run_id"] == rows[index + 1]["run_id"] for index in range(0, len(rows), 2))
+    assert {key: value for key, value in rows[1].items() if key not in {"run_id", "state"}} == {
         "source_id": "jp-test0", "started_at": T0.isoformat(), "ended_at": T0.isoformat(),
         "new": 2, "unchanged": 3, "failures": {}, "stop_reason": None,
         "exit_status": 0, "status": "completed",
     }
     status = scheduler.status()
-    assert status["sources"][0]["last_run"] == rows[2]
+    assert status["sources"][0]["last_run"] == rows[5]
     assert status["sources"][0]["next_due"] == (T0 + timedelta(hours=2)).isoformat()
     assert status["sources"][1]["next_due"] is None
     assert status["sources"][0]["effective_enabled"] is True

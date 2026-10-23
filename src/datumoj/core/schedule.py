@@ -8,6 +8,7 @@ import plistlib
 import shutil
 import subprocess
 import tempfile
+import uuid
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
@@ -157,22 +158,106 @@ class Scheduler:
         spec = self.sources[source_id]
         return self.data_dir / "locks" / f"{spec.id}.lock"
 
-    def _history(self) -> list[dict[str, Any]]:
+    def _read_history(self) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         path = self.data_dir / "runs.jsonl"
         if not path.exists():
-            return []
+            return [], []
+        history: list[dict[str, Any]] = []
+        warnings: list[dict[str, Any]] = []
         with _locked(self.data_dir / "runs.lock"):
-            try:
-                return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
-            except (ValueError, UnicodeError) as exc:
-                raise ValueError(f"运行记录 {path} 无效：{exc}") from exc
+            for number, raw_line in enumerate(path.read_bytes().splitlines(), start=1):
+                try:
+                    row = json.loads(raw_line.decode("utf-8"))
+                except UnicodeError:
+                    warnings.append({"line": number, "reason": "不是有效的 UTF-8"})
+                    continue
+                except json.JSONDecodeError as exc:
+                    warnings.append({"line": number, "reason": f"不是合法 JSON：{exc.msg}"})
+                    continue
+                reason = self._invalid_run_reason(row)
+                if reason is not None:
+                    warnings.append({"line": number, "reason": reason})
+                    continue
+                history.append(row)
+        return history, warnings
+
+    @staticmethod
+    def _invalid_run_reason(row: Any) -> str | None:
+        if not isinstance(row, dict):
+            return "记录必须是 JSON 对象"
+        required = {"source_id", "started_at", "status", "exit_status"}
+        missing = sorted(required - row.keys())
+        if missing:
+            return f"缺少必填字段：{', '.join(missing)}"
+        if not isinstance(row["source_id"], str) or not row["source_id"]:
+            return "source_id 必须是非空字符串"
+        if not isinstance(row["started_at"], str):
+            return "started_at 必须是字符串"
+        try:
+            datetime.fromisoformat(row["started_at"])
+        except ValueError:
+            return "started_at 不是有效的 ISO 日期时间"
+        if not isinstance(row["status"], str) or type(row["exit_status"]) is not int:
+            return "status 或 exit_status 类型无效"
+
+        has_run_id = "run_id" in row
+        has_state = "state" in row
+        if has_run_id != has_state:
+            return "run_id 和 state 必须同时存在"
+        if has_run_id:
+            if not isinstance(row["run_id"], str) or not row["run_id"]:
+                return "run_id 必须是非空字符串"
+            if not isinstance(row["state"], str) or row["state"] not in {"running", "final"}:
+                return "state 必须是 running 或 final"
+            if row["state"] == "final":
+                new_required = {"ended_at", "new", "unchanged", "failures", "stop_reason"}
+                missing = sorted(new_required - row.keys())
+                if missing:
+                    return f"结束记录缺少必填字段：{', '.join(missing)}"
+        return None
+
+    def _history(self) -> list[dict[str, Any]]:
+        return self._read_history()[0]
+
+    @staticmethod
+    def _logical_history(history: list[dict[str, Any]], locked_sources: dict[str, bool]) -> list[dict[str, Any]]:
+        logical: list[dict[str, Any]] = []
+        run_positions: dict[tuple[str, str], int] = {}
+        for row in history:
+            if "run_id" not in row:
+                logical.append({**row, "state": "final"})
+                continue
+            key = (row["source_id"], row["run_id"])
+            if key in run_positions:
+                position = run_positions[key]
+                logical[position] = row
+            else:
+                run_positions[key] = len(logical)
+                logical.append(row)
+
+        for index, row in enumerate(logical):
+            if row.get("state") == "running":
+                if locked_sources.get(row["source_id"], False):
+                    continue
+                logical[index] = {
+                    **row, "state": "interrupted", "status": "interrupted", "exit_status": 1,
+                    "stop_reason": "运行锁已释放，但没有结束记录",
+                }
+        return logical
 
     def _append(self, record: dict[str, Any]) -> None:
         with (
             _locked(self.data_dir / "runs.lock"),
-            (self.data_dir / "runs.jsonl").open("a", encoding="utf-8") as stream,
+            (self.data_dir / "runs.jsonl").open("a+b") as stream,
         ):
-            stream.write(json.dumps(record, ensure_ascii=False) + "\n")
+            stream.seek(0, os.SEEK_END)
+            if stream.tell():
+                stream.seek(-1, os.SEEK_END)
+                if stream.read(1) != b"\n":
+                    stream.seek(0, os.SEEK_END)
+                    stream.write(b"\n")
+            stream.seek(0, os.SEEK_END)
+            stream.write((json.dumps(record, ensure_ascii=False) + "\n").encode("utf-8"))
             stream.flush()
             os.fsync(stream.fileno())
 
@@ -182,13 +267,17 @@ class Scheduler:
     def status(self) -> dict[str, Any]:
         control = read_control(self.data_dir)
         now = self.now()
-        history = self._history()
+        history, ledger_warnings = self._read_history()
+        locked_sources: dict[str, bool] = {}
+        for spec in self.sources.values():
+            with _locked(self._lock_path(spec.id), blocking=False) as lock:
+                locked_sources[spec.id] = lock is None
+        history = self._logical_history(history, locked_sources)
         rows = []
         for spec in self.sources.values():
             last = next((row for row in reversed(history) if row["source_id"] == spec.id), None)
             due = next_due(spec.schedule, datetime.fromisoformat(last["started_at"]) if last else None, now)
-            with _locked(self._lock_path(spec.id), blocking=False) as lock:
-                running = lock is None
+            running = locked_sources[spec.id]
             enabled = control["sources"].get(spec.id, {}).get("enabled", False)
             effective_enabled = control["enabled"] and enabled
             alerts = [
@@ -201,8 +290,11 @@ class Scheduler:
                 "schedule": spec.schedule, "last_run": last,
                 "next_due": due.isoformat() if due else None, "running": running, "alerts": alerts,
             })
-        return {"enabled": control["enabled"], "sources": rows,
-                "alert_count": sum(len(row["alerts"]) for row in rows)}
+        return {
+            "enabled": control["enabled"], "sources": rows,
+            "alert_count": sum(len(row["alerts"]) for row in rows),
+            "ledger_warnings": ledger_warnings,
+        }
 
     def _run(self, source_id: str, *, scheduled: bool) -> dict[str, Any]:
         if source_id not in self.sources:
@@ -237,8 +329,10 @@ class Scheduler:
             record = {
                 "source_id": source_id, "started_at": started.isoformat(),
                 "new": None, "unchanged": None, "failures": {}, "stop_reason": None,
-                "exit_status": 0, "status": "completed",
+                "exit_status": 0, "status": "running", "ended_at": None,
+                "run_id": str(uuid.uuid4()), "state": "running",
             }
+            self._append(record)
             try:
                 report = self.execute(spec)
                 record.update(new=report.new, unchanged=report.unchanged, failures=report.failures,
@@ -246,6 +340,8 @@ class Scheduler:
             except Exception as exc:  # noqa: BLE001 - Persist failures at the crawl boundary, then continue the tick.
                 record.update(failures={type(exc).__name__: 1}, stop_reason=str(exc), exit_status=1)
             record["ended_at"] = self.now().isoformat()
+            record["status"] = "completed"
+            record["state"] = "final"
             self._append(record)
             return record
 
