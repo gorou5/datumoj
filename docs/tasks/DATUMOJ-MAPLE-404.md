@@ -9,9 +9,9 @@ runner: claude
 model: null
 tier: high
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/analysis/tools.py", "src/datumoj/analysis/reports.py", "src/datumoj/index/hybrid.py", "src/datumoj/mcp_server.py", "src/datumoj/core/citations.py", "tests/analysis/test_citation_identity.py", "tests/test_mcp_server.py", "tests/regressions/test_audit_404.py", "results/DATUMOJ-MAPLE-404/**"]
+scope: ["src/datumoj/analysis/tools.py", "src/datumoj/analysis/reports.py", "src/datumoj/index/hybrid.py", "src/datumoj/mcp_server.py", "src/datumoj/core/citations.py", "tests/analysis/test_citation_identity.py", "tests/test_mcp_server.py", "tests/regressions/test_audit_404.py", "src/datumoj/core/contracts.py", "tests/index/test_hybrid.py", "tests/integration/test_tachibana_m2.py", "results/DATUMOJ-MAPLE-404/**"]
 out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", ".github/**", ".env.example"]
-protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
+protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/testing/**"]
 acceptance:
   automated:
     - cmd: make check T=tests/analysis/test_citation_identity.py
@@ -47,6 +47,7 @@ max_attempts: 2
 3. `cite`：新增可选参数 `snapshot_id`、`resource_url`；给了就按它们精确还原；只给 SHA 时，若 SHA 对应多个资源（不同 URL），返回歧义结果（列出候选的 snapshot_id 和 URL），不还原。MCP 的 `cite` 工具同步加参数，说明文字写明用法。
 4. `list_changes`：事件的文档查找不再对每个事件全表扫描 chunk（一次调用至多建一次索引，或用定向查询），结果与现在一致。
 5. 新测试 `tests/analysis/test_citation_identity.py` 覆盖：同 SHA 两个 URL 时检索和 `get_chunk` 的引用各自正确、`cite` 精确还原、只给 SHA 时歧义、唯一时照常、`list_changes` 不随事件数全表扫描。`tests/test_mcp_server.py` 中 `cite` 相关断言允许为新参数调整。审核回归测试 `tests/regressions/test_audit_404.py`：用合成数据离线复现审核场景——同一 SHA 出现在两个 URL 时，块的引用指向块自己的资源 URL——断言修好以后的行为，必须通过（不能标 skip / xfail）。全部已有测试（`make check T=tests`）必须仍然通过。
+6. （2026-10-23 第 1 次尝试后补充）`core/contracts.py` 只允许改 `citation_for_chunk` 和 `citation_for_observation` 两个函数：让它们从传入的快照填 `snapshot_id=snapshot.snapshot_id`（ADR 0004 写明由本任务接入），不改签名和其他内容。`tests/index/test_hybrid.py`、`tests/integration/test_tachibana_m2.py` 里拿检索结果与 `citation_for_chunk(...)` 比较的断言，在 helper 填了 `snapshot_id` 后应自然通过；其中断言“同 SHA 取最近成功快照”的用例（如 `test_shared_hash_citation_uses_matching_source_latest_success_and_freshness`）与本任务的资源匹配规则冲突时，允许按新规则调整并在 summary 里逐条说明。
 
 # 不做
 - 不改 Chunk 和 Document 的存储结构（需要时写进 summary 问）。
