@@ -129,7 +129,7 @@ class DuckDBObservationStore:
             columns, rows = _fetch(con.sql(sql).limit(max_rows + 1))
             if len(rows) > max_rows:
                 raise TooManyRows(f"结果超过 {max_rows} 行，请加条件或聚合")
-            provenance = self._provenance(con, columns, rows)
+            provenance, provenance_warnings = self._provenance(con, columns, rows)
         except duckdb.InterruptException as exc:
             raise QueryTimeout(f"查询超过 {timeout_s} 秒") from exc
         except duckdb.PermissionException as exc:
@@ -139,7 +139,7 @@ class DuckDBObservationStore:
         finally:
             timer.cancel()
             con.close()
-        warnings: list[str] = []
+        warnings = list(provenance_warnings)
         if "obs_id" not in columns:
             warnings.append("结果里没有 obs_id 列，未附出处；需要出处时请在 SELECT 里保留 obs_id")
         return QueryResult(columns=columns, rows=rows, provenance=provenance, warnings=warnings)
@@ -185,23 +185,51 @@ class DuckDBObservationStore:
 
     def _provenance(
         self, con: duckdb.DuckDBPyConnection, columns: list[str], rows: list[tuple[Any, ...]]
-    ) -> list[Observation]:
+    ) -> tuple[list[Observation], list[str]]:
         if "obs_id" not in columns:
-            return []
-        idx = columns.index("obs_id")
-        wanted = list(dict.fromkeys(r[idx] for r in rows if isinstance(r[idx], str)))
+            return [], []
+        indexes = {name: columns.index(name) for name in ("source_id", "table_key", "obs_id") if name in columns}
+        obs_idx = indexes["obs_id"]
+        wanted = list(dict.fromkeys(r[obs_idx] for r in rows if isinstance(r[obs_idx], str)))
         if not wanted:
-            return []
+            return [], []
         rel = con.execute(
             "SELECT * FROM observations WHERE obs_id IN (SELECT unnest(?::VARCHAR[]))"
             " ORDER BY source_id, table_key",
             [wanted],
         )
-        found: dict[str, Observation] = {}
+        by_id: dict[str, list[Observation]] = {}
         for d in rel.to_arrow_table().to_pylist():
-            # obs_id 只在表内唯一；不同表撞了 obs_id 时取 (source_id, table_key) 最小的那张表
-            found.setdefault(d["obs_id"], _observation(d))
-        return [found[i] for i in wanted if i in found]
+            obs = _observation(d)
+            by_id.setdefault(obs.obs_id, []).append(obs)
+
+        found: dict[tuple[str, str, str], Observation] = {}
+        ambiguous: list[str] = []
+        identity_columns = [name for name in ("source_id", "table_key") if name in indexes]
+        for row in rows:
+            obs_id = row[obs_idx]
+            if not isinstance(obs_id, str):
+                continue
+            matches = by_id.get(obs_id, [])
+            if identity_columns:
+                matches = [
+                    obs for obs in matches
+                    if all(getattr(obs, name) == row[indexes[name]] for name in identity_columns)
+                ]
+            if len(matches) == 1:
+                obs = matches[0]
+                ref = (obs.source_id, obs.table_key, obs.obs_id)
+                found.setdefault(ref, obs)
+            elif len(matches) > 1 and obs_id not in ambiguous:
+                ambiguous.append(obs_id)
+
+        warnings = []
+        if ambiguous:
+            warnings.append(
+                "以下 obs_id 在多张表中有歧义，未附出处："
+                f"{json.dumps(ambiguous, ensure_ascii=False)}；请在 SELECT 里带上 source_id、table_key、obs_id"
+            )
+        return list(found.values()), warnings
 
 
 def _guard(sql: str) -> None:
