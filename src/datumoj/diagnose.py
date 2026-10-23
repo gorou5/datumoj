@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
 import sqlite3
@@ -27,14 +28,116 @@ from datumoj.core.models import Document, FetchOutcome, Snapshot, parse_context_
 
 DESCRIPTION = {
     "id": "datumoj-evidence-maintenance", "name": "Evidence diagnosis and replay", "version": "1",
-    "description": "Read-only inspection; offline replay into an empty local directory",
+    "description": "Read-only evidence/storage inspection; offline replay into an empty local directory",
     "input": "local data directory; verify_raw or vectors flags", "output": "JSON report",
     "runtime": "Python; local filesystem", "permissions": "read source; write replay target and temporary files",
-    "data_sources": "existing manifest, raw, chunks and observation Parquet files", "license": "unknown",
+    "data_sources": "local file sizes, Lance metadata, manifest, raw, chunks and observation Parquet", "license": "unknown",
     "errors": "exceptions; partial replay reported with failed/unsupported snapshots", "maintenance": "active",
-    "tests": ["tests/test_diagnose.py", "tests/integration/test_maple_m0.py"],
+    "tests": ["tests/test_diagnose.py", "tests/test_diagnose_storage.py", "tests/integration/test_maple_m0.py"],
 }
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
+
+
+def storage(data_dir: str | Path) -> dict:
+    """Inspect an existing, quiescent local directory without constructing stores.
+
+    Sizes are logical file bytes, not filesystem allocated blocks. No row content,
+    model metadata or absolute paths are returned. Symlinks are refused so reads
+    cannot escape the chosen directory. LanceDB metadata reads do not optimize,
+    migrate, restore, or clean up tables. Missing metadata means unknown, not zero.
+    """
+    import lancedb
+
+    root = Path(data_dir)
+    if root.is_symlink() or not root.is_dir():
+        raise ValueError("expected existing local directory")
+    files, directories = {}, {}
+
+    def walk_error(error):
+        raise error
+
+    for directory, names, filenames in os.walk(root, onerror=walk_error, followlinks=False):
+        base = Path(directory)
+        for name in names + filenames:
+            if (base / name).is_symlink():
+                raise ValueError("symlinks are not supported")
+        directories[base.relative_to(root).as_posix()] = 0
+        for name in filenames:
+            path = base / name
+            if not path.is_file():
+                raise ValueError("expected regular file")
+            files[path.relative_to(root)] = path.stat().st_size
+    for path, size in files.items():
+        for parent in path.parents:
+            directories[parent.as_posix()] += size
+    entries = {p.name: directories[p.name] if p.is_dir() else files[Path(p.name)]
+               for p in sorted(root.iterdir())}
+    tables = []
+    vector_root = root / "vectors"
+    for path in sorted(vector_root.rglob("*.lance")):
+        if not path.is_dir():
+            continue
+        relative = path.relative_to(root)
+        physical = {p.relative_to(relative).as_posix(): size for p, size in files.items()
+                    if relative in p.parents}
+        report = {"table": path.stem, "relative_path": relative.as_posix(),
+                  "bytes": directories[relative.as_posix()]}
+        match = re.fullmatch(r"chunks(?:_g(\d+))?", path.stem)
+        report["generation"] = int(match.group(1) or 0) if match else None
+        try:
+            table = lancedb.connect(str(path.parent)).open_table(path.stem)
+            versions = table.list_versions()
+            version = table.version
+            metadata = next(v.get("metadata", {}) for v in versions if v["version"] == version)
+            stats = table.stats()
+            data_bytes = sum(s for p, s in physical.items() if p.startswith("data/"))
+            active_bytes = metadata.get("total_files_size")
+            active_bytes = int(active_bytes) if active_bytes is not None else None
+            # This delta includes unreferenced files from interrupted writes. It
+            # is not the sum of version sizes: versions share immutable files.
+            history_bytes = (data_bytes - active_bytes
+                             if active_bytes is not None and 0 <= active_bytes <= data_bytes else None)
+            stored_rows = metadata.get("total_data_file_rows")
+            deleted_rows = metadata.get("total_deletion_file_rows")
+            stored_rows = int(stored_rows) if stored_rows is not None else None
+            deleted_rows = int(deleted_rows) if deleted_rows is not None else None
+            deleted_bytes = None
+            if (active_bytes is not None and stored_rows is not None and deleted_rows is not None
+                    and 0 <= deleted_rows <= stored_rows):
+                deleted_bytes = round(active_bytes * deleted_rows / stored_rows) if stored_rows else 0
+            current_manifests = {f"_versions/{version}.manifest",
+                                 f"_versions/{2**64 - 1 - version:020d}.manifest"}
+            old_manifest_bytes = (sum(s for p, s in physical.items()
+                                      if p.startswith("_versions/") and p.endswith(".manifest")
+                                      and p not in current_manifests)
+                                  if current_manifests.intersection(physical) else None)
+            estimates = [history_bytes, deleted_bytes, old_manifest_bytes]
+            saving = sum(estimates) if all(n is not None for n in estimates) else None
+            report.update(
+                status="ok", rows=table.count_rows(), versions=len(versions), latest_version=version,
+                data_files=sum(p.startswith("data/") for p in physical), data_bytes=data_bytes,
+                latest_referenced_data_bytes=active_bytes,
+                historical_or_unreferenced_data_bytes_estimate=history_bytes,
+                historical_manifest_bytes=old_manifest_bytes, deleted_rows=deleted_rows,
+                deleted_data_bytes_estimate=deleted_bytes,
+                deletion_file_bytes=sum(s for p, s in physical.items() if p.startswith("_deletions/")),
+                index_bytes=sum(s for p, s in physical.items() if p.startswith("_indices/")),
+                small_fragments=stats["fragment_stats"]["num_small_fragments"],
+                reclaimable_bytes_estimate=saving,
+                retained_bytes_estimate=report["bytes"] - saving if saving is not None else None,
+            )
+        except Exception as exc:  # noqa: BLE001 -- isolate corrupt tables without exposing their data
+            report.update(status="unavailable", error=type(exc).__name__)
+        tables.append(report)
+    return {"read_only": True, "lancedb_version": lancedb.__version__,
+            "total_bytes": directories["."], "entries": entries,
+            "directory_bytes": dict(sorted(directories.items())), "vector_tables": tables,
+            "estimate_method": "physical data minus latest metadata bytes; deleted rows proportional to latest data; "
+                               "older manifests; excludes index/deletion/transaction cleanup and encoding changes",
+            "estimate_caveats": ["stop all writers first", "unknown metadata produces null",
+                                 "history includes orphan data; cleanup retention may protect it",
+                                 "row sizes vary; compaction savings are approximate",
+                                 "generation tables remain; no table removal is estimated"]}
 
 
 @contextmanager

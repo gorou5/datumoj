@@ -107,6 +107,21 @@ def diagnose_evidence(
         raise typer.Exit(1) from exc
 
 
+@diagnose_app.command("storage")
+def diagnose_storage(
+    data_dir: Annotated[Path | None, typer.Option("--data-dir", help="待检查的本地数据目录")] = None,
+) -> None:
+    """只读统计体积与向量版本；先停止写入，压缩节省量仅为估算。"""
+    from datumoj.diagnose import storage
+
+    try:
+        typer.echo(_json(storage(data_dir if data_dir is not None else _data_dir())))
+    except Exception as exc:  # noqa: BLE001 -- sanitize storage/configuration errors at the CLI boundary
+        # Paths, storage configuration and underlying exception text are private.
+        typer.echo(_json({"error": type(exc).__name__}), err=True)
+        raise typer.Exit(1) from None
+
+
 @app.command("replay")
 def replay_evidence(
     source: Path = typer.Option(..., "--from", help="旧数据目录（只读；请先停止写入）"),
