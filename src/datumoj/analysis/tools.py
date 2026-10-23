@@ -28,6 +28,8 @@ import datumoj
 from datumoj.core.storage import load_storage_config
 from datumoj.analysis.glossary import expand_terms, normalize
 from datumoj.core.citations import document_snapshot, select_snapshot
+from datumoj.index.coverage import gap_state as pipeline_gap_state
+from datumoj.index.coverage import index_generation, pipeline_status
 from datumoj.core.contracts import (
     AmbiguousCitation,
     CatalogFilter,
@@ -68,6 +70,7 @@ from datumoj.core.models import (
     LicenseInfo,
     Observation,
     ObservationRef,
+    PipelineStatus,
     Snapshot,
     SourceText,
     TimeBasis,
@@ -106,11 +109,12 @@ def _result(
     gap_detail: str | None = None,
     evidence_state: EvidenceState | None = None,
     evidence_inputs: dict[str, Any] | None = None,
+    pipeline: PipelineStatus | None = None,
 ) -> dict[str, Any]:
     return ToolResult[Any](
         data=data, gap_state=gap_state, freshness=freshness or Freshness(),
         warnings=list(dict.fromkeys(warnings)), gap_detail=gap_detail,
-        evidence_state=evidence_state, evidence_inputs=evidence_inputs,
+        evidence_state=evidence_state, evidence_inputs=evidence_inputs, pipeline=pipeline,
     ).model_dump(mode="json")
 
 
@@ -598,18 +602,32 @@ class AnalysisTools:
             )
         views = [self._hit_view(hit, warnings) for hit in hits]
         _usage_warning((h["usage_notice"] for h in views), warnings)
-        if (
-            doc_kinds is not None and not hits
-            and res.gap_state in (GapState.ok, GapState.zero_hits)
-            and not truncated
-        ):
-            gap_state, gap_detail = GapState.zero_hits, "指定的文档类型没有命中"
-        else:
-            gap_state, gap_detail = res.gap_state, res.gap_detail
+        generation = index_generation(self.retriever, data_dir=self.data_dir)
+        pipeline = pipeline_status(
+            source_ids,
+            registry=self.registry,
+            manifest=self.manifest,
+            chunks=self.chunks,
+            parsers=self._parsers(),
+            index_generation=generation,
+        )
+        gap_state, gap_detail = pipeline_gap_state(
+            source_ids,
+            res.data if hits else (),
+            registry=self.registry,
+            manifest=self.manifest,
+            chunks=self.chunks,
+            parsers=self._parsers(),
+            index_generation=generation,
+        )
+        if doc_kinds is not None and not hits and gap_state is GapState.zero_hits and not truncated:
+            gap_detail = "指定的文档类型没有命中"
         if truncated and gap_state is GapState.zero_hits:
             gap_state, gap_detail = GapState.ok, None
         freshness = _freshness((hit.citation.source_id, hit.citation.fetched_at) for hit in hits)
-        return _result({"queries": used, "hits": views}, gap_state, freshness, warnings, gap_detail)
+        return _result(
+            {"queries": used, "hits": views}, gap_state, freshness, warnings, gap_detail, pipeline=pipeline,
+        )
 
     def _hit_view(self, hit: Hit, warnings: list[str]) -> dict[str, Any]:
         doc = self.chunks.get_document(hit.doc_key, hit.citation.snapshot_sha256)
@@ -1177,10 +1195,11 @@ class AnalysisTools:
         return _result(data, warnings=warnings)
 
     def coverage(self) -> dict[str, Any]:
-        """注册表里的全部来源：入库状态（ok / fetch_failed / not_ingested）、新鲜度、失败统计、许可。"""
+        """注册表里的全部来源：抓取状态、管线覆盖、新鲜度、失败统计和许可。"""
         rows = []
         freshness = []
         warnings: list[str] = []
+        generation = index_generation(self.retriever, data_dir=self.data_dir)
         for spec in self.registry.all():
             fresh = self.manifest.freshness(spec.id)
             snaps = self.manifest.snapshots_for(spec.id)
@@ -1196,6 +1215,10 @@ class AnalysisTools:
             lic = spec.license
             rows.append({
                 "source_id": spec.id, "name": spec.name, "kind": spec.kind, "status": status, "freshness": fresh,
+                "pipeline": pipeline_status(
+                    [spec.id], registry=self.registry, manifest=self.manifest, chunks=self.chunks,
+                    parsers=self._parsers(), index_generation=generation,
+                ),
                 "snapshots": len(snaps), "failure_counts": failures.counts,
                 "failing_resources": len(failures.latest_failures),
                 "license": {
@@ -1206,5 +1229,17 @@ class AnalysisTools:
             })
             freshness.append(fresh)
         if not rows:
-            return _result({"sources": []}, GapState.zero_hits, gap_detail="注册表里没有任何来源")
-        return _result({"sources": rows}, GapState.ok, _merge_freshness(freshness), warnings)
+            empty = pipeline_status(
+                [], registry=self.registry, manifest=self.manifest, chunks=self.chunks,
+                parsers=self._parsers(), index_generation=generation,
+            )
+            return _result(
+                {"sources": []}, GapState.zero_hits, gap_detail="注册表里没有任何来源", pipeline=empty,
+            )
+        overall = pipeline_status(
+            None, registry=self.registry, manifest=self.manifest, chunks=self.chunks,
+            parsers=self._parsers(), index_generation=generation,
+        )
+        return _result(
+            {"sources": rows}, GapState.ok, _merge_freshness(freshness), warnings, pipeline=overall,
+        )

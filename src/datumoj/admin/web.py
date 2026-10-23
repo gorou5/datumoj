@@ -17,6 +17,8 @@ from starlette.responses import HTMLResponse, PlainTextResponse, RedirectRespons
 from starlette.routing import Route
 
 from datumoj.core import schedule
+from datumoj.core.models import PipelineStatus
+from datumoj.index.coverage import INDEX_REBUILDING, index_generation, pipeline_status
 
 
 def _e(value: object) -> str:
@@ -143,6 +145,24 @@ def _page(deps: object, scheduler: object, token: str, notice: str | None = None
     rows_by_id = {row["source_id"]: row for row in status["sources"]}
     notice_html = f'<p class="notice">{_e(notice)}</p>' if notice else ""
     sources = deps.registry.all()
+    pipeline_rows: dict[str, dict] = {}
+    tools = getattr(deps, "tools", None)
+    coverage = getattr(tools, "coverage", None)
+    if callable(coverage):
+        result = coverage()
+        pipeline_rows = {
+            row["source_id"]: row.get("pipeline", {})
+            for row in result.get("data", {}).get("sources", [])
+        }
+    elif getattr(deps, "chunks", None) is not None and getattr(deps, "manifest", None) is not None:
+        retriever = getattr(deps, "retriever", getattr(tools, "retriever", None))
+        generation = index_generation(retriever, data_dir=getattr(deps, "data_dir", None))
+        parsers = getattr(tools, "parsers", None)
+        for spec in sources:
+            pipeline_rows[spec.id] = pipeline_status(
+                [spec.id], registry=deps.registry, manifest=deps.manifest, chunks=deps.chunks,
+                parsers=parsers, index_generation=generation,
+            ).model_dump(mode="json")
     rows = []
     for spec in sources:
         row = rows_by_id[spec.id]
@@ -150,6 +170,12 @@ def _page(deps: object, scheduler: object, token: str, notice: str | None = None
         running = row.get("running", False)
         state = "正在运行" if running else ("开启" if row.get("enabled") else "关闭")
         classes = "on" if row.get("enabled") else "off"
+        pipeline = pipeline_rows.get(spec.id) or PipelineStatus(
+            parseable_snapshots=0, parsed=0, parse_failed=0, needs_ocr=0, searchable_chunks=0,
+        ).model_dump(mode="json")
+        generation = pipeline.get("index_generation") or "未知"
+        if generation == INDEX_REBUILDING:
+            generation = "重建中"
         rows.append(
             "<tr>"
             f'<th scope="row"><span class="source-id">{_e(spec.id)}</span><br><span class="source-name">{_e(spec.name)}</span></th>'
@@ -160,11 +186,14 @@ def _page(deps: object, scheduler: object, token: str, notice: str | None = None
             f'<td>{"是" if running else "否"}</td>'
             f'<td>{len(deps.manifest.snapshots_for(spec.id)) if getattr(deps, "manifest", None) is not None else 0}</td>'
             f'<td>{_e(_format_bytes(_raw_bytes(deps, spec.id)))}</td>'
+            f'<td>已解析 {_e(pipeline.get("parsed", 0))}/{_e(pipeline.get("parseable_snapshots", 0))}；'
+            f'解析失败数：{_e(pipeline.get("parse_failed", 0))}；needs_ocr {_e(pipeline.get("needs_ocr", 0))}；'
+            f'可检索块 {_e(pipeline.get("searchable_chunks", 0))}；索引 {_e(generation)}</td>'
             f'<td>{_run_form(token, spec.id)}</td>'
             "</tr>"
         )
     if not rows:
-        rows.append('<tr><td colspan="9" class="empty">当前没有登记来源。</td></tr>')
+        rows.append('<tr><td colspan="10" class="empty">当前没有登记来源。</td></tr>')
     master = "开启" if status["enabled"] else "关闭"
     return f"""<!doctype html>
 <html lang="zh-CN">
@@ -189,7 +218,7 @@ def _page(deps: object, scheduler: object, token: str, notice: str | None = None
     .alert-list li.alert-error {{ border-color: #c43d3d; background: #fff0f0; }}
     .alert-list p {{ margin: 5px 0; }}
     .table-wrap {{ overflow-x: auto; border: 1px solid #dfe4ec; border-radius: 12px; background: white; }}
-    table {{ width: 100%; border-collapse: collapse; min-width: 1120px; }}
+    table {{ width: 100%; border-collapse: collapse; min-width: 1480px; }}
     th, td {{ padding: 13px 14px; border-bottom: 1px solid #edf0f4; text-align: left; vertical-align: top; }}
     thead th {{ background: #f9fafb; color: #475467; font-size: 12px; font-weight: 650; white-space: nowrap; }}
     tbody tr:last-child > * {{ border-bottom: 0; }}
@@ -220,7 +249,7 @@ def _page(deps: object, scheduler: object, token: str, notice: str | None = None
     {_ledger_warnings_section(status)}
     <div class="table-wrap">
       <table>
-        <thead><tr><th>来源</th><th>来源开关</th><th>调度频率</th><th>上次运行</th><th>下次到期</th><th>运行中</th><th>快照数</th><th>raw 空间</th><th>操作</th></tr></thead>
+        <thead><tr><th>来源</th><th>来源开关</th><th>调度频率</th><th>上次运行</th><th>下次到期</th><th>运行中</th><th>快照数</th><th>raw 空间</th><th>管线覆盖</th><th>操作</th></tr></thead>
         <tbody>{''.join(rows)}</tbody>
       </table>
     </div>
