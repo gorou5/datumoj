@@ -9,9 +9,9 @@ runner: claude
 model: null
 tier: high
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/pipeline.py", "src/datumoj/store/chunks.py", "src/datumoj/index/fts.py", "src/datumoj/wiring.py", "tests/test_pipeline_publish.py", "tests/test_pipeline.py", "tests/test_pipeline_retry.py", "tests/regressions/test_audit_107.py", "results/DATUMOJ-MAPLE-107/**"]
+scope: ["src/datumoj/pipeline.py", "src/datumoj/store/chunks.py", "src/datumoj/index/fts.py", "src/datumoj/wiring.py", "tests/test_pipeline_publish.py", "tests/test_pipeline.py", "tests/test_pipeline_retry.py", "tests/regressions/test_audit_107.py", "src/datumoj/core/contracts.py", "src/datumoj/core/manifest.py", "src/datumoj/testing/fakes.py", "src/datumoj/testing/contract_suites.py", "tests/core/test_manifest.py", "tests/core/test_contracts_maple.py", "results/DATUMOJ-MAPLE-107/**"]
 out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", ".github/**", ".env.example"]
-protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
+protected: ["tests/fixtures/**", "src/datumoj/core/models.py"]
 acceptance:
   automated:
     - cmd: make check T=tests/test_pipeline_publish.py
@@ -46,7 +46,9 @@ max_attempts: 2
 4. 中途失败（任一必需库写入抛错）：该快照记为 `failed`，current 和已发布的索引不变；下一次 `parse_pending` 开始时做**恢复扫描**：发现 `staged` 但未发布的、或关键词索引与 current 不一致的 doc_key，按 current 重建它的关键词条目（向量缺失沿用现有的 vector missing 记录补写）。
 5. 故障注入测试 `tests/test_pipeline_publish.py`：在 ChunkStore 暂存后、关键词写入时、向量写入时、观测值写入时、发布前各注入一次异常，断言 current、关键词检索结果、发布状态都符合上面的规则，且下一次运行恢复一致；另有并发两次重试同一旧快照不产生倒退的用例。
 6. 现有 `tests/test_pipeline.py`、`tests/test_pipeline_retry.py` 中与新规则冲突的断言允许调整（写进 summary 逐条说明原因，不删测试）。审核回归测试 `tests/regressions/test_audit_107.py`：用合成数据离线复现审核场景——旧快照解析失败、新快照成功后再重试旧快照（旧快照这次成功），current 仍为新快照——断言修好以后的行为，必须通过（不能标 skip / xfail）。全部已有测试（`make check T=tests`）必须仍然通过。
+7. （2026-10-23 两次尝试后由人定的方案 A，**以本条为准**，与上面各条冲突处按本条）：（a）**必需的库**只有 ChunkStore、关键词索引和观测值；向量保持现在的可选语义（写失败记 vector missing、照常发布，`tests/test_pipeline_vectors.py` 不改）。（b）**唯一发布点**是 `ChunkStore.publish_current`：先写观测值和暂存文档（`publish=False`），再 `publish_current`，之后写关键词索引，关键词写完才把快照标为 `published`；关键词写入失败时快照保持 `staged`，下一次 `parse_pending` 开始时的恢复扫描对 `staged` 且是 current 的文档按当前版本重建关键词条目、补写向量缺失，然后标 `published`；`staged` 但不是 current 的（旧快照重试）直接标 `published`（只补历史）。观测值写入失败时不发布，标 `failed`。故障注入测试按这个顺序覆盖。失败到恢复之间关键词检索可能仍是旧内容，引用始终按 current，不会指错；这一点写进 summary。（c）**契约补充，本任务允许**：`Manifest` 加 `record_publish_state(snapshot_id, state: PublishState, error: str | None = None)`、`publish_state(snapshot_id) -> PublishState | None`、`snapshots_in_publish_state(state) -> list[str]`；`SqliteManifest` 持久化（schema 升到 4，v1–v3 都能迁移，迁移来的快照没有发布状态，记为 None，不参与恢复扫描）；`FakeManifest`、`ManifestSuite` 同步补用例。不改 `models.py`（`PublishState` 已有）和 ChunkStore、KeywordIndex、VectorIndex 协议。（d）同 doc_key、同 SHA 的版本槽位被另一上下文重写（202 的复用条件不满足时）且它正是 current：视为同一份字节的重写，重写后由本次发布或恢复扫描重建关键词条目；写进 summary。
 
 # 不做
 - 不做 R2 上传和状态代次（MAPLE-102）。
 - 不改向量索引的追加和重建方式（MAPLE-111）。
+- 不给关键词或向量索引加暂存（人定方案 A）。
