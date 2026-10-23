@@ -77,9 +77,11 @@ from datumoj.core.models import (
     Observation,
     Resource,
     Snapshot,
+    SnapshotOrder,
     SourceText,
     ToolResult,
     parent_ref,
+    parse_context_fingerprint,
     redact_url,
 )
 
@@ -174,7 +176,7 @@ class FakeManifest:
     def __init__(self) -> None:
         self._snaps: list[Snapshot] = []
         self._meta: dict[str, dict[str, JsonValue]] = {}
-        self._parse: dict[tuple[str, str, str], ParseRecord] = {}
+        self._parse: dict[tuple[str, str, str, str], ParseRecord] = {}
 
     def record_snapshot(self, snapshot: Snapshot, meta: Mapping[str, JsonValue] | None = None) -> None:
         if snapshot.snapshot_id in self._meta:
@@ -187,6 +189,12 @@ class FakeManifest:
         if snapshot_id not in self._meta:
             raise NotFoundError(f"没有快照 {snapshot_id}")
         return json.loads(json.dumps(self._meta[snapshot_id]))
+
+    def snapshot_order(self, snapshot_id: str) -> SnapshotOrder | None:
+        for seq, snap in enumerate(self._snaps, 1):
+            if snap.snapshot_id == snapshot_id:
+                return SnapshotOrder(fetched_at=snap.fetched_at, seq=seq)
+        return None
 
     def _sorted(self, snaps: Iterable[Snapshot]) -> list[Snapshot]:
         return sorted(snaps, key=lambda s: s.fetched_at)  # 稳定排序：同一时间保持写入顺序
@@ -224,21 +232,26 @@ class FakeManifest:
         return Freshness(as_of=as_of, oldest_fetched_at=min(per_resource.values()), by_source={source_id: as_of})
 
     def record_parse(self, record: ParseRecord) -> None:
-        key = (record.sha256, record.parser, record.version)
+        key = (record.sha256, record.parser, record.version, record.context_fingerprint)
         self._parse.pop(key, None)  # 覆盖也算最后一次写入
         self._parse[key] = record
 
-    def get_parse(self, sha256: str, parser: str, version: str) -> ParseRecord | None:
-        return self._parse.get((sha256, parser, version))
+    def get_parse(self, sha256: str, parser: str, version: str, context_fingerprint: str = "") -> ParseRecord | None:
+        return self._parse.get((sha256, parser, version, context_fingerprint))
 
     def parse_stats(self, source_id: str, since: datetime | None = None) -> dict[ParseStatus, int]:
         if since is not None:
             since = TypeAdapter(AwareDatetime).validate_python(since)
-        latest = {record.sha256: record.status for record in self._parse.values()}
-        return dict(Counter(
-            latest[s.sha256] for s in self._snaps
-            if s.source_id == source_id and (since is None or s.fetched_at >= since) and s.sha256 in latest
-        ))
+        latest = {(r.sha256, r.context_fingerprint): r.status for r in self._parse.values()}
+        counts: Counter[ParseStatus] = Counter()
+        for snap in self._snaps:
+            if snap.source_id != source_id or (since is not None and snap.fetched_at < since):
+                continue
+            context = parse_context_fingerprint(snap, self._meta[snap.snapshot_id])
+            status = latest.get((snap.sha256, context), latest.get((snap.sha256, "")))
+            if status is not None:
+                counts[status] += 1
+        return dict(counts)
 
 
 class FakeChangeLog:
@@ -470,8 +483,9 @@ class FakeChunkStore:
     def __init__(self) -> None:
         self._versions: dict[str, dict[str, tuple[Document, list[Chunk]]]] = {}
         self._current: dict[str, str] = {}
+        self._orders: dict[str, SnapshotOrder] = {}
 
-    def put_document(self, document: Document, chunks: Sequence[Chunk]) -> None:
+    def put_document(self, document: Document, chunks: Sequence[Chunk], *, publish: bool = True) -> None:
         ids: set[str] = set()
         for c in chunks:
             if c.doc_key != document.doc_key or c.snapshot_sha256 != document.snapshot_sha256:
@@ -482,7 +496,21 @@ class FakeChunkStore:
         versions = self._versions.setdefault(document.doc_key, {})
         versions.pop(document.snapshot_sha256, None)
         versions[document.snapshot_sha256] = (document, list(chunks))
-        self._current[document.doc_key] = document.snapshot_sha256
+        if publish:
+            self._current[document.doc_key] = document.snapshot_sha256
+
+    def current_order(self, doc_key: str) -> SnapshotOrder | None:
+        return self._orders.get(doc_key)
+
+    def publish_current(self, doc_key: str, snapshot_sha256: str, order: SnapshotOrder) -> bool:
+        if self.get_document(doc_key, snapshot_sha256) is None:
+            raise NotFoundError(f"没有文档版本 {doc_key} / {snapshot_sha256}")
+        current = self.current_order(doc_key)
+        if current is not None and order <= current:
+            return False
+        self._current[doc_key] = snapshot_sha256
+        self._orders[doc_key] = order
+        return True
 
     def _version(self, doc_key: str, snapshot_sha256: str | None) -> tuple[Document, list[Chunk]] | None:
         sha = snapshot_sha256 or self._current.get(doc_key)
@@ -494,7 +522,7 @@ class FakeChunkStore:
 
     def get_chunk(self, chunk_id: str, snapshot_sha256: str | None = None) -> Chunk | None:
         for doc_key, versions in self._versions.items():
-            v = versions.get(snapshot_sha256) if snapshot_sha256 else versions.get(self._current[doc_key])
+            v = versions.get(snapshot_sha256) if snapshot_sha256 else versions.get(self._current.get(doc_key))
             for c in v[1] if v else []:
                 if c.chunk_id == chunk_id:
                     return c

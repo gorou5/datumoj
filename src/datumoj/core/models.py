@@ -15,6 +15,7 @@ from collections.abc import Iterable, Mapping
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
+from functools import total_ordering
 from hashlib import sha256 as _sha256
 from pathlib import Path
 from typing import Annotated, Any, Generic, Literal, TypeVar
@@ -116,8 +117,21 @@ class GapState(StrEnum):
     ok = "ok"
     zero_hits = "zero_hits"
     not_ingested = "not_ingested"
+    not_indexed = "not_indexed"
     fetch_failed = "fetch_failed"
     out_of_scope = "out_of_scope"
+
+
+class PublishState(StrEnum):
+    staged = "staged"
+    published = "published"
+    failed = "failed"
+
+
+class EvidenceState(StrEnum):
+    complete = "complete"
+    partial = "partial"
+    unavailable = "unavailable"
 
 
 class MatchedBy(StrEnum):
@@ -287,6 +301,48 @@ def _check_key_belongs(key: str, source_id: str, field: str) -> None:
 
 class _Model(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+@total_ordering
+class SnapshotOrder(_Model):
+    """快照抓取时间优先，同一时间按 manifest 写入序号排序；只在同一 manifest 内可比。"""
+
+    fetched_at: AwareDatetime
+    seq: Annotated[int, Field(ge=1, strict=True)]
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, SnapshotOrder):
+            return NotImplemented
+        return (self.fetched_at, self.seq) < (other.fetched_at, other.seq)
+
+
+class ObservationRef(_Model):
+    """表内观测值的全局引用键。字符串是三个字段的紧凑 JSON 数组。"""
+
+    source_id: SourceId
+    table_key: Text
+    obs_id: Text
+
+    def __str__(self) -> str:
+        return json.dumps([self.source_id, self.table_key, self.obs_id], ensure_ascii=False, separators=(",", ":"))
+
+    @classmethod
+    def parse(cls, text: str) -> ObservationRef:
+        parts = json.loads(text)
+        if not isinstance(parts, list) or len(parts) != 3:
+            raise ValueError("ObservationRef 必须是三个字符串组成的 JSON 数组")
+        return cls(source_id=parts[0], table_key=parts[1], obs_id=parts[2])
+
+
+class PipelineStatus(_Model):
+    """当前查询范围的管线计数；各状态计数可以重叠，不表示互斥分区。"""
+
+    parseable_snapshots: Annotated[int, Field(ge=0, strict=True)]
+    parsed: Annotated[int, Field(ge=0, strict=True)]
+    parse_failed: Annotated[int, Field(ge=0, strict=True)]
+    needs_ocr: Annotated[int, Field(ge=0, strict=True)]
+    searchable_chunks: Annotated[int, Field(ge=0, strict=True)]
+    index_generation: Text | None = None
 
 
 class FailureClass(_Model):
@@ -509,6 +565,18 @@ class Snapshot(_Model):
 # ---------- 文档轨道 ----------
 
 
+def parse_context_fingerprint(snapshot: Snapshot, meta: Mapping[str, JsonValue] | None = None) -> str:
+    """解析上下文的 SHA-256；不含 snapshot_id、抓取时间、HTTP 条件头或字节哈希。
+
+    JSON 对象递归按键排序，数组保留顺序；字符串不作 Unicode/URL/媒体类型重写。
+    meta 必须是有限 JSON 值。相同资源、媒体类型和 meta 的重复观察可复用解析产物。
+    """
+    checked = TypeAdapter(dict[str, JsonValue]).validate_python(dict(meta or {}))
+    context = [snapshot.source_id, snapshot.resource_url, snapshot.content_type, checked]
+    canonical = json.dumps(context, sort_keys=True, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    return _sha256(canonical.encode("utf-8")).hexdigest()
+
+
 class Document(_Model):
     """一次快照解析出的一份文档（正文在 Chunk 里）。"""
 
@@ -606,7 +674,9 @@ def _one_line(text: str) -> str:
 
 
 class Citation(_Model):
-    """出处 = source_id + resource_url + snapshot_sha256 + fetched_at + locator，外加时间口径与许可。
+    """出处由 snapshot_id 绑定一次观察；保留资源、blob、位置、时间口径与许可。
+
+    snapshot_id 可空仅兼容旧数据；新生成的出处必须填入快照身份。
 
     fetched_at 只是抓取日，永远不能当数据日期用。
     """
@@ -614,6 +684,7 @@ class Citation(_Model):
     source_id: SourceId
     resource_url: RedactedUrl
     snapshot_sha256: Sha256
+    snapshot_id: Text | None = None
     fetched_at: AwareDatetime
     locator: Locator
     published_at: date | None = None
@@ -749,6 +820,9 @@ class ToolResult(_Model, Generic[T]):
     freshness: Freshness
     warnings: list[str] = Field(default_factory=list)
     gap_detail: str | None = None
+    evidence_state: EvidenceState | None = None
+    evidence_inputs: dict[str, JsonValue] | None = None
+    pipeline: PipelineStatus | None = None
 
     @model_validator(mode="after")
     def _consistent(self) -> ToolResult[T]:
@@ -774,6 +848,11 @@ SCHEMA_TYPES: dict[str, Any] = {
     "TimeGranularity": TimeGranularity,
     "GapState": GapState,
     "MatchedBy": MatchedBy,
+    "SnapshotOrder": SnapshotOrder,
+    "ObservationRef": ObservationRef,
+    "PublishState": PublishState,
+    "EvidenceState": EvidenceState,
+    "PipelineStatus": PipelineStatus,
     "LicenseInfo": LicenseInfo,
     "Source": Source,
     "Dataset": Dataset,

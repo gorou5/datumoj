@@ -144,7 +144,7 @@ def test_enum_values_exact():
         "ok", "not_modified", "http_error", "network_error",
         "too_large", "blocked_by_robots", "empty_body", "spa_shell",
     }
-    assert {e.value for e in GapState} == {"ok", "zero_hits", "not_ingested", "fetch_failed", "out_of_scope"}
+    assert {e.value for e in GapState} == {"ok", "zero_hits", "not_ingested", "not_indexed", "fetch_failed", "out_of_scope"}
     assert {e.value for e in UsageScope} == {"internal_only", "redistributable"}
     assert {e.value for e in Redistribution} == {"allowed", "forbidden", "unverified"}
     assert {e.value for e in TimeBasis} == {"period", "published", "effective", "no_data_date"}

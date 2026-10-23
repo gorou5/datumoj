@@ -1,0 +1,9 @@
+{
+  "enum": [
+    "staged",
+    "published",
+    "failed"
+  ],
+  "title": "PublishState",
+  "type": "string"
+}

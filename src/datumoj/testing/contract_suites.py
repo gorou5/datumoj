@@ -68,9 +68,12 @@ from datumoj.core.models import (
     FetchOutcome,
     GapState,
     LicenseInfo,
+    ObservationRef,
     Redistribution,
+    SnapshotOrder,
     SourceText,
     UsageScope,
+    parse_context_fingerprint,
     redact_url,
 )
 from datumoj.testing.fakes import FakeEmbedder, FakeManifest, FakeRawStore, FakeResponse, drive_crawler
@@ -311,6 +314,50 @@ class ManifestSuite:
     def test_meta_must_be_json(self, manifest):
         with pytest.raises(ValueError):
             manifest.record_snapshot(make_snapshot(snapshot_id="bad"), {"x": object()})
+
+    def test_snapshot_order_uses_fetch_time_then_persistent_sequence(self, manifest):
+        assert manifest.snapshot_order("missing") is None
+        for sid, when in [("new", T0 + H), ("old", T0), ("tie", T0 + H)]:
+            manifest.record_snapshot(make_snapshot(snapshot_id=sid, fetched_at=when))
+        new, old, tie = (manifest.snapshot_order(sid) for sid in ("new", "old", "tie"))
+        assert old < new < tie
+        assert new.fetched_at == T0 + H
+        assert new.seq < old.seq < tie.seq
+
+    def test_parse_context_is_part_of_key(self, manifest):
+        snap = make_snapshot(snapshot_id="one")
+        same = make_snapshot(snapshot_id="repeat", fetched_at=T0 + H)
+        other = make_snapshot(url=URL_B, snapshot_id="other")
+        for s in (snap, same, other):
+            manifest.record_snapshot(s, {"nested": {"b": 2, "a": 1}})
+        fp = parse_context_fingerprint(snap, manifest.snapshot_meta(snap.snapshot_id))
+        same_fp = parse_context_fingerprint(same, {"nested": {"a": 1, "b": 2}})
+        other_fp = parse_context_fingerprint(other, manifest.snapshot_meta(other.snapshot_id))
+        assert fp == same_fp and fp != other_fp
+        legacy = ParseRecord(sha256=snap.sha256, parser="p", version="1", status=ParseStatus.ok)
+        manifest.record_parse(legacy)
+        assert manifest.get_parse(snap.sha256, "p", "1", fp) is None
+        record = legacy.model_copy(update={"context_fingerprint": fp})
+        manifest.record_parse(record)
+        assert manifest.get_parse(snap.sha256, "p", "1", same_fp) == record
+        assert manifest.get_parse(snap.sha256, "p", "1", other_fp) is None
+        changed = parse_context_fingerprint(snap, {"nested": {"a": 9}})
+        assert manifest.get_parse(snap.sha256, "p", "1", changed) is None
+        failed = record.model_copy(update={"context_fingerprint": other_fp, "status": ParseStatus.failed, "error": "bad"})
+        manifest.record_parse(failed)
+        assert manifest.get_parse(snap.sha256, "p", "1", fp) == record
+        assert manifest.get_parse(snap.sha256, "p", "1", other_fp) == failed
+        manifest.record_parse(record.model_copy(update={"error": "rewritten"}))
+        assert manifest.get_parse(snap.sha256, "p", "1", other_fp) == failed
+
+    def test_contextual_parse_stats_do_not_cross_resources(self, manifest):
+        first = make_snapshot(snapshot_id="first")
+        second = make_snapshot(snapshot_id="second", url=URL_B)
+        manifest.record_snapshot(first)
+        manifest.record_snapshot(second)
+        manifest.record_parse(ParseRecord(sha256=first.sha256, parser="p", version="1", status=ParseStatus.ok,
+                                           context_fingerprint=parse_context_fingerprint(first, {})))
+        assert manifest.parse_stats(first.source_id) == {ParseStatus.ok: 1}
 
     def test_parse_records(self, manifest):
         digest = sha(b"hello")
@@ -688,6 +735,66 @@ class ChunkStoreSuite:
         store.put_document(*_doc_v(SHA1, ["他の来源"], doc_key="jp-other:d"))
         assert sorted(c.text for c in store.iter_chunks()) == sorted(["新", "他の来源"])
         assert [c.text for c in store.iter_chunks(["jp-other"])] == ["他の来源"]
+
+    def reopen_store(self, store):
+        """内存实现保留实例；持久化实现覆盖本方法，关闭后重新打开。"""
+        return store
+
+    def test_staged_versions_are_invisible_until_published(self, store):
+        doc, chunks = _doc_v(SHA1, ["暂存"])
+        store.put_document(doc, chunks, publish=False)
+        assert store.get_document(DOC) is None
+        assert store.chunks_for(DOC) == []
+        assert store.get_chunk(chunks[0].chunk_id) is None
+        assert list(store.iter_chunks()) == []
+        assert store.get_document(DOC, SHA1) == doc
+        assert store.get_chunk(chunks[0].chunk_id, SHA1) == chunks[0]
+        assert store.current_order(DOC) is None
+        assert store.publish_current(DOC, SHA1, SnapshotOrder(fetched_at=T0, seq=1))
+        assert store.chunks_for(DOC) == chunks
+
+    def test_publication_is_monotonic_and_keeps_watermark(self, store):
+        old_doc, old = _doc_v(SHA1, ["旧"])
+        new_doc, new = _doc_v(SHA2, ["新"])
+        early = SnapshotOrder(fetched_at=T0, seq=99)
+        latest = SnapshotOrder(fetched_at=T0 + H, seq=1)
+        store.put_document(new_doc, new, publish=False)
+        assert store.publish_current(DOC, SHA2, latest)
+        store.put_document(old_doc, old, publish=False)
+        assert store.chunks_for(DOC) == new
+        store = self.reopen_store(store)
+        assert store.current_order(DOC) == latest
+        assert not store.publish_current(DOC, SHA1, early)
+        assert not store.publish_current(DOC, SHA1, latest)
+        assert store.get_document(DOC) == new_doc
+        assert store.current_order(DOC) == latest
+        # 同一抓取时间的序号打破平局；回到旧字节也可以是更新的观察。
+        tie = SnapshotOrder(fetched_at=T0 + H, seq=2)
+        assert store.publish_current(DOC, SHA1, tie)
+        assert store.chunks_for(DOC) == old
+        assert store.current_order(DOC) == tie
+        assert store.chunks_for(DOC, SHA2) == new
+
+    def test_publication_is_scoped_by_document(self, store):
+        store.put_document(*_doc_v(SHA1, ["一"]), publish=False)
+        store.put_document(*_doc_v(SHA2, ["二"], "jp-other:d"), publish=False)
+        newer = SnapshotOrder(fetched_at=T0 + H, seq=2)
+        older = SnapshotOrder(fetched_at=T0, seq=1)
+        assert store.publish_current(DOC, SHA1, newer)
+        assert store.publish_current("jp-other:d", SHA2, older)
+        with pytest.raises(NotFoundError):
+            store.publish_current(DOC, sha(b"missing"), SnapshotOrder(fetched_at=T0 + 2 * H, seq=3))
+        assert store.current_order(DOC) == newer
+        assert store.get_document(DOC).snapshot_sha256 == SHA1
+        assert store.current_order("jp-missing:d") is None
+
+    def test_legacy_put_preserves_watermark(self, store):
+        store.put_document(*_doc_v(SHA1, ["一"]))
+        order = SnapshotOrder(fetched_at=T0, seq=1)
+        store.publish_current(DOC, SHA1, order)
+        store.put_document(*_doc_v(SHA2, ["二"]))
+        assert store.get_document(DOC).snapshot_sha256 == SHA2
+        assert store.current_order(DOC) == order
 
     def test_unknown(self, store):
         assert store.get_document("jp-test:none") is None
@@ -1188,3 +1295,33 @@ class ObservationStoreSuite:
         assert (t.source_id, t.table_key, t.rows, t.area_count) == ("jp-stat", "t1", 3, 3)
         assert t.surveys == ["国勢調査"] and t.indicators == ["人口"] and t.dataset_keys == ["jp-stat:pop"]
         assert (t.time_start, t.time_end) == (date(2020, 1, 1), date(2020, 12, 31))
+
+
+class EvidenceIdentitySuite:
+    """身份纯函数的合格测试，无存储 fixture。"""
+
+    def test_observation_ref_roundtrip_and_table_isolation(self):
+        for table in ["table", "a:b|c;d=e", '日本語/["\\]']:
+            ref = ObservationRef(source_id="jp-test", table_key=table, obs_id="same:|;=\n行")
+            assert ObservationRef.parse(str(ref)) == ref
+            assert str(ref) == str(ObservationRef.parse(str(ref)))
+        a = ObservationRef(source_id="jp-test", table_key="one", obs_id="id")
+        b = ObservationRef(source_id="jp-test", table_key="two", obs_id="id")
+        c = ObservationRef(source_id="jp-other", table_key="one", obs_id="id")
+        assert len({str(a), str(b), str(c)}) == 3
+
+    def test_fingerprint_stability_and_input_boundaries(self):
+        snap = make_snapshot()
+        meta = {"日本語": [None, True, {"a": 1, "b": 2}]}
+        reordered = {"日本語": [None, True, {"b": 2, "a": 1}]}
+        fp = parse_context_fingerprint(snap, meta)
+        assert fp == parse_context_fingerprint(snap, reordered)
+        repeat = make_snapshot(snapshot_id="repeat", fetched_at=T0 + H, etag='"different"')
+        assert fp == parse_context_fingerprint(repeat, meta)
+        for other in [make_snapshot("jp-other"), make_snapshot(url=URL_B), make_snapshot(content_type="text/html")]:
+            assert fp != parse_context_fingerprint(other, meta)
+        assert fp != parse_context_fingerprint(snap, {"日本語": [True, None, {"a": 1, "b": 2}]})
+        assert parse_context_fingerprint(snap, None) == parse_context_fingerprint(snap, {})
+        for invalid in [{"x": object()}, {"x": float("nan")}, {"x": float("inf")}]:
+            with pytest.raises(ValueError):
+                parse_context_fingerprint(snap, invalid)

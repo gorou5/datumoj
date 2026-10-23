@@ -7,9 +7,10 @@ from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 
-from datumoj.core.models import Chunk, Document
+from datumoj.core.contracts import NotFoundError
+from datumoj.core.models import Chunk, Document, SnapshotOrder
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);
@@ -22,6 +23,10 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE TABLE IF NOT EXISTS current_versions (
     doc_key TEXT PRIMARY KEY,
     snapshot_sha256 TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS published_orders (
+    doc_key TEXT PRIMARY KEY,
+    order_json TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS chunks (
     doc_key TEXT NOT NULL,
@@ -46,22 +51,29 @@ class SqliteChunkStore:
         if db_path != ":memory:":
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         self._db = sqlite3.connect(db_path, timeout=timeout, isolation_level=None)
-        self._init_schema()
+        try:
+            self._init_schema()
+        except BaseException:
+            self._db.close()
+            raise
 
     def close(self) -> None:
         self._db.close()
 
     def _init_schema(self) -> None:
-        tables = {row[0] for row in self._db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        if not tables:
-            self._db.executescript(_SCHEMA)
-            self._db.execute("INSERT INTO schema_version VALUES (?)", (SCHEMA_VERSION,))
-            return
-        row = self._db.execute("SELECT version FROM schema_version").fetchone() if "schema_version" in tables else None
-        if row is None or row[0] != SCHEMA_VERSION:
-            found = "没有版本记录" if row is None else f"版本 {row[0]}"
-            raise ValueError(f"chunk store schema 版本不符：代码要求 {SCHEMA_VERSION}，库里{found}")
-        self._db.executescript(_SCHEMA)
+        with self._tx() as db:
+            tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            row = db.execute("SELECT version FROM schema_version").fetchone() if "schema_version" in tables else None
+            if tables and (row is None or row[0] not in (1, SCHEMA_VERSION)):
+                found = "没有版本记录" if row is None else f"版本 {row[0]}"
+                raise ValueError(f"chunk store schema 版本不符：代码要求 {SCHEMA_VERSION}，库里{found}")
+            for stmt in _SCHEMA.split(";\n"):
+                if stmt.strip():
+                    db.execute(stmt)
+            if not tables:
+                db.execute("INSERT INTO schema_version VALUES (?)", (SCHEMA_VERSION,))
+            elif row[0] == 1:
+                db.execute("UPDATE schema_version SET version=?", (SCHEMA_VERSION,))
 
     @contextmanager
     def _tx(self) -> Iterator[sqlite3.Connection]:
@@ -74,7 +86,7 @@ class SqliteChunkStore:
         else:
             self._db.execute("COMMIT")
 
-    def put_document(self, document: Document, chunks: Sequence[Chunk]) -> None:
+    def put_document(self, document: Document, chunks: Sequence[Chunk], *, publish: bool = True) -> None:
         ids: set[str] = set()
         for c in chunks:
             if c.doc_key != document.doc_key or c.snapshot_sha256 != document.snapshot_sha256:
@@ -94,11 +106,35 @@ class SqliteChunkStore:
                 "INSERT INTO chunks(doc_key, snapshot_sha256, chunk_id, ord, source_id, chunk_json) VALUES(?,?,?,?,?,?)",
                 [(*key, c.chunk_id, i, c.source_id, c.model_dump_json()) for i, c in enumerate(chunks)],
             )
+            if publish:
+                db.execute(
+                    "INSERT INTO current_versions(doc_key, snapshot_sha256) VALUES(?,?) "
+                    "ON CONFLICT(doc_key) DO UPDATE SET snapshot_sha256=excluded.snapshot_sha256",
+                    key,
+                )
+
+    def current_order(self, doc_key: str) -> SnapshotOrder | None:
+        row = self._db.execute("SELECT order_json FROM published_orders WHERE doc_key=?", (doc_key,)).fetchone()
+        return SnapshotOrder.model_validate_json(row[0]) if row else None
+
+    def publish_current(self, doc_key: str, snapshot_sha256: str, order: SnapshotOrder) -> bool:
+        with self._tx() as db:
+            if self.get_document(doc_key, snapshot_sha256) is None:
+                raise NotFoundError(f"没有文档版本 {doc_key} / {snapshot_sha256}")
+            current = self.current_order(doc_key)
+            if current is not None and order <= current:
+                return False
             db.execute(
                 "INSERT INTO current_versions(doc_key, snapshot_sha256) VALUES(?,?) "
                 "ON CONFLICT(doc_key) DO UPDATE SET snapshot_sha256=excluded.snapshot_sha256",
-                key,
+                (doc_key, snapshot_sha256),
             )
+            db.execute(
+                "INSERT INTO published_orders(doc_key, order_json) VALUES(?,?) "
+                "ON CONFLICT(doc_key) DO UPDATE SET order_json=excluded.order_json",
+                (doc_key, order.model_dump_json()),
+            )
+            return True
 
     def get_document(self, doc_key: str, snapshot_sha256: str | None = None) -> Document | None:
         if snapshot_sha256 is None:
