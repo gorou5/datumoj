@@ -4,7 +4,7 @@ title: 检查点 m1：云端运行端到端（moto 上两轮云端运行 + 本�
 project: DATUMOJ
 status: todo
 priority: 1
-depends_on: ["DATUMOJ-MAPLE-900", "DATUMOJ-MAPLE-103", "DATUMOJ-MAPLE-105", "DATUMOJ-MAPLE-106", "DATUMOJ-MAPLE-601"]
+depends_on: ["DATUMOJ-MAPLE-900", "DATUMOJ-MAPLE-103", "DATUMOJ-MAPLE-105", "DATUMOJ-MAPLE-106", "DATUMOJ-MAPLE-601", "DATUMOJ-MAPLE-112"]
 runner: claude
 model: null
 tier: high
