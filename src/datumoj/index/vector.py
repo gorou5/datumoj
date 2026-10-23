@@ -5,9 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import re
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import lancedb
@@ -21,6 +22,35 @@ _META = "_meta.json"
 _MAX_FILTER_IDS = 100
 _COPY_BATCH_SIZE = 500
 _LOG = logging.getLogger(__name__)
+
+
+def maintain_vectors(path: str | Path, retain: timedelta | None = None) -> dict:
+    """维护本地表，不需要嵌入服务。每张代次表独立清理，保留所有表及其最新版本。"""
+    if retain is None:
+        retain = timedelta(hours=float(os.environ.get("DATUMOJ_VECTOR_RETAIN_HOURS", "1")))
+    if retain < timedelta(0):
+        raise ValueError("向量版本保留期不能为负")
+    root = Path(path)
+    empty = {"versions": 0, "data_files": 0, "bytes": 0}
+    if not root.exists():
+        return {"before": empty.copy(), "after": empty.copy()}
+    if root.is_symlink() or any(p.is_symlink() for p in root.rglob("*")):
+        raise ValueError("向量目录不能包含符号链接")
+    db = lancedb.connect(str(root))
+    tables = [db.open_table(name) for name in db.list_tables().tables
+              if re.fullmatch(r"chunks(?:_g\d+)?", name)]
+
+    def stats():
+        files = [p for p in root.rglob("*") if p.is_file()]
+        return {"versions": sum(len(t.list_versions()) for t in tables),
+                "data_files": sum(p.suffix == ".lance" and p.parent.name == "data" for p in files),
+                "bytes": sum(p.stat().st_size for p in files)}
+
+    before = stats()
+    for table in tables:
+        # Keep Lance's in-flight file protection (delete_unverified=False).
+        table.optimize(cleanup_older_than=retain)
+    return {"before": before, "after": stats()}
 
 
 def _lit(s: str) -> str:
@@ -156,6 +186,17 @@ class LanceVectorIndex:
         if self._candidate_table is not None:
             self.abort_generation()
         self._table.delete("chunk_id IS NOT NULL")
+
+    def maintain(self, retain: timedelta | None = None) -> dict:
+        if self._candidate_table is not None:
+            raise RuntimeError("不能维护未完成的向量代")
+        result = maintain_vectors(self._meta_path.parent, retain)
+        self._table.checkout_latest()
+        return result
+
+    def count_rows(self) -> int:
+        """当前写入代的覆盖行数，供有上限的部分重建校验。"""
+        return self._write_table.count_rows()
 
     def begin_generation(self, *, copy_current: bool = False) -> None:
         """准备候选代；查询仍指向当前代，写入只进入候选代。"""

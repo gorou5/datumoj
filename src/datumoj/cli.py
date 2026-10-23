@@ -8,6 +8,7 @@ import tempfile
 import uuid
 from collections.abc import Callable
 from contextvars import ContextVar
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
@@ -20,7 +21,8 @@ from datumoj.analysis.reports import weekly_report
 from datumoj.core import schedule as scheduling
 from datumoj.core.lease import LeaseManager, remote_configured
 from datumoj.core.models import Citation
-from datumoj.core.pull import data_state, pull as pull_state
+from datumoj.core.pull import data_state
+from datumoj.core.pull import pull as pull_state
 from datumoj.core.registry_export import export_registry
 from datumoj.core.storage import load_storage_config
 from datumoj.index.coverage import INDEX_REBUILDING, rebuilding_index
@@ -34,6 +36,7 @@ report_app = typer.Typer(no_args_is_help=True, help="生成资料库变化报告
 diagnose_app = typer.Typer(no_args_is_help=True, help="只读检查本地证据，不升级数据库。")
 state_app = typer.Typer(no_args_is_help=True, help="推送和校验恢复状态代次。")
 lease_app = typer.Typer(no_args_is_help=True, help="写入租约；后续命令从 DATUMOJ_LEASE_TOKEN 读取令牌。")
+index_app = typer.Typer(invoke_without_command=True, help="更新、重建或维护索引。")
 state_app.add_typer(lease_app, name="lease")
 app.add_typer(schedule_app, name="schedule")
 schedule_app.add_typer(launchd_app, name="launchd")
@@ -41,6 +44,7 @@ app.add_typer(registry_app, name="registry")
 app.add_typer(report_app, name="report")
 app.add_typer(diagnose_app, name="diagnose")
 app.add_typer(state_app, name="state")
+app.add_typer(index_app, name="index")
 _DATA_DIR: ContextVar[str | None] = ContextVar("datumoj_data_dir", default=None)
 
 
@@ -613,8 +617,9 @@ def admin(
         typer.echo(f"运行失败：{type(exc).__name__}: {exc}", err=True)
         raise typer.Exit(1) from exc
 
-    from datumoj.admin import create_app
     import uvicorn
+
+    from datumoj.admin import create_app
 
     def run_now_in_worker(source_id: str) -> Any:
         # The real storage implementations may own thread-affine SQLite connections.
@@ -641,12 +646,15 @@ def parse(source: str | None = typer.Argument(None, help="可选来源 ID")) -> 
     _run("parse", action)
 
 
-@app.command()
+@index_app.callback()
 def index(
+    ctx: typer.Context,
     rebuild: bool = typer.Option(False, "--rebuild", help="从当前文档块重建索引"),
     vectors_only: bool = typer.Option(False, "--vectors-only", help="只重试暂缺文档的向量嵌入"),
 ) -> None:
     """解析新快照并更新索引；可选择全量重建或只补做向量。"""
+    if ctx.invoked_subcommand is not None:
+        return
     def action(deps: Any) -> None:
         if vectors_only:
             count = deps.reindex(deps.pipeline_deps, vectors_only=True)
@@ -655,8 +663,15 @@ def index(
             return
         summary = deps.parse_pending(deps.pipeline_deps)
         if rebuild:
+            pipeline = deps.pipeline_deps
+            # Wiring may run parse_pending on dataclasses.replace(deps). The
+            # summary is the reliable boundary for the remaining allowance.
+            if pipeline.vector_limit is not None:
+                pipeline = replace(pipeline, vector_limit=summary.vector_remaining)
+                if summary.vector_remaining == 0:
+                    pipeline = replace(pipeline, vectors=None)
             with rebuilding_index(deps.data_dir):
-                count = deps.reindex(deps.pipeline_deps)
+                count = deps.reindex(pipeline)
             typer.echo(f"索引重建完成：{count} 个块")
         else:
             typer.echo(f"索引更新完成：处理 {len(summary.parsed)} 个新快照")
@@ -666,6 +681,26 @@ def index(
             typer.echo(f"解析失败：{_json(summary.failed)}", err=True)
             raise typer.Exit(1)
     _run("index", action)
+
+
+@index_app.command("maintain")
+def index_maintain(
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    retain_hours: Annotated[float | None, typer.Option("--retain-hours", min=0)] = None,
+) -> None:
+    """合并向量碎片并清理旧版本，输出前后计数。"""
+    from datumoj.core.state import local_write
+    from datumoj.index.vector import maintain_vectors
+
+    root = data_dir if data_dir is not None else Path(_data_dir())
+
+    def action():
+        with local_write(root):
+            return maintain_vectors(root / "vectors", None if retain_hours is None else timedelta(hours=retain_hours))
+
+    with scheduling.workspace_lock(root):
+        scheduling.ensure_writable(root)
+        _state_call(action)
 
 
 @app.command()

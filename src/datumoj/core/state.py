@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import random
 import re
 import shutil
@@ -22,15 +23,20 @@ from pathlib import Path
 from typing import Literal
 
 import duckdb
+import lancedb
+import pyarrow as pa
 
 from datumoj.core.citations import document_snapshot
 from datumoj.core.contracts import ContractError, PreconditionFailed, StateObjectStore
-from datumoj.core.manifest import SCHEMA_VERSION as MANIFEST_VERSION, SqliteManifest
-from datumoj.core.models import SourceRun, StateGeneration, StateWriter, StoreCopy
+from datumoj.core.manifest import SCHEMA_VERSION as MANIFEST_VERSION
+from datumoj.core.manifest import SqliteManifest
+from datumoj.core.models import SourceRun, StateGeneration, StateWriter, StoreCopy, VectorCoverage
 from datumoj.core.schedule import _locked
 from datumoj.core.state_s3 import check_key
 from datumoj.index.coverage import index_is_rebuilding
-from datumoj.store.chunks import SCHEMA_VERSION as CHUNKS_VERSION, SqliteChunkStore
+from datumoj.index.vector import maintain_vectors
+from datumoj.store.chunks import SCHEMA_VERSION as CHUNKS_VERSION
+from datumoj.store.chunks import SqliteChunkStore
 from datumoj.store.observations import DuckDBObservationStore
 
 _SQLITE = {
@@ -50,6 +56,53 @@ _SQLITE = {
 _SMALL = {"runs.jsonl", "control.json", "vectors-state.json"}
 _EMPTY_DUCK = b'{"format":"duckdb-empty-v1"}\n'
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
+_LOG = logging.getLogger(__name__)
+_VECTOR_STATE = "vectors/vectors-state.json"
+
+
+def _copy_path(root: Path, name: str) -> Path:
+    # The published logical namespace is vectors/, while wiring keeps the
+    # optional-index retry list beside the other stores.
+    return root / ("vectors-state.json" if name == _VECTOR_STATE else name)
+
+
+def _vector_coverage(root: Path) -> VectorCoverage | None:
+    path = root / "vectors"
+    meta_path = path / "_meta.json"
+    if not meta_path.exists():
+        if path.exists() and any(path.iterdir()):
+            raise StateError("向量目录缺少元数据")
+        return None
+    meta = json.loads(meta_path.read_bytes())
+    generation = meta.get("generation", 0)
+    if type(generation) is not int or generation < 0:
+        raise StateError("向量表代次无效")
+    table_name = "chunks" if generation == 0 else f"chunks_g{generation}"
+    db = lancedb.connect(str(path))
+    if table_name not in db.list_tables().tables:
+        raise StateError("向量当前代表缺失")
+    table = db.open_table(table_name)
+    vector_type = table.schema.field("vector").type
+    if not pa.types.is_fixed_size_list(vector_type) or vector_type.list_size != meta.get("dim"):
+        raise StateError("向量维度与元数据不符")
+    rows = table.count_rows()
+    searchable = sum(batch.num_rows for batch in table.search().select(["chunk_id"]).to_batches(batch_size=500))
+    if rows != searchable:
+        raise StateError("向量可检索行数不符")
+    state_path = root / "vectors-state.json"
+    pending = 0
+    if state_path.exists():
+        state = json.loads(state_path.read_bytes())
+        if not isinstance(state, dict) or not isinstance(state.get("missing"), dict):
+            raise StateError("向量待补清单无效")
+        for item in state["missing"].values():
+            count = item.get("chunks")
+            if type(count) is not int or count < 0:
+                raise StateError("向量待补块数无效")
+            pending += count
+    # Embedder's contract has no model revision. Never invent one for old meta.
+    return VectorCoverage(model=meta["model"], version=meta.get("version", "unknown"), dim=meta["dim"],
+                          embedded_chunks=rows, pending_chunks=pending)
 
 
 class StateError(ContractError):
@@ -122,6 +175,8 @@ def _check_schema(root: Path) -> None:
                 raise StateError("关键词索引包含未发布的块")
     for name in _SMALL:
         path = root / name
+        if path.is_symlink():
+            raise StateError("状态文件不能是符号链接")
         if path.exists():
             if name.endswith(".jsonl"):
                 for line in path.read_bytes().splitlines():
@@ -172,10 +227,34 @@ def _frozen(root: Path) -> Iterator[None]:
         yield
 
 
-def _copy_boundary(root: Path, target: Path) -> tuple[list[StoreCopy], dict[str, SourceRun]]:
+def _copy_boundary(root: Path, target: Path) -> tuple[list[StoreCopy], dict[str, SourceRun], VectorCoverage | None]:
     with _frozen(root):
         _check_schema(root)
         paths = []
+        vectors = root / "vectors"
+        if vectors.is_symlink() or any(p.is_symlink() for p in vectors.rglob("*")):
+            raise StateError("向量目录不能包含符号链接")
+        coverage = _vector_coverage(root)
+        if coverage is not None:
+            try:
+                maintain_vectors(vectors)
+            except Exception:  # noqa: BLE001 — maintenance is best effort; copied coverage is checked below
+                _LOG.warning("向量维护失败；继续校验并复制已发布状态")
+            for source in sorted(vectors.rglob("*")):
+                if source.is_file():
+                    name = source.relative_to(root).as_posix()
+                    if name == _VECTOR_STATE:
+                        raise StateError("向量目录含保留的待补清单逻辑名")
+                    check_key(name)
+                    destination = target / name
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(source, destination)
+                    paths.append((name, "bytes"))
+            if (root / "vectors-state.json").exists():
+                shutil.copyfile(root / "vectors-state.json", target / "vectors-state.json")
+            else:
+                (target / "vectors-state.json").write_text('{"missing":{},"last_error":null}')
+            paths.append((_VECTOR_STATE, "bytes"))
         for name in _SQLITE:
             source = root / name
             if source.exists():
@@ -183,6 +262,8 @@ def _copy_boundary(root: Path, target: Path) -> tuple[list[StoreCopy], dict[str,
                     db.backup(destination)
                 paths.append((name, "sqlite"))
         for name in sorted(_SMALL):
+            if name == "vectors-state.json" and coverage is not None:
+                continue
             if (root / name).exists():
                 shutil.copyfile(root / name, target / name)
                 paths.append((name, "bytes"))
@@ -221,11 +302,14 @@ def _copy_boundary(root: Path, target: Path) -> tuple[list[StoreCopy], dict[str,
             paths.append((source.name, fmt))
         stores = []
         for name, fmt in sorted(paths):
-            data = (target / name).read_bytes()
+            data = _copy_path(target, name).read_bytes()
             sha = _digest(data)
             stores.append(StoreCopy(name=name, key=f"copies/sha256/{sha}", sha256=sha,
                                     size_bytes=len(data), format=fmt))
-        return stores, _last_runs(target)
+        frozen_coverage = _vector_coverage(target)
+        if frozen_coverage != coverage:
+            raise StateError("向量副本覆盖与一致性边界不符")
+        return stores, _last_runs(target), frozen_coverage
 
 
 def _validate_copy(copy: StoreCopy) -> None:
@@ -239,6 +323,8 @@ def _validate_copy(copy: StoreCopy) -> None:
         valid = copy.format == "bytes"
     elif copy.name == "observations.duckdb":
         valid = copy.format in {"duckdb-empty", "duckdb"}
+    elif copy.name.startswith("vectors/"):
+        valid = copy.format == "bytes"
     else:
         valid = bool(re.fullmatch(r"parquet/[a-z]{2,4}(?:-[a-z0-9]+)+/[0-9a-f]{32}\.parquet", copy.name))
         valid = valid and copy.format == "parquet"
@@ -254,6 +340,12 @@ def _validate_generation(value: bytes, number: int) -> StateGeneration:
         raise StateError("状态缺少 manifest")
     for copy in generation.stores:
         _validate_copy(copy)
+    vectors = {c.name for c in generation.stores if c.name.startswith("vectors/")}
+    if generation.vector_coverage is None:
+        if vectors:
+            raise StateError("向量副本缺少覆盖清单")
+    elif not {"vectors/_meta.json", _VECTOR_STATE} <= vectors or "vectors-state.json" in {c.name for c in generation.stores}:
+        raise StateError("向量副本或待补清单缺失、重名")
     return generation
 
 
@@ -403,7 +495,7 @@ class StateManager:
             return candidate
         with tempfile.TemporaryDirectory(prefix="datumoj-state-") as directory:
             stage = Path(directory)
-            stores, runs = _copy_boundary(self.data_dir, stage)
+            stores, runs, coverage = _copy_boundary(self.data_dir, stage)
             refs = _raw_refs(stage)
             # Validate frozen data, not mutable live databases, before upload.
             # Empty DuckDB is represented by a deterministic rebuild descriptor.
@@ -412,7 +504,7 @@ class StateManager:
             created_at = datetime.now(UTC)
             for copy in stores:
                 if copy.key not in copies:
-                    self._upload(copy.key, (stage / copy.name).read_bytes(), copies)
+                    self._upload(copy.key, _copy_path(stage, copy.name).read_bytes(), copies)
             # raw is immutable. Only missing blobs are read, hashed and uploaded;
             # no 4.7GB duplicate tree is made in the temporary directory.
             local_refs = set(refs)
@@ -441,7 +533,7 @@ class StateManager:
             _sample_provenance(stage, raw="remote", refs=refs)
             candidate = StateGeneration(
                 generation=number + 1, previous_generation=number or None, created_at=created_at,
-                writer=self.writer, stores=stores, raw_prefix="raw", vector_coverage=None, last_successful_runs=runs,
+                writer=self.writer, stores=stores, raw_prefix="raw", vector_coverage=coverage, last_successful_runs=runs,
             )
             # Never overwrite a conflicting manifest or jump over its number.
             self._check_write()
@@ -468,7 +560,7 @@ class StateManager:
             found = self._get(copy.key)
             if found is None or len(found[0]) != copy.size_bytes or _digest(found[0]) != copy.sha256:
                 raise StateError("副本 SHA256 或大小校验失败")
-            path = stage / copy.name
+            path = _copy_path(stage, copy.name)
             path.parent.mkdir(parents=True, exist_ok=True)
             if copy.format == "duckdb-empty":
                 if found[0] != _EMPTY_DUCK:
@@ -477,6 +569,8 @@ class StateManager:
             else:
                 path.write_bytes(found[0])
         _check_schema(stage)
+        if _vector_coverage(stage) != candidate.vector_coverage:
+            raise StateError("向量恢复覆盖校验失败")
         refs = _raw_refs(stage)
         if raw == "remote":
             if raw_keys is None:
