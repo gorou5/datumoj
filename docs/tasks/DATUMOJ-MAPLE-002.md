@@ -9,16 +9,15 @@ runner: claude
 model: null
 tier: high
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**", "src/datumoj/core/manifest.py", "src/datumoj/store/chunks.py", "tests/core/test_models.py", "tests/core/test_contracts.py", "tests/core/test_contracts_maple.py", "tests/core/test_manifest.py", "tests/index/test_fts.py", "tests/store/test_chunk_store.py", "tests/test_evidence_regressions.py", "schemas/*.schema.json", "docs/adr/0004-evidence-identity.md", "results/DATUMOJ-MAPLE-002/**"]
+scope: ["src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**", "src/datumoj/core/manifest.py", "src/datumoj/store/chunks.py", "tests/core/test_models.py", "tests/core/test_contracts.py", "tests/core/test_contracts_maple.py", "tests/core/test_manifest.py", "tests/index/test_fts.py", "tests/store/test_chunk_store.py", "schemas/*.schema.json", "docs/adr/0004-evidence-identity.md", "results/DATUMOJ-MAPLE-002/**"]
 out_of_scope: [".orch/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", ".github/**", ".env.example", "docs/PLAN.md", "docs/TASKS.md", "docs/plans/**", "docs/tasks/**", "docs/acceptance/**", "docs/references/**"]
 protected: ["tests/fixtures/**", "schemas/registry/**"]
 acceptance:
   automated:
     - cmd: make check T=tests/core/test_contracts_maple.py
-    - cmd: make check T=tests/test_evidence_regressions.py
     - cmd: make check T=tests
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-MAPLE-002/summary.md 完成说明"]
-  review: {by: human, checklist: ["身份定义是否覆盖计划 6.0 节 D-01–D-07、D-13", "指纹是否稳定且重复抓取不触发重解析", "发布是否单调、水位是否持久化", "v1 库迁移是否不丢快照", "现有调用方是否不受影响", "10 个回归用例是否断言修好后的行为并正确标注负责任务", "全部已有测试是否通过", "是否越界"]}
+  review: {by: human, checklist: ["身份定义是否覆盖计划 6.0 节 D-01–D-07、D-13", "指纹是否稳定且重复抓取不触发重解析", "发布是否单调、水位是否持久化", "v1 库迁移是否不丢快照", "现有调用方是否不受影响", "ADR 是否列出 10 个审核场景及负责任务", "全部已有测试是否通过", "是否越界"]}
   human: required
 max_attempts: 2
 ---
@@ -30,7 +29,7 @@ max_attempts: 2
 
 计划见 `docs/plans/0.3-maple.md`（第 6.0 节是本检查点 m0 的问题表，总计划 `docs/PLAN.md`）。本版本在 `feature/0.3` 分支上开发：任务分支从它拉出，合并回它。
 - **只依赖契约**：数据模型在 `src/datumoj/core/models.py`，接口协议在 `src/datumoj/core/contracts.py`，假实现和契约测试在 `src/datumoj/testing/`。身份与状态的约定见 `docs/adr/0004-evidence-identity.md`（由 MAPLE-002 写出）。除契约外，只能 import 已有模块和本任务 `depends_on` 里已合并任务的模块。
-- 审核问题的回归用例在 `tests/test_evidence_regressions.py`（MAPLE-002 写出，修好之前标 `xfail(strict=True)`，原因里写着负责的任务号）。修好本任务负责的用例后**删掉它们的 xfail 标记**，不改断言；其他任务的用例不动。
+- 审核（计划 6.0 节）的合成复现由负责修复的任务写成回归测试，放在 `tests/regressions/test_audit_<任务号>.py`，断言修好以后的正确行为。调度器不接受 `skip` / `xfail`，回归测试必须在本任务里直接通过。
 - 测试全部离线：不访问网络，HTTP 一律用 `tests/fixtures/` 里的录制样本或本地假服务器（`pytest-httpserver`）；S3 一律用 moto。
 - 依赖已锁定在 `uv.lock`，不能新增依赖，也不能改 `pyproject.toml`。确实需要时写进 `results/DATUMOJ-MAPLE-002/summary.md` 并停下来问。
 - `tests/fixtures/` 下已有的样本只读；需要新样本就新建文件。
@@ -49,7 +48,7 @@ max_attempts: 2
 8. **证据状态**：`EvidenceState` 枚举 `complete` / `partial` / `unavailable`；`ToolResult` 加可选的 `evidence_state` 和 `evidence_inputs`（输入的表、快照、过滤范围；JSON 可序列化），给 MAPLE-307 用。
 9. **管线状态**：`GapState` 加 `not_indexed`（抓到了但还不能检索：没解析、解析失败、需要 OCR 或索引未建）；`PipelineStatus` 模型（可解析快照数、已解析、解析失败、needs_ocr、可检索块数、索引代次），`ToolResult` 加可选的 `pipeline`，给 MAPLE-503 用。
 10. 假实现（`testing/fakes.py`）和合格测试（`testing/contract_suites.py`）同步覆盖上面每条新约束（指纹不同就不算已解析、发布单调、水位持久化、旧版本 `publish=False` 写入不改 current、`ObservationRef` 往返）；`SqliteManifest`、`SqliteChunkStore` 通过对应合格测试（`SqliteChunkStore` 的合格测试新建在 `tests/store/test_chunk_store.py`）。重新运行 `export_schemas` 并提交 `schemas/` 根目录的导出（不碰 `schemas/registry/`）。
-11. **审核回归用例** `tests/test_evidence_regressions.py`：把审核的 10 个合成复现改写成离线测试，断言**修好以后**的正确行为，每个都标 `pytest.mark.xfail(strict=True, reason="MAPLE-<号>")`：同字节不同资源都要被解析和可检索（202）；同一资源 A→B→A 后 current 为 A（202）；旧快照失败、新快照成功后重试旧快照，current 仍为新（107）；两张表 `obs_id` 相同时出处指向结果行所在的表（306）；不带 `obs_id` 的聚合查询 `evidence_state` 不是 `complete`（307）；同 SHA 两个 URL 时引用指向块自己的资源（404）；raw 被改坏后解析失败且不发布（109）；日期过滤在 top-k 之外仍能找到符合的文档、不报 `zero_hits`（502）；PDF 发布日期出现在每个 Chunk 上（203）；`runs.jsonl` 尾行损坏时 `status` 仍能返回并告警（108）。场景只用合成数据和仓库里的假实现 / 真实本地实现。
+11. ADR 里列出审核的 10 个合成复现场景和负责修复的任务（同字节不同资源、A→B→A：202；旧失败重试倒退：107；`obs_id` 串表：306；聚合无证据状态：307；同 SHA 引用指错：404；坏 raw 按旧哈希解析：109；先截 top-k 再过滤：502；PDF 块缺日期：203；`runs.jsonl` 坏尾行：108）。复现测试由各负责任务写在 `tests/regressions/test_audit_<任务号>.py`，**本任务不写**（调度器不接受 skip / xfail，问题没修之前测试无法通过）。（2026-10-23 第 1 次尝试后修订：原要求本任务写 xfail 回归用例，与调度器验收规则冲突，已取消。）
 12. 新测试 `tests/core/test_contracts_maple.py` 覆盖上面每条约束；现有 `tests/core/test_models.py`、`tests/core/test_contracts.py`、`tests/core/test_manifest.py`、`tests/index/test_fts.py` 允许为本修订调整（只改受影响的断言，不删测试）。全部已有测试（`make check T=tests`）必须仍然通过。
 
 # 不做

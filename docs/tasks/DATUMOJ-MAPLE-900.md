@@ -16,10 +16,10 @@ acceptance:
   automated:
     - cmd: make check T=tests/integration/test_maple_m0.py
     - cmd: make check T=tests/test_diagnose.py
-    - cmd: make check T=tests/test_evidence_regressions.py
+    - cmd: make check T=tests/regressions
     - cmd: make check T=tests
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-MAPLE-900/summary.md 完成说明"]
-  review: {by: human, checklist: ["回归用例是否全部通过且无 xfail", "diagnose 是否真正只读（含不触发迁移）", "replay 是否拒绝非空目标、是否给出对比", "是否只改了接线、CLI 和诊断模块", "是否越界"]}
+  review: {by: human, checklist: ["10 个审核场景是否都有回归测试并通过", "diagnose 是否真正只读（含不触发迁移）", "replay 是否拒绝非空目标、是否给出对比", "是否只改了接线、CLI 和诊断模块", "是否越界"]}
   human: required
 max_attempts: 2
 ---
@@ -31,7 +31,7 @@ max_attempts: 2
 
 计划见 `docs/plans/0.3-maple.md`（第 6.0 节是本检查点 m0 的问题表，总计划 `docs/PLAN.md`）。本版本在 `feature/0.3` 分支上开发：任务分支从它拉出，合并回它。
 - **只依赖契约**：数据模型在 `src/datumoj/core/models.py`，接口协议在 `src/datumoj/core/contracts.py`，假实现和契约测试在 `src/datumoj/testing/`。身份与状态的约定见 `docs/adr/0004-evidence-identity.md`（由 MAPLE-002 写出）。除契约外，只能 import 已有模块和本任务 `depends_on` 里已合并任务的模块。
-- 审核问题的回归用例在 `tests/test_evidence_regressions.py`（MAPLE-002 写出，修好之前标 `xfail(strict=True)`，原因里写着负责的任务号）。修好本任务负责的用例后**删掉它们的 xfail 标记**，不改断言；其他任务的用例不动。
+- 审核（计划 6.0 节）的合成复现由负责修复的任务写成回归测试，放在 `tests/regressions/test_audit_<任务号>.py`，断言修好以后的正确行为。调度器不接受 `skip` / `xfail`，回归测试必须在本任务里直接通过。
 - 测试全部离线：不访问网络，HTTP 一律用 `tests/fixtures/` 里的录制样本或本地假服务器（`pytest-httpserver`）；S3 一律用 moto。
 - 依赖已锁定在 `uv.lock`，不能新增依赖，也不能改 `pyproject.toml`。确实需要时写进 `results/DATUMOJ-MAPLE-900/summary.md` 并停下来问。
 - `tests/fixtures/` 下已有的样本只读；需要新样本就新建文件。
@@ -40,7 +40,7 @@ max_attempts: 2
 - 仓库是公开的：代码、测试、文档里不写账号、密钥、本机绝对路径。
 
 # 要求
-1. `tests/test_evidence_regressions.py` 里不再有 xfail 标记，全部通过。
+1. `tests/regressions/` 里覆盖 ADR 0004 列出的全部 10 个审核场景（缺哪个就在 `tests/regressions/test_audit_900.py` 补上），全部通过。
 2. `datumoj diagnose evidence [--data-dir DIR]`（新模块 `diagnose.py`）：**只读**打开数据目录（SQLite 用只读 URI，不触发 schema 迁移；遇到旧 schema 时用只读方式按旧结构读），输出 JSON 报告：同 SHA 多资源的快照组、旧失败 + 新成功的资源、跨表重名的 `obs_id`、current 与按快照顺序应发布版本不符的 doc_key、raw 校验失败的 blob（可用 `--verify-raw` 打开，默认不做，因为要读全部 raw）、PDF 块缺日期的文档数；每类给出数量和最多 20 个样例。运行前后数据目录的文件内容不变（测试断言）。
 3. `datumoj replay --from DIR --to NEWDIR`：把旧目录的 manifest 和 raw 复制（raw 可用硬链接）到新目录，按快照顺序重新解析、建关键词索引（向量用 `--vectors` 才建），输出新旧对比（文档数、块数、current 不同的 doc_key 数和样例、观测值表数）；目标目录非空时拒绝。
 4. 集成测试 `tests/integration/test_maple_m0.py`：用合成数据造出 D-01–D-04、D-06、D-09 的“旧数据”（用旧版行为写入的库，测试里直接写库构造），`diagnose` 能逐类报出；`replay` 后新目录里这些问题都消失，`diagnose` 报告为零。

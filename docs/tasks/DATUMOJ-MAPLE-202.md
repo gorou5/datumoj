@@ -9,14 +9,14 @@ runner: claude
 model: null
 tier: high
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/pipeline.py", "tests/test_pipeline_identity.py", "tests/test_pipeline.py", "tests/test_pipeline_retry.py", "tests/test_pipeline_content_state.py", "tests/test_evidence_regressions.py", "results/DATUMOJ-MAPLE-202/**"]
+scope: ["src/datumoj/pipeline.py", "tests/test_pipeline_identity.py", "tests/test_pipeline.py", "tests/test_pipeline_retry.py", "tests/test_pipeline_content_state.py", "tests/regressions/test_audit_202.py", "results/DATUMOJ-MAPLE-202/**"]
 out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", ".github/**", ".env.example"]
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
   automated:
     - cmd: make check T=tests/test_pipeline_identity.py
     - cmd: make check T=tests/test_pipeline.py
-    - cmd: make check T=tests/test_evidence_regressions.py
+    - cmd: make check T=tests/regressions/test_audit_202.py
     - cmd: make check T=tests
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-MAPLE-202/summary.md 完成说明"]
   review: {by: human, checklist: ["复用条件是否包含上下文指纹", "复用时是否仍登记快照并单调选 current", "重复抓取是否不重解析、不产生变化", "调整的已有断言是否都有理由", "死链查找是否不再全表扫描", "是否越界"]}
@@ -31,7 +31,7 @@ max_attempts: 2
 
 计划见 `docs/plans/0.3-maple.md`（第 6.0 节是本检查点 m0 的问题表，总计划 `docs/PLAN.md`）。本版本在 `feature/0.3` 分支上开发：任务分支从它拉出，合并回它。
 - **只依赖契约**：数据模型在 `src/datumoj/core/models.py`，接口协议在 `src/datumoj/core/contracts.py`，假实现和契约测试在 `src/datumoj/testing/`。身份与状态的约定见 `docs/adr/0004-evidence-identity.md`（由 MAPLE-002 写出）。除契约外，只能 import 已有模块和本任务 `depends_on` 里已合并任务的模块。
-- 审核问题的回归用例在 `tests/test_evidence_regressions.py`（MAPLE-002 写出，修好之前标 `xfail(strict=True)`，原因里写着负责的任务号）。修好本任务负责的用例后**删掉它们的 xfail 标记**，不改断言；其他任务的用例不动。
+- 审核（计划 6.0 节）的合成复现由负责修复的任务写成回归测试，放在 `tests/regressions/test_audit_<任务号>.py`，断言修好以后的正确行为。调度器不接受 `skip` / `xfail`，回归测试必须在本任务里直接通过。
 - 测试全部离线：不访问网络，HTTP 一律用 `tests/fixtures/` 里的录制样本或本地假服务器（`pytest-httpserver`）；S3 一律用 moto。
 - 依赖已锁定在 `uv.lock`，不能新增依赖，也不能改 `pyproject.toml`。确实需要时写进 `results/DATUMOJ-MAPLE-202/summary.md` 并停下来问。
 - `tests/fixtures/` 下已有的样本只读；需要新样本就新建文件。
@@ -45,7 +45,7 @@ max_attempts: 2
 3. 不同资源同字节（指纹不同）各自解析、各自有文档和检索块。
 4. `_record_fetch_changes`：变化日志和 chunk 的查找移出逐 URL 循环（每次调用至多各读一次，或改用按 sha / URL 的定向查询），结果与现在一致；测试断言大量死链时读取次数不随死链数增长。
 5. 新测试 `tests/test_pipeline_identity.py` 覆盖：同字节不同 URL、A→B→A、重复抓取不重解析、法令同字节不同 role 的 meta、指纹不同的快照各自写入、死链查找次数。
-6. `tests/test_pipeline.py`、`tests/test_pipeline_retry.py`、`tests/test_pipeline_content_state.py` 中依赖“同 sha 即跳过”的断言（如 `skipped` 计数）允许按新规则调整，在 summary 里逐条说明；不删测试。删掉 `tests/test_evidence_regressions.py` 里本任务负责的用例（xfail 原因里写着本任务号）的 xfail 标记，它们必须通过。全部已有测试（`make check T=tests`）必须仍然通过。
+6. `tests/test_pipeline.py`、`tests/test_pipeline_retry.py`、`tests/test_pipeline_content_state.py` 中依赖“同 sha 即跳过”的断言（如 `skipped` 计数）允许按新规则调整，在 summary 里逐条说明；不删测试。审核回归测试 `tests/regressions/test_audit_202.py`：用合成数据离线复现审核场景——同样的字节出现在两个不同 URL 时两个资源都被解析且都可检索；同一资源内容 A→B→A 后 current 为 A——断言修好以后的行为，必须通过（不能标 skip / xfail）。全部已有测试（`make check T=tests`）必须仍然通过。
 
 # 不做
 - 不做跨库的发布点和故障恢复（MAPLE-107）。

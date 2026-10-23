@@ -9,7 +9,7 @@ runner: codex
 model: null
 tier: medium
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/core/schedule.py", "src/datumoj/core/monitor.py", "src/datumoj/admin/web.py", "tests/core/test_run_ledger.py", "tests/test_evidence_regressions.py", "results/DATUMOJ-MAPLE-108/**"]
+scope: ["src/datumoj/core/schedule.py", "src/datumoj/core/monitor.py", "src/datumoj/admin/web.py", "tests/core/test_run_ledger.py", "tests/regressions/test_audit_108.py", "results/DATUMOJ-MAPLE-108/**"]
 out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", ".github/**", ".env.example"]
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**", "tests/core/test_schedule.py", "tests/core/test_monitor.py", "tests/test_admin.py"]
 acceptance:
@@ -18,7 +18,7 @@ acceptance:
     - cmd: make check T=tests/core/test_schedule.py
     - cmd: make check T=tests/core/test_monitor.py
     - cmd: make check T=tests/test_admin.py
-    - cmd: make check T=tests/test_evidence_regressions.py
+    - cmd: make check T=tests/regressions/test_audit_108.py
     - cmd: make check T=tests
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-MAPLE-108/summary.md 完成说明"]
   review: {by: other_family, checklist: ["是否越界", "测试是否覆盖每条要求", "是否通过了对应的契约合格测试", "是否有联网的测试", "是否只依赖契约而没有 import 其他线的实现"]}
@@ -33,7 +33,7 @@ max_attempts: 2
 
 计划见 `docs/plans/0.3-maple.md`（第 6.0 节是本检查点 m0 的问题表，总计划 `docs/PLAN.md`）。本版本在 `feature/0.3` 分支上开发：任务分支从它拉出，合并回它。
 - **只依赖契约**：数据模型在 `src/datumoj/core/models.py`，接口协议在 `src/datumoj/core/contracts.py`，假实现和契约测试在 `src/datumoj/testing/`。身份与状态的约定见 `docs/adr/0004-evidence-identity.md`（由 MAPLE-002 写出）。除契约外，只能 import 已有模块和本任务 `depends_on` 里已合并任务的模块。
-- 审核问题的回归用例在 `tests/test_evidence_regressions.py`（MAPLE-002 写出，修好之前标 `xfail(strict=True)`，原因里写着负责的任务号）。修好本任务负责的用例后**删掉它们的 xfail 标记**，不改断言；其他任务的用例不动。
+- 审核（计划 6.0 节）的合成复现由负责修复的任务写成回归测试，放在 `tests/regressions/test_audit_<任务号>.py`，断言修好以后的正确行为。调度器不接受 `skip` / `xfail`，回归测试必须在本任务里直接通过。
 - 测试全部离线：不访问网络，HTTP 一律用 `tests/fixtures/` 里的录制样本或本地假服务器（`pytest-httpserver`）；S3 一律用 moto。
 - 依赖已锁定在 `uv.lock`，不能新增依赖，也不能改 `pyproject.toml`。确实需要时写进 `results/DATUMOJ-MAPLE-108/summary.md` 并停下来问。
 - `tests/fixtures/` 下已有的样本只读；需要新样本就新建文件。
@@ -47,7 +47,7 @@ max_attempts: 2
 3. 坏行（不是合法 JSON 或缺必填字段）跳过并计数，`status()` 顶层给出 `ledger_warnings`（行号和原因，不含行内容全文）；不因坏行整体报错。追加新记录前若文件末尾不是换行，先补换行，避免把新记录接在坏尾行上。
 4. 监控：`interrupted` 运行算作失败参与 `consecutive_failures`；running 的不算。
 5. 管理页：后台运行启动失败（线程创建或第一步就抛错）时，页面显示失败和原因（转义），不显示“已开始”。
-6. 新测试 `tests/core/test_run_ledger.py` 覆盖：开始和结束记录、中断判定（锁已释放 / 仍持有）、坏尾行和中间坏行、补换行、旧格式兼容、监控计数、管理页启动失败。`tests/core/test_schedule.py`、`tests/core/test_monitor.py`、`tests/test_admin.py` 必须仍然通过。删掉 `tests/test_evidence_regressions.py` 里本任务负责的用例（xfail 原因里写着本任务号）的 xfail 标记，它们必须通过。全部已有测试（`make check T=tests`）必须仍然通过。
+6. 新测试 `tests/core/test_run_ledger.py` 覆盖：开始和结束记录、中断判定（锁已释放 / 仍持有）、坏尾行和中间坏行、补换行、旧格式兼容、监控计数、管理页启动失败。`tests/core/test_schedule.py`、`tests/core/test_monitor.py`、`tests/test_admin.py` 必须仍然通过。审核回归测试 `tests/regressions/test_audit_108.py`：用合成数据离线复现审核场景——`runs.jsonl` 最后一行是半截 JSON 时，`Scheduler.status()` 仍能返回并给出告警——断言修好以后的行为，必须通过（不能标 skip / xfail）。全部已有测试（`make check T=tests`）必须仍然通过。
 
 # 不做
 - 不改运行锁和定时的行为。
