@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlencode, urlsplit
+from uuid import UUID
 
 import boto3
 import httpx
@@ -101,7 +102,15 @@ def _restore(deps, item):
     citation = Citation.model_validate(item["citation"])
     deps.raw.verify(citation.snapshot_sha256)
     assert citation.fetched_at == NOW
-    restored = deps.tools.cite(citation.snapshot_sha256, citation.locator)["data"]
+    snapshot = next(s for s in deps.manifest.snapshots_by_sha256(citation.snapshot_sha256)
+                    if s.snapshot_id == citation.snapshot_id)
+    assert (citation.source_id, citation.resource_url, citation.fetched_at) == (
+        snapshot.source_id, snapshot.resource_url, snapshot.fetched_at,
+    )
+    restored = deps.tools.cite(
+        citation.snapshot_sha256, citation.locator,
+        snapshot_id=citation.snapshot_id, resource_url=citation.resource_url,
+    )["data"]
     assert restored["status"] == "ok", restored
     assert restored["passages"]
     return citation, restored["passages"]
@@ -321,7 +330,9 @@ def test_keyword_only_ivy_gates_and_behavior(tmp_path, evidence):
         assert len(questions) >= 60
 
         def cite(citation):
-            restored = deps.tools.cite(citation.snapshot_sha256, citation.locator)["data"]
+            restored = deps.tools.cite(
+                citation.snapshot_sha256, citation.locator, snapshot_id=citation.snapshot_id,
+            )["data"]
             assert restored["status"] == "ok"
             return restored["passages"]
 
@@ -380,6 +391,9 @@ def test_s3_law_chain_matches_local_raw(tmp_path, monkeypatch, evidence):
         }
         outputs = []
         for backend, store_type in (("local", FileRawStore), ("s3", S3RawStore)):
+            # Replay the same observation ids so complete citation output can be compared.
+            snapshot_ids = iter(range(1, len(routes) + 1))
+            monkeypatch.setattr("datumoj.core.runner.uuid4", lambda: UUID(int=next(snapshot_ids)))
             monkeypatch.setenv("DATUMOJ_RAW_BACKEND", backend)
             deps = wiring.build(tmp_path / backend)
             try:

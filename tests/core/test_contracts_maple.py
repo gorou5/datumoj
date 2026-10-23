@@ -96,7 +96,7 @@ def test_citations_bind_to_snapshot_and_legacy_json_remains_valid():
     obs = make_observation("id", "1", source_id="jp-test", dataset_key="jp-test:d", snapshot_sha256=snap.sha256)
     for legacy_citation in (citation_for_chunk(chunk, snap), citation_for_observation(obs, snap)):
         # 既有助手保留兼容输出，404 负责把真实关联的快照身份接入调用链。
-        assert legacy_citation.snapshot_id is None
+        assert legacy_citation.snapshot_id == snap.snapshot_id
         citation = Citation(**(legacy_citation.model_dump() | {"snapshot_id": snap.snapshot_id}))
         assert citation.snapshot_id == snap.snapshot_id
         assert Citation.model_validate_json(citation.model_dump_json()) == citation

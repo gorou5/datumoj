@@ -887,6 +887,7 @@ def citation_for_chunk(chunk: Chunk, snapshot: Snapshot, license: LicenseInfo | 
     else:
         basis = TimeBasis.no_data_date
     return Citation(
+        snapshot_id=snapshot.snapshot_id,
         source_id=chunk.source_id, resource_url=snapshot.resource_url, snapshot_sha256=chunk.snapshot_sha256,
         fetched_at=snapshot.fetched_at, locator=chunk.locator, published_at=chunk.published_at,
         effective_at=chunk.effective_at, time_basis=basis, **_license_fields(license),
@@ -898,6 +899,7 @@ def citation_for_observation(obs: Observation, snapshot: Snapshot, license: Lice
     if snapshot.sha256 != obs.snapshot_sha256 or snapshot.source_id != obs.source_id:
         raise ValueError(f"快照 {snapshot.snapshot_id} 不是观测值 {obs.obs_id} 的来源快照")
     return Citation(
+        snapshot_id=snapshot.snapshot_id,
         source_id=obs.source_id, resource_url=snapshot.resource_url, snapshot_sha256=obs.snapshot_sha256,
         fetched_at=obs.fetched_at, locator=obs.locator,
         period=Period(start=obs.time_start, end=obs.time_end, label=obs.time_label),
