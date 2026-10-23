@@ -20,6 +20,7 @@ from datumoj.analysis.reports import weekly_report
 from datumoj.core import schedule as scheduling
 from datumoj.core.lease import LeaseManager, remote_configured
 from datumoj.core.models import Citation
+from datumoj.core.pull import data_state, pull as pull_state
 from datumoj.core.registry_export import export_registry
 from datumoj.core.storage import load_storage_config
 from datumoj.index.coverage import INDEX_REBUILDING, rebuilding_index
@@ -56,6 +57,20 @@ def _data_dir() -> str:
     return str(load_storage_config(data_dir=_DATA_DIR.get()).data_dir)
 
 
+def _build_wiring(root: str | Path) -> Any:
+    if not scheduling.is_pulled_replica(root):
+        return wiring.build(root)
+    previous_vectors = os.environ.get("DATUMOJ_VECTORS")
+    os.environ["DATUMOJ_VECTORS"] = "off"
+    try:
+        return wiring.build(root)
+    finally:
+        if previous_vectors is None:
+            os.environ.pop("DATUMOJ_VECTORS", None)
+        else:
+            os.environ["DATUMOJ_VECTORS"] = previous_vectors
+
+
 @schedule_app.callback()
 def schedule_options(
     ctx: typer.Context,
@@ -67,25 +82,38 @@ def schedule_options(
 
 
 def _run(feature: str, action: Callable[[Any], Any]) -> None:
+    root = _data_dir()
     try:
-        deps = wiring.build(_data_dir())
-        deps.require(feature)
-    except wiring.FeatureNotConnected as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(1) from exc
-    except Exception as exc:
-        typer.echo(f"运行失败：{type(exc).__name__}: {exc}", err=True)
-        raise typer.Exit(1) from exc
-    try:
-        action(deps)
+        with scheduling.workspace_lock(root):
+            try:
+                if scheduling.is_pulled_replica(root) and feature not in {"search", "sql", "status"}:
+                    scheduling.ensure_writable(root)
+                deps = _build_wiring(root)
+                deps.require(feature)
+            except scheduling.ReadOnlyReplicaError as exc:
+                typer.echo(str(exc), err=True)
+                raise typer.Exit(1) from exc
+            except wiring.FeatureNotConnected as exc:
+                typer.echo(str(exc), err=True)
+                raise typer.Exit(1) from exc
+            except Exception as exc:
+                typer.echo(f"运行失败：{type(exc).__name__}: {exc}", err=True)
+                raise typer.Exit(1) from exc
+            try:
+                action(deps)
+            except typer.Exit:
+                raise
+            except wiring.FeatureNotConnected as exc:
+                typer.echo(str(exc), err=True)
+                raise typer.Exit(1) from exc
+            except ValueError as exc:
+                typer.echo(f"参数错误：{exc}", err=True)
+                raise typer.Exit(2) from exc
+            except Exception as exc:
+                typer.echo(f"运行失败：{type(exc).__name__}: {exc}", err=True)
+                raise typer.Exit(1) from exc
     except typer.Exit:
         raise
-    except wiring.FeatureNotConnected as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(1) from exc
-    except ValueError as exc:
-        typer.echo(f"参数错误：{exc}", err=True)
-        raise typer.Exit(2) from exc
     except Exception as exc:
         typer.echo(f"运行失败：{type(exc).__name__}: {exc}", err=True)
         raise typer.Exit(1) from exc
@@ -108,8 +136,10 @@ def _state_call(action: Callable[[], Any]) -> None:
 
 @state_app.command("push")
 def state_push(data_dir: Path | None = typer.Option(None, "--data-dir")) -> None:
+    root = data_dir if data_dir is not None else _data_dir()
+
     def action():
-        manager = wiring.build_state(data_dir if data_dir is not None else _data_dir())
+        manager = wiring.build_state(root)
         if not remote_configured():
             return manager.push()
         leases = LeaseManager(manager.store)
@@ -131,7 +161,22 @@ def state_push(data_dir: Path | None = typer.Option(None, "--data-dir")) -> None
                 return manager.push()
             finally:
                 manager.before_publish, manager.before_write = previous_publish, previous_write
-    _state_call(action)
+    try:
+        with scheduling.workspace_lock(root):
+            scheduling.ensure_writable(root)
+            _state_call(action)
+    except scheduling.ReadOnlyReplicaError as exc:
+        typer.echo(_json({"error": str(exc)}))
+        raise typer.Exit(1) from exc
+
+
+@app.command("pull")
+def pull_command(
+    data_dir: Path | None = typer.Option(None, "--data-dir", help="本机数据目录"),
+    generation: int | None = typer.Option(None, "--generation", min=1, help="指定有效历史代次"),
+) -> None:
+    """从远端只读拉取并校验最新有效状态代次。"""
+    _state_call(lambda: pull_state(data_dir if data_dir is not None else _data_dir(), generation))
 
 
 def _leases() -> LeaseManager:
@@ -356,28 +401,35 @@ def _crawl_report(deps: Any, spec: Any, *, limit: int | None = None, dry_run: bo
             close()
 
 
-def _scheduler() -> scheduling.Scheduler:
-    return _scheduler_at(_data_dir(), read_only=remote_configured())[1]
+def _scheduler(*, require_writable: bool = False) -> scheduling.Scheduler:
+    return _scheduler_at(
+        _data_dir(), read_only=remote_configured(), require_writable=require_writable,
+    )[1]
 
 
-def _scheduler_at(root: str | Path, *, read_only: bool = False) -> tuple[Any, scheduling.Scheduler]:
-    if read_only:
-        from datumoj.core.registry import load_registry
+def _scheduler_at(
+    root: str | Path, *, read_only: bool = False, require_writable: bool = False,
+) -> tuple[Any, scheduling.Scheduler]:
+    with scheduling.workspace_lock(root):
+        if require_writable:
+            scheduling.ensure_writable(root)
+        if read_only:
+            from datumoj.core.registry import load_registry
 
-        registry = load_registry(Path(__file__).resolve().parents[2] / "sources")
-        # Opening stores can migrate schemas. Defer that until _run holds the
-        # remote lease; due selection only needs registry/control/run history.
+            registry = load_registry(Path(__file__).resolve().parents[2] / "sources")
+            # Opening stores can migrate schemas. Defer that until _run holds the
+            # remote lease; due selection only needs registry/control/run history.
+            scheduler = scheduling.Scheduler(
+                root, registry.all(), lambda spec: _crawl_report(_build_wiring(root), spec),
+            )
+            return None, scheduler
+        deps = _build_wiring(root)
+        if deps.registry is None:
+            raise wiring.FeatureNotConnected("该功能尚未接入：没有来源注册表")
         scheduler = scheduling.Scheduler(
-            root, registry.all(), lambda spec: _crawl_report(wiring.build(root), spec),
+            root, deps.registry.all(), lambda spec: _crawl_report(deps, spec), manifest=deps.manifest,
         )
-        return None, scheduler
-    deps = wiring.build(root)
-    if deps.registry is None:
-        raise wiring.FeatureNotConnected("该功能尚未接入：没有来源注册表")
-    scheduler = scheduling.Scheduler(
-        root, deps.registry.all(), lambda spec: _crawl_report(deps, spec), manifest=deps.manifest,
-    )
-    return deps, scheduler
+        return deps, scheduler
 
 
 @report_app.command("weekly")
@@ -452,7 +504,7 @@ def schedule_due(
 def _set_sources(source: str | None, all_sources: bool, enabled: bool) -> Any:
     if (source is None) == (not all_sources):
         raise ValueError("请指定 SOURCE 或 --all，且只能选一个")
-    scheduler = _scheduler()
+    scheduler = _writable_scheduler()
     if all_sources:
         ids = set(scheduler.sources) | set(scheduling.read_control(_data_dir())["sources"])
     else:
@@ -499,17 +551,24 @@ def _schedule_results(action: Callable[[], Any], *, manual: bool = False) -> Non
     _schedule_call(report)
 
 
+def _writable_scheduler() -> scheduling.Scheduler:
+    root = _data_dir()
+    with scheduling.workspace_lock(root):
+        scheduling.ensure_writable(root)
+        return _scheduler()
+
+
 @schedule_app.command("tick")
 def schedule_tick() -> None:
     """串行运行已开启且到期的来源。"""
-    _schedule_results(lambda: _scheduler().tick())
+    _schedule_results(lambda: _writable_scheduler().tick())
 
 
 @schedule_app.command("run-now")
 @schedule_app.command("run")
 def schedule_run(source: str = typer.Argument(...)) -> None:
     """忽略到期时间运行一次；仍检查总开关、来源开关和锁。"""
-    _schedule_results(lambda: _scheduler().run_now(source), manual=True)
+    _schedule_results(lambda: _writable_scheduler().run_now(source), manual=True)
 
 
 @launchd_app.command("show")
@@ -519,7 +578,13 @@ def launchd_show() -> None:
 
 @launchd_app.command("install")
 def launchd_install() -> None:
-    _schedule_call(lambda: scheduling.install_launchd(Path(__file__).resolve().parents[2], _data_dir()))
+    def action() -> Any:
+        root = _data_dir()
+        with scheduling.workspace_lock(root):
+            scheduling.ensure_writable(root)
+            return scheduling.install_launchd(Path(__file__).resolve().parents[2], root)
+
+    _schedule_call(action)
 
 
 @launchd_app.command("uninstall")
@@ -535,7 +600,12 @@ def admin(
     """启动只监听 127.0.0.1 的抓取管理页面。"""
     root = data_dir if data_dir is not None else _data_dir()
     try:
-        deps, scheduler = _scheduler_at(root)
+        with scheduling.workspace_lock(root):
+            scheduling.ensure_writable(root)
+            deps, scheduler = _scheduler_at(root)
+    except scheduling.ReadOnlyReplicaError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
     except wiring.FeatureNotConnected as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from exc
@@ -609,6 +679,7 @@ def search(
     def action(deps: Any) -> None:
         result = deps.tools.search_docs(queries, k=k, sources=source)
         if json_output:
+            result.update(data_state(deps.data_dir))
             typer.echo(_json(result))
             return
         _human_search(deps, result)
@@ -674,7 +745,15 @@ def mcp() -> None:
     from datumoj import mcp_server
 
     os.environ.setdefault(mcp_server.FACTORY_ENV, "datumoj.wiring:build_tools")
-    mcp_server.main()
+    previous_data_dir = os.environ.get("DATUMOJ_DATA_DIR")
+    os.environ["DATUMOJ_DATA_DIR"] = _data_dir()
+    try:
+        mcp_server.main()
+    finally:
+        if previous_data_dir is None:
+            os.environ.pop("DATUMOJ_DATA_DIR", None)
+        else:
+            os.environ["DATUMOJ_DATA_DIR"] = previous_data_dir
 
 
 @app.command("eval")
