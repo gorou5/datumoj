@@ -279,6 +279,21 @@ def test_unfinished_local_publication_is_rejected(state, corpus):
     assert state[1].get("current.json") is None
 
 
+def test_failed_snapshot_is_terminal_and_can_be_pushed(state, corpus, tmp_path):
+    _, deps, _ = corpus
+    failed = make_snapshot(data=b"synthetic failed parse", snapshot_id="synthetic-failed")
+    deps.raw.put(b"synthetic failed parse")
+    deps.manifest.record_snapshot(failed)
+    deps.manifest.record_publish_state(failed.snapshot_id, PublishState.failed)
+    generation = state[0].push()
+    assert generation.generation == 1
+    target = tmp_path / "failed-restored"
+    assert state[0].restore(target)["verified"]
+    with sqlite3.connect(target / "manifest.sqlite") as db:
+        assert db.execute("SELECT state FROM publish_states WHERE snapshot_id=?",
+                          (failed.snapshot_id,)).fetchone() == ("failed",)
+
+
 @pytest.mark.parametrize("name,fmt", [("../escape", "bytes"), ("/absolute", "sqlite"),
                                       ("manifest.sqlite", "unknown"), ("arbitrary", "bytes")])
 def test_unsafe_manifest_paths_formats_are_rejected(state, tmp_path, name, fmt):

@@ -322,6 +322,17 @@ class Scheduler:
     def _last(self, source_id: str) -> dict[str, Any] | None:
         return self._last_attempt(self._history(), source_id)
 
+    def append_run(self, record: dict[str, Any]) -> None:
+        """Append a validated ledger row for an externally coordinated run."""
+        reason = self._invalid_run_reason(record)
+        if reason is not None:
+            raise ValueError(reason)
+        if record["source_id"] not in self.sources:
+            raise ValueError("运行记录的来源不在注册表中")
+        with workspace_lock(self.data_dir):
+            ensure_writable(self.data_dir)
+            self._append(record)
+
     @staticmethod
     def _last_attempt(history: list[dict[str, Any]], source_id: str) -> dict[str, Any] | None:
         return next((row for row in reversed(history) if row["source_id"] == source_id
