@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import time
 import unicodedata
 from collections.abc import Sequence
+from datetime import date
 from pathlib import Path
 
 from datumoj.core.contracts import IndexResult, ScoredChunk
@@ -23,7 +25,9 @@ CREATE TABLE IF NOT EXISTS entries (
     id INTEGER PRIMARY KEY,
     chunk_id TEXT NOT NULL UNIQUE,
     doc_key TEXT NOT NULL,
-    source_id TEXT NOT NULL
+    source_id TEXT NOT NULL,
+    published_at TEXT,
+    effective_at TEXT
 );
 CREATE INDEX IF NOT EXISTS entries_doc ON entries(doc_key);
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(title_path, text, tokenize='trigram');
@@ -85,6 +89,10 @@ class SqliteKeywordIndex:
         self._db = sqlite3.connect(db_path, timeout=timeout, isolation_level=None)
         self._require_trigram()
         self._db.executescript(_SCHEMA)
+        columns = {row[1] for row in self._db.execute("PRAGMA table_info(entries)")}
+        for name in ("published_at", "effective_at"):
+            if name not in columns:
+                self._db.execute(f"ALTER TABLE entries ADD COLUMN {name} TEXT")
 
     def close(self) -> None:
         self._db.close()
@@ -109,8 +117,11 @@ class SqliteKeywordIndex:
                 if old:
                     self._delete_ids([old[0]])
                 rowid = self._db.execute(
-                    "INSERT INTO entries(chunk_id, doc_key, source_id) VALUES(?,?,?)",
-                    (c.chunk_id, c.doc_key, c.source_id),
+                    "INSERT INTO entries(chunk_id, doc_key, source_id, published_at, effective_at) "
+                    "VALUES(?,?,?,?,?)",
+                    (c.chunk_id, c.doc_key, c.source_id,
+                     c.published_at.isoformat() if c.published_at else None,
+                     c.effective_at.isoformat() if c.effective_at else None),
                 ).lastrowid
                 self._db.execute(
                     "INSERT INTO chunks_fts(rowid, title_path, text) VALUES(?,?,?)",
@@ -141,17 +152,66 @@ class SqliteKeywordIndex:
         self._db.execute("COMMIT")
 
     def search(self, query: str, k: int = 10, source_ids: Sequence[str] | None = None) -> IndexResult:
+        return self._search(query, k=k, source_ids=source_ids)
+
+    def search_filtered(
+        self,
+        query: str,
+        k: int = 10,
+        source_ids: Sequence[str] | None = None,
+        *,
+        date_range: tuple[date | None, date | None] | None = None,
+        doc_keys: Sequence[str] | None = None,
+    ) -> IndexResult:
+        """过滤条件下检索；旧索引中日期为空的记录保留作有界回退候选。"""
+        return self._search(query, k=k, source_ids=source_ids, date_range=date_range, doc_keys=doc_keys)
+
+    def _search(
+        self,
+        query: str,
+        k: int = 10,
+        source_ids: Sequence[str] | None = None,
+        *,
+        date_range: tuple[date | None, date | None] | None = None,
+        doc_keys: Sequence[str] | None = None,
+    ) -> IndexResult:
         q = normalize(query) if isinstance(query, str) else ""
         if not q:
             raise ValueError("查询不能为空白")
         if k < 1:
             raise ValueError("k 必须 ≥ 1")
-        if source_ids is not None and not source_ids:
+        if (source_ids is not None and not source_ids) or (doc_keys is not None and not doc_keys):
             return IndexResult()
         where, params = "", []
         if source_ids is not None:
             where = f" AND e.source_id IN ({','.join('?' * len(source_ids))})"
             params = list(source_ids)
+        if doc_keys is not None:
+            where += " AND e.doc_key IN (SELECT value FROM json_each(?))"
+            params.append(json.dumps(list(doc_keys), ensure_ascii=False))
+        if date_range is not None:
+            lo, hi = date_range
+            clauses = []
+            if lo is not None and hi is not None:
+                clauses.extend([
+                    "(published_at BETWEEN ? AND ?)", "(effective_at BETWEEN ? AND ?)",
+                    "(published_at IS NULL AND effective_at IS NULL)",
+                ])
+                params.extend([lo.isoformat(), hi.isoformat(), lo.isoformat(), hi.isoformat()])
+            elif lo is not None:
+                clauses.extend([
+                    "(published_at >= ?)", "(effective_at >= ?)",
+                    "(published_at IS NULL AND effective_at IS NULL)",
+                ])
+                params.extend([lo.isoformat(), lo.isoformat()])
+            elif hi is not None:
+                clauses.extend([
+                    "(published_at <= ?)", "(effective_at <= ?)",
+                    "(published_at IS NULL AND effective_at IS NULL)",
+                ])
+                params.extend([hi.isoformat(), hi.isoformat()])
+            if clauses:
+                where += " AND (" + " OR ".join(clauses) + ")"
         terms = _query_terms(q)
         if len(terms) == 1 and len(terms[0]) >= _MIN_FTS_CHARS:
             terms = _trigrams(terms[0])

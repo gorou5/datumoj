@@ -81,6 +81,7 @@ __all__ = ["INTERNAL_ONLY", "AnalysisTools", "expand_terms"]
 
 INTERNAL_ONLY = "仅供内部使用"
 MAX_K = 50
+MAX_FILTERED_CANDIDATES = 500
 MAX_CONTEXT = 10
 MAX_ROWS = 1000
 
@@ -562,10 +563,26 @@ class AnalysisTools:
         for q in qs:
             nq = normalize(q)
             used.extend(t for t in expand_terms(q)["ja_terms"] if normalize(t) not in nq and t not in used)
-        res = self.retriever.search(
-            used, k=MAX_K if doc_kinds is not None else k, source_ids=source_ids,
-            date_range=None if since_d is None else (since_d, None),
-        )
+        date_range = None if since_d is None else (since_d, None)
+        doc_keys = None
+        if doc_kinds is not None:
+            doc_keys = sorted({
+                chunk.doc_key for chunk in self.chunks.iter_chunks(source_ids)
+                if (doc := self.chunks.get_document(chunk.doc_key, chunk.snapshot_sha256)) is not None
+                and doc.kind in doc_kinds
+            })
+        filtered_search = getattr(self.retriever, "search_filtered", None)
+        fallback_candidates = False
+        if callable(filtered_search):
+            res = filtered_search(
+                used, k=k, source_ids=source_ids, date_range=date_range, doc_keys=doc_keys,
+            )
+        else:
+            fallback_candidates = doc_kinds is not None
+            res = self.retriever.search(
+                used, k=MAX_FILTERED_CANDIDATES if fallback_candidates else k,
+                source_ids=source_ids, date_range=date_range,
+            )
         hits = list(res.data)
         if doc_kinds is not None:
             hits = [
@@ -574,12 +591,23 @@ class AnalysisTools:
                 and doc.kind in doc_kinds
             ][:k]
         warnings = list(res.warnings)
+        truncated = fallback_candidates and len(res.data) >= MAX_FILTERED_CANDIDATES and len(hits) < k
+        if truncated:
+            warnings.append(
+                f"truncated=true：候选补取达到上限 {MAX_FILTERED_CANDIDATES}，结果可能不完整"
+            )
         views = [self._hit_view(hit, warnings) for hit in hits]
         _usage_warning((h["usage_notice"] for h in views), warnings)
-        if doc_kinds is not None and res.data and not hits and res.gap_state is GapState.ok:
+        if (
+            doc_kinds is not None and not hits
+            and res.gap_state in (GapState.ok, GapState.zero_hits)
+            and not truncated
+        ):
             gap_state, gap_detail = GapState.zero_hits, "指定的文档类型没有命中"
         else:
             gap_state, gap_detail = res.gap_state, res.gap_detail
+        if truncated and gap_state is GapState.zero_hits:
+            gap_state, gap_detail = GapState.ok, None
         freshness = _freshness((hit.citation.source_id, hit.citation.fetched_at) for hit in hits)
         return _result({"queries": used, "hits": views}, gap_state, freshness, warnings, gap_detail)
 
