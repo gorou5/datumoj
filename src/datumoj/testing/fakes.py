@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
+from threading import Lock
 from typing import IO, Any
 
 from pydantic import AwareDatetime, JsonValue, TypeAdapter
@@ -47,6 +48,7 @@ from datumoj.core.contracts import (
     ParseRecord,
     ParseResult,
     ParseStatus,
+    PreconditionFailed,
     QueryError,
     QueryRejected,
     QueryResult,
@@ -89,7 +91,8 @@ from datumoj.core.models import (
 __all__ = [
     "CrawlStep", "FakeCatalogStore", "FakeChangeLog", "FakeChunkStore", "FakeCrawler", "FakeEmbedder",
     "FakeHttpFetcher", "FakeKeywordIndex", "FakeManifest", "FakeObservationStore", "FakeParser", "FakeRawStore",
-    "FakeRegistry", "FakeResponse", "FakeRetriever", "FakeVectorIndex", "UnregisteredUrl", "drive_crawler",
+    "FakeRegistry", "FakeResponse", "FakeRetriever", "FakeStateObjectStore", "FakeVectorIndex",
+    "UnregisteredUrl", "drive_crawler",
 ]
 
 _SHA_RE = re.compile(r"[0-9a-f]{64}")
@@ -117,6 +120,57 @@ def _latest(snaps: Iterable[Snapshot]) -> Snapshot | None:
 
 
 # ---------- Registry ----------
+
+
+class FakeStateObjectStore:
+    """线程安全的状态对象存储；递增 ETag 模拟不透明令牌，不模拟 S3 内容哈希。"""
+
+    def __init__(self) -> None:
+        self._objects: dict[str, tuple[bytes, str]] = {}
+        self._revision = 0
+        self._lock = Lock()
+
+    def _write(self, key: str, data: bytes) -> str:
+        self._revision += 1
+        etag = f'"fake-{self._revision}"'
+        self._objects[key] = (data, etag)
+        return etag
+
+    def get(self, key: str) -> tuple[bytes, str] | None:
+        with self._lock:
+            return self._objects.get(key)
+
+    def put(self, key: str, data: bytes) -> None:
+        with self._lock:
+            self._write(key, data)
+
+    def put_if_absent(self, key: str, data: bytes) -> str:
+        with self._lock:
+            if key in self._objects:
+                raise PreconditionFailed("对象已存在")
+            return self._write(key, data)
+
+    def put_if_match(self, key: str, data: bytes, etag: str) -> str:
+        with self._lock:
+            current = self._objects.get(key)
+            if current is None or current[1] != etag:
+                raise PreconditionFailed("对象不存在或 ETag 不匹配")
+            return self._write(key, data)
+
+    def delete_if_match(self, key: str, etag: str) -> None:
+        with self._lock:
+            current = self._objects.get(key)
+            if current is None or current[1] != etag:
+                raise PreconditionFailed("对象不存在或 ETag 不匹配")
+            del self._objects[key]
+
+    def exists(self, key: str) -> bool:
+        with self._lock:
+            return key in self._objects
+
+    def list(self, prefix: str) -> list[str]:
+        with self._lock:
+            return sorted(key for key in self._objects if key.startswith(prefix))
 
 
 class FakeRegistry:

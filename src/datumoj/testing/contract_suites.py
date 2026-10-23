@@ -20,8 +20,10 @@ import io
 import math
 import re
 from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta, timezone
 from decimal import Decimal
+from threading import Barrier
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -51,12 +53,14 @@ from datumoj.core.contracts import (
     ParseRecord,
     ParseResult,
     ParseStatus,
+    PreconditionFailed,
     QueryError,
     QueryRejected,
     RawStore,
     Registry,
     Retriever,
     SourceSpec,
+    StateObjectStore,
     TooManyRows,
     UrlNotAllowed,
     VectorIndex,
@@ -97,6 +101,96 @@ H = timedelta(hours=1)
 
 def _missing(name: str) -> Any:
     raise NotImplementedError(f"实现方必须覆盖 fixture / 方法 {name}")
+
+
+# ---------- StateObjectStore ----------
+
+
+class StateObjectStoreSuite:
+    """fixture ``state_store``：每个测试一个空存储；两个线程共享它竞争同一个键。"""
+
+    @pytest.fixture
+    def state_store(self) -> StateObjectStore:
+        return _missing("state_store")
+
+    def test_conforms(self, state_store):
+        assert isinstance(state_store, StateObjectStore)
+
+    def test_missing_and_empty_listing(self, state_store):
+        assert state_store.get("missing") is None
+        assert not state_store.exists("missing")
+        assert state_store.list("") == []
+
+    @pytest.mark.parametrize("data", [b"", b"\x00\xff\r\n"])
+    def test_put_get_and_overwrite(self, state_store, data):
+        assert state_store.put("copies/a", data) is None
+        stored, etag = state_store.get("copies/a")
+        assert stored == data and isinstance(etag, str) and etag
+        assert state_store.exists("copies/a")
+        state_store.put("copies/a", b"replacement")
+        assert state_store.get("copies/a")[0] == b"replacement"
+        assert state_store.get("copies/a")[1] != etag
+
+    def test_create_only_and_failed_create_preserves_object(self, state_store):
+        etag = state_store.put_if_absent("generations/1.json", b"one")
+        assert isinstance(etag, str) and etag
+        assert state_store.get("generations/1.json") == (b"one", etag)
+        for data in (b"one", b"two"):
+            with pytest.raises(PreconditionFailed):
+                state_store.put_if_absent("generations/1.json", data)
+            assert state_store.get("generations/1.json") == (b"one", etag)
+
+    def test_matching_replace_and_stale_operations(self, state_store):
+        old = state_store.put_if_absent("current.json", b"one")
+        new = state_store.put_if_match("current.json", b"two", old)
+        assert isinstance(new, str) and new and new != old
+        assert state_store.get("current.json") == (b"two", new)
+        with pytest.raises(PreconditionFailed):
+            state_store.put_if_match("current.json", b"three", old)
+        with pytest.raises(PreconditionFailed):
+            state_store.delete_if_match("current.json", old)
+        assert state_store.get("current.json") == (b"two", new)
+        assert state_store.delete_if_match("current.json", new) is None
+        assert state_store.get("current.json") is None
+        assert not state_store.exists("current.json")
+        assert state_store.list("") == []
+
+    def test_missing_conditional_operations_fail(self, state_store):
+        with pytest.raises(PreconditionFailed):
+            state_store.put_if_match("missing", b"data", '"unknown"')
+        with pytest.raises(PreconditionFailed):
+            state_store.delete_if_match("missing", '"unknown"')
+        assert state_store.get("missing") is None
+
+    def test_listing_is_sorted_literal_prefix_and_detached(self, state_store):
+        keys = ["copies/b", "other/a", "copies/a", "copies-plus/a"]
+        for key in keys:
+            state_store.put(key, b"data")
+        assert state_store.list("") == sorted(keys)
+        assert state_store.list("copies/") == ["copies/a", "copies/b"]
+        assert state_store.list("copies") == ["copies-plus/a", "copies/a", "copies/b"]
+        assert state_store.list("absent/") == []
+        state_store.list("").clear()
+        assert state_store.list("") == sorted(keys)
+
+    @pytest.mark.parametrize("operation", ["put_if_absent", "put_if_match"])
+    def test_two_writers_only_one_wins(self, state_store, operation):
+        key = "current.json"
+        args = () if operation == "put_if_absent" else (state_store.put_if_absent(key, b"old"),)
+        barrier = Barrier(2)
+
+        def compete(data):
+            barrier.wait(timeout=5)
+            try:
+                return data, getattr(state_store, operation)(key, data, *args)
+            except PreconditionFailed:
+                return None
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes = list(pool.map(compete, [b"writer-a", b"writer-b"]))
+        winners = [outcome for outcome in outcomes if outcome is not None]
+        assert len(winners) == 1
+        assert state_store.get(key) == winners[0]
 
 
 # ---------- Registry ----------

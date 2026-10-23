@@ -1,0 +1,40 @@
+{
+  "additionalProperties": false,
+  "description": "某一逻辑库的一致副本；key 是对象存储内的相对键，format 不限定实现。",
+  "properties": {
+    "name": {
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "key": {
+      "minLength": 1,
+      "title": "Key",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "size_bytes": {
+      "minimum": 0,
+      "title": "Size Bytes",
+      "type": "integer"
+    },
+    "format": {
+      "minLength": 1,
+      "title": "Format",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "key",
+    "sha256",
+    "size_bytes",
+    "format"
+  ],
+  "title": "StoreCopy",
+  "type": "object"
+}

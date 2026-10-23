@@ -1,0 +1,204 @@
+{
+  "$defs": {
+    "SourceRun": {
+      "additionalProperties": false,
+      "description": "来源最后一次成功运行。",
+      "properties": {
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "finished_at": {
+          "format": "date-time",
+          "title": "Finished At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "finished_at"
+      ],
+      "title": "SourceRun",
+      "type": "object"
+    },
+    "StateWriter": {
+      "additionalProperties": false,
+      "description": "写入者身份，不包含凭据或主机信息。",
+      "properties": {
+        "kind": {
+          "enum": [
+            "actions",
+            "local"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "run_id"
+      ],
+      "title": "StateWriter",
+      "type": "object"
+    },
+    "StoreCopy": {
+      "additionalProperties": false,
+      "description": "某一逻辑库的一致副本；key 是对象存储内的相对键，format 不限定实现。",
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "key": {
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "format": {
+          "minLength": 1,
+          "title": "Format",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "key",
+        "sha256",
+        "size_bytes",
+        "format"
+      ],
+      "title": "StoreCopy",
+      "type": "object"
+    },
+    "VectorCoverage": {
+      "additionalProperties": false,
+      "description": "向量覆盖范围；不规定向量对象的存法。",
+      "properties": {
+        "model": {
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        },
+        "dim": {
+          "minimum": 1,
+          "title": "Dim",
+          "type": "integer"
+        },
+        "embedded_chunks": {
+          "minimum": 0,
+          "title": "Embedded Chunks",
+          "type": "integer"
+        },
+        "pending_chunks": {
+          "minimum": 0,
+          "title": "Pending Chunks",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "model",
+        "version",
+        "dim",
+        "embedded_chunks",
+        "pending_chunks"
+      ],
+      "title": "VectorCoverage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "同一一致性边界内的已发布状态清单；是否有效由条件发布规则决定。",
+  "properties": {
+    "generation": {
+      "minimum": 1,
+      "title": "Generation",
+      "type": "integer"
+    },
+    "previous_generation": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Previous Generation"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "writer": {
+      "$ref": "#/$defs/StateWriter"
+    },
+    "stores": {
+      "items": {
+        "$ref": "#/$defs/StoreCopy"
+      },
+      "minItems": 1,
+      "title": "Stores",
+      "type": "array"
+    },
+    "raw_prefix": {
+      "minLength": 1,
+      "title": "Raw Prefix",
+      "type": "string"
+    },
+    "vector_coverage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VectorCoverage"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "last_successful_runs": {
+      "patternProperties": {
+        "^[a-z]{2,4}(?:-[a-z0-9]+)+$": {
+          "$ref": "#/$defs/SourceRun"
+        }
+      },
+      "title": "Last Successful Runs",
+      "type": "object"
+    }
+  },
+  "required": [
+    "generation",
+    "previous_generation",
+    "created_at",
+    "writer",
+    "stores",
+    "raw_prefix",
+    "vector_coverage",
+    "last_successful_runs"
+  ],
+  "title": "StateGeneration",
+  "type": "object"
+}

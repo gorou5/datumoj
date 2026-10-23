@@ -303,6 +303,80 @@ class _Model(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+class StoreCopy(_Model):
+    """某一逻辑库的一致副本；key 是对象存储内的相对键，format 不限定实现。"""
+
+    name: Text
+    key: Text
+    sha256: Sha256
+    size_bytes: Annotated[int, Field(ge=0, strict=True)]
+    format: Text
+
+
+class StateWriter(_Model):
+    """写入者身份，不包含凭据或主机信息。"""
+
+    kind: Literal["actions", "local"]
+    run_id: Text
+
+
+class VectorCoverage(_Model):
+    """向量覆盖范围；不规定向量对象的存法。"""
+
+    model: Text
+    version: Text
+    dim: Annotated[int, Field(ge=1, strict=True)]
+    embedded_chunks: Annotated[int, Field(ge=0, strict=True)]
+    pending_chunks: Annotated[int, Field(ge=0, strict=True)]
+
+
+class SourceRun(_Model):
+    """来源最后一次成功运行。"""
+
+    run_id: Text
+    finished_at: AwareDatetime
+
+
+class StateGeneration(_Model):
+    """同一一致性边界内的已发布状态清单；是否有效由条件发布规则决定。"""
+
+    generation: Annotated[int, Field(ge=1, strict=True)]
+    previous_generation: Annotated[int, Field(ge=1, strict=True)] | None
+    created_at: AwareDatetime
+    writer: StateWriter
+    stores: Annotated[list[StoreCopy], Field(min_length=1)]
+    raw_prefix: Text
+    vector_coverage: VectorCoverage | None
+    last_successful_runs: dict[SourceId, SourceRun]
+
+    @model_validator(mode="after")
+    def _consistent_generation(self) -> StateGeneration:
+        previous = None if self.generation == 1 else self.generation - 1
+        if self.previous_generation != previous:
+            raise ValueError("previous_generation 必须紧接上一代；第一代为 null")
+        names = [store.name for store in self.stores]
+        if len(names) != len(set(names)):
+            raise ValueError("stores 的逻辑名不能重复")
+        if any(run.finished_at > self.created_at for run in self.last_successful_runs.values()):
+            raise ValueError("来源成功运行不能晚于代次生成时间")
+        return self
+
+
+class WriteLease(_Model):
+    """写入租约；holder 是 kind/run_id，token 是每次取得租约的新随机标识。"""
+
+    holder: Text
+    token: Text
+    acquired_at: AwareDatetime
+    expires_at: AwareDatetime
+
+    @model_validator(mode="after")
+    def _ordered_times(self) -> WriteLease:
+        if self.expires_at <= self.acquired_at:
+            raise ValueError("租约到期时间必须晚于取得时间")
+        return self
+
+
 @total_ordering
 class SnapshotOrder(_Model):
     """快照抓取时间优先，同一时间按 manifest 写入序号排序；只在同一 manifest 内可比。"""
@@ -836,6 +910,9 @@ class ToolResult(_Model, Generic[T]):
 # ---------- JSON Schema 导出 ----------
 
 SCHEMA_TYPES: dict[str, Any] = {
+    "StoreCopy": StoreCopy,
+    "StateGeneration": StateGeneration,
+    "WriteLease": WriteLease,
     "FetchOutcome": FetchOutcome,
     "DocKind": DocKind,
     "ChangeKind": ChangeKind,

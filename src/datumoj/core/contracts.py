@@ -65,6 +65,10 @@ class ContractError(Exception):
     """契约约定的错误的基类。"""
 
 
+class PreconditionFailed(ContractError):
+    """条件写入或删除失败（对象已存在、不存在或 ETag 不匹配）；没有修改对象。"""
+
+
 class NotFoundError(ContractError, LookupError):
     """按键取不到，且该方法约定要报错（例如 RawStore.get）。"""
 
@@ -203,6 +207,46 @@ class Registry(Protocol):
 
     def all(self) -> list[SourceSpec]:
         """全部来源，按 id 升序。"""
+        ...
+
+
+# ---------- 状态对象存储 ----------
+
+
+@runtime_checkable
+class StateObjectStore(Protocol):
+    """同步、对象级原子操作；key/prefix 均相对于配置的存储命名空间。
+
+    ETag 是服务端返回的不透明比较令牌，不是 SHA256；调用方必须原样传回。
+    条件检查与写入/删除必须是同一个原子操作，不能用先读再无条件写代替。
+    条件不满足统一抛 PreconditionFailed，其他 I/O 错误不得伪装成条件失败。
+    """
+
+    def get(self, key: str) -> tuple[bytes, str] | None:
+        """返回同一对象版本的字节与 ETag；不存在返回 None。"""
+        ...
+
+    def put(self, key: str, data: bytes) -> None:
+        """无条件创建或替换；不得用于发布指针、清单或租约。"""
+        ...
+
+    def put_if_absent(self, key: str, data: bytes) -> str:
+        """仅不存在时创建并返回 ETag；存在（即使同字节）抛 PreconditionFailed。"""
+        ...
+
+    def put_if_match(self, key: str, data: bytes, etag: str) -> str:
+        """仅当前 ETag 匹配时替换并返回 ETag；不存在也抛 PreconditionFailed。"""
+        ...
+
+    def delete_if_match(self, key: str, etag: str) -> None:
+        """仅当前 ETag 匹配时删除；不存在也抛 PreconditionFailed。"""
+        ...
+
+    def exists(self, key: str) -> bool:
+        ...
+
+    def list(self, prefix: str) -> list[str]:
+        """列出以 prefix 字面开头的全部相对键，按键升序；空前缀列出全部。"""
         ...
 
 
