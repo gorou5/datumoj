@@ -15,7 +15,7 @@ from datumoj.core.contracts import (
     citation_for_chunk,
     citation_for_observation,
 )
-from datumoj.core.manifest import SqliteManifest
+from datumoj.core.manifest import SCHEMA_VERSION, SqliteManifest
 from datumoj.core.models import (
     Citation,
     EvidenceState,
@@ -165,6 +165,9 @@ def test_manifest_v1_migration_preserves_all_snapshots_and_invalidates_old_conte
     assert m.snapshots_for("jp-test") == snaps
     assert [m.snapshot_order(s.snapshot_id).seq for s in snaps] == [2, 7, 9]
     assert m.snapshot_meta("one") == {"a": 1}
+    assert all(m.publish_state(s.snapshot_id) is None for s in snaps)
+    assert m.snapshots_in_publish_state(PublishState.staged) == []
+    assert all(m.get_snapshot(s.snapshot_id) == s for s in snaps)
     fp = parse_context_fingerprint(snaps[0], {"a": 1})
     assert m.get_parse(snaps[0].sha256, "p", "1").context_fingerprint == ""
     assert m.get_parse(snaps[0].sha256, "p", "1", fp) is None
@@ -181,7 +184,7 @@ def test_manifest_v1_migration_preserves_all_snapshots_and_invalidates_old_conte
     assert reopened.snapshot_order("after-migration").seq == 10
     reopened.close()
     with sqlite3.connect(path) as db:
-        assert db.execute("SELECT version FROM schema_version").fetchone() == (3,)
+        assert db.execute("SELECT version FROM schema_version").fetchone() == (SCHEMA_VERSION,)
         assert db.execute("SELECT COUNT(*) FROM snapshots").fetchone() == (4,)
         assert db.execute("SELECT COUNT(*) FROM parsed").fetchone() == (3,)
 

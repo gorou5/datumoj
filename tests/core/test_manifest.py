@@ -5,7 +5,7 @@ import pytest
 
 from datumoj.core.contracts import NO_PARSER, ParseRecord, ParseStatus, SchemaVersionError
 from datumoj.core.manifest import SCHEMA_VERSION, SqliteManifest
-from datumoj.core.models import FetchOutcome
+from datumoj.core.models import FetchOutcome, PublishState
 from datumoj.testing.contract_suites import ManifestSuite
 from datumoj.testing.samples import T0, make_snapshot, sha
 
@@ -190,12 +190,15 @@ def test_v2_migration_preserves_snapshots_and_marks_outputs_unknown(tmp_path):
     assert manifest.get_parse(snap.sha256, "p", "1", fp).doc_keys is None
     assert manifest.get_parse(sha(b"bad"), "p", "1", fp).error == "bad"
     assert manifest.last_writer("jp-test:a.txt", snap.sha256) is None
+    assert manifest.get_snapshot(snap.snapshot_id) == snap
+    assert manifest.publish_state(snap.snapshot_id) is None
+    assert manifest.snapshots_in_publish_state(PublishState.staged) == []
     manifest.record_snapshot(make_snapshot(snapshot_id="next"))
     assert manifest.snapshot_order("next").seq == 8
     manifest.close()
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT * FROM snapshots WHERE snapshot_id=?", (snap.snapshot_id,)).fetchall() == before
-        assert db.execute("SELECT version FROM schema_version").fetchone() == (3,)
+        assert db.execute("SELECT version FROM schema_version").fetchone() == (SCHEMA_VERSION,)
 
 
 def test_v2_migration_failure_rolls_back(tmp_path):
@@ -212,3 +215,73 @@ def test_v2_migration_failure_rolls_back(tmp_path):
         assert db.execute("SELECT version FROM schema_version").fetchone() == (2,)
         assert "doc_keys" not in {r[1] for r in db.execute("PRAGMA table_info(parsed)")}
         assert db.execute("SELECT name FROM sqlite_master WHERE name='parse_writers'").fetchone() is None
+        assert db.execute("SELECT name FROM sqlite_master WHERE name='publish_states'").fetchone() is None
+
+
+def test_publish_state_persists_and_clears_error(tmp_path):
+    path = tmp_path / "publish.db"
+    first, second = SqliteManifest(path), SqliteManifest(path)
+    snap = make_snapshot(snapshot_id="publish")
+    first.record_snapshot(snap)
+    first.record_publish_state(snap.snapshot_id, PublishState.failed, "observation failed")
+    assert second.get_snapshot(snap.snapshot_id) == snap
+    assert second.publish_state(snap.snapshot_id) is PublishState.failed
+    first.record_publish_state(snap.snapshot_id, PublishState.staged)
+    assert second.snapshots_in_publish_state(PublishState.staged) == [snap.snapshot_id]
+    first.close()
+    second.close()
+    reopened = SqliteManifest(path)
+    assert reopened.publish_state(snap.snapshot_id) is PublishState.staged
+    reopened.record_publish_state(snap.snapshot_id, PublishState.published)
+    reopened.close()
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT state, error FROM publish_states").fetchone() == ("published", None)
+
+
+def test_v3_migration_keeps_outputs_and_uses_indexed_recovery_queries(tmp_path):
+    path = tmp_path / "v3.db"
+    original = SqliteManifest(path)
+    snap = make_snapshot(snapshot_id="v3")
+    original.record_snapshot(snap, {"role": "body"})
+    rec = ParseRecord(sha256=snap.sha256, parser="p", version="1", status=ParseStatus.ok,
+                      context_fingerprint=sha(b"context"), doc_keys=["jp-test:a"])
+    original.record_parse(rec)
+    original.close()
+    with sqlite3.connect(path) as db:
+        db.execute("DROP TABLE publish_states")
+        db.execute("UPDATE schema_version SET version=3")
+        before = db.execute("SELECT * FROM snapshots").fetchall()
+    migrated = SqliteManifest(path)
+    assert migrated.get_snapshot("v3") == snap
+    assert migrated.get_parse(snap.sha256, "p", "1", rec.context_fingerprint) == rec
+    assert migrated.last_writer("jp-test:a", snap.sha256) == rec.context_fingerprint
+    assert migrated.publish_state("v3") is None
+    assert migrated.snapshots_in_publish_state(PublishState.staged) == []
+    migrated.close()
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT * FROM snapshots").fetchall() == before
+        assert db.execute("SELECT version FROM schema_version").fetchone() == (4,)
+        for sql, args in [
+            ("SELECT snapshot FROM snapshots WHERE snapshot_id=?", ("v3",)),
+            ("SELECT snapshot_id FROM publish_states WHERE state=?", ("staged",)),
+        ]:
+            plan = db.execute("EXPLAIN QUERY PLAN " + sql, args).fetchall()
+            assert any("SEARCH" in row[3] and "INDEX" in row[3] for row in plan)
+
+
+def test_v3_migration_failure_rolls_back(tmp_path):
+    path = tmp_path / "v3-rollback.db"
+    original = SqliteManifest(path)
+    original.record_snapshot(make_snapshot(snapshot_id="v3"))
+    original.close()
+    with sqlite3.connect(path) as db:
+        db.execute("DROP TABLE publish_states")
+        db.execute("UPDATE schema_version SET version=3")
+        db.execute("CREATE TRIGGER fail_upgrade BEFORE UPDATE ON schema_version "
+                   "BEGIN SELECT RAISE(ABORT, 'failed'); END")
+    with pytest.raises(sqlite3.IntegrityError, match="failed"):
+        SqliteManifest(path)
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT version FROM schema_version").fetchone() == (3,)
+        assert db.execute("SELECT name FROM sqlite_master WHERE name='publish_states'").fetchone() is None
+        assert db.execute("SELECT snapshot_id FROM snapshots").fetchall() == [("v3",)]
