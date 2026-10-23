@@ -161,7 +161,7 @@ def _check_schema(root: Path) -> None:
     with _ro(root / "manifest.sqlite") as db:
         # An interrupted publication cannot be upgraded into a usable current by
         # restoring its partially updated indexes / Parquet / catalog.
-        if db.execute("SELECT 1 FROM publish_states WHERE state != 'published' LIMIT 1").fetchone():
+        if db.execute("SELECT 1 FROM publish_states WHERE state = 'staged' LIMIT 1").fetchone():
             raise StateError("存在未完成的本地发布，先修复后再推送")
     if (root / "keyword.sqlite").exists() and not (root / "chunks.sqlite").exists():
         raise StateError("关键词库缺少 chunks")

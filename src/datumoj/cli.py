@@ -36,6 +36,7 @@ report_app = typer.Typer(no_args_is_help=True, help="生成资料库变化报告
 diagnose_app = typer.Typer(no_args_is_help=True, help="只读检查本地证据，不升级数据库。")
 state_app = typer.Typer(no_args_is_help=True, help="推送和校验恢复状态代次。")
 lease_app = typer.Typer(no_args_is_help=True, help="写入租约；后续命令从 DATUMOJ_LEASE_TOKEN 读取令牌。")
+cloud_app = typer.Typer(no_args_is_help=True, help="持租约运行到期来源并发布云端代次。")
 index_app = typer.Typer(invoke_without_command=True, help="更新、重建或维护索引。")
 state_app.add_typer(lease_app, name="lease")
 app.add_typer(schedule_app, name="schedule")
@@ -44,6 +45,7 @@ app.add_typer(registry_app, name="registry")
 app.add_typer(report_app, name="report")
 app.add_typer(diagnose_app, name="diagnose")
 app.add_typer(state_app, name="state")
+app.add_typer(cloud_app, name="cloud")
 app.add_typer(index_app, name="index")
 _DATA_DIR: ContextVar[str | None] = ContextVar("datumoj_data_dir", default=None)
 
@@ -136,6 +138,19 @@ def _state_call(action: Callable[[], Any]) -> None:
         # Even configuration/SDK/validation exceptions can contain secrets.
         typer.echo(_json({"error": "状态操作失败，请检查配置、代次完整性和写入状态"}))
         raise typer.Exit(1) from None
+
+
+@cloud_app.command("run")
+def cloud_run(
+    work_dir: Path | None = typer.Option(None, "--work-dir", help="空的工作目录；默认使用临时目录"),
+    max_embed: int = typer.Option(1000, "--max-embed", min=0, help="整轮嵌入块数上限"),
+    max_minutes: float = typer.Option(40, "--max-minutes", min=0, help="到期后停止开始新来源"),
+) -> None:
+    from datumoj.cloud import run
+
+    result = run(work_dir=work_dir, max_embed=max_embed, max_minutes=max_minutes)
+    typer.echo(_json(result))
+    raise typer.Exit(result["exit_status"])
 
 
 @state_app.command("push")
