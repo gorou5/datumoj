@@ -3,6 +3,7 @@
 import hashlib
 import json
 import sqlite3
+from contextlib import closing
 from datetime import UTC, timedelta
 
 import pytest
@@ -43,14 +44,14 @@ def fingerprint(root):
 
 def legacy(root):
     root.mkdir()
-    with sqlite3.connect(root / "manifest.sqlite") as db:
+    with closing(sqlite3.connect(root / "manifest.sqlite")) as db, db:
         db.executescript(LEGACY_MANIFEST)
-    with sqlite3.connect(root / "chunks.sqlite") as db:
+    with closing(sqlite3.connect(root / "chunks.sqlite")) as db, db:
         db.executescript(LEGACY_CHUNKS)
 
 
 def record(root, snapshot, meta=None, *, seq=None):
-    with sqlite3.connect(root / "manifest.sqlite") as db:
+    with closing(sqlite3.connect(root / "manifest.sqlite")) as db, db:
         db.execute("INSERT INTO snapshots VALUES (?,?,?,?,?,?,?,?,?)", (
             seq, snapshot.snapshot_id, snapshot.source_id, snapshot.resource_url,
             snapshot.fetched_at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f"),
@@ -60,7 +61,7 @@ def record(root, snapshot, meta=None, *, seq=None):
 
 
 def derived(root, result, *, publish=True):
-    with sqlite3.connect(root / "chunks.sqlite") as db:
+    with closing(sqlite3.connect(root / "chunks.sqlite")) as db, db:
         for doc in result.documents:
             db.execute("INSERT OR REPLACE INTO documents VALUES (?,?,?)",
                        (doc.doc_key, doc.snapshot_sha256, doc.model_dump_json()))
@@ -98,7 +99,7 @@ def test_cli_diagnose_legacy_never_builds_or_migrates(tmp_path, monkeypatch):
     assert second.exit_code == 0, second.output
     assert json.loads(second.output)["raw_failures"]["samples"][0]["reason"] == "hash_mismatch"
     assert fingerprint(root) == before
-    with sqlite3.connect(root / "manifest.sqlite") as db:
+    with closing(sqlite3.connect(root / "manifest.sqlite")) as db, db:
         assert db.execute("SELECT version FROM schema_version").fetchone() == (1,)
     assert not (root / "raw/.quarantine").exists()
 
@@ -190,7 +191,7 @@ def test_parse_failure_does_not_leak_across_same_sha_resources(tmp_path):
     later_b = make_snapshot(snapshot_id="b2", data=b"updated", url=b.resource_url, fetched_at=T0 + timedelta(days=1))
     for snap in (a, b, later_b):
         record(root, snap)
-    with sqlite3.connect(root / "manifest.sqlite") as db:
+    with closing(sqlite3.connect(root / "manifest.sqlite")) as db, db:
         db.execute("ALTER TABLE parsed ADD COLUMN context_fingerprint TEXT NOT NULL DEFAULT ''")
         db.execute("INSERT INTO parsed VALUES (?,?,?,?,?,?)", (
             a.sha256, "fake-text", "1", "failed", "failure only at a", parse_context_fingerprint(a),

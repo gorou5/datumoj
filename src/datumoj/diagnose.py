@@ -16,7 +16,7 @@ import shutil
 import sqlite3
 import tempfile
 from collections import defaultdict
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from dataclasses import asdict, replace
 from pathlib import Path
 
@@ -377,7 +377,7 @@ def replay(source: str | Path, target: str | Path, *, vectors: bool = False) -> 
     if raw.is_symlink() or any(p.is_symlink() for p in raw.rglob("*")):
         raise ValueError("raw symlinks are not supported")
     target.mkdir(parents=True, exist_ok=True)
-    with _readonly(source / "manifest.sqlite") as old, sqlite3.connect(target / "manifest.sqlite") as new:
+    with _readonly(source / "manifest.sqlite") as old, closing(sqlite3.connect(target / "manifest.sqlite")) as new:
         old.backup(new)
     if raw.exists():
         shutil.copytree(raw, target / "raw")
@@ -387,7 +387,7 @@ def replay(source: str | Path, target: str | Path, *, vectors: bool = False) -> 
         deps.require("parse")
         deps.require("index")
         vectors_unavailable = vectors and deps.vectors is None
-        with sqlite3.connect(target / "manifest.sqlite") as db:
+        with closing(sqlite3.connect(target / "manifest.sqlite")) as db, db:
             for table in ("parsed", "parse_writers", "publish_states"):
                 db.execute(f"DELETE FROM {table}")
         adapter = _ReplayManifest(deps.manifest)
