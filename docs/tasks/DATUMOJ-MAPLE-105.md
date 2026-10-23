@@ -9,7 +9,7 @@ runner: claude
 model: null
 tier: high
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/cloud.py", "src/datumoj/cli.py", ".github/workflows/cloud-run.yml", "tests/test_cloud_run.py", "tests/test_cloud_workflow.py", "results/DATUMOJ-MAPLE-105/**"]
+scope: ["src/datumoj/cloud.py", "src/datumoj/cli.py", "src/datumoj/core/schedule.py", ".github/workflows/cloud-run.yml", "tests/test_cloud_run.py", "tests/test_cloud_workflow.py", "results/DATUMOJ-MAPLE-105/**"]
 out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", ".env.example", ".github/workflows/ci.yml"]
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
@@ -43,8 +43,9 @@ GitHub Actions 按小时定时（也可手动）跑一轮：取得租约，从 R
 2. `.github/workflows/cloud-run.yml`：触发器只有 `schedule`（每小时）和 `workflow_dispatch`（不响应 `pull_request` 和 fork）；`concurrency` 组固定、不取消正在运行的；`permissions: contents: read`；超时上限；用 uv 按 `uv.lock` 安装；安装 Ollama（固定版本）并缓存 bge-m3 模型；凭证只从 secrets 读（`R2_ACCESS_KEY_ID`、`R2_SECRET_ACCESS_KEY`），`R2_ENDPOINT`、`DATUMOJ_S3_BUCKET` 从 variables 读；不打印环境变量，不上传数据目录作为 artifact。所用第三方 action 固定到版本。
 3. 测试 `tests/test_cloud_run.py`（moto + 本地假来源）：空状态第一次运行发布第 1 代；第二次只跑到期来源并发布第 2 代；租约被占时跳过；某来源失败、推送失败、时间预算用完三种情况的发布与租约行为；两轮之间本机 `datumoj pull` 拿到的结果与工作目录一致。
 4. 测试 `tests/test_cloud_workflow.py`：解析工作流 YAML，断言触发器、concurrency、permissions、超时、secrets 只出现在 env 引用里、没有 `pull_request` / `pull_request_target`、没有打印环境的步骤、action 都固定了版本。
-5. 测试断言：命令输出和日志里不出现测试用的凭证值、endpoint 和 bucket 名。
-6. 全部已有测试（`make check T=tests`）必须仍然通过。
+5. （2026-10-23 第 1 版审查后补充，人定打回，**取代要求 1 里“任何一步失败：不发布”的说法**）**单个来源失败不阻断发布**：（a）某个来源的抓取、解析或建索引失败时，只在 `runs.jsonl` 记这次失败（`state=final`、`exit_status` 非 0、失败计数和固定原因，`status` 与失败一致，不要写成 completed），继续跑其余到期来源；已完成的来源和失败来源在失败前已写入的内容照常进入本轮代次（107 已保证解析失败的内容不会被发布成 current），本轮照常发布。（b）只要有来源失败，命令退出码非 0（让 Actions 显示失败），JSON 摘要列出失败的来源和原因；发布成功时 `generation` 照常填。（c）只有租约（取得、续期、校验）、恢复、组件初始化、读取到期来源、维护、发布这些整轮性的步骤失败时才整轮不发布。时间预算用完仍是停止开始新来源、已完成的照常发布。（d）不调用 `Scheduler` 的私有方法（如 `_append`）；需要追加运行记录就用公开接口，没有就在 `core/schedule.py` 里加一个最小的公开方法（本条允许改 `core/schedule.py`，只加这个方法）。（e）工作流下载 Ollama 后校验 sha256，值固定写在工作流里：v0.6.8 `ollama-linux-amd64.tgz` 为 `9f9ff52b8297d6e40904f22bac09eac587a05111762bf278359621fbdb53dbb9`（官方 release 的 sha256sum.txt），不符则失败；`tests/test_cloud_workflow.py` 断言有这一步。（f）测试：三个到期来源中一个失败时，另外两个照常发布、失败来源的运行记录正确、退出码非 0、`last_successful_runs` 不含失败来源；租约续期失败和发布失败时仍整轮不发布、租约释放。
+6. 测试断言：命令输出和日志里不出现测试用的凭证值、endpoint 和 bucket 名。
+7. 全部已有测试（`make check T=tests`）必须仍然通过。
 
 # 不做
 - 不连真实 R2，不在本任务里触发工作流。
