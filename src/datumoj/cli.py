@@ -20,6 +20,7 @@ from datumoj.core import schedule as scheduling
 from datumoj.core.models import Citation
 from datumoj.core.registry_export import export_registry
 from datumoj.core.storage import load_storage_config
+from datumoj.index.coverage import INDEX_REBUILDING, rebuilding_index
 from datumoj.pipeline import vector_status
 
 app = typer.Typer(no_args_is_help=True, help="抓取、解析、索引并查询本地政府公开数据。")
@@ -97,6 +98,15 @@ def _content(value: Any) -> str:
 def _human_search(deps: Any, result: dict[str, Any]) -> None:
     data = result.get("data", {})
     hits = data.get("hits", [])
+    pipeline = result.get("pipeline")
+    if pipeline:
+        typer.echo(
+            "管线："
+            f"可解析快照 {pipeline.get('parseable_snapshots', 0)}；已解析 {pipeline.get('parsed', 0)}；"
+            f"解析失败 {pipeline.get('parse_failed', 0)}；needs_ocr {pipeline.get('needs_ocr', 0)}；"
+            f"可检索块 {pipeline.get('searchable_chunks', 0)}；"
+            f"索引代次 {pipeline.get('index_generation') or '未知'}"
+        )
     if not hits:
         typer.echo("零命中。")
         typer.echo(f"检索状态：{result.get('gap_state', 'unknown')}")
@@ -394,7 +404,8 @@ def index(
             return
         summary = deps.parse_pending(deps.pipeline_deps)
         if rebuild:
-            count = deps.reindex(deps.pipeline_deps)
+            with rebuilding_index(deps.data_dir):
+                count = deps.reindex(deps.pipeline_deps)
             typer.echo(f"索引重建完成：{count} 个块")
         else:
             typer.echo(f"索引更新完成：处理 {len(summary.parsed)} 个新快照")
@@ -460,7 +471,16 @@ def status() -> None:
             for item in sources:
                 fresh = item.get("freshness", {})
                 as_of = fresh.get("as_of") or "无成功抓取"
-                typer.echo(f"{item['source_id']}：{item['status']}；快照 {item['snapshots']}；截止 {as_of}")
+                pipeline = item.get("pipeline", {})
+                generation = pipeline.get("index_generation") or "未知"
+                if generation == INDEX_REBUILDING:
+                    generation = "重建中"
+                typer.echo(
+                    f"{item['source_id']}：{item['status']}；快照 {item['snapshots']}；截止 {as_of}；"
+                    f"已解析 {pipeline.get('parsed', 0)}/{pipeline.get('parseable_snapshots', 0)}；"
+                    f"解析失败 {pipeline.get('parse_failed', 0)}；needs_ocr {pipeline.get('needs_ocr', 0)}；"
+                    f"可检索块 {pipeline.get('searchable_chunks', 0)}；索引 {generation}"
+                )
         for warning in result.get("warnings", []):
             typer.echo(f"提示：{warning}")
         _echo_vector_status(deps)

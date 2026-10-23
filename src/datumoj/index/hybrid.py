@@ -17,7 +17,7 @@ from datumoj.core.contracts import (
     citation_for_chunk,
 )
 from datumoj.core.models import Freshness, GapState, Hit, MatchedBy, SourceText, ToolResult
-from datumoj.index.coverage import gap_state
+from datumoj.index.coverage import gap_state, index_generation, pipeline_status
 
 
 # 向量相似度阈值依嵌入模型而定：不同模型的分数分布差别很大。
@@ -208,9 +208,16 @@ class HybridRetriever:
         state, detail = self.gap_state(source_ids, hits)
         if truncated and state is GapState.zero_hits:
             state, detail = GapState.ok, None
+        pipeline = pipeline_status(
+            source_ids,
+            registry=self.registry,
+            manifest=self.manifest,
+            chunks=self.chunks,
+            index_generation=index_generation(self),
+        )
         return ToolResult[list[Hit]](
             data=hits, gap_state=state, gap_detail=detail, freshness=freshness,
-            warnings=list(dict.fromkeys(warnings)),
+            warnings=list(dict.fromkeys(warnings)), pipeline=pipeline,
         )
 
     @staticmethod
