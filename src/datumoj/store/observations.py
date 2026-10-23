@@ -19,6 +19,7 @@ import os
 import re
 import tempfile
 import threading
+import time
 from collections.abc import Sequence
 from decimal import Context, Decimal
 from hashlib import sha256
@@ -71,6 +72,7 @@ _WORD_TOKENS = (duckdb.token_type.identifier, duckdb.token_type.keyword)
 
 _source_id = TypeAdapter(SourceId)
 _text = TypeAdapter(Text)
+_monotonic = time.monotonic
 
 
 class DuckDBObservationStore:
@@ -81,6 +83,9 @@ class DuckDBObservationStore:
         self._parquet = self.root / "parquet"
         self._parquet.mkdir(parents=True, exist_ok=True)
         self._db = self.root / "observations.duckdb"
+        self._describe_lock = threading.RLock()
+        self._describe_generation: tuple[tuple[str, int, int], ...] | None = None
+        self._describe_cache: ObservationCatalog | None = None
         if not self._db.exists():
             duckdb.connect(str(self._db)).close()
 
@@ -104,6 +109,7 @@ class DuckDBObservationStore:
                 raise ValueError(f"观测值 {o.obs_id} 的 value={o.value} 超出 DECIMAL(38, {SCALE})，无法无损保存")
         if not observations:
             path.unlink(missing_ok=True)
+            self._invalidate_describe()
             return
         table = pa.Table.from_pylist([_row(o) for o in observations], schema=_SCHEMA)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -112,6 +118,7 @@ class DuckDBObservationStore:
         try:
             pq.write_table(table, tmp)
             os.replace(tmp, path)
+            self._invalidate_describe()
         except BaseException:
             Path(tmp).unlink(missing_ok=True)
             raise
@@ -121,15 +128,32 @@ class DuckDBObservationStore:
     def query_readonly(self, sql: str, max_rows: int = 1000, timeout_s: float = 10) -> QueryResult:
         if max_rows < 1 or timeout_s <= 0:
             raise ValueError("max_rows 必须 ≥ 1，timeout_s 必须 > 0")
-        _guard(sql)
-        con = self._connect()
-        timer = threading.Timer(timeout_s, con.interrupt)
+        deadline = _monotonic() + timeout_s
+        timed_out = threading.Event()
+        connection: list[duckdb.DuckDBPyConnection] = []
+
+        def interrupt() -> None:
+            timed_out.set()
+            if connection:
+                try:
+                    connection[0].interrupt()
+                except duckdb.Error:
+                    pass  # The connection may have closed as the timer fired.
+
+        timer = threading.Timer(timeout_s, interrupt)
         timer.start()
+        con: duckdb.DuckDBPyConnection | None = None
         try:
+            _guard(sql)
+            _check_timeout(deadline, timeout_s, timed_out)
+            con = self._connect()
+            connection.append(con)
+            _check_timeout(deadline, timeout_s, timed_out)
             columns, rows = _fetch(con.sql(sql).limit(max_rows + 1))
             if len(rows) > max_rows:
                 raise TooManyRows(f"结果超过 {max_rows} 行，请加条件或聚合")
             provenance, provenance_warnings = self._provenance(con, columns, rows)
+            _check_timeout(deadline, timeout_s, timed_out)
         except duckdb.InterruptException as exc:
             raise QueryTimeout(f"查询超过 {timeout_s} 秒") from exc
         except duckdb.PermissionException as exc:
@@ -138,29 +162,87 @@ class DuckDBObservationStore:
             raise QueryError(str(exc)) from exc
         finally:
             timer.cancel()
-            con.close()
+            if con is not None:
+                con.close()
+        _check_timeout(deadline, timeout_s, timed_out)
         warnings = list(provenance_warnings)
         if "obs_id" not in columns:
             warnings.append("结果里没有 obs_id 列，未附出处；需要出处时请在 SELECT 里保留 obs_id")
         return QueryResult(columns=columns, rows=rows, provenance=provenance, warnings=warnings)
 
-    def describe(self) -> ObservationCatalog:
-        con = self._connect()
+    def describe(self, timeout_s: float = 10) -> ObservationCatalog:
+        if timeout_s <= 0:
+            raise ValueError("timeout_s 必须 > 0")
+        deadline = _monotonic() + timeout_s
+        timed_out = threading.Event()
+        connection: list[duckdb.DuckDBPyConnection] = []
+
+        def interrupt() -> None:
+            timed_out.set()
+            if connection:
+                try:
+                    connection[0].interrupt()
+                except duckdb.Error:
+                    pass
+
+        timer = threading.Timer(timeout_s, interrupt)
+        timer.start()
+        con: duckdb.DuckDBPyConnection | None = None
         try:
-            _, rows = _fetch(con.sql(
-                "SELECT source_id, table_key, list(DISTINCT dataset_key), list(DISTINCT survey),"
-                " list(DISTINCT indicator), count(DISTINCT area_code), min(time_start), max(time_end), count(*)"
-                " FROM observations GROUP BY source_id, table_key"
-            ))
+            remaining = max(0.0, deadline - _monotonic())
+            if not self._describe_lock.acquire(timeout=remaining):
+                raise QueryTimeout(f"describe 超过 {timeout_s:g} 秒")
+            try:
+                generation = self._parquet_generation()
+                _check_timeout(deadline, timeout_s, timed_out)
+                if generation == self._describe_generation and self._describe_cache is not None:
+                    catalog = self._describe_cache
+                else:
+                    con = self._connect()
+                    connection.append(con)
+                    _check_timeout(deadline, timeout_s, timed_out)
+                    _, rows = _fetch(con.sql(
+                        "SELECT source_id, table_key, list(DISTINCT dataset_key), list(DISTINCT survey),"
+                        " list(DISTINCT indicator), count(DISTINCT area_code), min(time_start), max(time_end), count(*)"
+                        " FROM observations GROUP BY source_id, table_key"
+                    ))
+                    _check_timeout(deadline, timeout_s, timed_out)
+                    catalog = ObservationCatalog(tables=[
+                        TableSummary(
+                            source_id=sid, table_key=tkey, dataset_keys=sorted(dks), surveys=sorted(surveys),
+                            indicators=sorted(inds), area_count=areas, time_start=start, time_end=end, rows=n,
+                        )
+                        for sid, tkey, dks, surveys, inds, areas, start, end, n
+                        in sorted(rows, key=lambda r: (r[0], r[1]))
+                    ])
+                    if generation == self._parquet_generation():
+                        self._describe_generation = generation
+                        self._describe_cache = catalog
+            finally:
+                self._describe_lock.release()
+        except duckdb.InterruptException as exc:
+            raise QueryTimeout(f"describe 超过 {timeout_s:g} 秒") from exc
         finally:
-            con.close()
-        return ObservationCatalog(tables=[
-            TableSummary(
-                source_id=sid, table_key=tkey, dataset_keys=sorted(dks), surveys=sorted(surveys),
-                indicators=sorted(inds), area_count=areas, time_start=start, time_end=end, rows=n,
-            )
-            for sid, tkey, dks, surveys, inds, areas, start, end, n in sorted(rows, key=lambda r: (r[0], r[1]))
-        ])
+            timer.cancel()
+            if con is not None:
+                con.close()
+        _check_timeout(deadline, timeout_s, timed_out)
+        return catalog.model_copy(deep=True)
+
+    def _invalidate_describe(self) -> None:
+        with self._describe_lock:
+            self._describe_generation = None
+            self._describe_cache = None
+
+    def _parquet_generation(self) -> tuple[tuple[str, int, int], ...]:
+        generation = []
+        for path in sorted(self._parquet.glob("*/*.parquet")):
+            try:
+                stat = path.stat()
+            except FileNotFoundError:
+                continue
+            generation.append((str(path), stat.st_size, stat.st_mtime_ns))
+        return tuple(generation)
 
     def _connect(self) -> duckdb.DuckDBPyConnection:
         """只读连接：视图 ``observations`` 已建好，外部访问已关闭且配置已锁定。"""
@@ -250,6 +332,11 @@ def _guard(sql: str) -> None:
         raise QueryError(f"SQL 无法解析：{exc}") from exc
     if len(statements) != 1 or statements[0].type != duckdb.StatementType.SELECT:
         raise QueryRejected("只允许单条 SELECT / WITH 查询")
+
+
+def _check_timeout(deadline: float, timeout_s: float, timed_out: threading.Event) -> None:
+    if timed_out.is_set() or _monotonic() >= deadline:
+        raise QueryTimeout(f"查询（含连接、查询和出处回查）超过 {timeout_s:g} 秒")
 
 
 def _word(sql: bytes, pos: int) -> str:

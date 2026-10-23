@@ -12,9 +12,12 @@
 
 from __future__ import annotations
 
+import inspect
 import json
+import math
 import re
 import subprocess
+import time as _time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
@@ -39,6 +42,7 @@ from datumoj.core.contracts import (
     Parser,
     QueryError,
     QueryRejected,
+    QueryTimeout,
     RawStore,
     Registry,
     Retriever,
@@ -80,6 +84,7 @@ MAX_ROWS = 1000
 _SHA_RE = re.compile(r"[0-9a-f]{64}")
 _SUCCESS = (FetchOutcome.ok, FetchOutcome.not_modified)
 _AMENDMENT_DATES = ("promulgate_date", "enforcement_date")
+_monotonic = _time.monotonic
 
 
 # ---------- 小工具 ----------
@@ -103,6 +108,13 @@ def _result(
         warnings=list(dict.fromkeys(warnings)), gap_detail=gap_detail,
         evidence_state=evidence_state, evidence_inputs=evidence_inputs,
     ).model_dump(mode="json")
+
+
+def _remaining_timeout(deadline: float | None, timeout_s: float) -> float:
+    remaining = timeout_s if deadline is None else deadline - _monotonic()
+    if remaining <= 0:
+        raise QueryTimeout(f"query_sql 整个请求超过 {timeout_s:g} 秒")
+    return remaining
 
 
 def _freshness(times: Iterable[tuple[str, datetime]]) -> Freshness:
@@ -718,51 +730,81 @@ class AnalysisTools:
 
     # ----- query_sql -----
 
-    def query_sql(self, sql: str, max_rows: int = MAX_ROWS) -> dict[str, Any]:
+    def query_sql(self, sql: str, max_rows: int = MAX_ROWS, timeout_s: float = 10) -> dict[str, Any]:
         """在只读视图 ``observations`` 上执行单条 SELECT/WITH（由 ObservationStore 把关只读）。
 
         数值只能从这里取。``data.describe`` 是库里有哪些表和列；要明确逐行出处时 SELECT 带上
         ``source_id``、``table_key``、``obs_id``。
         字符串单元格一律包成 SourceText，value 列是十进制字符串或 null（绝不补零）。
+        ``timeout_s`` 限制整个请求，包括查询、出处和元数据处理。
         """
         if not isinstance(sql, str) or not sql.strip():
             raise ValueError("sql 不能为空白")
         max_rows = _check_int(max_rows, "max_rows", 1, MAX_ROWS)
-        res = self.observations.query_readonly(sql, max_rows=max_rows)
-        warnings = list(res.warnings)
-        provenance = [self._obs_view(o, self._obs_citation(o, warnings)) for o in res.provenance]
-        surveys = {o.survey for o in res.provenance}
-        if len(surveys) > 1:
-            warnings.append(
-                f"结果涉及 {len(surveys)} 个不同的调查：不同调查的数据口径不同，不能直接相加，也不能直接算增长率"
+        try:
+            valid_timeout = (
+                not isinstance(timeout_s, bool) and isinstance(timeout_s, (int, float))
+                and math.isfinite(float(timeout_s)) and timeout_s > 0
             )
-        if res.rows and "obs_id" not in res.columns:
-            warnings.append("结果列里没有 obs_id，无法逐行给出出处；需要出处时在 SELECT 里带上 obs_id")
-        evidence_state, linked_rows = self._query_evidence_state(sql, res.rows, res.columns, res.provenance, provenance)
-        if evidence_state is EvidenceState.unavailable:
-            warnings.append(
-                "结果没有可用的逐行出处；请查询原始观测行，并在 SELECT 里保留 source_id、table_key、obs_id，"
-                "同时移除 count/sum/avg 等聚合或按观测行展开结果"
+        except (OverflowError, TypeError, ValueError):
+            valid_timeout = False
+        if not valid_timeout:
+            raise ValueError("timeout_s 必须是有限正数")
+        timeout_s = float(timeout_s)
+        deadline = _monotonic() + timeout_s
+        try:
+            res = self.observations.query_readonly(
+                sql, max_rows=max_rows, timeout_s=_remaining_timeout(deadline, timeout_s),
             )
-        elif evidence_state is EvidenceState.partial:
-            warnings.append(
-                f"仅 {linked_rows}/{len(res.rows)} 行有可用出处；请在 SELECT 里保留 source_id、table_key、obs_id，"
-                "并按观测行查询，避免聚合或丢失行标识"
+            _remaining_timeout(deadline, timeout_s)
+            warnings = list(res.warnings)
+            provenance = []
+            for observation in res.provenance:
+                _remaining_timeout(deadline, timeout_s)
+                provenance.append(self._obs_view(observation, self._obs_citation(observation, warnings)))
+                _remaining_timeout(deadline, timeout_s)
+            surveys = {o.survey for o in res.provenance}
+            if len(surveys) > 1:
+                warnings.append(
+                    f"结果涉及 {len(surveys)} 个不同的调查：不同调查的数据口径不同，不能直接相加，也不能直接算增长率"
+                )
+            if res.rows and "obs_id" not in res.columns:
+                warnings.append("结果列里没有 obs_id，无法逐行给出出处；需要出处时在 SELECT 里带上 obs_id")
+            evidence_state, linked_rows = self._query_evidence_state(
+                sql, res.rows, res.columns, res.provenance, provenance,
             )
-        _usage_warning((p["usage_notice"] for p in provenance), warnings)
-        evidence_inputs = self._query_evidence_inputs(sql)
-        data = {
-            "columns": res.columns, "rows": [[_cell(v) for v in row] for row in res.rows],
-            "provenance": provenance, "describe": self._describe_view(),
-        }
-        freshness = _freshness([(o.source_id, o.fetched_at) for o in res.provenance])
-        if not res.rows:
-            return _result(
-                data, GapState.zero_hits, freshness, warnings, "查询没有返回任何行",
-                evidence_state, evidence_inputs,
-            )
-        return _result(data, GapState.ok, freshness, warnings, evidence_state=evidence_state,
-                       evidence_inputs=evidence_inputs)
+            _remaining_timeout(deadline, timeout_s)
+            if evidence_state is EvidenceState.unavailable:
+                warnings.append(
+                    "结果没有可用的逐行出处；请查询原始观测行，并在 SELECT 里保留 source_id、table_key、obs_id，"
+                    "同时移除 count/sum/avg 等聚合或按观测行展开结果"
+                )
+            elif evidence_state is EvidenceState.partial:
+                warnings.append(
+                    f"仅 {linked_rows}/{len(res.rows)} 行有可用出处；请在 SELECT 里保留 source_id、table_key、obs_id，"
+                    "并按观测行查询，避免聚合或丢失行标识"
+                )
+            _usage_warning((p["usage_notice"] for p in provenance), warnings)
+            evidence_inputs = self._query_evidence_inputs(sql, deadline=deadline, timeout_s=timeout_s)
+            data = {
+                "columns": res.columns, "rows": [[_cell(v) for v in row] for row in res.rows],
+                "provenance": provenance,
+                "describe": self._describe_view(deadline=deadline, timeout_s=timeout_s),
+            }
+            freshness = _freshness([(o.source_id, o.fetched_at) for o in res.provenance])
+            _remaining_timeout(deadline, timeout_s)
+            if not res.rows:
+                result = _result(
+                    data, GapState.zero_hits, freshness, warnings, "查询没有返回任何行",
+                    evidence_state, evidence_inputs,
+                )
+            else:
+                result = _result(data, GapState.ok, freshness, warnings, evidence_state=evidence_state,
+                                 evidence_inputs=evidence_inputs)
+            _remaining_timeout(deadline, timeout_s)
+            return result
+        except QueryTimeout as exc:
+            raise QueryTimeout(f"query_sql 整个请求超过 {timeout_s:g} 秒") from exc
 
     def _query_evidence_state(
         self, sql: str, rows: list[tuple[Any, ...]], columns: list[str],
@@ -800,7 +842,9 @@ class AnalysisTools:
             return EvidenceState.partial, linked
         return EvidenceState.complete, linked
 
-    def _query_evidence_inputs(self, sql: str) -> dict[str, Any]:
+    def _query_evidence_inputs(
+        self, sql: str, *, deadline: float | None = None, timeout_s: float = 10,
+    ) -> dict[str, Any]:
         conditions = _where_conditions(sql)
         time_fields = {"time_start", "time_end", "time_label"}
         area_fields = {"area_code", "area_label"}
@@ -814,26 +858,32 @@ class AnalysisTools:
             table_rows = self._query_all_rows(
                 "SELECT source_id, table_key, snapshot_sha256, min(fetched_at), max(fetched_at) "
                 "FROM observations GROUP BY source_id, table_key, snapshot_sha256 "
-                "ORDER BY source_id, table_key, snapshot_sha256"
+                "ORDER BY source_id, table_key, snapshot_sha256",
+                deadline=deadline, timeout_s=timeout_s,
             )
             if conditions and all(_SIMPLE_FILTER.fullmatch(condition) for condition in conditions):
                 where = " AND ".join(f"({condition})" for condition in conditions)
                 try:
                     matching = self._query_all_rows(
                         "SELECT DISTINCT source_id, table_key FROM observations WHERE " + where
-                        + " ORDER BY source_id, table_key"
+                        + " ORDER BY source_id, table_key",
+                        deadline=deadline, timeout_s=timeout_s,
                     )
                     used = {(sid, table) for sid, table in matching}
                     table_rows = [row for row in table_rows if (row[0], row[1]) in used]
+                except QueryTimeout:
+                    raise
                 except (QueryError, QueryRejected):
                     # Complex dialect details do not make the original successful query fail.
                     pass
 
         grouped: dict[tuple[str, str], dict[str, Any]] = {}
         for source_id, table_key, snapshot_sha256, first, last in table_rows:
+            _remaining_timeout(deadline, timeout_s)
             key = (source_id, table_key)
             table = grouped.setdefault(key, {"source_id": source_id, "table_key": table_key, "snapshots": [], "times": []})
             snapshot_rows = self.manifest.snapshots_by_sha256(snapshot_sha256)
+            _remaining_timeout(deadline, timeout_s)
             matching_snapshots = [snapshot for snapshot in snapshot_rows if snapshot.source_id == source_id]
             table["snapshots"].append({
                 "sha256": snapshot_sha256,
@@ -845,6 +895,7 @@ class AnalysisTools:
             table["times"].extend(value for value in (first, last) if value is not None)
         tables = []
         for key in sorted(grouped):
+            _remaining_timeout(deadline, timeout_s)
             table = grouped[key]
             times = sorted(_iso_datetime(value) for value in table.pop("times"))
             tables.append({
@@ -854,21 +905,35 @@ class AnalysisTools:
             })
         return {"tables": tables, "filters": {"time": raw_filters(time_fields), "area": raw_filters(area_fields)}}
 
-    def _query_all_rows(self, sql: str) -> list[tuple[Any, ...]]:
+    def _query_all_rows(
+        self, sql: str, *, deadline: float | None = None, timeout_s: float = 10,
+    ) -> list[tuple[Any, ...]]:
         """Read query pages so an input inventory can exceed the user result row limit."""
         rows = []
         offset = 0
         while True:
             page = self.observations.query_readonly(
                 f"{sql} LIMIT {MAX_ROWS} OFFSET {offset}", max_rows=MAX_ROWS,
+                timeout_s=_remaining_timeout(deadline, timeout_s),
             ).rows
+            _remaining_timeout(deadline, timeout_s)
             rows.extend(page)
             if len(page) < MAX_ROWS:
                 return rows
             offset += MAX_ROWS
 
-    def _describe_view(self) -> dict[str, Any]:
-        catalog = self.observations.describe()
+    def _describe_view(self, *, deadline: float | None = None, timeout_s: float = 10) -> dict[str, Any]:
+        remaining = _remaining_timeout(deadline, timeout_s)
+        describe = self.observations.describe
+        try:
+            supports_timeout = "timeout_s" in inspect.signature(describe).parameters
+        except (TypeError, ValueError):
+            supports_timeout = False
+        if supports_timeout:
+            catalog = describe(timeout_s=remaining)
+        else:
+            catalog = describe()
+        _remaining_timeout(deadline, timeout_s)
         return {
             "columns": catalog.columns,
             "tables": [
