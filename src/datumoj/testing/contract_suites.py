@@ -393,6 +393,33 @@ class ManifestSuite:
         assert manifest.get_parse(digest, "p", "2") is None
         assert manifest.get_parse(digest, "q", "1") is None
 
+    def test_parse_outputs_and_last_successful_writer(self, manifest):
+        digest = sha(b"shared")
+        first = ParseRecord(sha256=digest, parser="p", version="1", status=ParseStatus.ok,
+                            context_fingerprint=sha(b"context-a"), doc_keys=["jp-test:a", "jp-test:b"])
+        second = first.model_copy(update={"context_fingerprint": sha(b"context-b"), "doc_keys": ["jp-test:b"]})
+        assert manifest.last_writer("jp-test:a", digest) is None
+        manifest.record_parse(first)
+        assert manifest.get_parse(digest, "p", "1", first.context_fingerprint) == first
+        manifest.record_parse(second)
+        assert manifest.last_writer("jp-test:a", digest) == first.context_fingerprint
+        assert manifest.last_writer("jp-test:b", digest) == second.context_fingerprint
+        # 同一个解析键覆盖，也必须算新的成功写入。
+        manifest.record_parse(first)
+        assert manifest.last_writer("jp-test:b", digest) == first.context_fingerprint
+        # 失败覆盖成功状态，仍保留最后成功写入者。
+        manifest.record_parse(first.model_copy(update={"status": ParseStatus.failed, "error": "bad"}))
+        manifest.record_parse(second.model_copy(update={"status": ParseStatus.no_parser}))
+        assert manifest.last_writer("jp-test:b", digest) == first.context_fingerprint
+        assert manifest.last_writer("jp-test:a", sha(b"other")) is None
+        unknown = first.model_copy(update={"parser": "unknown", "doc_keys": None})
+        manifest.record_parse(unknown)
+        assert manifest.get_parse(digest, "unknown", "1", first.context_fingerprint).doc_keys is None
+        empty = second.model_copy(update={"doc_keys": []})
+        manifest.record_parse(empty)
+        assert manifest.get_parse(digest, "p", "1", empty.context_fingerprint).doc_keys == []
+        assert manifest.last_writer("jp-test:b", digest) == first.context_fingerprint
+
     def test_parse_stats_counts_snapshots_by_fetch_time(self, manifest):
         assert manifest.parse_stats("jp-test") == {}
         for sid, source, body, when in [

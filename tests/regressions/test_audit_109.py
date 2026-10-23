@@ -1,5 +1,6 @@
 """Regression for audit D-09: valid-looking tampered bytes must not parse as a snapshot."""
 
+from datumoj.core.models import parse_context_fingerprint
 from datumoj.core.contracts import ParseStatus
 from datumoj.core.rawstore import FileRawStore
 from datumoj.pipeline import PipelineDeps, parse_pending
@@ -43,7 +44,10 @@ def test_tampered_raw_does_not_publish_parse_result(tmp_path):
 
     assert summary.parsed == []
     assert list(summary.failed) == [snapshot.snapshot_id]
-    record = manifest.get_parse(sha256, FakeParser.name, FakeParser.version)
+    record = manifest.get_parse(
+        sha256, FakeParser.name, FakeParser.version,
+        parse_context_fingerprint(snapshot, manifest.snapshot_meta(snapshot.snapshot_id)),
+    )
     assert record.status is ParseStatus.failed
     assert record.error and "CorruptedBlob" in record.error
     assert chunks.get_document("jp-test:a.txt") is None

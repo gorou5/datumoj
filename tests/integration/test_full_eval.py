@@ -25,6 +25,7 @@ from mcp import Client
 from typer.testing import CliRunner
 
 from datumoj import cli, mcp_server, wiring
+from datumoj.core.models import parse_context_fingerprint
 from datumoj.analysis.tools import AnalysisTools
 from datumoj.core.contracts import ParseError, ParseResult, Parser, ParseStatus, discover_parsers, select_parser
 from datumoj.core.manifest import SqliteManifest
@@ -248,7 +249,12 @@ def test_real_dependencies_and_complete_corpus(full_chain):
         deps.raw.verify(item["sha256"])
         spec = deps.registry.get(item["source_id"])
         parser = select_parser(deps.pipeline_deps.parsers, spec.kind, item["content_type"])
-        assert deps.manifest.get_parse(item["sha256"], parser.name, parser.version).status is ParseStatus.ok
+        assert deps.manifest.get_parse(
+            item["sha256"], parser.name, parser.version,
+            parse_context_fingerprint(
+                Snapshot.model_validate({k: v for k, v in item.items() if k not in ("path", "meta")}), item["meta"],
+            ),
+        ).status is ParseStatus.ok
     assert not deps.manifest.snapshots_for("jp-eval-noingest")
     assert deps.registry.get("jp-eval-unknown") is None
     failures = deps.manifest.snapshots_for("jp-eval-fetchfail")

@@ -181,7 +181,7 @@ def test_manifest_v1_migration_preserves_all_snapshots_and_invalidates_old_conte
     assert reopened.snapshot_order("after-migration").seq == 10
     reopened.close()
     with sqlite3.connect(path) as db:
-        assert db.execute("SELECT version FROM schema_version").fetchone() == (2,)
+        assert db.execute("SELECT version FROM schema_version").fetchone() == (3,)
         assert db.execute("SELECT COUNT(*) FROM snapshots").fetchone() == (4,)
         assert db.execute("SELECT COUNT(*) FROM parsed").fetchone() == (3,)
 

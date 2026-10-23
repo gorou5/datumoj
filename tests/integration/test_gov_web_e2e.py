@@ -20,6 +20,7 @@ from typer.testing import CliRunner
 from werkzeug.wrappers import Response
 
 from datumoj import cli, wiring
+from datumoj.core.models import parse_context_fingerprint
 from datumoj.core.contracts import ParseStatus, select_parser
 from datumoj.core.http import PoliteHttpFetcher
 from datumoj.core.models import Citation, DocKind, FetchOutcome, SourceText, TimeBasis, parent_ref
@@ -208,7 +209,10 @@ def test_page_sections_pdf_pages_and_restorable_citations(policy_chain):
     for snap in deps.manifest.snapshots_for(SOURCE):
         assert snap.outcome is FetchOutcome.ok
         deps.raw.verify(snap.sha256)
-        record = deps.manifest.get_parse(snap.sha256, wiring._GovWebContent.name, wiring._GovWebContent.version)
+        record = deps.manifest.get_parse(
+            snap.sha256, wiring._GovWebContent.name, wiring._GovWebContent.version,
+            parse_context_fingerprint(snap, deps.manifest.snapshot_meta(snap.snapshot_id)),
+        )
         assert record.status is ParseStatus.ok
 
     cases = [
@@ -293,7 +297,10 @@ def test_crawl_boundaries_and_failures_are_not_successes(chain_factory):
     assert parsed.exit_code == 1 and "empty_content" in parsed.output
     for path in (DETAIL, DEEPER):
         snap = deps.manifest.last_success(BASE + path)
-        record = deps.manifest.get_parse(snap.sha256, wiring._GovWebContent.name, wiring._GovWebContent.version)
+        record = deps.manifest.get_parse(
+            snap.sha256, wiring._GovWebContent.name, wiring._GovWebContent.version,
+            parse_context_fingerprint(snap, deps.manifest.snapshot_meta(snap.snapshot_id)),
+        )
         assert record.status is ParseStatus.failed
     assert len(_versions(deps)) == 2  # Only seed HTML and its PDF entered the store.
     indexed = invoke("index", "--rebuild")

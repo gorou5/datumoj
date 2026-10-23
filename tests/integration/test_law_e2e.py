@@ -20,6 +20,7 @@ import pytest
 from typer.testing import CliRunner
 
 from datumoj import cli, wiring
+from datumoj.core.models import parse_context_fingerprint
 from datumoj.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
 from datumoj.core.models import Citation, FetchOutcome, SourceText, TimeBasis
 from datumoj.core.runner import CrawlDeps
@@ -161,7 +162,10 @@ def test_cli_replay_to_search_with_restorable_citation(law_chain):
     for snap in snapshots:
         assert snap.outcome is FetchOutcome.ok
         deps.raw.verify(snap.sha256)
-        record = deps.manifest.get_parse(snap.sha256, LawXMLParser.name, LawXMLParser.version)
+        record = deps.manifest.get_parse(
+            snap.sha256, LawXMLParser.name, LawXMLParser.version,
+            parse_context_fingerprint(snap, deps.manifest.snapshot_meta(snap.snapshot_id)),
+        )
         assert record is not None and record.status.value == "ok"
 
     payload = json.loads(chain["search"].output)

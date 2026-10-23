@@ -37,6 +37,7 @@ from datumoj.core.contracts import (
 from datumoj.changes import detect
 from datumoj.core.models import (
     ChangeEvent, ChangeKind, FetchOutcome, Observation, Snapshot, classify_failure, classify_parse_failure,
+    parse_context_fingerprint,
 )
 
 _BATCH = 500
@@ -81,7 +82,7 @@ class ParseSummary:
 
 
 def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSummary:
-    """解析还没处理的快照。按抓取时间顺序处理，所以同一文档最后写入的就是当前版本。"""
+    """解析或复用上下文产物；每个成功快照都按持久化顺序尝试发布。"""
     parsers = deps.parsers if deps.parsers is not None else discover_parsers()
     specs = deps.registry.all()
     if source_id is not None:
@@ -94,37 +95,51 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
         for snap in snapshots:
             if snap.outcome is not FetchOutcome.ok or snap.sha256 is None:
                 continue
+            meta = deps.manifest.snapshot_meta(snap.snapshot_id)
+            fingerprint = parse_context_fingerprint(snap, meta)
             cls = select_parser(parsers, spec.kind, snap.content_type)
             if cls is None:
-                if deps.manifest.get_parse(snap.sha256, NO_PARSER, _NO_PARSER_VERSION) is None:
+                if deps.manifest.get_parse(snap.sha256, NO_PARSER, _NO_PARSER_VERSION, fingerprint) is None:
                     deps.manifest.record_parse(ParseRecord(
                         sha256=snap.sha256, parser=NO_PARSER, version=_NO_PARSER_VERSION, status=ParseStatus.no_parser,
+                        context_fingerprint=fingerprint,
                     ))
                     summary.no_parser.append(snap.snapshot_id)
                 else:
                     summary.skipped += 1
                 continue
-            previous = deps.manifest.get_parse(snap.sha256, cls.name, cls.version)
+            previous = deps.manifest.get_parse(snap.sha256, cls.name, cls.version, fingerprint)
             if previous is not None:
                 summary.skipped += 1
-                if previous.status is not ParseStatus.failed:
-                    continue
             is_retry = previous is not None and previous.status is ParseStatus.failed
             try:
-                vector_errors = _process(deps, cls(), snap)
+                reusable = (
+                    previous is not None and previous.status is ParseStatus.ok and previous.doc_keys is not None
+                    and all(deps.manifest.last_writer(key, snap.sha256) == fingerprint
+                            and deps.chunks.get_document(key, snap.sha256) is not None for key in previous.doc_keys)
+                )
+                if reusable:
+                    vector_errors = []
+                    for key in previous.doc_keys:
+                        vector_errors.extend(_publish_document(deps, key, snap))
+                else:
+                    doc_keys, vector_errors = _process(deps, cls(), snap)
             except Exception as exc:  # 一个坏快照不影响其他
                 reason = f"{type(exc).__name__}: {exc}"
                 deps.manifest.record_parse(ParseRecord(
                     sha256=snap.sha256, parser=cls.name, version=cls.version, status=ParseStatus.failed, error=reason,
+                    context_fingerprint=fingerprint,
                 ))
                 summary.failed[snap.snapshot_id] = reason
                 _record_parse_failure(deps, snap, reason)
             else:
-                deps.manifest.record_parse(
-                    ParseRecord(sha256=snap.sha256, parser=cls.name, version=cls.version, status=ParseStatus.ok)
-                )
-                summary.parsed.append(snap.snapshot_id)
-                (summary.retried if is_retry else summary.newly_parsed).append(snap.snapshot_id)
+                if not reusable:
+                    deps.manifest.record_parse(ParseRecord(
+                        sha256=snap.sha256, parser=cls.name, version=cls.version, status=ParseStatus.ok,
+                        context_fingerprint=fingerprint, doc_keys=doc_keys,
+                    ))
+                    summary.parsed.append(snap.snapshot_id)
+                    (summary.retried if is_retry else summary.newly_parsed).append(snap.snapshot_id)
                 if vector_errors:
                     summary.vectors_missing[snap.snapshot_id] = "; ".join(vector_errors)
         if deps.change_log is not None:
@@ -150,11 +165,19 @@ def _record_parse_failure(deps: PipelineDeps, snap: Snapshot, reason: str) -> No
 
 def _record_fetch_changes(deps: PipelineDeps, snapshots: list[Snapshot]) -> None:
     latest = {s.resource_url: s for s in snapshots}
+    successful_by_url = defaultdict(list)
+    for snap in snapshots:
+        if snap.outcome is FetchOutcome.ok:
+            successful_by_url[snap.resource_url].append(snap)
+    urls_by_doc = defaultdict(set)
+    keys_by_url = defaultdict(set)
+    keys_by_sha = defaultdict(set)
+    loaded = False
     for url, snap in latest.items():
         failure = classify_failure(snap.outcome, snap.http_status)
         if failure is None:
             continue
-        successful = [s for s in snapshots if s.resource_url == url and s.outcome is FetchOutcome.ok]
+        successful = successful_by_url[url]
         old_sha = successful[-1].sha256 if successful else None
         summary = " ".join(
             f"抓取失败 [{failure.kind.value}]；快照 {snap.snapshot_id}：{snap.error or snap.outcome.value}".split()
@@ -166,19 +189,19 @@ def _record_fetch_changes(deps: PipelineDeps, snapshots: list[Snapshot]) -> None
         if successful and snap.outcome is FetchOutcome.http_error and snap.http_status in (404, 410):
             hashes = {s.sha256 for s in successful}
             # 日志的 URL 关联也能找到没有检索块的文档；旧资料由当前块的快照引用关联。
-            history = deps.change_log.list(source_ids=[snap.source_id], limit=2**63 - 1)
-            urls_by_doc = defaultdict(set)
-            keys = set()
-            for event in history:
-                if event.doc_key and event.resource_url and event.kind in (ChangeKind.added, ChangeKind.modified):
-                    urls_by_doc[event.doc_key].add(event.resource_url)
-                    if event.resource_url == url:
-                        keys.add(event.doc_key)
-            for chunk in deps.chunks.iter_chunks([snap.source_id]):
-                if chunk.snapshot_sha256 in hashes and (
-                    not urls_by_doc[chunk.doc_key] or url in urls_by_doc[chunk.doc_key]
-                ):
-                    keys.add(chunk.doc_key)
+            if not loaded:
+                source_ids = sorted({s.source_id for s in snapshots})
+                history = deps.change_log.list(source_ids=source_ids, limit=2**63 - 1)
+                for event in history:
+                    if event.doc_key and event.resource_url and event.kind in (ChangeKind.added, ChangeKind.modified):
+                        urls_by_doc[event.doc_key].add(event.resource_url)
+                        keys_by_url[event.resource_url].add(event.doc_key)
+                for chunk in deps.chunks.iter_chunks(source_ids):
+                    keys_by_sha[chunk.snapshot_sha256].add(chunk.doc_key)
+                loaded = True
+            keys = set(keys_by_url[url])
+            for digest in hashes:
+                keys.update(key for key in keys_by_sha[digest] if not urls_by_doc[key] or url in urls_by_doc[key])
             for key in sorted(keys):
                 doc = deps.chunks.get_document(key)
                 if doc is not None and doc.snapshot_sha256 in hashes:
@@ -190,7 +213,7 @@ def _record_fetch_changes(deps: PipelineDeps, snapshots: list[Snapshot]) -> None
         deps.change_log.append(events)
 
 
-def _process(deps: PipelineDeps, parser: Parser, snap: Snapshot) -> list[str]:
+def _process(deps: PipelineDeps, parser: Parser, snap: Snapshot) -> tuple[list[str], list[str]]:
     assert snap.sha256 is not None
     data = deps.raw.get(snap.sha256)
     meta = deps.manifest.snapshot_meta(snap.snapshot_id)
@@ -207,7 +230,7 @@ def _process(deps: PipelineDeps, parser: Parser, snap: Snapshot) -> list[str]:
         matched = _promote_catalog_content_state(deps, dataset_key, snap.resource_url, state) or matched
     if not matched:
         _promote_catalog_content_state_for_url(deps, snap.source_id, snap.resource_url, state)
-    return vector_errors
+    return [doc.doc_key for doc in result.documents], vector_errors
 
 
 def _dispatch(deps: PipelineDeps, result: ParseResult, snap: Snapshot) -> list[str]:
@@ -236,7 +259,7 @@ def _dispatch(deps: PipelineDeps, result: ParseResult, snap: Snapshot) -> list[s
             except Exception:
                 compare = False
                 _LOG.warning("读取旧文档供变化检测失败：%s", doc.doc_key, exc_info=True)
-        deps.chunks.put_document(doc, chunks)
+        deps.chunks.put_document(doc, chunks, publish=False)
         if compare:
             try:
                 event = detect(old_doc, old_text, doc, "\n".join(c.text for c in chunks), detected_at=datetime.now(UTC))
@@ -246,18 +269,31 @@ def _dispatch(deps: PipelineDeps, result: ParseResult, snap: Snapshot) -> list[s
                     )])
             except Exception:
                 _LOG.warning("文档变化检测失败：%s", doc.doc_key, exc_info=True)
-        deps.keyword.delete(doc.doc_key)
-        deps.keyword.add(chunks)
-        if deps.vectors is not None:
-            error = _write_vector_document(deps, doc.doc_key, chunks, snap.snapshot_id)
-            if error:
-                vector_errors.append(error)
+        vector_errors.extend(_publish_document(deps, doc.doc_key, snap, rewritten=True))
     tables: dict[tuple[str, str], list[Observation]] = defaultdict(list)
     for o in result.observations:
         tables[(o.source_id, o.table_key)].append(o)
     for (src, table), obs in tables.items():
         deps.observations.write_table(src, table, obs)
     return vector_errors
+
+
+def _publish_document(deps: PipelineDeps, doc_key: str, snap: Snapshot, *, rewritten: bool = False) -> list[str]:
+    order = deps.manifest.snapshot_order(snap.snapshot_id)
+    if order is None:
+        raise ValueError(f"没有快照顺序：{snap.snapshot_id}")
+    published = deps.chunks.publish_current(doc_key, snap.sha256, order)
+    # 重写同一版本槽位后，即使水位相等也要修复索引；较旧快照不能覆盖较新的索引。
+    if not published and not (rewritten and deps.chunks.current_order(doc_key) == order):
+        return []
+    chunks = deps.chunks.chunks_for(doc_key, snap.sha256)
+    deps.keyword.delete(doc_key)
+    deps.keyword.add(chunks)
+    if deps.vectors is not None:
+        error = _write_vector_document(deps, doc_key, chunks, snap.snapshot_id)
+        if error:
+            return [error]
+    return []
 
 
 def _promote_catalog_content_state(
