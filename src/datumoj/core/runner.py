@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 import time
 from collections import deque
@@ -27,6 +28,7 @@ from datumoj.core.models import FAILED_OUTCOMES, FetchOutcome, redact_url
 SPA_MIN_TEXT = 100
 MAX_PLAN_STEPS = 10_000
 """包括重复 URL 在内的产出任务上限，避免错误分页或无限重复任务。"""
+DEFAULT_MAX_RUN_SECONDS = 900.0
 
 
 def _utcnow() -> datetime:
@@ -132,7 +134,16 @@ def run_crawl(
     head_probe = spec.scope.get("head_probe", False)
     if not isinstance(head_probe, bool):
         raise ValueError("scope.head_probe 必须是布尔值（true / false）")
+    max_run_seconds = spec.scope.get("max_run_seconds", DEFAULT_MAX_RUN_SECONDS)
+    if (
+        isinstance(max_run_seconds, bool)
+        or not isinstance(max_run_seconds, int | float)
+        or not math.isfinite(max_run_seconds)
+        or max_run_seconds <= 0
+    ):
+        raise ValueError("scope.max_run_seconds 必须是有限正数")
     started = deps.clock()
+    deadline = started + max_run_seconds
     report = CrawlReport(source_id=spec.id)
     ctx = CrawlContext(spec=spec, manifest=deps.manifest, raw=deps.raw, now=deps.now(), limit=limit)
     queue: deque[FetchTask] = deque()
@@ -162,11 +173,17 @@ def run_crawl(
             plugin_error("plan", exc)
             return report
         while True:
+            if deps.clock() >= deadline:
+                report.stop_reason = "deadline"
+                break
             try:
                 if queue:
                     task = queue.popleft()
                 else:
                     task = next(plan, None)
+                    if deps.clock() >= deadline:
+                        report.stop_reason = "deadline"
+                        break
                     if task is None:
                         break
                     count_task()
@@ -186,9 +203,16 @@ def run_crawl(
 
             prev = deps.manifest.last_success(url)
             if last_fetch is not None:
-                wait = last_fetch + 1 / spec.rate_per_sec - deps.clock()
+                now = deps.clock()
+                wait = last_fetch + 1 / spec.rate_per_sec - now
                 if wait > 0:
+                    if now + wait >= deadline:
+                        report.stop_reason = "deadline"
+                        break
                     deps.sleep(wait)
+            if deps.clock() >= deadline:
+                report.stop_reason = "deadline"
+                break
             last_fetch = deps.clock()
             try:
                 result = deps.fetcher.fetch(
@@ -235,13 +259,19 @@ def run_crawl(
                 failure(result.outcome.value)
 
             # 所有已抓取的结果都先落库并完成回调，包括触发上限的结果；追加任务不再执行。
-            try:
-                for extra in crawler.after_fetch(task, result, ctx):
-                    count_task()
-                    if report.stop_reason is None:
-                        queue.append(extra)
-            except Exception as exc:
-                plugin_error("after_fetch", exc)
+            if deps.clock() >= deadline:
+                report.stop_reason = "deadline"
+            else:
+                try:
+                    for extra in crawler.after_fetch(task, result, ctx):
+                        if deps.clock() >= deadline:
+                            report.stop_reason = "deadline"
+                            break
+                        count_task()
+                        if report.stop_reason is None:
+                            queue.append(extra)
+                except Exception as exc:
+                    plugin_error("after_fetch", exc)
             if report.stop_reason is not None:
                 break
         return report

@@ -12,6 +12,7 @@ from urllib.parse import unquote, urlsplit, urlunsplit
 import pypdfium2 as pdfium
 from pydantic import JsonValue
 
+from datumoj.core.budget import BudgetChecker, BudgetExceeded, budget_from_meta
 from datumoj.core.contracts import ParseError, ParseResult, Parser
 from datumoj.core.models import (
     META_PARENT_SHA256,
@@ -104,6 +105,8 @@ class PdfParser(Parser):
     def parse(self, snapshot: Snapshot, data: bytes, meta: Mapping[str, JsonValue] | None = None) -> ParseResult:
         if snapshot.sha256 is None:
             raise ParseError("PDF 快照没有正文")
+        checker = BudgetChecker(budget_from_meta(meta))
+        checker.check_time()
 
         try:
             pdf = pdfium.PdfDocument(data)
@@ -117,16 +120,22 @@ class PdfParser(Parser):
             page_count = len(pdf)
             if page_count < 1:
                 raise ParseError("PDF 没有页面")
+            checker.check_pages(page_count)
             metadata = pdf.get_metadata_dict()
             for page_number in range(1, page_count + 1):
+                checker.add_page()
                 page = textpage = None
                 try:
                     page = pdf[page_number - 1]
                     textpage = page.get_textpage()
                     page_text = textpage.get_text_range()
+                    normalized_text = normalize(page_text)
+                    checker.add_text(len(normalized_text))
                     if page_number == 1:
                         first_page_text = page_text
-                    page_texts.append(normalize(page_text))
+                    page_texts.append(normalized_text)
+                except BudgetExceeded:
+                    raise
                 except Exception as exc:
                     _raise_pdf_error(exc)
                 finally:
@@ -156,6 +165,7 @@ class PdfParser(Parser):
         warnings: list[str] = []
         needs_ocr_pages = 0
         for page_number, text in enumerate(page_texts, 1):
+            checker.check_time()
             if len("".join(text.split())) < 50:
                 needs_ocr_pages += 1
                 warnings.append(f"needs_ocr page={page_number}")
@@ -174,6 +184,7 @@ class PdfParser(Parser):
                     effective_at=effective_at,
                 )
             )
+            checker.add_output_chunk()
         document_metadata["needs_ocr_pages"] = str(needs_ocr_pages)
         if page_texts and needs_ocr_pages == len(page_texts):
             warnings.append("needs_ocr all")

@@ -11,6 +11,7 @@ from urllib.parse import urlsplit, urlunsplit
 from lxml import etree, html
 from pydantic import JsonValue
 
+from datumoj.core.budget import BudgetChecker, budget_from_meta
 from datumoj.core.contracts import ParseError, ParseResult, Parser
 from datumoj.core.models import (
     META_PARENT_SHA256,
@@ -76,6 +77,9 @@ class HtmlPageParser(Parser):
     ) -> ParseResult:
         if snapshot.sha256 is None:
             raise ParseError(f"快照 {snapshot.snapshot_id} 没有正文")
+        budget = budget_from_meta(meta)
+        checker = BudgetChecker(budget)
+        checker.add_page()
 
         try:
             decoded, _, _ = decode_bytes(data, _declared_encoding(data))
@@ -90,11 +94,8 @@ class HtmlPageParser(Parser):
         _remove_page_chrome(root)
         content = _content_root(root)
         title = _page_title(root, content)
-        if len(_text(content)) < MIN_CONTENT_CHARS:
-            raise ParseError("empty_content: HTML 页面正文少于 100 字")
+        checker.check_time()
 
-        page_text = _text(root)
-        published_at = _published_at(root, page_text)
         doc_key = _doc_key(snapshot)
         document_metadata: dict[str, str] = {}
         if meta is not None:
@@ -112,6 +113,12 @@ class HtmlPageParser(Parser):
                     document_metadata["seed"] = str(value)
 
         try:
+            chunks, content_chars = _make_chunks(doc_key, snapshot, content, title, None, checker)
+            if content_chars < MIN_CONTENT_CHARS:
+                raise ParseError("empty_content: HTML 页面正文少于 100 字")
+            page_text = _text(root, checker, budget.max_text_chars)
+            published_at = _published_at(root, page_text)
+            chunks = [chunk.model_copy(update={"published_at": published_at}) for chunk in chunks]
             document = Document(
                 doc_key=doc_key,
                 source_id=snapshot.source_id,
@@ -123,7 +130,6 @@ class HtmlPageParser(Parser):
                 published_at=published_at,
                 metadata=document_metadata,
             )
-            chunks = _make_chunks(doc_key, snapshot, content, title, published_at)
             result = ParseResult(documents=[document], chunks=chunks)
             result.check_against(snapshot)
             return result
@@ -179,8 +185,25 @@ def _page_title(root, content) -> str:
     return _element_text(titles[0]) if titles and _element_text(titles[0]) else "HTMLページ"
 
 
-def _text(root) -> str:
-    return normalize(" ".join(root.itertext()))
+def _text(root, checker: BudgetChecker, max_chars: int) -> str:
+    parts: list[str] = []
+    collected = 0
+    for part in root.itertext():
+        checker.check_time()
+        if not part:
+            continue
+        separator = 1 if parts else 0
+        remaining = max_chars - collected - separator
+        if remaining <= 0:
+            break
+        if separator:
+            parts.append(" ")
+            collected += 1
+        parts.append(part[:remaining])
+        collected += min(len(part), remaining)
+        if len(part) > remaining:
+            break
+    return normalize(" ".join(parts))
 
 
 def _content_events(root):
@@ -229,13 +252,20 @@ def _content_events(root):
     yield from walk(root, is_root=True)
 
 
-def _make_chunks(doc_key: str, snapshot: Snapshot, content, title: str, published_at: date | None) -> list[Chunk]:
+def _make_chunks(
+    doc_key: str, snapshot: Snapshot, content, title: str, published_at: date | None, checker: BudgetChecker,
+) -> tuple[list[Chunk], int]:
     sections: list[tuple[list[str], list[str]]] = []
     heading_stack: dict[int, str] = {}
     current_path: list[str] = []
     fallback_path = [title or "正文"]
+    content_chars = 0
 
     for event in _content_events(content):
+        checker.check_time()
+        event_text = event[2] if event[0] == "heading" else event[1]
+        content_chars += len(event_text)
+        checker.add_text(len(event_text))
         if event[0] == "heading":
             _, level, heading = event
             heading_stack = {depth: value for depth, value in heading_stack.items() if depth < level}
@@ -249,6 +279,7 @@ def _make_chunks(doc_key: str, snapshot: Snapshot, content, title: str, publishe
 
     chunks: list[Chunk] = []
     for path, paragraphs in sections:
+        checker.check_time()
         if not paragraphs:
             continue
         section_text = "\n\n".join(paragraphs)
@@ -284,7 +315,8 @@ def _make_chunks(doc_key: str, snapshot: Snapshot, content, title: str, publishe
                     published_at=published_at,
                 )
             )
-    return chunks
+            checker.add_output_chunk()
+    return chunks, content_chars
 
 
 def _published_at(root, page_text: str) -> date | None:

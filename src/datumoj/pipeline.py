@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from datumoj.changes import detect
+from datumoj.core.budget import BudgetChecker, BudgetExceeded, PARSE_BUDGET_META_KEY, ParseBudget
 from datumoj.core.contracts import (
     NO_PARSER,
     CatalogFilter,
@@ -30,6 +31,7 @@ from datumoj.core.contracts import (
     ParseStatus,
     RawStore,
     Registry,
+    SourceSpec,
     VectorIndex,
     discover_parsers,
     max_state,
@@ -39,6 +41,7 @@ from datumoj.core.models import (
     ChangeEvent,
     ChangeKind,
     Chunk,
+    FailureKind,
     FetchOutcome,
     Observation,
     PublishState,
@@ -93,13 +96,16 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
     """解析或复用上下文产物；每个成功快照都按持久化顺序尝试发布。"""
     parsers = deps.parsers if deps.parsers is not None else discover_parsers()
     specs = deps.registry.all()
+    specs_by_id = {spec.id: spec for spec in specs}
+    budgets = {spec.id: ParseBudget.from_scope(spec.scope) for spec in specs}
     summary = ParseSummary()
-    recovering = _recover_staged(deps, parsers, {s.id: s.kind for s in specs}, summary)
+    recovering = _recover_staged(deps, parsers, specs_by_id, budgets, summary)
     if source_id is not None:
         specs = [s for s in specs if s.id == source_id]
         if not specs:
             raise ValueError(f"注册表里没有来源 {source_id!r}")
     for spec in specs:
+        budget = budgets[spec.id]
         snapshots = deps.manifest.snapshots_for(spec.id)
         for snap in snapshots:
             if snap.outcome is not FetchOutcome.ok or snap.sha256 is None:
@@ -107,8 +113,8 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
             if snap.snapshot_id in recovering:
                 continue
             meta = deps.manifest.snapshot_meta(snap.snapshot_id)
-            fingerprint = parse_context_fingerprint(snap, meta)
             cls = select_parser(parsers, spec.kind, snap.content_type)
+            fingerprint = _parse_fingerprint(snap, meta, spec, budget, cls)
             if cls is None:
                 if deps.manifest.get_parse(snap.sha256, NO_PARSER, _NO_PARSER_VERSION, fingerprint) is None:
                     deps.manifest.record_parse(ParseRecord(
@@ -122,6 +128,9 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
             previous = deps.manifest.get_parse(snap.sha256, cls.name, cls.version, fingerprint)
             if previous is not None:
                 summary.skipped += 1
+                if previous.status is ParseStatus.failed and (previous.error or "").startswith("budget_exceeded:"):
+                    summary.failed[snap.snapshot_id] = previous.error or "budget_exceeded:unknown"
+                    continue
             is_retry = previous is not None and previous.status is ParseStatus.failed
             staged = False
             try:
@@ -133,7 +142,7 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
                 if reusable:
                     doc_keys, events = previous.doc_keys, {}
                 else:
-                    doc_keys, events = _process(deps, cls(), snap)
+                    doc_keys, events = _process(deps, cls(), snap, budget)
                     # 恢复扫描必须能在发布前从解析记录定位全部产物。
                     deps.manifest.record_parse(ParseRecord(
                         sha256=snap.sha256, parser=cls.name, version=cls.version, status=ParseStatus.ok,
@@ -149,7 +158,7 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
                 if needs_publish:
                     deps.manifest.record_publish_state(snap.snapshot_id, PublishState.published)
             except Exception as exc:  # 一个坏快照不影响其他
-                reason = f"{type(exc).__name__}: {exc}"
+                reason = str(exc) if isinstance(exc, BudgetExceeded) else f"{type(exc).__name__}: {exc}"
                 current_written = staged and any(
                     (current := deps.chunks.get_document(key)) is not None and current.snapshot_sha256 == snap.sha256
                     for key in doc_keys
@@ -179,7 +188,11 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
 
 
 def _recover_staged(
-    deps: PipelineDeps, parsers: Mapping, kinds: Mapping[str, str], summary: ParseSummary,
+    deps: PipelineDeps,
+    parsers: Mapping,
+    specs: Mapping[str, SourceSpec],
+    budgets: Mapping[str, ParseBudget],
+    summary: ParseSummary,
 ) -> set[str]:
     """只按 staged 的主键与解析产物恢复，不读取快照历史或 chunk 全表。"""
     pending: set[str] = set()
@@ -187,10 +200,12 @@ def _recover_staged(
         pending.add(snapshot_id)
         try:
             snap = deps.manifest.get_snapshot(snapshot_id)
-            if snap is None or snap.sha256 is None or snap.source_id not in kinds:
+            if snap is None or snap.sha256 is None or snap.source_id not in specs:
                 raise ValueError(f"无法恢复快照：{snapshot_id}")
-            fingerprint = parse_context_fingerprint(snap, deps.manifest.snapshot_meta(snapshot_id))
-            cls = select_parser(parsers, kinds[snap.source_id], snap.content_type)
+            spec = specs[snap.source_id]
+            meta = deps.manifest.snapshot_meta(snapshot_id)
+            cls = select_parser(parsers, spec.kind, snap.content_type)
+            fingerprint = _parse_fingerprint(snap, meta, spec, budgets[snap.source_id], cls)
             record = None if cls is None else deps.manifest.get_parse(snap.sha256, cls.name, cls.version, fingerprint)
             if record is None or record.doc_keys is None:
                 raise ValueError(f"缺少恢复用解析记录：{snapshot_id}")
@@ -215,14 +230,25 @@ def _recover_staged(
     return pending
 
 
+def _parse_fingerprint(
+    snap: Snapshot, meta: Mapping, spec: SourceSpec, budget: ParseBudget, parser: type[Parser] | None,
+) -> str:
+    fingerprint_meta = meta
+    budget_aware = parser is not None and parser.name in {"pdf", "gov-web-html-page"}
+    if "parse_budget" in spec.scope or budget_aware:
+        fingerprint_meta = {**meta, PARSE_BUDGET_META_KEY: budget.as_dict()}
+    return parse_context_fingerprint(snap, fingerprint_meta)
+
+
 def _record_parse_failure(deps: PipelineDeps, snap: Snapshot, reason: str) -> None:
     if deps.change_log is None:
         return
     try:
+        kind = FailureKind.policy if reason.startswith("budget_exceeded:") else classify_parse_failure().kind
         deps.change_log.append([ChangeEvent.make(
             source_id=snap.source_id, kind=ChangeKind.parse_failed, resource_url=snap.resource_url,
             new_sha256=snap.sha256, detected_at=datetime.now(UTC),
-            summary=" ".join(f"解析失败 [{classify_parse_failure().kind.value}]；快照 {snap.snapshot_id}：{reason}".split()),
+            summary=" ".join(f"解析失败 [{kind.value}]；快照 {snap.snapshot_id}：{reason}".split()),
         )])
     except Exception:
         _LOG.warning("解析失败事件写入失败：%s", snap.snapshot_id, exc_info=True)
@@ -278,11 +304,26 @@ def _record_fetch_changes(deps: PipelineDeps, snapshots: list[Snapshot]) -> None
         deps.change_log.append(events)
 
 
-def _process(deps: PipelineDeps, parser: Parser, snap: Snapshot) -> tuple[list[str], dict[str, ChangeEvent]]:
+def _process(
+    deps: PipelineDeps, parser: Parser, snap: Snapshot, budget: ParseBudget | None = None,
+) -> tuple[list[str], dict[str, ChangeEvent]]:
     assert snap.sha256 is not None
+    budget = budget or ParseBudget()
+    checker = BudgetChecker(budget)
     data = deps.raw.get(snap.sha256)
     meta = deps.manifest.snapshot_meta(snap.snapshot_id)
-    result = parser.parse(snap, data, meta)
+    parser_meta = meta
+    if parser.name in {"pdf", "gov-web-html-page"}:
+        parser_meta = {**meta, PARSE_BUDGET_META_KEY: budget.as_dict()}
+    result = parser.parse(snap, data, parser_meta)
+    checker.check_time()
+    output_text_chars = 0
+    for chunk_number, chunk in enumerate(result.chunks, 1):
+        checker.check_time()
+        if chunk_number > budget.max_output_chunks:
+            raise BudgetExceeded("output_chunks")
+        output_text_chars += len(chunk.text)
+        checker.check_text_chars(output_text_chars)
     result.check_against(snap)
     events = _dispatch(deps, result, snap)
     state = ContentState.observations_loaded if result.observations else ContentState.content_fetched
