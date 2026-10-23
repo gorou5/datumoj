@@ -18,6 +18,7 @@ license:
   verified_at: null
   notes: 利用条件尚未逐项核对；核对前仅内部使用
 scope:
+  short_retention: true
   feeds:
     - https://www.data.jma.go.jp/developer/xml/feed/regular_l.xml
 retention_note: 长期 feed 为约 7 天滑动窗口，轮询频率为每小时

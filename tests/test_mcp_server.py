@@ -138,7 +138,7 @@ def test_cite(tools):
 def test_version(tools):
     data = _data(_call(tools, "version"))
     assert data["data"]["package"] == "datumoj"
-    assert data["data"]["version"].endswith("+tachibana603")
+    assert "+" not in data["data"]["version"]
 
 
 def test_coverage(tools):

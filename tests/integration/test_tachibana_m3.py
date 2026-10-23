@@ -239,6 +239,8 @@ def test_weekly_report_and_monitor_alerts_match_events(m3, monkeypatch):
     monkeypatch.setenv("DATUMOJ_DATA_DIR", str(deps.data_dir))
     scheduler = cli.scheduling.Scheduler
     monkeypatch.setattr(cli.scheduling, "Scheduler", lambda *a, **kw: scheduler(*a, **kw, now=lambda: SECOND))
+    cli.scheduling.set_enabled(deps.data_dir, True)
+    cli.scheduling.set_enabled(deps.data_dir, True, ["jp-jma"])
     runner = CliRunner()
     status = runner.invoke(cli.app, ["schedule", "status"])
     assert status.exit_code == 0, status.output

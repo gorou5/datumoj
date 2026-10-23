@@ -212,12 +212,10 @@ def evaluate_alerts(
                 ),
             ))
 
-    short_retention = bool(
-        spec.retention_note or spec.scope.get("short_retention") is True or spec.id == "jp-jma"
-    )
+    short_retention = spec.scope.get("short_retention") is True
     if short_retention:
         points = list(zip(successful_times, successful_times[1:]))
-        if successful_times:
+        if enabled and successful_times:
             points.append((successful_times[-1], now))
         for start, end in points:
             if end - start <= retention_gap:
