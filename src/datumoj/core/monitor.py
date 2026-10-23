@@ -79,7 +79,11 @@ def _run_time(run: dict, key: str) -> datetime | None:
 
 
 def _is_success(run: dict) -> bool:
-    return run.get("status") == "completed" and run.get("exit_status") == 0
+    return (
+        run.get("state") != "interrupted"
+        and run.get("status") == "completed"
+        and run.get("exit_status") == 0
+    )
 
 
 def _rate(stats: dict, status: ParseStatus) -> tuple[int, int]:
@@ -119,15 +123,18 @@ def evaluate_alerts(
         return {"recent_failure_summary": failure_details, **extra}
 
     alerts: list[Alert] = []
-    source_runs = [run for run in runs if run.get("source_id") == spec.id]
+    source_runs = [
+        run for run in runs
+        if run.get("source_id") == spec.id
+        and run.get("state") != "running"
+        and run.get("status") != "running"
+    ]
     ordered_runs = sorted(
         (run for run in source_runs if _run_time(run, "started_at") is not None),
         key=lambda run: _run_time(run, "started_at"),
     )
     latest = ordered_runs[-consecutive_limit:]
-    if len(latest) == consecutive_limit and all(
-        run.get("status") != "completed" or run.get("exit_status") != 0 for run in latest
-    ):
+    if len(latest) == consecutive_limit and all(not _is_success(run) for run in latest):
         since = _run_time(latest[0], "started_at") or now
         alerts.append(Alert(
             source_id=spec.id,
