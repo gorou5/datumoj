@@ -1,0 +1,9 @@
+{
+  "enum": [
+    "complete",
+    "partial",
+    "unavailable"
+  ],
+  "title": "EvidenceState",
+  "type": "string"
+}

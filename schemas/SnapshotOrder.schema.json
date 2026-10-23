@@ -1,0 +1,22 @@
+{
+  "additionalProperties": false,
+  "description": "快照抓取时间优先，同一时间按 manifest 写入序号排序；只在同一 manifest 内可比。",
+  "properties": {
+    "fetched_at": {
+      "format": "date-time",
+      "title": "Fetched At",
+      "type": "string"
+    },
+    "seq": {
+      "minimum": 1,
+      "title": "Seq",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "fetched_at",
+    "seq"
+  ],
+  "title": "SnapshotOrder",
+  "type": "object"
+}

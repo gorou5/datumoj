@@ -48,6 +48,7 @@ from datumoj.core.models import (
     Resource,
     Sha256,
     Snapshot,
+    SnapshotOrder,
     Source,
     SourceId,
     Text,
@@ -65,6 +66,10 @@ class ContractError(Exception):
 
 class NotFoundError(ContractError, LookupError):
     """按键取不到，且该方法约定要报错（例如 RawStore.get）。"""
+
+
+class AmbiguousCitation(ContractError):
+    """只给 SHA 时命中多个资源，无法唯一选择出处；调用方必须补快照身份。"""
 
 
 class CorruptedBlob(ContractError):
@@ -240,12 +245,13 @@ class ParseStatus(StrEnum):
 
 
 class ParseRecord(_Model):
-    """解析状态表的一行，键是 (sha256, parser, version)。"""
+    """解析状态表的一行，键是 (sha256, parser, version, context_fingerprint)。"""
 
     sha256: Sha256
     parser: Text
     version: Text
     status: ParseStatus
+    context_fingerprint: Annotated[str, Field(pattern=r"^(?:[0-9a-f]{64})?$")] = ""
     error: str | None = None
 
     @model_validator(mode="after")
@@ -284,6 +290,10 @@ class Manifest(Protocol):
         """取 record_snapshot 时保存的 meta（没给过就是空 dict）；snapshot_id 不存在抛 NotFoundError。"""
         ...
 
+    def snapshot_order(self, snapshot_id: str) -> SnapshotOrder | None:
+        """记录的 fetched_at + 持久化写入序号；未知快照返回 None。"""
+        ...
+
     def latest_snapshot(self, resource_url: str) -> Snapshot | None:
         """该 URL 最近一次抓取（不论成败）。resource_url 按去 Key 后的形式比较。"""
         ...
@@ -311,16 +321,19 @@ class Manifest(Protocol):
         ...
 
     def record_parse(self, record: ParseRecord) -> None:
-        """写入解析状态；同一 (sha256, parser, version) 再写就覆盖。"""
+        """写入解析状态；同一 (sha256, parser, version, context_fingerprint) 再写就覆盖。
+
+        空指纹仅供旧调用方兼容和 v1 迁移，不能命中显式上下文。"""
         ...
 
-    def get_parse(self, sha256: str, parser: str, version: str) -> ParseRecord | None:
+    def get_parse(self, sha256: str, parser: str, version: str, context_fingerprint: str = "") -> ParseRecord | None:
         ...
 
     def parse_stats(self, source_id: str, since: datetime | None = None) -> dict[ParseStatus, int]:
         """按快照 fetched_at >= since（带时区）统计该来源的最新解析状态。
 
-        每条快照计一次；同一 sha256 取最后一次 record_parse 写入的状态（跨解析器/版本），
+        每条快照计一次；同一 sha256 + 上下文取最后写入的状态（跨解析器/版本）。
+        没有匹配的上下文记录时，兼容旧管线的空指纹记录（仍按 SHA 统计）；
         未解析或无 sha256 的快照不计入；只返回出现过的状态。
         """
         ...
@@ -568,15 +581,29 @@ class ChunkStore(Protocol):
     """文档和检索块的存储。实现：DATUMOJ-IVY-501。
 
     chunk_id 在同一个文档的不同快照之间保持稳定（建议 ``<doc_key>#<locator>``），同一快照内唯一。
-    当前版本 = 该 doc_key 最近一次 put 的快照；旧快照的文档和块保留，可以按 snapshot_sha256 取回。
+    默认 put 兼容最近写入即 current；新管线用 publish=False + publish_current 按快照顺序发布。
+    旧快照的文档和块保留，可以按 snapshot_sha256 取回。
     """
 
-    def put_document(self, document: Document, chunks: Sequence[Chunk]) -> None:
+    def put_document(self, document: Document, chunks: Sequence[Chunk], *, publish: bool = True) -> None:
         """写入一个文档的一个快照版本，并设为当前版本；同一快照再写就整体替换。
 
         chunks 必须都属于 document.doc_key、snapshot_sha256 和 document 相同、chunk_id 不重复，否则 ValueError。
-        块的顺序就是文档内顺序。
+        块的顺序就是文档内顺序。publish=False 只暂存版本，不切换 current。
+        publish=True 兼容旧调用方，无条件切换 current，但不清除已发布水位。
         """
+        ...
+
+    def publish_current(self, doc_key: str, snapshot_sha256: str, order: SnapshotOrder) -> bool:
+        """原子比较水位并发布已暂存版本。严格更新才返回 True（相等也返回 False）。
+
+        版本不存在抛 NotFoundError；current 和水位在同一事务持久化。
+        初始/旧库水位为 None，首次发布即可覆盖。水位按 doc_key 隔离。
+        """
+        ...
+
+    def current_order(self, doc_key: str) -> SnapshotOrder | None:
+        """已发布水位；旧写入接口不改变它，调用方须统一使用单调发布入口。"""
         ...
 
     def get_document(self, doc_key: str, snapshot_sha256: str | None = None) -> Document | None:

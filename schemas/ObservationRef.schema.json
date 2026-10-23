@@ -1,0 +1,28 @@
+{
+  "additionalProperties": false,
+  "description": "表内观测值的全局引用键。字符串是三个字段的紧凑 JSON 数组。",
+  "properties": {
+    "source_id": {
+      "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+      "title": "Source Id",
+      "type": "string"
+    },
+    "table_key": {
+      "minLength": 1,
+      "title": "Table Key",
+      "type": "string"
+    },
+    "obs_id": {
+      "minLength": 1,
+      "title": "Obs Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_id",
+    "table_key",
+    "obs_id"
+  ],
+  "title": "ObservationRef",
+  "type": "object"
+}

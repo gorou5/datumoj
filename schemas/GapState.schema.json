@@ -4,6 +4,7 @@
     "ok",
     "zero_hits",
     "not_ingested",
+    "not_indexed",
     "fetch_failed",
     "out_of_scope"
   ],

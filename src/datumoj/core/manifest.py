@@ -1,7 +1,7 @@
 """抓取记录库（SQLite）：实现 ``datumoj.core.contracts.Manifest``。
 
 每次抓取（含失败的）原样记一行；解析状态另放一张表。写入都在 ``BEGIN IMMEDIATE`` 事务里，
-多个连接同时写会排队（等锁超时见 ``timeout``）。schema 版本记在 ``schema_version`` 表里，不符就报错，不自动迁移。
+多个连接同时写会排队（等锁超时见 ``timeout``）。schema 版本记在 ``schema_version`` 表里，v1 原子迁移到 v2，未知版本报错。
 """
 
 from __future__ import annotations
@@ -24,9 +24,9 @@ from datumoj.core.contracts import (
     ParseStatus,
     SchemaVersionError,
 )
-from datumoj.core.models import FetchOutcome, Freshness, Snapshot, redact_url
+from datumoj.core.models import FetchOutcome, Freshness, Snapshot, SnapshotOrder, parse_context_fingerprint, redact_url
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 _SUCCESS = {FetchOutcome.ok, FetchOutcome.not_modified}
 _JSON_DICT = TypeAdapter(dict[str, JsonValue])
 
@@ -50,9 +50,10 @@ CREATE TABLE parsed (
     sha256 TEXT NOT NULL,
     parser TEXT NOT NULL,
     version TEXT NOT NULL,
+    context_fingerprint TEXT NOT NULL,
     status TEXT NOT NULL,
     error TEXT,
-    PRIMARY KEY (sha256, parser, version)
+    PRIMARY KEY (sha256, parser, version, context_fingerprint)
 );
 """
 
@@ -69,7 +70,11 @@ class SqliteManifest:
     def __init__(self, path: str | Path, timeout: float = 30.0) -> None:
         self._db = sqlite3.connect(str(path), timeout=timeout, isolation_level=None)
         self._db.execute("PRAGMA journal_mode=WAL")
-        self._init_schema()
+        try:
+            self._init_schema()
+        except BaseException:
+            self._db.close()
+            raise
 
     def close(self) -> None:
         self._db.close()
@@ -94,6 +99,16 @@ class SqliteManifest:
                 db.execute("INSERT INTO schema_version VALUES (?)", (SCHEMA_VERSION,))
                 return
             row = db.execute("SELECT version FROM schema_version").fetchone() if "schema_version" in tables else None
+            if row is not None and row[0] == 1:
+                db.execute("ALTER TABLE parsed RENAME TO parsed_v1")
+                db.execute("CREATE TABLE parsed (sha256 TEXT NOT NULL, parser TEXT NOT NULL, version TEXT NOT NULL, "
+                           "context_fingerprint TEXT NOT NULL, status TEXT NOT NULL, error TEXT, "
+                           "PRIMARY KEY (sha256, parser, version, context_fingerprint))")
+                db.execute("INSERT INTO parsed SELECT sha256, parser, version, '', status, error FROM parsed_v1 "
+                           "ORDER BY rowid")
+                db.execute("DROP TABLE parsed_v1")
+                db.execute("UPDATE schema_version SET version=?", (SCHEMA_VERSION,))
+                return
             if row is None or row[0] != SCHEMA_VERSION:
                 found = "没有版本记录" if row is None else f"版本 {row[0]}"
                 raise SchemaVersionError(f"manifest schema 版本不符：代码要求 {SCHEMA_VERSION}，库里{found}")
@@ -119,6 +134,10 @@ class SqliteManifest:
         if row is None:
             raise NotFoundError(f"没有快照 {snapshot_id}")
         return json.loads(row[0])
+
+    def snapshot_order(self, snapshot_id: str) -> SnapshotOrder | None:
+        row = self._db.execute("SELECT fetched_at, seq FROM snapshots WHERE snapshot_id=?", (snapshot_id,)).fetchone()
+        return None if row is None else SnapshotOrder(fetched_at=_from_ts(row[0]), seq=row[1])
 
     def _query(self, where: str, args: Iterable[object] = (), tail: str = "") -> list[Snapshot]:
         rows = self._db.execute(
@@ -167,16 +186,19 @@ class SqliteManifest:
     def record_parse(self, record: ParseRecord) -> None:
         with self._tx() as db:
             db.execute(
-                "INSERT OR REPLACE INTO parsed (sha256, parser, version, status, error) VALUES (?,?,?,?,?)",
-                (record.sha256, record.parser, record.version, record.status.value, record.error),
+                "INSERT OR REPLACE INTO parsed (sha256, parser, version, context_fingerprint, status, error) "
+                "VALUES (?,?,?,?,?,?)",
+                (record.sha256, record.parser, record.version, record.context_fingerprint, record.status.value, record.error),
             )
 
-    def get_parse(self, sha256: str, parser: str, version: str) -> ParseRecord | None:
+    def get_parse(self, sha256: str, parser: str, version: str, context_fingerprint: str = "") -> ParseRecord | None:
         row = self._db.execute(
-            "SELECT sha256, parser, version, status, error FROM parsed WHERE sha256=? AND parser=? AND version=?",
-            (sha256, parser, version),
+            "SELECT sha256, parser, version, status, error, context_fingerprint FROM parsed "
+            "WHERE sha256=? AND parser=? AND version=? AND context_fingerprint=?",
+            (sha256, parser, version, context_fingerprint),
         ).fetchone()
-        return None if row is None else ParseRecord(sha256=row[0], parser=row[1], version=row[2], status=row[3], error=row[4])
+        return None if row is None else ParseRecord(sha256=row[0], parser=row[1], version=row[2], status=row[3], error=row[4],
+                                                    context_fingerprint=row[5])
 
     def parse_stats(self, source_id: str, since: datetime | None = None) -> dict[ParseStatus, int]:
         args: list[object] = [source_id]
@@ -184,11 +206,21 @@ class SqliteManifest:
         if since is not None:
             args.append(_ts(TypeAdapter(AwareDatetime).validate_python(since)))
             boundary = " AND s.fetched_at >= ?"
-        # INSERT OR REPLACE 分配新 rowid，因此最大 rowid 就是最后写入的解析记录。
         rows = self._db.execute(
-            "SELECT p.status, COUNT(*) FROM snapshots s JOIN parsed p ON p.sha256=s.sha256"
-            " AND p.rowid=(SELECT MAX(latest.rowid) FROM parsed latest WHERE latest.sha256=s.sha256)"
-            " WHERE s.source_id=?" + boundary + " GROUP BY p.status",
-            args,
+            "SELECT snapshot, meta FROM snapshots s WHERE s.source_id=?" + boundary, args,
         ).fetchall()
-        return {ParseStatus(status): count for status, count in rows}
+        latest = {
+            (digest, context): ParseStatus(status)
+            for digest, context, status in self._db.execute(
+                "SELECT sha256, context_fingerprint, status FROM parsed WHERE sha256 IN "
+                "(SELECT sha256 FROM snapshots WHERE source_id=?) ORDER BY rowid", (source_id,),
+            )
+        }
+        counts: Counter[ParseStatus] = Counter()
+        for snapshot_json, meta_json in rows:
+            snap = Snapshot.model_validate_json(snapshot_json)
+            context = parse_context_fingerprint(snap, json.loads(meta_json))
+            status = latest.get((snap.sha256, context), latest.get((snap.sha256, "")))
+            if status is not None:
+                counts[status] += 1
+        return dict(counts)
