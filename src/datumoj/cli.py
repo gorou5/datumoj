@@ -29,11 +29,13 @@ launchd_app = typer.Typer(no_args_is_help=True, help="生成、安装或卸载 l
 registry_app = typer.Typer(no_args_is_help=True, help="数据源注册表导出。")
 report_app = typer.Typer(no_args_is_help=True, help="生成资料库变化报告。")
 diagnose_app = typer.Typer(no_args_is_help=True, help="只读检查本地证据，不升级数据库。")
+state_app = typer.Typer(no_args_is_help=True, help="推送和校验恢复状态代次。")
 app.add_typer(schedule_app, name="schedule")
 schedule_app.add_typer(launchd_app, name="launchd")
 app.add_typer(registry_app, name="registry")
 app.add_typer(report_app, name="report")
 app.add_typer(diagnose_app, name="diagnose")
+app.add_typer(state_app, name="state")
 _DATA_DIR: ContextVar[str | None] = ContextVar("datumoj_data_dir", default=None)
 
 
@@ -89,6 +91,39 @@ def _json(value: Any) -> str:
     if isinstance(value, BaseModel):
         value = value.model_dump(mode="json")
     return json.dumps(value, ensure_ascii=False, default=str, indent=2)
+
+
+def _state_call(action: Callable[[], Any]) -> None:
+    try:
+        typer.echo(_json(action()))
+    except Exception:
+        # Even configuration/SDK/validation exceptions can contain secrets.
+        typer.echo(_json({"error": "状态操作失败，请检查配置、代次完整性和写入状态"}))
+        raise typer.Exit(1) from None
+
+
+@state_app.command("push")
+def state_push(data_dir: Path | None = typer.Option(None, "--data-dir")) -> None:
+    _state_call(lambda: wiring.build_state(data_dir if data_dir is not None else _data_dir()).push())
+
+
+@state_app.command("restore")
+def state_restore(
+    to: Path = typer.Option(..., "--to"),
+    generation: int | None = typer.Option(None, "--generation", min=1),
+    raw: str = typer.Option("local", "--raw", help="local 或 remote"),
+) -> None:
+    _state_call(lambda: wiring.build_state(_data_dir()).restore(to, generation, raw=raw))
+
+
+@state_app.command("list")
+def state_list() -> None:
+    def action():
+        return [{"generation": g.generation, "created_at": g.created_at.isoformat(),
+                 "writer": g.writer.model_dump(), "copies": len(g.stores),
+                 "size_bytes": sum(c.size_bytes for c in g.stores)}
+                for g in wiring.build_state(_data_dir()).list()]
+    _state_call(action)
 
 
 @diagnose_app.command("evidence")
