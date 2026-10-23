@@ -3,6 +3,7 @@ from datetime import timedelta
 
 import pytest
 
+from datumoj.core.models import parse_context_fingerprint
 from datumoj.changes import detect, normalize_text
 from datumoj.core.contracts import ParseResult, ParseStatus
 from datumoj.core.models import ChangeKind, DocKind, FetchOutcome
@@ -161,7 +162,10 @@ def test_parse_failure_classification_reference_and_retry():
     good = add(value, url="https://example.go.jp/good.txt")
     result = parse_pending(value)
     assert result.parsed == [good.snapshot_id] and bad.snapshot_id in result.failed
-    assert value.manifest.get_parse(bad.sha256, FakeParser.name, FakeParser.version).status is ParseStatus.failed
+    assert value.manifest.get_parse(
+        bad.sha256, FakeParser.name, FakeParser.version,
+        parse_context_fingerprint(bad, value.manifest.snapshot_meta(bad.snapshot_id)),
+    ).status is ParseStatus.failed
     failures = value.change_log.list(kinds=[ChangeKind.parse_failed])
     assert len(failures) == 1
     assert failures[0].new_sha256 == bad.sha256 and failures[0].resource_url == bad.resource_url
@@ -265,7 +269,10 @@ def test_parse_failure_survives_log_write_failure(monkeypatch, caplog):
     monkeypatch.setattr(value.change_log, "append", broken)
     bad = add(value, b"\xff")
     assert bad.snapshot_id in parse_pending(value).failed
-    assert value.manifest.get_parse(bad.sha256, FakeParser.name, FakeParser.version).status is ParseStatus.failed
+    assert value.manifest.get_parse(
+        bad.sha256, FakeParser.name, FakeParser.version,
+        parse_context_fingerprint(bad, value.manifest.snapshot_meta(bad.snapshot_id)),
+    ).status is ParseStatus.failed
     assert "解析失败事件写入失败" in caplog.text
 
 
@@ -305,7 +312,10 @@ def test_change_errors_warn_without_failing_parse(monkeypatch, caplog, failure):
         add(value, outcome=FetchOutcome.http_error, http_status=404)
     result = parse_pending(value)
     assert result.parsed == [good.snapshot_id] and not result.failed
-    assert value.manifest.get_parse(good.sha256, FakeParser.name, FakeParser.version).status is ParseStatus.ok
+    assert value.manifest.get_parse(
+        good.sha256, FakeParser.name, FakeParser.version,
+        parse_context_fingerprint(good, value.manifest.snapshot_meta(good.snapshot_id)),
+    ).status is ParseStatus.ok
     assert any(record.levelname == "WARNING" for record in caplog.records)
 
 

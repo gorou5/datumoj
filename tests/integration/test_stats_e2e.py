@@ -27,6 +27,7 @@ from lxml import etree
 from typer.testing import CliRunner
 
 from datumoj import cli, wiring
+from datumoj.core.models import parse_context_fingerprint
 from datumoj.core.contracts import ParseError, ParseStatus, discover_parsers, select_parser
 from datumoj.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
 from datumoj.core.models import Citation, FetchOutcome, SourceText, TimeBasis
@@ -282,7 +283,10 @@ def test_source_configs_and_real_parser_dispatch(stats_chain):
             deps.raw.verify(snap.sha256)
             parser = wiring._CkanPages if spec.kind == "ckan" else select_parser(parsers, spec.kind, snap.content_type)
             assert parser is not None
-            record = deps.manifest.get_parse(snap.sha256, parser.name, parser.version)
+            record = deps.manifest.get_parse(
+                snap.sha256, parser.name, parser.version,
+                parse_context_fingerprint(snap, deps.manifest.snapshot_meta(snap.snapshot_id)),
+            )
             assert record is not None and record.status is ParseStatus.ok
     assert deps.observations.query_readonly(
         "SELECT count(*) FROM observations WHERE source_id = 'jp-stat-dashboard'"

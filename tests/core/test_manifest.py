@@ -131,3 +131,84 @@ def test_timestamps_with_offsets_order_by_instant(tmp_path):
     assert m.latest_snapshot(URL).fetched_at == late.fetched_at
     assert m.snapshots_for("jp-test")[0].fetched_at.utcoffset() == jst.utcoffset(None)
     m.close()
+
+
+def test_parse_outputs_and_writer_persist_across_connections(tmp_path):
+    path = tmp_path / "outputs.db"
+    first = SqliteManifest(path)
+    second = SqliteManifest(path)
+    rec = ParseRecord(sha256=sha(b"bytes"), parser="p", version="1", status=ParseStatus.ok,
+                      context_fingerprint=sha(b"context"), doc_keys=["jp-test:a", "jp-test:empty"])
+    first.record_parse(rec)
+    assert second.get_parse(rec.sha256, "p", "1", rec.context_fingerprint) == rec
+    assert second.last_writer("jp-test:empty", rec.sha256) == rec.context_fingerprint
+    first.close()
+    second.close()
+    reopened = SqliteManifest(path)
+    assert reopened.get_parse(rec.sha256, "p", "1", rec.context_fingerprint) == rec
+    assert reopened.last_writer("jp-test:a", rec.sha256) == rec.context_fingerprint
+    reopened.close()
+
+
+def _v2_manifest(path):
+    snap = make_snapshot(snapshot_id="v2-snapshot")
+    from datumoj.core.models import parse_context_fingerprint
+    fp = parse_context_fingerprint(snap, {"role": "body"})
+    with sqlite3.connect(path) as db:
+        db.executescript("""
+            CREATE TABLE schema_version (version INTEGER NOT NULL);
+            INSERT INTO schema_version VALUES (2);
+            CREATE TABLE snapshots (
+                seq INTEGER PRIMARY KEY AUTOINCREMENT, snapshot_id TEXT NOT NULL UNIQUE,
+                source_id TEXT NOT NULL, resource_url TEXT NOT NULL, fetched_at TEXT NOT NULL,
+                outcome TEXT NOT NULL, sha256 TEXT, meta TEXT NOT NULL, snapshot TEXT NOT NULL
+            );
+            CREATE TABLE parsed (
+                sha256 TEXT NOT NULL, parser TEXT NOT NULL, version TEXT NOT NULL,
+                context_fingerprint TEXT NOT NULL, status TEXT NOT NULL, error TEXT,
+                PRIMARY KEY (sha256, parser, version, context_fingerprint)
+            );
+        """)
+        from datetime import UTC
+        db.execute("INSERT INTO snapshots VALUES (?,?,?,?,?,?,?,?,?)",
+                   (7, snap.snapshot_id, snap.source_id, snap.resource_url,
+                    snap.fetched_at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f"),
+                    snap.outcome.value, snap.sha256, '{"role":"body"}', snap.model_dump_json()))
+        db.execute("INSERT INTO parsed VALUES (?,?,?,?,?,?)", (snap.sha256, "p", "1", fp, "ok", None))
+        db.execute("INSERT INTO parsed VALUES (?,?,?,?,?,?)", (sha(b"bad"), "p", "1", fp, "failed", "bad"))
+    return snap, fp
+
+
+def test_v2_migration_preserves_snapshots_and_marks_outputs_unknown(tmp_path):
+    path = tmp_path / "v2.db"
+    snap, fp = _v2_manifest(path)
+    with sqlite3.connect(path) as db:
+        before = db.execute("SELECT * FROM snapshots").fetchall()
+    manifest = SqliteManifest(path)
+    assert manifest.snapshots_for(snap.source_id) == [snap]
+    assert manifest.snapshot_meta(snap.snapshot_id) == {"role": "body"}
+    assert manifest.get_parse(snap.sha256, "p", "1", fp).doc_keys is None
+    assert manifest.get_parse(sha(b"bad"), "p", "1", fp).error == "bad"
+    assert manifest.last_writer("jp-test:a.txt", snap.sha256) is None
+    manifest.record_snapshot(make_snapshot(snapshot_id="next"))
+    assert manifest.snapshot_order("next").seq == 8
+    manifest.close()
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT * FROM snapshots WHERE snapshot_id=?", (snap.snapshot_id,)).fetchall() == before
+        assert db.execute("SELECT version FROM schema_version").fetchone() == (3,)
+
+
+def test_v2_migration_failure_rolls_back(tmp_path):
+    path = tmp_path / "v2-rollback.db"
+    _v2_manifest(path)
+    with sqlite3.connect(path) as db:
+        before = db.execute("SELECT * FROM snapshots").fetchall()
+        db.execute("CREATE TRIGGER fail_upgrade BEFORE UPDATE ON schema_version "
+                   "BEGIN SELECT RAISE(ABORT, 'failed'); END")
+    with pytest.raises(sqlite3.IntegrityError, match="failed"):
+        SqliteManifest(path)
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT * FROM snapshots").fetchall() == before
+        assert db.execute("SELECT version FROM schema_version").fetchone() == (2,)
+        assert "doc_keys" not in {r[1] for r in db.execute("PRAGMA table_info(parsed)")}
+        assert db.execute("SELECT name FROM sqlite_master WHERE name='parse_writers'").fetchone() is None

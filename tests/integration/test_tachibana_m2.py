@@ -24,6 +24,7 @@ from moto.server import ThreadedMotoServer
 from typer.testing import CliRunner
 
 from datumoj import cli, wiring
+from datumoj.core.models import parse_context_fingerprint
 from datumoj.core.contracts import ParseRecord, ParseResult, ParseStatus
 from datumoj.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
 from datumoj.core.models import Citation, GapState, SourceText
@@ -181,11 +182,15 @@ def test_bodik_catalog_and_datastore_snapshots(tmp_path, evidence):
         deps.manifest.record_parse(ParseRecord(
             sha256=failed.sha256, parser=wiring._CkanPages.name, version=wiring._CkanPages.version,
             status=ParseStatus.failed, error="pre-fix: CKAN package 缺少 id/name",
+            context_fingerprint=parse_context_fingerprint(failed, deps.manifest.snapshot_meta(failed.snapshot_id)),
         ))
         parsed = _parse_index(deps, spec.id)
         assert failed.snapshot_id in parsed.retried
         for snap in pages:
-            record = deps.manifest.get_parse(snap.sha256, wiring._CkanPages.name, wiring._CkanPages.version)
+            record = deps.manifest.get_parse(
+                snap.sha256, wiring._CkanPages.name, wiring._CkanPages.version,
+                parse_context_fingerprint(snap, deps.manifest.snapshot_meta(snap.snapshot_id)),
+            )
             assert record.status is ParseStatus.ok
         assert [h.dataset.dataset_key for h in deps.catalog.search("")] == [f"{spec.id}:{selected['id']}"]
         _json(evidence / "bodik-datastore.json", {

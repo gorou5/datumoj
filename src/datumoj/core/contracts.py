@@ -253,6 +253,8 @@ class ParseRecord(_Model):
     status: ParseStatus
     context_fingerprint: Annotated[str, Field(pattern=r"^(?:[0-9a-f]{64})?$")] = ""
     error: str | None = None
+    doc_keys: list[str] | None = Field(default_factory=list)
+    """成功产出的全部文档键；空列表表示无文档，None 仅表示迁移记录的产物未知。"""
 
     @model_validator(mode="after")
     def _error_when_failed(self) -> ParseRecord:
@@ -327,6 +329,13 @@ class Manifest(Protocol):
         ...
 
     def get_parse(self, sha256: str, parser: str, version: str, context_fingerprint: str = "") -> ParseRecord | None:
+        ...
+
+    def last_writer(self, doc_key: str, sha256: str) -> str | None:
+        """最后成功写入该文档版本的上下文指纹，按 record_parse 写入顺序；未知返回 None。
+
+        失败、无解析器和产物未知的记录不更新写入者；覆盖解析状态也不抹除成功写入者。
+        """
         ...
 
     def parse_stats(self, source_id: str, since: datetime | None = None) -> dict[ParseStatus, int]:

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from datumoj.core.models import parse_context_fingerprint
 from datumoj.core.contracts import ContentState, ParseResult
 from datumoj.core.manifest import SqliteManifest
 from datumoj.core.models import Dataset, FetchOutcome, Resource, Snapshot
@@ -211,4 +212,7 @@ def test_reindex_reconciles_successful_resource_without_reparsing(deps):
     assert reindex(deps, SOURCE_ID) == 0
 
     assert _resource_entry(deps).state is ContentState.content_fetched
-    assert deps.manifest.get_parse(resource_snapshot.sha256, CkanFixtureParser.name, CkanFixtureParser.version) is None
+    assert deps.manifest.get_parse(
+        resource_snapshot.sha256, CkanFixtureParser.name, CkanFixtureParser.version,
+        parse_context_fingerprint(resource_snapshot, deps.manifest.snapshot_meta(resource_snapshot.snapshot_id)),
+    ) is None

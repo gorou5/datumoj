@@ -1,3 +1,4 @@
+from datumoj.core.models import parse_context_fingerprint
 from datumoj.core.contracts import ParseError, ParseStatus
 from datumoj.pipeline import PipelineDeps, parse_pending
 from datumoj.testing.fakes import (
@@ -53,7 +54,10 @@ def test_failed_snapshot_retries_with_fixed_parser_same_version():
     first = parse_pending(deps)
     assert first.failed == {snap.snapshot_id: "ParseError: 暂时无法解析"}
     assert first.newly_parsed == [] and first.retried == []
-    failed = deps.manifest.get_parse(snap.sha256, "fake-text", "1")
+    failed = deps.manifest.get_parse(
+        snap.sha256, "fake-text", "1",
+        parse_context_fingerprint(snap, deps.manifest.snapshot_meta(snap.snapshot_id)),
+    )
     assert failed.status is ParseStatus.failed
 
     deps.parsers = {(FixedParser.source_kind, FixedParser.content_type): FixedParser}
@@ -61,7 +65,10 @@ def test_failed_snapshot_retries_with_fixed_parser_same_version():
     assert second.parsed == [snap.snapshot_id]
     assert second.newly_parsed == [] and second.retried == [snap.snapshot_id]
     assert not second.failed
-    succeeded = deps.manifest.get_parse(snap.sha256, "fake-text", "1")
+    succeeded = deps.manifest.get_parse(
+        snap.sha256, "fake-text", "1",
+        parse_context_fingerprint(snap, deps.manifest.snapshot_meta(snap.snapshot_id)),
+    )
     assert succeeded.status is ParseStatus.ok and succeeded.error is None
     assert BrokenParser.calls == FixedParser.calls == 1
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typer.testing import CliRunner
 
 from datumoj import cli, wiring
+from datumoj.core.models import parse_context_fingerprint
 from datumoj.core.contracts import EmbeddingError, ParseStatus
 from datumoj.pipeline import PipelineDeps, parse_pending, reindex, vector_status
 from datumoj.testing.fakes import (
@@ -68,7 +69,10 @@ def test_embedding_failure_keeps_parse_and_keyword_index_and_can_be_retried(tmp_
     assert not summary.failed
     assert snapshot.snapshot_id in summary.vectors_missing
     assert "EmbeddingError: Ollama 返回 404" in summary.vectors_missing[snapshot.snapshot_id]
-    assert deps.manifest.get_parse(snapshot.sha256, "fake-text", "1").status is ParseStatus.ok
+    assert deps.manifest.get_parse(
+        snapshot.sha256, "fake-text", "1",
+        parse_context_fingerprint(snapshot, deps.manifest.snapshot_meta(snapshot.snapshot_id)),
+    ).status is ParseStatus.ok
     assert deps.chunks.get_document("jp-test:a.txt") is not None
     assert deps.keyword.search("本文を収録").items
     assert path.exists()

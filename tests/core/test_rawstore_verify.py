@@ -4,6 +4,7 @@ import hashlib
 
 import pytest
 
+from datumoj.core.models import parse_context_fingerprint
 from datumoj.core.contracts import CorruptedBlob, ParseStatus
 from datumoj.core.rawstore import FileRawStore
 from datumoj.pipeline import PipelineDeps, parse_pending
@@ -81,7 +82,10 @@ def test_pipeline_records_corrupt_raw_as_failed_without_writing_chunks(tmp_path)
     summary = parse_pending(deps)
 
     assert list(summary.failed) == [snap.snapshot_id]
-    record = manifest.get_parse(digest, FakeParser.name, FakeParser.version)
+    record = manifest.get_parse(
+        digest, FakeParser.name, FakeParser.version,
+        parse_context_fingerprint(snap, manifest.snapshot_meta(snap.snapshot_id)),
+    )
     assert record.status is ParseStatus.failed
     assert "CorruptedBlob" in record.error
     assert chunks.get_document("jp-test:a.txt") is None

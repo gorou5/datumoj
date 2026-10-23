@@ -1,7 +1,7 @@
 """抓取记录库（SQLite）：实现 ``datumoj.core.contracts.Manifest``。
 
 每次抓取（含失败的）原样记一行；解析状态另放一张表。写入都在 ``BEGIN IMMEDIATE`` 事务里，
-多个连接同时写会排队（等锁超时见 ``timeout``）。schema 版本记在 ``schema_version`` 表里，v1 原子迁移到 v2，未知版本报错。
+多个连接同时写会排队（等锁超时见 ``timeout``）。schema 版本记在 ``schema_version`` 表里，v1/v2 原子迁移到 v3，未知版本报错。
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from datumoj.core.contracts import (
 )
 from datumoj.core.models import FetchOutcome, Freshness, Snapshot, SnapshotOrder, parse_context_fingerprint, redact_url
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 _SUCCESS = {FetchOutcome.ok, FetchOutcome.not_modified}
 _JSON_DICT = TypeAdapter(dict[str, JsonValue])
 
@@ -53,7 +53,14 @@ CREATE TABLE parsed (
     context_fingerprint TEXT NOT NULL,
     status TEXT NOT NULL,
     error TEXT,
+    doc_keys TEXT,
     PRIMARY KEY (sha256, parser, version, context_fingerprint)
+);
+CREATE TABLE parse_writers (
+    doc_key TEXT NOT NULL,
+    sha256 TEXT NOT NULL,
+    context_fingerprint TEXT NOT NULL,
+    PRIMARY KEY (doc_key, sha256)
 );
 """
 
@@ -107,6 +114,11 @@ class SqliteManifest:
                 db.execute("INSERT INTO parsed SELECT sha256, parser, version, '', status, error FROM parsed_v1 "
                            "ORDER BY rowid")
                 db.execute("DROP TABLE parsed_v1")
+            if row is not None and row[0] in (1, 2):
+                # NULL 保留“未知”，不能把旧记录误认为已知的空产物列表。
+                db.execute("ALTER TABLE parsed ADD COLUMN doc_keys TEXT")
+                db.execute("CREATE TABLE parse_writers (doc_key TEXT NOT NULL, sha256 TEXT NOT NULL, "
+                           "context_fingerprint TEXT NOT NULL, PRIMARY KEY (doc_key, sha256))")
                 db.execute("UPDATE schema_version SET version=?", (SCHEMA_VERSION,))
                 return
             if row is None or row[0] != SCHEMA_VERSION:
@@ -186,19 +198,29 @@ class SqliteManifest:
     def record_parse(self, record: ParseRecord) -> None:
         with self._tx() as db:
             db.execute(
-                "INSERT OR REPLACE INTO parsed (sha256, parser, version, context_fingerprint, status, error) "
-                "VALUES (?,?,?,?,?,?)",
-                (record.sha256, record.parser, record.version, record.context_fingerprint, record.status.value, record.error),
+                "INSERT OR REPLACE INTO parsed (sha256, parser, version, context_fingerprint, status, error, doc_keys) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (record.sha256, record.parser, record.version, record.context_fingerprint, record.status.value, record.error,
+                 None if record.doc_keys is None else json.dumps(record.doc_keys, ensure_ascii=False)),
             )
+            if record.status is ParseStatus.ok:
+                db.executemany("INSERT OR REPLACE INTO parse_writers VALUES (?,?,?)",
+                               [(key, record.sha256, record.context_fingerprint) for key in record.doc_keys or []])
 
     def get_parse(self, sha256: str, parser: str, version: str, context_fingerprint: str = "") -> ParseRecord | None:
         row = self._db.execute(
-            "SELECT sha256, parser, version, status, error, context_fingerprint FROM parsed "
+            "SELECT sha256, parser, version, status, error, context_fingerprint, doc_keys FROM parsed "
             "WHERE sha256=? AND parser=? AND version=? AND context_fingerprint=?",
             (sha256, parser, version, context_fingerprint),
         ).fetchone()
         return None if row is None else ParseRecord(sha256=row[0], parser=row[1], version=row[2], status=row[3], error=row[4],
-                                                    context_fingerprint=row[5])
+                                                    context_fingerprint=row[5],
+                                                    doc_keys=None if row[6] is None else json.loads(row[6]))
+
+    def last_writer(self, doc_key: str, sha256: str) -> str | None:
+        row = self._db.execute("SELECT context_fingerprint FROM parse_writers WHERE doc_key=? AND sha256=?",
+                               (doc_key, sha256)).fetchone()
+        return None if row is None else row[0]
 
     def parse_stats(self, source_id: str, since: datetime | None = None) -> dict[ParseStatus, int]:
         args: list[object] = [source_id]

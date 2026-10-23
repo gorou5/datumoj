@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datumoj.core.models import parse_context_fingerprint
 from datumoj.core.contracts import NO_PARSER, ContentState, ParseResult, ParseStatus
 from datumoj.pipeline import PipelineDeps, parse_pending, reindex
 from datumoj.testing.fakes import (
@@ -79,7 +80,10 @@ def test_bad_snapshot_does_not_block_others():
     summary = parse_pending(deps)
     assert list(summary.failed) == [bad.snapshot_id]
     assert summary.parsed == [good.snapshot_id]
-    rec = deps.manifest.get_parse(bad.sha256, "fake-text", "1")
+    rec = deps.manifest.get_parse(
+        bad.sha256, "fake-text", "1",
+        parse_context_fingerprint(bad, deps.manifest.snapshot_meta(bad.snapshot_id)),
+    )
     assert rec.status is ParseStatus.failed and rec.error
     assert parse_pending(deps).skipped == 2
 
@@ -100,7 +104,10 @@ def test_no_parser_recorded_once():
     snap = add(deps, b"a,b", content_type="application/pdf")
     first = parse_pending(deps)
     assert first.no_parser == [snap.snapshot_id]
-    assert deps.manifest.get_parse(snap.sha256, NO_PARSER, "-").status is ParseStatus.no_parser
+    assert deps.manifest.get_parse(
+        snap.sha256, NO_PARSER, "-",
+        parse_context_fingerprint(snap, deps.manifest.snapshot_meta(snap.snapshot_id)),
+    ).status is ParseStatus.no_parser
     second = parse_pending(deps)
     assert second.no_parser == [] and second.skipped == 1
 
@@ -112,8 +119,14 @@ def test_same_sha_different_content_type_runs_each_parser():
     b = add(deps, data, url="https://example.go.jp/b.csv", content_type="text/csv", fetched_at=T0 + timedelta(1))
     summary = parse_pending(deps)
     assert summary.parsed == [a.snapshot_id, b.snapshot_id]
-    assert deps.manifest.get_parse(a.sha256, "fake-text", "1") is not None
-    assert deps.manifest.get_parse(a.sha256, "fake-csv", "1") is not None
+    assert deps.manifest.get_parse(
+        a.sha256, "fake-text", "1",
+        parse_context_fingerprint(a, deps.manifest.snapshot_meta(a.snapshot_id)),
+    ) is not None
+    assert deps.manifest.get_parse(
+        a.sha256, "fake-csv", "1",
+        parse_context_fingerprint(b, deps.manifest.snapshot_meta(b.snapshot_id)),
+    ) is not None
 
 
 def test_non_ok_snapshots_ignored_and_source_filter():

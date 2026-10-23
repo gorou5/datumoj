@@ -177,6 +177,7 @@ class FakeManifest:
         self._snaps: list[Snapshot] = []
         self._meta: dict[str, dict[str, JsonValue]] = {}
         self._parse: dict[tuple[str, str, str, str], ParseRecord] = {}
+        self._writers: dict[tuple[str, str], str] = {}
 
     def record_snapshot(self, snapshot: Snapshot, meta: Mapping[str, JsonValue] | None = None) -> None:
         if snapshot.snapshot_id in self._meta:
@@ -234,10 +235,16 @@ class FakeManifest:
     def record_parse(self, record: ParseRecord) -> None:
         key = (record.sha256, record.parser, record.version, record.context_fingerprint)
         self._parse.pop(key, None)  # 覆盖也算最后一次写入
-        self._parse[key] = record
+        self._parse[key] = record.model_copy(deep=True)
+        if record.status is ParseStatus.ok:
+            for doc_key in record.doc_keys or []:
+                self._writers[doc_key, record.sha256] = record.context_fingerprint
 
     def get_parse(self, sha256: str, parser: str, version: str, context_fingerprint: str = "") -> ParseRecord | None:
         return self._parse.get((sha256, parser, version, context_fingerprint))
+
+    def last_writer(self, doc_key: str, sha256: str) -> str | None:
+        return self._writers.get((doc_key, sha256))
 
     def parse_stats(self, source_id: str, since: datetime | None = None) -> dict[ParseStatus, int]:
         if since is not None:
@@ -503,7 +510,7 @@ class FakeChunkStore:
         return self._orders.get(doc_key)
 
     def publish_current(self, doc_key: str, snapshot_sha256: str, order: SnapshotOrder) -> bool:
-        if self.get_document(doc_key, snapshot_sha256) is None:
+        if self._version(doc_key, snapshot_sha256) is None:
             raise NotFoundError(f"没有文档版本 {doc_key} / {snapshot_sha256}")
         current = self.current_order(doc_key)
         if current is not None and order <= current:
