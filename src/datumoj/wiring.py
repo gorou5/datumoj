@@ -5,12 +5,15 @@ from __future__ import annotations
 import importlib
 import json
 import os
+import uuid
 from dataclasses import dataclass, field, replace
+from functools import wraps
 from pathlib import Path
 from typing import Any
 
 from datumoj.core.contracts import ParseError, Parser, ParseResult, discover_parsers
 from datumoj.core.storage import load_storage_config
+from datumoj.core.state import local_write
 from datumoj.parsers.ckan_meta import CkanMetaParser
 from datumoj.store.catalog import SqliteCatalogStore
 
@@ -157,10 +160,26 @@ def _get(overrides: dict[str, Any], key: str, module: str, symbol: str, *args: A
 
 
 def build(data_dir: str | Path | None = None, overrides: dict[str, Any] | None = None) -> Wiring:
+    # Store constructors can initialize/migrate schemas, so they share the same
+    # boundary as complete crawl/parse/index operations and state snapshots.
+    root = load_storage_config(data_dir=data_dir).data_dir
+    with local_write(root):
+        return _build(data_dir, overrides)
+
+
+def _build(data_dir: str | Path | None = None, overrides: dict[str, Any] | None = None) -> Wiring:
     """按协议组装依赖。``overrides`` 可替换任意命名依赖，供测试和嵌入式调用注入。"""
     overrides = dict(overrides or {})
     config = load_storage_config(data_dir=data_dir)
     root = config.data_dir
+    restored = root / "state-storage.json"
+    if restored.exists():
+        from datumoj.core.storage import StorageConfig
+
+        value = json.loads(restored.read_bytes())
+        if value not in ({"raw_backend": "local"}, {"raw_backend": "s3"}):
+            raise ValueError("恢复目录的 raw 配置无效")
+        config = StorageConfig.model_validate({**config.model_dump(), **value})
     root.mkdir(parents=True, exist_ok=True)
     wiring = Wiring(data_dir=root)
 
@@ -290,7 +309,30 @@ def build(data_dir: str | Path | None = None, overrides: dict[str, Any] | None =
     ):
         if not available:
             wiring.unavailable[feature] = "该功能尚未接入"
+    def guarded(function):
+        @wraps(function)
+        def invoke(*args, **kwargs):
+            with local_write(root):
+                return function(*args, **kwargs)
+        return invoke
+
+    for name in ("run_crawl", "parse_pending", "reindex"):
+        function = getattr(wiring, name)
+        if function is not None:
+            setattr(wiring, name, guarded(function))
     return wiring
+
+
+def build_state(data_dir: str | Path | None = None):
+    """State commands avoid opening or migrating live data stores."""
+    from datumoj.core.models import StateWriter
+    from datumoj.core.state import StateManager
+    from datumoj.core.state_s3 import S3StateObjectStore
+
+    config = load_storage_config(data_dir=data_dir)
+    run_id = os.environ.get("GITHUB_RUN_ID")
+    writer = StateWriter(kind="actions" if run_id else "local", run_id=run_id or uuid.uuid4().hex)
+    return StateManager(S3StateObjectStore(config), config.data_dir, writer=writer)
 
 
 def build_tools() -> Any:
