@@ -28,10 +28,12 @@ schedule_app = typer.Typer(no_args_is_help=True, help="本机抓取开关和调�
 launchd_app = typer.Typer(no_args_is_help=True, help="生成、安装或卸载 launchd 任务。")
 registry_app = typer.Typer(no_args_is_help=True, help="数据源注册表导出。")
 report_app = typer.Typer(no_args_is_help=True, help="生成资料库变化报告。")
+diagnose_app = typer.Typer(no_args_is_help=True, help="只读检查本地证据，不升级数据库。")
 app.add_typer(schedule_app, name="schedule")
 schedule_app.add_typer(launchd_app, name="launchd")
 app.add_typer(registry_app, name="registry")
 app.add_typer(report_app, name="report")
+app.add_typer(diagnose_app, name="diagnose")
 _DATA_DIR: ContextVar[str | None] = ContextVar("datumoj_data_dir", default=None)
 
 
@@ -87,6 +89,44 @@ def _json(value: Any) -> str:
     if isinstance(value, BaseModel):
         value = value.model_dump(mode="json")
     return json.dumps(value, ensure_ascii=False, default=str, indent=2)
+
+
+@diagnose_app.command("evidence")
+def diagnose_evidence(
+    data_dir: Path | None = typer.Option(None, "--data-dir", help="待检查的本地数据目录"),
+    verify_raw: bool = typer.Option(False, "--verify-raw", help="读取全部 raw 校验哈希（只读）"),
+) -> None:
+    """输出 JSON 风险清单；请先停止目录的写入者。"""
+    from datumoj.diagnose import evidence
+
+    try:
+        # Deliberately bypass _run/wiring.build: their constructors migrate stores.
+        typer.echo(_json(evidence(data_dir if data_dir is not None else _data_dir(), verify_raw=verify_raw)))
+    except Exception as exc:
+        typer.echo(f"诊断失败：{type(exc).__name__}: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+
+@app.command("replay")
+def replay_evidence(
+    source: Path = typer.Option(..., "--from", help="旧数据目录（只读；请先停止写入）"),
+    target: Path = typer.Option(..., "--to", help="新的空目录；不会自动切换数据目录"),
+    vectors: bool = typer.Option(False, "--vectors", help="同时建立向量索引（需要本机嵌入服务）"),
+) -> None:
+    """在新目录重放 manifest/raw，输出对比；partial 结果需人工检查。"""
+    from datumoj.diagnose import replay
+
+    try:
+        result = replay(source, target, vectors=vectors)
+        typer.echo(_json(result))
+    except ValueError as exc:
+        typer.echo(f"参数错误：{exc}", err=True)
+        raise typer.Exit(2) from exc
+    except Exception as exc:
+        typer.echo(f"重放失败：{type(exc).__name__}: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    if result["status"] != "complete":
+        raise typer.Exit(1)
 
 
 def _content(value: Any) -> str:

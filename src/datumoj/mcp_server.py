@@ -181,8 +181,9 @@ def create_server(tools: AnalysisTools | Callable[[], AnalysisTools]) -> MCPServ
                 file-reading functions are rejected.
             max_rows: 1-1000 (default 1000); exceeding it is an error, so add LIMIT or filters.
 
-        `data.describe` lists the columns and the available tables. Include `obs_id` in SELECT to get a
-        citation per row. A NULL value means missing or annotated (see `note`); never treat it as 0.
+        `data.describe` lists the columns and the available tables. Include `source_id`, `table_key`,
+        and `obs_id` in SELECT to get a citation per row (obs_id alone may be ambiguous across tables).
+        A NULL value means missing or annotated (see `note`); never treat it as 0.
         Different surveys are not comparable: do not add them or compute growth across them.
         """
         return get_tools().query_sql(sql, max_rows=max_rows)
@@ -216,7 +217,8 @@ def create_server(tools: AnalysisTools | Callable[[], AnalysisTools]) -> MCPServ
             resource_url: resource URL to disambiguate a shared SHA; must match snapshot_id if both are given.
 
         A SHA shared by multiple resources gives data.status="ambiguous" with candidate snapshot ids and URLs.
-        Pass snapshot_id or resource_url to resolve it.
+        Pass snapshot_id or resource_url to resolve it; when both are supplied they must identify the same observation.
+        Repeated observations of one resource use its latest successful observation unless snapshot_id is supplied.
 
         If it cannot be reproduced, data.status="not_found" and gap_detail says why.
         """
