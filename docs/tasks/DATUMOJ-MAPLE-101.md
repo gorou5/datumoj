@@ -10,7 +10,7 @@ model: null
 tier: high
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
 scope: ["src/datumoj/diagnose.py", "src/datumoj/cli.py", "tests/test_diagnose_storage.py", "tests/index/test_vector_object_storage.py", "docs/adr/0002-network-storage.md", "results/DATUMOJ-MAPLE-101/**"]
-out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", ".github/**", ".env.example"]
+out_of_scope: [".orch/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", ".github/**", ".env.example", "docs/PLAN.md", "docs/TASKS.md", "docs/plans/**", "docs/tasks/**", "docs/acceptance/**", "docs/references/**"]
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
   automated:
