@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import uuid
 from collections.abc import Callable
 from contextvars import ContextVar
 from datetime import UTC, date, datetime, timedelta
@@ -17,6 +18,7 @@ from pydantic import BaseModel
 from datumoj import wiring
 from datumoj.analysis.reports import weekly_report
 from datumoj.core import schedule as scheduling
+from datumoj.core.lease import LeaseManager, remote_configured
 from datumoj.core.models import Citation
 from datumoj.core.registry_export import export_registry
 from datumoj.core.storage import load_storage_config
@@ -30,6 +32,8 @@ registry_app = typer.Typer(no_args_is_help=True, help="数据源注册表导出�
 report_app = typer.Typer(no_args_is_help=True, help="生成资料库变化报告。")
 diagnose_app = typer.Typer(no_args_is_help=True, help="只读检查本地证据，不升级数据库。")
 state_app = typer.Typer(no_args_is_help=True, help="推送和校验恢复状态代次。")
+lease_app = typer.Typer(no_args_is_help=True, help="写入租约；后续命令从 DATUMOJ_LEASE_TOKEN 读取令牌。")
+state_app.add_typer(lease_app, name="lease")
 app.add_typer(schedule_app, name="schedule")
 schedule_app.add_typer(launchd_app, name="launchd")
 app.add_typer(registry_app, name="registry")
@@ -104,7 +108,72 @@ def _state_call(action: Callable[[], Any]) -> None:
 
 @state_app.command("push")
 def state_push(data_dir: Path | None = typer.Option(None, "--data-dir")) -> None:
-    _state_call(lambda: wiring.build_state(data_dir if data_dir is not None else _data_dir()).push())
+    def action():
+        manager = wiring.build_state(data_dir if data_dir is not None else _data_dir())
+        if not remote_configured():
+            return manager.push()
+        leases = LeaseManager(manager.store)
+        lease = leases.credentials()
+        previous_publish, previous_write = manager.before_publish, manager.before_write
+        with leases.maintain(lease) as check:
+            def before_publish():
+                if previous_publish:
+                    previous_publish()
+                check()
+
+            def before_write():
+                if previous_write:
+                    previous_write()
+                check()
+
+            manager.before_publish, manager.before_write = before_publish, before_write
+            try:
+                return manager.push()
+            finally:
+                manager.before_publish, manager.before_write = previous_publish, previous_write
+    _state_call(action)
+
+
+def _leases() -> LeaseManager:
+    return LeaseManager(wiring.build_state(_data_dir()).store)
+
+
+@lease_app.command("acquire")
+def lease_acquire(
+    force: bool = typer.Option(False, "--force"),
+    holder: str | None = typer.Option(None, "--holder"),
+) -> None:
+    """Only this response contains the new token; keep stdout private."""
+    def action():
+        run_id = os.environ.get("GITHUB_RUN_ID")
+        owner = holder or (f"actions/{run_id}" if run_id else f"local/{uuid.uuid4().hex}")
+        return _leases().acquire(owner, force=force)
+    _state_call(action)
+
+
+@lease_app.command("renew")
+def lease_renew() -> None:
+    def action():
+        manager = _leases()
+        lease = manager.credentials()
+        renewed = manager.renew(lease.holder, lease.token)
+        return {"renewed": True, "expires_at": renewed.expires_at.isoformat()}
+    _state_call(action)
+
+
+@lease_app.command("release")
+def lease_release() -> None:
+    def action():
+        manager = _leases()
+        lease = manager.credentials(active=False)
+        manager.release(lease.holder, lease.token)
+        return {"released": True}
+    _state_call(action)
+
+
+@lease_app.command("status")
+def lease_status() -> None:
+    _state_call(lambda: _leases().status())
 
 
 @state_app.command("restore")
@@ -288,10 +357,20 @@ def _crawl_report(deps: Any, spec: Any, *, limit: int | None = None, dry_run: bo
 
 
 def _scheduler() -> scheduling.Scheduler:
-    return _scheduler_at(_data_dir())[1]
+    return _scheduler_at(_data_dir(), read_only=remote_configured())[1]
 
 
-def _scheduler_at(root: str | Path) -> tuple[Any, scheduling.Scheduler]:
+def _scheduler_at(root: str | Path, *, read_only: bool = False) -> tuple[Any, scheduling.Scheduler]:
+    if read_only:
+        from datumoj.core.registry import load_registry
+
+        registry = load_registry(Path(__file__).resolve().parents[2] / "sources")
+        # Opening stores can migrate schemas. Defer that until _run holds the
+        # remote lease; due selection only needs registry/control/run history.
+        scheduler = scheduling.Scheduler(
+            root, registry.all(), lambda spec: _crawl_report(wiring.build(root), spec),
+        )
+        return None, scheduler
     deps = wiring.build(root)
     if deps.registry is None:
         raise wiring.FeatureNotConnected("该功能尚未接入：没有来源注册表")
@@ -360,6 +439,16 @@ def schedule_status() -> None:
     _schedule_call(lambda: _scheduler().status())
 
 
+@schedule_app.command("due")
+def schedule_due(
+    data_dir: Path | None = typer.Option(None, "--data-dir"),
+    json_output: bool = typer.Option(False, "--json", help="输出 JSON 来源 ID 数组"),
+) -> None:
+    _schedule_call(lambda: _scheduler_at(
+        data_dir if data_dir is not None else _data_dir(), read_only=True,
+    )[1].due())
+
+
 def _set_sources(source: str | None, all_sources: bool, enabled: bool) -> Any:
     if (source is None) == (not all_sources):
         raise ValueError("请指定 SOURCE 或 --all，且只能选一个")
@@ -403,7 +492,8 @@ def _schedule_results(action: Callable[[], Any], *, manual: bool = False) -> Non
         result = action()
         typer.echo(_json(result))
         rows = [result] if manual else result
-        if any(row.get("exit_status", 0) or (manual and row["status"] == "skipped") for row in rows):
+        if any(row.get("exit_status", 0) or (manual and row["status"] == "skipped"
+                   and row.get("reason_code") != "write_lease_unavailable") for row in rows):
             raise typer.Exit(1)
         raise typer.Exit(0)
     _schedule_call(report)
@@ -415,6 +505,7 @@ def schedule_tick() -> None:
     _schedule_results(lambda: _scheduler().tick())
 
 
+@schedule_app.command("run-now")
 @schedule_app.command("run")
 def schedule_run(source: str = typer.Argument(...)) -> None:
     """忽略到期时间运行一次；仍检查总开关、来源开关和锁。"""
