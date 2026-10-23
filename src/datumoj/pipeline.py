@@ -8,11 +8,12 @@ from __future__ import annotations
 import json
 import logging
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from datumoj.changes import detect
 from datumoj.core.contracts import (
     NO_PARSER,
     CatalogFilter,
@@ -34,9 +35,16 @@ from datumoj.core.contracts import (
     max_state,
     select_parser,
 )
-from datumoj.changes import detect
 from datumoj.core.models import (
-    ChangeEvent, ChangeKind, FetchOutcome, Observation, PublishState, Snapshot, classify_failure, classify_parse_failure,
+    ChangeEvent,
+    ChangeKind,
+    Chunk,
+    FetchOutcome,
+    Observation,
+    PublishState,
+    Snapshot,
+    classify_failure,
+    classify_parse_failure,
     parse_context_fingerprint,
 )
 
@@ -393,47 +401,146 @@ def _reconcile_catalog_content_state(deps: PipelineDeps, source_id: str | None) 
 
 
 def reindex(deps: PipelineDeps, source_id: str | None = None, *, vectors_only: bool = False) -> int:
-    """从 ChunkStore 的当前版本重建索引；vectors_only 只重试已记录的向量暂缺文档。"""
+    """从 ChunkStore 流式重建索引；vectors_only 只重试已记录的向量暂缺文档。"""
     if not vectors_only:
         _reconcile_catalog_content_state(deps, source_id)
     source_ids = None if source_id is None else [source_id]
-    chunks = list(deps.chunks.iter_chunks(source_ids))
-    docs: dict[str, list] = defaultdict(list)
-    for chunk in chunks:
-        docs[chunk.doc_key].append(chunk)
+    if vectors_only and deps.vectors is None:
+        return 0
 
-    if vectors_only:
-        if deps.vectors is None:
-            return 0
-        state = _load_vector_state(deps)
-        missing = state["missing"]
-        selected = [key for key in docs if key in missing]
-        return sum(_retry_vector_document(deps, key, docs[key], state) for key in selected)
+    state = _load_vector_state(deps) if deps.vectors is not None else None
+    missing = state["missing"] if state is not None else {}
+    selected = set(missing)
+    if vectors_only and source_id is not None:
+        selected = {chunk.doc_key for chunk in deps.chunks.iter_chunks(source_ids) if chunk.doc_key in missing}
+    if vectors_only and not selected:
+        return 0
 
-    if source_id is None:
+    begin_generation = getattr(deps.vectors, "begin_generation", None) if deps.vectors is not None else None
+    finish_generation = getattr(deps.vectors, "finish_generation", None) if deps.vectors is not None else None
+    abort_generation = getattr(deps.vectors, "abort_generation", None) if deps.vectors is not None else None
+    staged = all(callable(method) for method in (begin_generation, finish_generation, abort_generation))
+    generation_started = False
+    if not vectors_only and source_id is None:
         deps.keyword.clear()
-    else:
-        for doc_key in docs:
-            deps.keyword.delete(doc_key)
-    for i in range(0, len(chunks), _BATCH):
-        deps.keyword.add(chunks[i : i + _BATCH])
 
-    if deps.vectors is not None:
-        state = _load_vector_state(deps)
-        if source_id is None:
+    vector_clear_failed = False
+    if staged:
+        begin_generation(copy_current=vectors_only or source_id is not None)
+        generation_started = True
+    elif deps.vectors is not None and not vectors_only and source_id is None:
+        try:
+            deps.vectors.clear()
+        except Exception as exc:
+            vector_clear_failed = True
+            reason = f"{type(exc).__name__}: {exc}"
+            for chunk in deps.chunks.iter_chunks(source_ids):
+                doc_chunks = deps.chunks.chunks_for(chunk.doc_key)
+                _mark_vector_missing(deps, state, chunk.doc_key, doc_chunks or [chunk], reason,
+                                     _snapshot_id(deps, doc_chunks or [chunk]))
+
+    expected_count = 0
+    keyword_seen: set[str] = set()
+    vector_deleted: set[str] = set(selected if vectors_only else ())
+    vector_seen: set[str] = set()
+    vector_failed: set[str] = set()
+    embedded = 0
+    processed = 0
+
+    try:
+        if staged and (source_id is not None or vectors_only):
+            expected_count = sum(1 for _ in deps.chunks.iter_chunks())
+        if staged and vectors_only:
+            for doc_key in selected:
+                deps.vectors.delete(doc_key)
+        elif deps.vectors is not None and vectors_only and not staged:
+            for doc_key in selected:
+                try:
+                    deps.vectors.delete(doc_key)
+                except Exception as exc:
+                    doc_chunks = deps.chunks.chunks_for(doc_key)
+                    _mark_vector_missing(
+                        deps, state, doc_key, doc_chunks, f"{type(exc).__name__}: {exc}",
+                        _snapshot_id(deps, doc_chunks),
+                    )
+                    vector_failed.add(doc_key)
+
+        for batch in _chunk_batches(deps.chunks.iter_chunks(source_ids), _BATCH):
+            processed += len(batch)
+            if staged and source_id is None and not vectors_only:
+                expected_count += len(batch)
+            if not vectors_only:
+                for chunk in batch:
+                    if source_id is not None and chunk.doc_key not in keyword_seen:
+                        deps.keyword.delete(chunk.doc_key)
+                        keyword_seen.add(chunk.doc_key)
+                deps.keyword.add(batch)
+
+            if deps.vectors is None or vector_clear_failed:
+                continue
+            vector_batch = [chunk for chunk in batch if not vectors_only or chunk.doc_key in selected]
+            if not vector_batch:
+                continue
+            vector_seen.update(chunk.doc_key for chunk in vector_batch)
             try:
-                deps.vectors.clear()
+                if source_id is not None and not vectors_only:
+                    for chunk in vector_batch:
+                        if chunk.doc_key not in vector_deleted:
+                            deps.vectors.delete(chunk.doc_key)
+                            vector_deleted.add(chunk.doc_key)
+                embedded += deps.vectors.add(vector_batch)
             except Exception as exc:
                 reason = f"{type(exc).__name__}: {exc}"
-                for doc_key, doc_chunks in docs.items():
+                failed_docs = {chunk.doc_key for chunk in vector_batch}
+                for doc_key in failed_docs:
+                    doc_chunks = deps.chunks.chunks_for(doc_key)
+                    doc_chunks = doc_chunks or [chunk for chunk in vector_batch if chunk.doc_key == doc_key]
                     _mark_vector_missing(deps, state, doc_key, doc_chunks, reason, _snapshot_id(deps, doc_chunks))
-            else:
-                for doc_key, doc_chunks in docs.items():
-                    _retry_vector_document(deps, doc_key, doc_chunks, state, delete_first=False)
-        else:
-            for doc_key, doc_chunks in docs.items():
-                _retry_vector_document(deps, doc_key, doc_chunks, state)
-    return len(chunks)
+                vector_failed.update(failed_docs)
+                if staged:
+                    raise
+
+        if staged:
+            finish_generation(expected_count)
+            generation_started = False
+        if state is not None:
+            successful = (selected if vectors_only else vector_seen) - vector_failed
+            _clear_vector_missing_many(deps, state, successful)
+    except Exception:
+        if generation_started:
+            abort_generation()
+        raise
+    return embedded if vectors_only else processed
+
+
+def _chunk_batches(chunks: Iterable[Chunk], size: int) -> Iterable[list[Chunk]]:
+    batch = []
+    for chunk in chunks:
+        batch.append(chunk)
+        if len(batch) == size:
+            yield batch
+            batch = []
+    if batch:
+        yield batch
+
+
+def _clear_vector_missing_many(deps: PipelineDeps, state: dict[str, object], doc_keys: set[str]) -> None:
+    missing = state["missing"]
+    changed = False
+    for doc_key in doc_keys:
+        if doc_key in missing:
+            missing.pop(doc_key)
+            changed = True
+    if not missing and state.get("last_error") is not None:
+        state["last_error"] = None
+        changed = True
+    if not changed:
+        return
+    try:
+        _save_vector_state(deps, state)
+    except OSError:
+        deps.vector_state = state
+        deps.vector_state_dirty = True
 
 
 def vector_status(deps: PipelineDeps) -> dict[str, object]:
@@ -532,22 +639,3 @@ def _write_vector_document(
         return reason
     _clear_vector_missing(deps, _load_vector_state(deps), doc_key)
     return None
-
-
-def _retry_vector_document(
-    deps: PipelineDeps,
-    doc_key: str,
-    chunks: list,
-    state: dict[str, object],
-    *,
-    delete_first: bool = True,
-) -> int:
-    try:
-        if delete_first:
-            deps.vectors.delete(doc_key)
-        embedded = deps.vectors.add(chunks)
-    except Exception as exc:
-        _mark_vector_missing(deps, state, doc_key, chunks, f"{type(exc).__name__}: {exc}", _snapshot_id(deps, chunks))
-        return 0
-    _clear_vector_missing(deps, state, doc_key)
-    return embedded
