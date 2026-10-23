@@ -58,6 +58,7 @@ from datumoj.core.models import (
     Hit,
     LicenseInfo,
     Observation,
+    ObservationRef,
     Snapshot,
     SourceText,
     TimeBasis,
@@ -344,7 +345,11 @@ class AnalysisTools:
     @staticmethod
     def _obs_view(obs: Observation, citation: Citation | None) -> dict[str, Any]:
         return {
-            "obs_id": obs.obs_id, "dataset_key": obs.dataset_key, "table_key": obs.table_key,
+            "obs_id": obs.obs_id, "source_id": obs.source_id, "table_key": obs.table_key,
+            "observation_ref": str(ObservationRef(
+                source_id=obs.source_id, table_key=obs.table_key, obs_id=obs.obs_id,
+            )),
+            "dataset_key": obs.dataset_key,
             "survey": _st(obs.survey), "indicator": _st(obs.indicator), "indicator_code": obs.indicator_code,
             "area_code": obs.area_code, "area_label": _st(obs.area_label), "time_label": _st(obs.time_label),
             "unit": _st(obs.unit), "value": obs.value, "note": _st(obs.note), "locator": obs.locator,
@@ -623,7 +628,8 @@ class AnalysisTools:
     def query_sql(self, sql: str, max_rows: int = MAX_ROWS) -> dict[str, Any]:
         """在只读视图 ``observations`` 上执行单条 SELECT/WITH（由 ObservationStore 把关只读）。
 
-        数值只能从这里取。``data.describe`` 是库里有哪些表和列；结果列带上 ``obs_id`` 才有逐条出处。
+        数值只能从这里取。``data.describe`` 是库里有哪些表和列；要明确逐行出处时 SELECT 带上
+        ``source_id``、``table_key``、``obs_id``。
         字符串单元格一律包成 SourceText，value 列是十进制字符串或 null（绝不补零）。
         """
         if not isinstance(sql, str) or not sql.strip():
