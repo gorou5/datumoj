@@ -294,7 +294,7 @@ def state_list() -> None:
     def action():
         return [{"generation": g.generation, "created_at": g.created_at.isoformat(),
                  "writer": g.writer.model_dump(), "copies": len(g.stores),
-                 "size_bytes": sum(c.size_bytes for c in g.stores)}
+                 "size_bytes": sum(c.size_bytes for c in g.stores if c.format != "sqlite-block-v1")}
                 for g in wiring.build_state(_data_dir()).list()]
     _state_call(action)
 

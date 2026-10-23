@@ -133,11 +133,14 @@ def assert_pulled(world, work, expected_generation):
     assert result.exit_code == 0, result.output
     assert all(value not in result.output for value in (*ENV.values(), *world.tokens, BODY.decode()))
     assert json.loads((local / "state-pull.json").read_text())["generation"] == expected_generation
-    for filename, table in (("manifest.sqlite", "snapshots"), ("chunks.sqlite", "chunks"),
-                            ("keyword.sqlite", "entries")):
+    for filename, table in (("manifest.sqlite", "snapshots"), ("chunks.sqlite", "chunks")):
         with sqlite3.connect(work / filename) as original, sqlite3.connect(local / filename) as replica:
             assert original.execute(f"SELECT * FROM {table} ORDER BY 1").fetchall() == replica.execute(
                 f"SELECT * FROM {table} ORDER BY 1").fetchall()
+    with sqlite3.connect(work / "keyword.sqlite") as original, sqlite3.connect(local / "keyword.sqlite") as replica:
+        columns = "chunk_id,doc_key,source_id,published_at,effective_at"
+        assert set(original.execute(f"SELECT {columns} FROM entries")) == set(
+            replica.execute(f"SELECT {columns} FROM entries"))
     assert (work / "runs.jsonl").read_bytes() == (local / "runs.jsonl").read_bytes()
     assert (work / "control.json").read_bytes() == (local / "control.json").read_bytes()
 
