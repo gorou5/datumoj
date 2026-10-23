@@ -19,6 +19,7 @@ import uuid
 from collections.abc import Callable, Iterator
 from contextlib import ExitStack, closing, contextmanager
 from datetime import UTC, datetime
+from itertools import islice
 from pathlib import Path
 from typing import Literal
 
@@ -34,6 +35,7 @@ from datumoj.core.models import SourceRun, StateGeneration, StateWriter, StoreCo
 from datumoj.core.schedule import _locked
 from datumoj.core.state_s3 import check_key
 from datumoj.index.coverage import index_is_rebuilding
+from datumoj.index.fts import SqliteKeywordIndex
 from datumoj.index.vector import maintain_vectors
 from datumoj.store.chunks import SCHEMA_VERSION as CHUNKS_VERSION
 from datumoj.store.chunks import SqliteChunkStore
@@ -58,6 +60,65 @@ _EMPTY_DUCK = b'{"format":"duckdb-empty-v1"}\n'
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _LOG = logging.getLogger(__name__)
 _VECTOR_STATE = "vectors/vectors-state.json"
+_BLOCK_SIZE = 256 * 1024
+_SQLITE_BLOCK = "sqlite-block-v1"
+_SQLITE_BLOCKS = "sqlite-blocks-v1"
+
+
+def _sqlite_copies(path: Path) -> list[StoreCopy]:
+    """Describe a backup in bounded memory; the final entry is checksum-only."""
+    copies = []
+    digest = hashlib.sha256()
+    size = 0
+    with path.open("rb") as stream:
+        while data := stream.read(_BLOCK_SIZE):
+            sha = _digest(data)
+            copies.append(StoreCopy(name=f"{path.name}.blocks/{len(copies)}", key=f"copies/sha256/{sha}",
+                                    sha256=sha, size_bytes=len(data), format=_SQLITE_BLOCK))
+            digest.update(data)
+            size += len(data)
+    sha = digest.hexdigest()
+    copies.append(StoreCopy(name=path.name, key=f"copies/sha256/{sha}", sha256=sha,
+                            size_bytes=size, format=_SQLITE_BLOCKS))
+    return copies
+
+
+def _copy_data(root: Path, copy: StoreCopy) -> bytes:
+    if copy.format == _SQLITE_BLOCK:
+        name, index = copy.name.split(".blocks/")
+        with (root / name).open("rb") as stream:
+            stream.seek(int(index) * _BLOCK_SIZE)
+            return stream.read(copy.size_bytes)
+    return _copy_path(root, copy.name).read_bytes()
+
+
+def _block_groups(stores: list[StoreCopy]) -> dict[str, list[StoreCopy]]:
+    """Reject incomplete, mixed or out-of-order layouts before downloading."""
+    files = {c.name: c for c in stores if c.format == _SQLITE_BLOCKS}
+    groups: dict[str, list[StoreCopy]] = {name: [] for name in files}
+    for copy in stores:
+        if copy.format == _SQLITE_BLOCK:
+            name, index = copy.name.split(".blocks/")
+            if name not in groups or index != str(len(groups[name])):
+                raise StateError("SQLite 分块清单缺失或顺序无效")
+            groups[name].append(copy)
+    for name, blocks in groups.items():
+        size = files[name].size_bytes
+        if len(blocks) != (size + _BLOCK_SIZE - 1) // _BLOCK_SIZE or any(
+            block.size_bytes != min(_BLOCK_SIZE, size - i * _BLOCK_SIZE) for i, block in enumerate(blocks)
+        ):
+            raise StateError("SQLite 分块大小或数量无效")
+    return groups
+
+
+def _rebuild_keyword(root: Path) -> None:
+    if not (root / "keyword.sqlite").exists() and (root / "chunks.sqlite").exists():
+        with closing(SqliteChunkStore(root / "chunks.sqlite")) as chunks, closing(
+            SqliteKeywordIndex(root / "keyword.sqlite")
+        ) as keyword:
+            current = chunks.iter_chunks()  # Only current_versions, never historical/staged chunks.
+            while batch := list(islice(current, 500)):
+                keyword.add(batch)
 
 
 def _copy_path(root: Path, name: str) -> Path:
@@ -256,6 +317,8 @@ def _copy_boundary(root: Path, target: Path) -> tuple[list[StoreCopy], dict[str,
                 (target / "vectors-state.json").write_text('{"missing":{},"last_error":null}')
             paths.append((_VECTOR_STATE, "bytes"))
         for name in _SQLITE:
+            if name == "keyword.sqlite":
+                continue  # Validated above, but rebuilt from current chunks on restore.
             source = root / name
             if source.exists():
                 with _ro(source) as db, closing(sqlite3.connect(target / name)) as destination:
@@ -302,6 +365,9 @@ def _copy_boundary(root: Path, target: Path) -> tuple[list[StoreCopy], dict[str,
             paths.append((source.name, fmt))
         stores = []
         for name, fmt in sorted(paths):
+            if fmt == "sqlite":
+                stores.extend(_sqlite_copies(target / name))
+                continue
             data = _copy_path(target, name).read_bytes()
             sha = _digest(data)
             stores.append(StoreCopy(name=name, key=f"copies/sha256/{sha}", sha256=sha,
@@ -318,7 +384,11 @@ def _validate_copy(copy: StoreCopy) -> None:
     if copy.key != f"copies/sha256/{copy.sha256}":
         raise StateError("副本对象键与哈希不符")
     if copy.name in _SQLITE:
-        valid = copy.format == "sqlite"
+        valid = copy.format == "sqlite" or (copy.name != "keyword.sqlite" and copy.format == _SQLITE_BLOCKS)
+    elif ".blocks/" in copy.name:
+        name, index = copy.name.split(".blocks/", 1)
+        valid = (name in _SQLITE and name != "keyword.sqlite" and bool(re.fullmatch(r"0|[1-9][0-9]*", index))
+                 and copy.format == _SQLITE_BLOCK)
     elif copy.name in _SMALL:
         valid = copy.format == "bytes"
     elif copy.name == "observations.duckdb":
@@ -340,6 +410,7 @@ def _validate_generation(value: bytes, number: int) -> StateGeneration:
         raise StateError("状态缺少 manifest")
     for copy in generation.stores:
         _validate_copy(copy)
+    _block_groups(generation.stores)
     vectors = {c.name for c in generation.stores if c.name.startswith("vectors/")}
     if generation.vector_coverage is None:
         if vectors:
@@ -503,8 +574,8 @@ class StateManager:
                 _validate_copy(copy)
             created_at = datetime.now(UTC)
             for copy in stores:
-                if copy.key not in copies:
-                    self._upload(copy.key, _copy_path(stage, copy.name).read_bytes(), copies)
+                if copy.format != _SQLITE_BLOCKS and copy.key not in copies:
+                    self._upload(copy.key, _copy_data(stage, copy), copies)
             # raw is immutable. Only missing blobs are read, hashed and uploaded;
             # no 4.7GB duplicate tree is made in the temporary directory.
             local_refs = set(refs)
@@ -555,19 +626,38 @@ class StateManager:
 
     def _materialize(self, candidate: StateGeneration, stage: Path, *, raw: str,
                      raw_keys: set[str] | None = None) -> dict:
+        groups = _block_groups(candidate.stores)
         for copy in candidate.stores:
             _validate_copy(copy)
+            if copy.format == _SQLITE_BLOCK:
+                continue  # Reassembled in the checksum entry's numeric order below.
+            path = _copy_path(stage, copy.name)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if copy.format == _SQLITE_BLOCKS:
+                digest = hashlib.sha256()
+                size = 0
+                with path.open("wb") as stream:
+                    for block in groups[copy.name]:
+                        found = self._get(block.key)
+                        if found is None or len(found[0]) != block.size_bytes or _digest(found[0]) != block.sha256:
+                            raise StateError("分块 SHA256 或大小校验失败")
+                        stream.write(found[0])
+                        digest.update(found[0])
+                        size += len(found[0])
+                if digest.hexdigest() != copy.sha256 or size != copy.size_bytes:
+                    raise StateError("整库 SHA256 或大小校验失败")
+                continue
             found = self._get(copy.key)
             if found is None or len(found[0]) != copy.size_bytes or _digest(found[0]) != copy.sha256:
                 raise StateError("副本 SHA256 或大小校验失败")
-            path = _copy_path(stage, copy.name)
-            path.parent.mkdir(parents=True, exist_ok=True)
             if copy.format == "duckdb-empty":
                 if found[0] != _EMPTY_DUCK:
                     raise StateError("DuckDB 重建描述无效")
                 duckdb.connect(str(path)).close()
             else:
                 path.write_bytes(found[0])
+        _check_schema(stage)
+        _rebuild_keyword(stage)
         _check_schema(stage)
         if _vector_coverage(stage) != candidate.vector_coverage:
             raise StateError("向量恢复覆盖校验失败")
@@ -588,7 +678,8 @@ class StateManager:
                 path.write_bytes(found[0])
         report = _sample_provenance(stage, raw=raw, refs=refs)
         report.update(generation=candidate.generation, copies=len(candidate.stores), raw_objects=len(refs),
-                      size_bytes=sum(c.size_bytes for c in candidate.stores), raw_mode=raw, verified=True)
+                      size_bytes=sum(c.size_bytes for c in candidate.stores if c.format != _SQLITE_BLOCK),
+                      raw_mode=raw, verified=True)
         return report
 
     def restore(self, target: str | Path, generation: int | None = None, *,

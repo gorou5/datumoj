@@ -78,8 +78,12 @@ def test_no_change_push_lists_once_without_content_download_or_raw_read(state, c
     first = manager.push()
     assert first.generation == 1 and first.vector_coverage is None
     assert {c.name for c in first.stores} == {
-        "manifest.sqlite", "chunks.sqlite", "keyword.sqlite", "catalog.sqlite", "changes.sqlite", "observations.duckdb",
+        "manifest.sqlite", "manifest.sqlite.blocks/0", "chunks.sqlite", "chunks.sqlite.blocks/0",
+        "catalog.sqlite", "catalog.sqlite.blocks/0", "changes.sqlite", "changes.sqlite.blocks/0",
+        "observations.duckdb",
     }
+    assert all(c.format == ("sqlite-block-v1" if ".blocks/" in c.name else "sqlite-blocks-v1")
+               for c in first.stores if c.name != "observations.duckdb")
     store.reset()
     original = type(manager.data_dir).read_bytes
 
