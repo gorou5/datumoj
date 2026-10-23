@@ -223,9 +223,7 @@ def create_server(tools: AnalysisTools | Callable[[], AnalysisTools]) -> MCPServ
 
         Call it first to confirm which build the host loaded. Takes no arguments.
         """
-        result = get_tools().version()
-        result["data"]["version"] += "+tachibana603"
-        return result
+        return get_tools().version()
 
     @server.tool()
     @on_worker
