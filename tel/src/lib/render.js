@@ -421,8 +421,8 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
     sections += `<div class="card"><h2>利用者からの報告</h2><p>この番号について ${f.reportCount} 件の報告が寄せられています。</p><ul class="tight">${items}</ul>
 <p class="meta">報告は利用者の投稿を審査のうえ集計したもので、事実認定ではありません。</p></div>`;
   }
-  // Neighbors
-  const nb = neighbors(f.digits, 3);
+  // Neighbors (SEO watch: internal-link density around target numbers)
+  const nb = neighbors(f.digits, 5);
   const nbLinks = [...nb.prev.reverse(), ...nb.next]
     .map((n) => `<a href="/${n}">${esc(formatNumber(n, f))}</a>`)
     .join(' ／ ');
