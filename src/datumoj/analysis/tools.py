@@ -27,7 +27,9 @@ from urllib.parse import urlsplit
 import datumoj
 from datumoj.core.storage import load_storage_config
 from datumoj.analysis.glossary import expand_terms, normalize
+from datumoj.core.citations import document_snapshot, select_snapshot
 from datumoj.core.contracts import (
+    AmbiguousCitation,
     CatalogFilter,
     CatalogHit,
     CatalogStore,
@@ -72,6 +74,7 @@ from datumoj.core.models import (
     ToolResult,
     UsageScope,
     parse_locator,
+    redact_url,
 )
 
 __all__ = ["INTERNAL_ONLY", "AnalysisTools", "expand_terms"]
@@ -411,31 +414,54 @@ class AnalysisTools:
 
     # ----- 出处 -----
 
-    def _snapshot(self, sha256: str, source_id: str | None = None) -> Snapshot | None:
-        """内容是这个 sha256 的最近一次成功抓取（manifest 的列表按 fetched_at 升序）。"""
-        snaps = [
-            s for s in self.manifest.snapshots_by_sha256(sha256)
-            if s.outcome is FetchOutcome.ok and (source_id is None or s.source_id == source_id)
-        ]
-        return snaps[-1] if snaps else None
+    def _snapshot(
+        self, sha256: str, source_id: str | None = None, *,
+        resource_url: str | None = None, snapshot_id: str | None = None,
+        warnings: list[str] | None = None,
+    ) -> Snapshot | None:
+        try:
+            return select_snapshot(
+                self.manifest, sha256, source_id, resource_url=resource_url, snapshot_id=snapshot_id,
+            )
+        except AmbiguousCitation:
+            if warnings is not None:
+                warnings.append("来源快照有歧义，需 snapshot_id 或资源 URL")
+                return None
+            raise
+
+    def _document_snapshot(
+        self, sha256: str, source_id: str, doc_key: str, warnings: list[str],
+        doc: Document | None = None, resource_url: str | None = None,
+    ) -> Snapshot | None:
+        if doc is None and self.chunks is not None:
+            doc = self.chunks.get_document(doc_key, sha256)
+        try:
+            return document_snapshot(self.manifest, sha256, source_id, doc_key, doc, resource_url=resource_url)
+        except AmbiguousCitation:
+            warnings.append("文档来源快照有歧义，无法确定资源 URL")
+            return None
 
     def _license(self, source_id: str) -> LicenseInfo | None:
         spec = self.registry.get(source_id)
         return spec.license if spec is not None else None
 
     def _chunk_citation(self, chunk: Chunk, warnings: list[str]) -> Citation | None:
-        snap = self._snapshot(chunk.snapshot_sha256, chunk.source_id)
+        snap = self._document_snapshot(chunk.snapshot_sha256, chunk.source_id, chunk.doc_key, warnings)
         if snap is None:
             warnings.append(f"{chunk.chunk_id} 找不到来源快照，出处不完整")
             return None
         return citation_for_chunk(chunk, snap, self._license(chunk.source_id))
 
     def _obs_citation(self, obs: Observation, warnings: list[str]) -> Citation | None:
-        snap = self._snapshot(obs.snapshot_sha256, obs.source_id)
+        snap = self._document_snapshot(
+            obs.snapshot_sha256, obs.source_id, f"{obs.source_id}:{obs.table_key}", warnings,
+        )
         if snap is None:
             warnings.append(f"观测值 {obs.obs_id} 找不到来源快照，出处不完整")
             return None
-        return citation_for_observation(obs, snap, self._license(obs.source_id))
+        return citation_for_observation(obs, snap, self._license(obs.source_id)).model_copy(
+            update={"fetched_at": snap.fetched_at},
+        )
 
     # ----- 结果视图 -----
 
@@ -600,19 +626,34 @@ class AnalysisTools:
         warnings: list[str] = []
         freshness: list[tuple[str, datetime]] = []
         rows = []
+        fallback_docs: dict[tuple[str, str], dict[str, None]] | None = None
         for event in events:
             snapshot_sha = (
                 event.old_sha256 if event.kind is ChangeKind.removed else (event.new_sha256 or event.old_sha256)
             )
-            snap = self._snapshot(snapshot_sha, event.source_id) if snapshot_sha is not None else None
             doc = self.chunks.get_document(event.doc_key, snapshot_sha) if event.doc_key and snapshot_sha else None
             if doc is None and snapshot_sha is not None:
-                chunk = next((
-                    item for item in self.chunks.iter_chunks([event.source_id])
-                    if item.snapshot_sha256 == snapshot_sha
-                ), None)
-                if chunk is not None:
-                    doc = self.chunks.get_document(chunk.doc_key, snapshot_sha)
+                if fallback_docs is None:
+                    fallback_docs = {}
+                    for item in self.chunks.iter_chunks(list(dict.fromkeys(e.source_id for e in events))):
+                        key = (item.source_id, item.snapshot_sha256)
+                        fallback_docs.setdefault(key, {})[item.doc_key] = None
+                for key in fallback_docs.get((event.source_id, snapshot_sha), {}):
+                    candidate = self.chunks.get_document(key, snapshot_sha)
+                    candidate_snap = self._document_snapshot(
+                        snapshot_sha, event.source_id, key, warnings, candidate,
+                    )
+                    if event.resource_url is None or (
+                        candidate_snap is not None and candidate_snap.resource_url == event.resource_url
+                    ):
+                        doc = candidate
+                        break
+            snap = None
+            if snapshot_sha is not None:
+                snap = self._document_snapshot(
+                    snapshot_sha, event.source_id, event.doc_key or (doc.doc_key if doc else ""),
+                    warnings, doc, event.resource_url,
+                )
             citation = self._change_citation(event, snap, doc)
             if citation is None:
                 warnings.append(f"变化事件 {event.event_id} 缺少可引用的成功快照")
@@ -646,6 +687,7 @@ class AnalysisTools:
             TimeBasis.published if doc and doc.published_at else TimeBasis.no_data_date
         )
         return Citation(
+            snapshot_id=snap.snapshot_id,
             source_id=event.source_id, resource_url=snap.resource_url, snapshot_sha256=snap.sha256,
             fetched_at=snap.fetched_at, locator=event.locator,
             published_at=doc.published_at if doc else None, effective_at=doc.effective_at if doc else None,
@@ -694,11 +736,12 @@ class AnalysisTools:
         if d.snapshot_sha256 is None or d.locator is None:
             warnings.append("该记录缺少快照引用，重新解析后可还原")
         else:
-            snap = self._snapshot(d.snapshot_sha256, d.source_id)
+            snap = self._snapshot(d.snapshot_sha256, d.source_id, warnings=warnings)
             if snap is None:
                 warnings.append("该记录引用的快照不在 manifest 中，无法生成 citation")
             else:
                 citation = Citation(
+                    snapshot_id=snap.snapshot_id,
                     source_id=d.source_id, resource_url=snap.resource_url, snapshot_sha256=snap.sha256,
                     fetched_at=snap.fetched_at, locator=d.locator,
                     published_at=d.modified_at.date() if d.modified_at is not None else None,
@@ -971,7 +1014,7 @@ class AnalysisTools:
             views.append(view)
         law = self._law_info(self.chunks.get_document(chunk.doc_key, chunk.snapshot_sha256), warnings)
         _usage_warning((v["usage_notice"] for v in views), warnings)
-        snap = self._snapshot(chunk.snapshot_sha256, chunk.source_id)
+        snap = self._document_snapshot(chunk.snapshot_sha256, chunk.source_id, chunk.doc_key, warnings)
         data = {
             "status": "ok", "chunk_id": chunk_id, "doc_key": chunk.doc_key,
             "snapshot_sha256": chunk.snapshot_sha256, "chunks": views, "law": law,
@@ -981,9 +1024,12 @@ class AnalysisTools:
 
     # ----- cite -----
 
-    def cite(self, snapshot_sha256: str, locator: str) -> dict[str, Any]:
+    def cite(
+        self, snapshot_sha256: str, locator: str, snapshot_id: str | None = None, resource_url: str | None = None,
+    ) -> dict[str, Any]:
         """回到 raw：取快照原始字节、校验哈希、用对应解析器重新解析，按 locator 找回原文。
 
+        snapshot_id 精确指定观察；resource_url 限定资源。SHA 跨资源时返回 ambiguous 和候选。
         定位不到时 ``data.status = "not_found"``，原因在 gap_detail。
         """
         if not isinstance(snapshot_sha256, str) or not _SHA_RE.fullmatch(snapshot_sha256):
@@ -996,7 +1042,23 @@ class AnalysisTools:
             data = {"status": "not_found", "snapshot_sha256": snapshot_sha256, "locator": locator, "passages": []}
             return _result(data, GapState.zero_hits, gap_detail=reason)
 
-        snap = self._snapshot(snapshot_sha256)
+        for name, value in (("snapshot_id", snapshot_id), ("resource_url", resource_url)):
+            if value is not None and (not isinstance(value, str) or not value.strip()):
+                raise ValueError(f"{name} 必须是非空字符串")
+        try:
+            snap = self._snapshot(snapshot_sha256, snapshot_id=snapshot_id, resource_url=resource_url)
+        except AmbiguousCitation as exc:
+            candidates = [
+                {"snapshot_id": s.snapshot_id, "source_id": s.source_id, "resource_url": s.resource_url}
+                for s in self.manifest.snapshots_by_sha256(snapshot_sha256)
+                if s.outcome is FetchOutcome.ok
+                and (resource_url is None or s.resource_url == redact_url(resource_url))
+            ]
+            return _result(
+                {"status": "ambiguous", "snapshot_sha256": snapshot_sha256, "locator": locator,
+                 "passages": [], "candidates": candidates},
+                GapState.zero_hits, warnings=[str(exc)], gap_detail=str(exc),
+            )
         if snap is None:
             return not_found("manifest 里没有内容是这个 sha256 的成功抓取")
         try:

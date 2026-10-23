@@ -318,13 +318,14 @@ def test_shared_hash_citation_uses_matching_source_latest_success_and_freshness(
     retriever = build(corpus, vector=False)
     result = retriever.search(["第三者", "個人情報"])
     law_hits = [h for h in result.data if h.citation.source_id == "jp-law"]
+    assert law_hits
     for hit in law_hits:
         chunk = retriever.chunks.get_chunk(hit.chunk_id)
-        assert hit.citation == citation_for_chunk(chunk, tied, corpus.specs[0].license)
+        assert hit.citation == citation_for_chunk(chunk, newer, corpus.specs[0].license)
         assert isinstance(hit.snippet, SourceText)
-    assert result.freshness.by_source == {"jp-law": tied.fetched_at, "jp-news": corpus.snapshots[1].fetched_at}
+    assert result.freshness.by_source == {"jp-law": newer.fetched_at, "jp-news": corpus.snapshots[1].fetched_at}
     assert result.freshness.as_of == corpus.snapshots[1].fetched_at
-    assert result.freshness.oldest_fetched_at == tied.fetched_at
+    assert result.freshness.oldest_fetched_at == newer.fetched_at
 
 
 def test_source_filter_is_rechecked_even_for_stale_index_results(scripted):

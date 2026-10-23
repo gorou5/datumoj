@@ -135,6 +135,26 @@ def test_cite(tools):
     assert data["data"]["status"] == "ok"
 
 
+def test_cite_identity_parameters_and_ambiguity(tools):
+    original = make_snapshot("jp-open", "https://example.go.jp/notice.txt", TEXT.encode())
+    other = make_snapshot("jp-open", "https://example.go.jp/other.txt", TEXT.encode())
+    tools.manifest.record_snapshot(other)
+    ambiguous = _data(_call(tools, "cite", {"snapshot_sha256": original.sha256, "locator": "section=1"}))
+    assert ambiguous["data"]["status"] == "ambiguous"
+    assert {candidate["snapshot_id"] for candidate in ambiguous["data"]["candidates"]} == {
+        original.snapshot_id, other.snapshot_id,
+    }
+    restored = _data(_call(tools, "cite", {
+        "snapshot_sha256": original.sha256, "locator": "section=1",
+        "snapshot_id": original.snapshot_id, "resource_url": original.resource_url,
+    }))
+    assert restored["data"]["passages"][0]["citation"]["snapshot_id"] == original.snapshot_id
+    listed = _run(tools, lambda client: client.list_tools())
+    cite = next(tool for tool in listed.tools if tool.name == "cite")
+    assert {"snapshot_id", "resource_url"} <= cite.input_schema["properties"].keys()
+    assert "ambiguous" in cite.description
+
+
 def test_version(tools):
     data = _data(_call(tools, "version"))
     assert data["data"]["package"] == "datumoj"

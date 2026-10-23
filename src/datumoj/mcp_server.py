@@ -204,16 +204,23 @@ def create_server(tools: AnalysisTools | Callable[[], AnalysisTools]) -> MCPServ
     @server.tool()
     @on_worker
     @_guarded
-    def cite(snapshot_sha256: str, locator: str) -> dict[str, Any]:
+    def cite(
+        snapshot_sha256: str, locator: str, snapshot_id: str | None = None, resource_url: str | None = None,
+    ) -> dict[str, Any]:
         """Trace a citation back to the raw snapshot: verify its hash, re-parse, and return the original passage.
 
         Args:
             snapshot_sha256: 64 lowercase hex characters.
             locator: the locator string from a citation (e.g. "row=3").
+            snapshot_id: exact observation id from the citation (recommended).
+            resource_url: resource URL to disambiguate a shared SHA; must match snapshot_id if both are given.
+
+        A SHA shared by multiple resources gives data.status="ambiguous" with candidate snapshot ids and URLs.
+        Pass snapshot_id or resource_url to resolve it.
 
         If it cannot be reproduced, data.status="not_found" and gap_detail says why.
         """
-        return get_tools().cite(snapshot_sha256, locator)
+        return get_tools().cite(snapshot_sha256, locator, snapshot_id=snapshot_id, resource_url=resource_url)
 
     @server.tool()
     @on_worker

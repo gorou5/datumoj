@@ -8,13 +8,13 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
-from datumoj.core.contracts import citation_for_chunk
+from datumoj.core.citations import document_snapshot
+from datumoj.core.contracts import AmbiguousCitation, citation_for_chunk
 from datumoj.core.models import (
     ChangeEvent,
     ChangeKind,
     Citation,
     DocKind,
-    FetchOutcome,
     Snapshot,
     TimeBasis,
 )
@@ -77,11 +77,10 @@ def _snapshot(deps: Any, event: ChangeEvent) -> Snapshot | None:
     sha = _event_sha(event)
     if sha is None or deps.manifest is None:
         return None
-    matches = [
-        item for item in deps.manifest.snapshots_by_sha256(sha)
-        if item.source_id == event.source_id and item.sha256 == sha and item.outcome is FetchOutcome.ok
-    ]
-    return matches[-1] if matches else None
+    doc = _document(deps, event, sha)
+    return document_snapshot(
+        deps.manifest, sha, event.source_id, event.doc_key or "", doc, resource_url=event.resource_url,
+    )
 
 
 def _document(deps: Any, event: ChangeEvent, sha: str | None) -> Any:
@@ -113,6 +112,7 @@ def _citation(deps: Any, event: ChangeEvent, snapshot: Snapshot, doc: Any) -> tu
         TimeBasis.published if published_at is not None else TimeBasis.no_data_date
     )
     return Citation(
+        snapshot_id=snapshot.snapshot_id,
         source_id=event.source_id,
         resource_url=snapshot.resource_url,
         snapshot_sha256=snapshot.sha256,
@@ -139,7 +139,10 @@ def _title_part(doc: Any) -> str:
 def _event_line(deps: Any, event: ChangeEvent) -> str:
     sha = _event_sha(event)
     doc = _document(deps, event, sha)
-    snapshot = _snapshot(deps, event)
+    try:
+        snapshot = _snapshot(deps, event)
+    except AmbiguousCitation:
+        return f"- {_title_part(doc)}摘要：{_plain(event.summary)}；来源快照有歧义，无法确定资源 URL。"
     text = f"- {_title_part(doc)}摘要：{_plain(event.summary)}；"
     if snapshot is None:
         reference = event.resource_url or event.doc_key or "未知资源"
@@ -155,7 +158,7 @@ def _event_line(deps: Any, event: ChangeEvent) -> str:
             f"检测时间：{_plain(event.detected_at.isoformat())}；事件类型：{event.kind.value}。"
         )
     whole_doc = "整份文档引用（位置取首个已存 locator）：" if event.locator is None else "出处："
-    return text + f"{whole_doc}{_plain(citation.render())}"
+    return text + f"{whole_doc}{_plain(citation.render())}；snapshot_id：{_plain(citation.snapshot_id)}"
 
 
 def _ocr_summary(deps: Any, events: Sequence[ChangeEvent]) -> str:

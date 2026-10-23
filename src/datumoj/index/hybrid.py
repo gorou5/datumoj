@@ -2,7 +2,9 @@
 
 from collections.abc import Sequence
 
+from datumoj.core.citations import document_snapshot
 from datumoj.core.contracts import (
+    AmbiguousCitation,
     ChunkStore,
     DateRange,
     EmbeddingError,
@@ -14,7 +16,7 @@ from datumoj.core.contracts import (
     VectorIndex,
     citation_for_chunk,
 )
-from datumoj.core.models import FetchOutcome, Freshness, GapState, Hit, MatchedBy, SourceText, ToolResult
+from datumoj.core.models import Freshness, GapState, Hit, MatchedBy, SourceText, ToolResult
 from datumoj.index.coverage import gap_state
 
 
@@ -124,18 +126,22 @@ class HybridRetriever:
                     for d in (chunk.published_at, chunk.effective_at)
                 ):
                     continue
-            snapshots = [
-                s for s in self.manifest.snapshots_by_sha256(chunk.snapshot_sha256)
-                if s.source_id == chunk.source_id and s.outcome is FetchOutcome.ok
-            ]
-            if not snapshots:
+            try:
+                snapshot = document_snapshot(
+                    self.manifest, chunk.snapshot_sha256, chunk.source_id, chunk.doc_key,
+                    self.chunks.get_document(chunk.doc_key, chunk.snapshot_sha256),
+                )
+            except AmbiguousCitation:
+                warnings.append(f"{chunk_id} 来源快照有歧义，无法确定资源 URL，已跳过")
+                continue
+            if snapshot is None:
                 warnings.append(f"{chunk_id} 找不到来源快照，已跳过")
                 continue
             spec = self.registry.get(chunk.source_id)
             hits.append(Hit(
                 chunk_id=chunk_id, doc_key=chunk.doc_key, locator=chunk.locator, score=scores[chunk_id],
                 snippet=SourceText(content=chunk.text[:300]),
-                citation=citation_for_chunk(chunk, snapshots[-1], spec.license if spec else None),
+                citation=citation_for_chunk(chunk, snapshot, spec.license if spec else None),
                 matched_by=matched[chunk_id],
             ))
 
