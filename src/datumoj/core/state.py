@@ -309,6 +309,11 @@ class StateManager:
         self.data_dir = Path(data_dir)
         self.writer = writer or StateWriter(kind="local", run_id=uuid.uuid4().hex)
         self.before_publish = before_publish
+        self.before_write: Callable[[], None] | None = None
+
+    def _check_write(self) -> None:
+        if self.before_write:
+            self.before_write()
 
     def _get(self, key: str) -> tuple[bytes, str] | None:
         return self.store.get(key)
@@ -338,6 +343,7 @@ class StateManager:
         found = self._get(key)
         if found is None or _validate_generation(found[0], candidate.generation) != candidate:
             raise StateError("发布前代次清单已改变")
+        self._check_write()
         data = json.dumps({"generation": candidate.generation}).encode()
         try:
             if etag is None:
@@ -354,6 +360,7 @@ class StateManager:
     def _upload(self, key: str, data: bytes, existing: set[str]) -> None:
         if key in existing:
             return
+        self._check_write()
         try:
             self.store.put_if_absent(key, data)
         except PreconditionFailed:
@@ -373,6 +380,7 @@ class StateManager:
             raise StateError("状态推送失败") from None
 
     def _push(self) -> StateGeneration:
+        self._check_write()
         if not self.data_dir.is_dir():
             raise StateError("数据目录不存在")
         number, etag = self._current()
@@ -436,6 +444,7 @@ class StateManager:
                 writer=self.writer, stores=stores, raw_prefix="raw", vector_coverage=None, last_successful_runs=runs,
             )
             # Never overwrite a conflicting manifest or jump over its number.
+            self._check_write()
             self.store.put_if_absent(f"generations/{number + 1}.json", candidate.model_dump_json().encode())
             self._publish(candidate, etag)
             return candidate

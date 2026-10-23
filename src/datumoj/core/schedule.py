@@ -10,12 +10,13 @@ import subprocess
 import tempfile
 import uuid
 from collections.abc import Callable, Iterable, Iterator
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from datumoj.core.contracts import Manifest, SourceSpec
+from datumoj.core.lease import LeaseManager, remote_configured
 from datumoj.core.monitor import evaluate_alerts
 
 try:
@@ -262,7 +263,33 @@ class Scheduler:
             os.fsync(stream.fileno())
 
     def _last(self, source_id: str) -> dict[str, Any] | None:
-        return next((row for row in reversed(self._history()) if row["source_id"] == source_id), None)
+        return self._last_attempt(self._history(), source_id)
+
+    @staticmethod
+    def _last_attempt(history: list[dict[str, Any]], source_id: str) -> dict[str, Any] | None:
+        return next((row for row in reversed(history) if row["source_id"] == source_id
+                     and row.get("reason_code") != "write_lease_unavailable"), None)
+
+    def due(self) -> list[str]:
+        """Enabled, due source IDs using the same ledger and next_due as tick."""
+        control = read_control(self.data_dir)
+        history = self._history()
+        now = self.now()
+        result = []
+        for spec in self.sources.values():
+            if not control["enabled"] or not control["sources"].get(spec.id, {}).get("enabled", False):
+                continue
+            last = self._last_attempt(history, spec.id)
+            due = next_due(spec.schedule, datetime.fromisoformat(last["started_at"]) if last else None, now)
+            if due is not None and due <= now:
+                result.append(spec.id)
+        return sorted(result)
+
+    def _remote_lease(self) -> LeaseManager:
+        from datumoj.core.state_s3 import S3StateObjectStore
+        from datumoj.core.storage import load_storage_config
+
+        return LeaseManager(S3StateObjectStore(load_storage_config(data_dir=self.data_dir)), now=self.now)
 
     def status(self) -> dict[str, Any]:
         control = read_control(self.data_dir)
@@ -275,7 +302,7 @@ class Scheduler:
         history = self._logical_history(history, locked_sources)
         rows = []
         for spec in self.sources.values():
-            last = next((row for row in reversed(history) if row["source_id"] == spec.id), None)
+            last = self._last_attempt(history, spec.id)
             due = next_due(spec.schedule, datetime.fromisoformat(last["started_at"]) if last else None, now)
             running = locked_sources[spec.id]
             enabled = control["sources"].get(spec.id, {}).get("enabled", False)
@@ -304,7 +331,8 @@ class Scheduler:
         def skip(reason: str) -> dict[str, Any]:
             return {"source_id": source_id, "status": "skipped", "reason": reason}
 
-        with _locked(self._lock_path(source_id), blocking=False) as lock:
+        with ExitStack() as stack:
+            lock = stack.enter_context(_locked(self._lock_path(source_id), blocking=False))
             if lock is None:
                 return skip("正在运行")
             # 不要删除锁文件，否则等待者可能锁住不同文件。
@@ -322,6 +350,27 @@ class Scheduler:
                     return skip("不自动运行")
                 if due > started:
                     return skip("尚未到期")
+            check_lease = None
+            remote = remote_configured()
+            if remote:
+                try:
+                    manager = self._remote_lease()
+                    lease = manager.acquire(f"local/{uuid.uuid4().hex}")
+
+                    def release() -> None:
+                        try:
+                            manager.release(lease.holder, lease.token)
+                        except Exception:
+                            pass  # Never delete a successor's lease or expose SDK details.
+
+                    stack.callback(release)
+                    check_lease = stack.enter_context(manager.maintain(lease))
+                except Exception:
+                    result = {**skip("远端写入租约不可用，本轮跳过"),
+                              "reason_code": "write_lease_unavailable", "exit_status": 0,
+                              "started_at": started.isoformat()}
+                    self._append(result)
+                    return result
             lock.seek(0)
             lock.truncate()
             json.dump({"pid": os.getpid(), "started_at": started.isoformat()}, lock)
@@ -334,11 +383,16 @@ class Scheduler:
             }
             self._append(record)
             try:
+                if check_lease:
+                    check_lease()
                 report = self.execute(spec)
+                if check_lease:
+                    check_lease()
                 record.update(new=report.new, unchanged=report.unchanged, failures=report.failures,
                               stop_reason=report.stop_reason, exit_status=1 if report.failures else 0)
             except Exception as exc:  # noqa: BLE001 - Persist failures at the crawl boundary, then continue the tick.
-                record.update(failures={type(exc).__name__: 1}, stop_reason=str(exc), exit_status=1)
+                reason = "远端租约或运行失败，本轮停止" if remote else str(exc)
+                record.update(failures={type(exc).__name__: 1}, stop_reason=reason, exit_status=1)
             record["ended_at"] = self.now().isoformat()
             record["status"] = "completed"
             record["state"] = "final"
