@@ -47,8 +47,9 @@ max_attempts: 2
 5. 故障注入测试：上传副本中途失败、写清单失败、切换指针时被另一个写入者抢先，三种情况下当前有效代次都不变，下一次推送能正常完成；恢复时副本被篡改（SHA 不符）则报错、不产出可用目录。
 6. 往返集成测试 `tests/integration/test_state_roundtrip.py`：用合成来源跑一遍抓取、解析、建关键词索引，推送；在另一个空目录恢复；恢复后 `search`、`cite`、`query_sql` 的结果与原目录一致；再改动一个来源推送第二代，断言第二次只上传了变化的对象。
 7. （固定要求）集成测试**不能写入仓库里受 git 跟踪的路径**（包括 `results/`）：证据默认写到临时目录，只有设置了环境变量 `DATUMOJ_EVIDENCE_DIR` 时才写到该目录（参考 `tests/integration/test_law_e2e.py` 的写法）。
-8. 测试断言：命令输出和日志里不出现测试用的凭证值、endpoint 和 bucket 名。
-9. 全部已有测试（`make check T=tests`）必须仍然通过。
+8. （2026-10-23 第 1 版审查后补充，人定打回）**传输量要求**：本机现有 raw 约 4.7 GB、13,000 个对象，Actions 每小时运行一次，推送和恢复都不能按全量传输。（a）判断远端是否已有：每次推送对 `copies/sha256/` 和 raw 前缀各做一次 `list`（分页），按键集合判断，**不得为判断存在而 `get` 下载对象内容**；内容寻址的键存在即视为该内容已在（写入时已校验）。（b）上传后不整份读回校验：用服务端校验（S3 的 `ChecksumSHA256` 或 Content-MD5，moto 支持的那种）保证写入字节正确；`put_if_absent` 冲突时同理只按键判断，不下载。（c）推送不再把全部 raw 复制到临时目录：raw 是不可变的内容寻址文件，只对远端没有的 blob 从本机目录读出、校验哈希后上传；manifest 引用但本机和远端都没有的 raw 才报错。（d）恢复加 `raw` 模式：`restore(target, generation=None, *, raw="local" | "remote")`，CLI `--raw local|remote`，默认 `local`（行为同现在）；`remote` 时不下载 raw，只用一次 `list` 核对 manifest 引用的 raw 都在远端，恢复出的目录配置为从 R2 读 raw（沿用 `S3RawStore`），校验时不读 raw 内容；云端运行（105）用 `remote`。（e）测试用计数的假存储断言：第二次推送（无变化）不调用任何内容下载，只有 `list`；只改一个来源时只上传变化的对象且不下载；`remote` 恢复不下载 raw；raw 缺失时 `remote` 恢复报错。
+9. 测试断言：命令输出和日志里不出现测试用的凭证值、endpoint 和 bucket 名。
+10. 全部已有测试（`make check T=tests`）必须仍然通过。
 
 # 不做
 - 不做向量上传（103）。
