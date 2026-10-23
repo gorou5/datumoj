@@ -25,7 +25,7 @@ max_attempts: 2
 云端运行的整条链在离线环境里跑通并有证据：两轮 `cloud run` 各发布一个代次，本机 `pull` 后 MCP 的检索、引用、`query_sql` 与云端工作目录一致，提醒和周报正常；人按 H0 / H3 在真实 R2 和 Actions 上照做一遍并记录。
 
 # 背景
-开发线：集成。MAPLE 检查点 m1（计划第 3 节目标 1–3）。真实运行（建 bucket、放 secrets 和 variables、首次迁移：本机数据副本 replay 到新目录、建全量向量、作为第 1 代上传、在 Actions 上手动触发一次、确认日本站点可访问）由人做，结果记到 `docs/acceptance/v0.3.0-maple-m1.md`。只允许改接线、CLI、MCP 说明文字和新的集成测试。
+开发线：集成。MAPLE 检查点 m1（计划第 3 节目标 1–3）。真实运行（建 bucket、放 secrets（endpoint、bucket 也放 secrets，不放 variables，因为 variables 会在公开日志里明文显示）、首次迁移：本机数据副本 replay 到新目录、建全量向量、作为第 1 代上传、在 Actions 上手动触发一次、确认日本站点可访问）由人做，结果记到 `docs/acceptance/v0.3.0-maple-m1.md`。只允许改接线、CLI、MCP 说明文字和新的集成测试。
 
 计划见 `docs/plans/0.3-maple.md`（第 6.1–6.5 节是云端运行的设计，总计划 `docs/PLAN.md`）。本版本在 `feature/0.3` 分支上开发：任务分支从它拉出，合并回它。检查点 m0（证据正确性）已完成。
 - **只依赖契约**：数据模型在 `src/datumoj/core/models.py`，接口协议在 `src/datumoj/core/contracts.py`，假实现和契约测试在 `src/datumoj/testing/`。存储边界见 `docs/adr/0002-network-storage.md`，证据身份见 `docs/adr/0004-evidence-identity.md`，状态代次见 `docs/adr/0005-state-generations.md`（由 MAPLE-001 写出）。除契约外，只能 import 已有模块和本任务 `depends_on` 里已合并任务的模块。
@@ -39,7 +39,7 @@ max_attempts: 2
 
 # 要求
 1. 集成测试 `tests/integration/test_maple_m1.py`（moto，合成来源，含向量用假嵌入）：第一轮 `cloud run` 从空状态发布第 1 代；推进时间后第二轮只跑到期来源并发布第 2 代，第二轮上传量明显小于第一轮；本机 `pull` 后用 MCP 工具（`search_docs`、`cite`、`query_sql`、`version`）回答，与云端工作目录一致，`version` 报第 2 代；租约被本机占用时云端那一轮跳过；中途注入失败的一轮不改变有效代次；停掉一轮后出现云端缺口提醒；周报对象已写。
-2. summary 写给人的真实运行清单：H0 要建的 bucket、secrets、variables 的名字（不写值），H3 首次迁移的命令顺序（`diagnose evidence` → `replay --vectors` → 比对 → `state push`），第一次手动触发工作流后要核对的项目，以及本机只读 token 的用法。
+2. summary 写给人的真实运行清单：H0 要建的 bucket 和各 secrets 的名字（不写值；endpoint、bucket 也是 secrets），H3 首次迁移的命令顺序（`diagnose evidence` → `replay --vectors` → 比对 → `state push`），第一次手动触发工作流后要核对的项目，以及本机只读 token 的用法。
 3. （固定要求）集成测试**不能写入仓库里受 git 跟踪的路径**（包括 `results/`）：证据默认写到临时目录，只有设置了环境变量 `DATUMOJ_EVIDENCE_DIR` 时才写到该目录（参考 `tests/integration/test_law_e2e.py` 的写法）。
 4. 全部已有测试（`make check T=tests`）必须仍然通过。
 
