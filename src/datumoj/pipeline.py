@@ -36,7 +36,7 @@ from datumoj.core.contracts import (
 )
 from datumoj.changes import detect
 from datumoj.core.models import (
-    ChangeEvent, ChangeKind, FetchOutcome, Observation, Snapshot, classify_failure, classify_parse_failure,
+    ChangeEvent, ChangeKind, FetchOutcome, Observation, PublishState, Snapshot, classify_failure, classify_parse_failure,
     parse_context_fingerprint,
 )
 
@@ -85,15 +85,18 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
     """解析或复用上下文产物；每个成功快照都按持久化顺序尝试发布。"""
     parsers = deps.parsers if deps.parsers is not None else discover_parsers()
     specs = deps.registry.all()
+    summary = ParseSummary()
+    recovering = _recover_staged(deps, parsers, {s.id: s.kind for s in specs}, summary)
     if source_id is not None:
         specs = [s for s in specs if s.id == source_id]
         if not specs:
             raise ValueError(f"注册表里没有来源 {source_id!r}")
-    summary = ParseSummary()
     for spec in specs:
         snapshots = deps.manifest.snapshots_for(spec.id)
         for snap in snapshots:
             if snap.outcome is not FetchOutcome.ok or snap.sha256 is None:
+                continue
+            if snap.snapshot_id in recovering:
                 continue
             meta = deps.manifest.snapshot_meta(snap.snapshot_id)
             fingerprint = parse_context_fingerprint(snap, meta)
@@ -112,6 +115,7 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
             if previous is not None:
                 summary.skipped += 1
             is_retry = previous is not None and previous.status is ParseStatus.failed
+            staged = False
             try:
                 reusable = (
                     previous is not None and previous.status is ParseStatus.ok and previous.doc_keys is not None
@@ -119,25 +123,41 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
                             and deps.chunks.get_document(key, snap.sha256) is not None for key in previous.doc_keys)
                 )
                 if reusable:
-                    vector_errors = []
-                    for key in previous.doc_keys:
-                        vector_errors.extend(_publish_document(deps, key, snap))
+                    doc_keys, events = previous.doc_keys, {}
                 else:
-                    doc_keys, vector_errors = _process(deps, cls(), snap)
-            except Exception as exc:  # 一个坏快照不影响其他
-                reason = f"{type(exc).__name__}: {exc}"
-                deps.manifest.record_parse(ParseRecord(
-                    sha256=snap.sha256, parser=cls.name, version=cls.version, status=ParseStatus.failed, error=reason,
-                    context_fingerprint=fingerprint,
-                ))
-                summary.failed[snap.snapshot_id] = reason
-                _record_parse_failure(deps, snap, reason)
-            else:
-                if not reusable:
+                    doc_keys, events = _process(deps, cls(), snap)
+                    # 恢复扫描必须能在发布前从解析记录定位全部产物。
                     deps.manifest.record_parse(ParseRecord(
                         sha256=snap.sha256, parser=cls.name, version=cls.version, status=ParseStatus.ok,
                         context_fingerprint=fingerprint, doc_keys=doc_keys,
                     ))
+                staged = True
+                needs_publish = not reusable or deps.manifest.publish_state(snap.snapshot_id) is not PublishState.published
+                if needs_publish:
+                    deps.manifest.record_publish_state(snap.snapshot_id, PublishState.staged)
+                vector_errors = []
+                for key in doc_keys:
+                    vector_errors.extend(_publish_document(deps, key, snap, rewritten=not reusable, event=events.get(key)))
+                if needs_publish:
+                    deps.manifest.record_publish_state(snap.snapshot_id, PublishState.published)
+            except Exception as exc:  # 一个坏快照不影响其他
+                reason = f"{type(exc).__name__}: {exc}"
+                current_written = staged and any(
+                    (current := deps.chunks.get_document(key)) is not None and current.snapshot_sha256 == snap.sha256
+                    for key in doc_keys
+                )
+                if not current_written:
+                    deps.manifest.record_parse(ParseRecord(
+                        sha256=snap.sha256, parser=cls.name, version=cls.version, status=ParseStatus.failed, error=reason,
+                        context_fingerprint=fingerprint,
+                    ))
+                deps.manifest.record_publish_state(
+                    snap.snapshot_id, PublishState.staged if current_written else PublishState.failed, reason,
+                )
+                summary.failed[snap.snapshot_id] = reason
+                _record_parse_failure(deps, snap, reason)
+            else:
+                if not reusable:
                     summary.parsed.append(snap.snapshot_id)
                     (summary.retried if is_retry else summary.newly_parsed).append(snap.snapshot_id)
                 if vector_errors:
@@ -148,6 +168,43 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
             except Exception:
                 _LOG.warning("抓取变化检测失败：%s", spec.id, exc_info=True)
     return summary
+
+
+def _recover_staged(
+    deps: PipelineDeps, parsers: Mapping, kinds: Mapping[str, str], summary: ParseSummary,
+) -> set[str]:
+    """只按 staged 的主键与解析产物恢复，不读取快照历史或 chunk 全表。"""
+    pending: set[str] = set()
+    for snapshot_id in deps.manifest.snapshots_in_publish_state(PublishState.staged):
+        pending.add(snapshot_id)
+        try:
+            snap = deps.manifest.get_snapshot(snapshot_id)
+            if snap is None or snap.sha256 is None or snap.source_id not in kinds:
+                raise ValueError(f"无法恢复快照：{snapshot_id}")
+            fingerprint = parse_context_fingerprint(snap, deps.manifest.snapshot_meta(snapshot_id))
+            cls = select_parser(parsers, kinds[snap.source_id], snap.content_type)
+            record = None if cls is None else deps.manifest.get_parse(snap.sha256, cls.name, cls.version, fingerprint)
+            if record is None or record.doc_keys is None:
+                raise ValueError(f"缺少恢复用解析记录：{snapshot_id}")
+            for key in record.doc_keys:
+                current = deps.chunks.get_document(key)
+                if current is None or current.snapshot_sha256 != snap.sha256:
+                    continue
+                chunks = deps.chunks.chunks_for(key)
+                deps.keyword.delete(key)
+                deps.keyword.add(chunks)
+                if deps.vectors is not None and key in _load_vector_state(deps)["missing"]:
+                    error = _write_vector_document(deps, key, chunks, snapshot_id)
+                    if error:
+                        summary.vectors_missing[snapshot_id] = error
+            deps.manifest.record_publish_state(snapshot_id, PublishState.published)
+            pending.remove(snapshot_id)
+        except Exception as exc:
+            reason = f"{type(exc).__name__}: {exc}"
+            summary.failed[snapshot_id] = reason
+            deps.manifest.record_publish_state(snapshot_id, PublishState.staged, reason)
+            _LOG.warning("发布恢复失败：%s", snapshot_id, exc_info=True)
+    return pending
 
 
 def _record_parse_failure(deps: PipelineDeps, snap: Snapshot, reason: str) -> None:
@@ -213,13 +270,13 @@ def _record_fetch_changes(deps: PipelineDeps, snapshots: list[Snapshot]) -> None
         deps.change_log.append(events)
 
 
-def _process(deps: PipelineDeps, parser: Parser, snap: Snapshot) -> tuple[list[str], list[str]]:
+def _process(deps: PipelineDeps, parser: Parser, snap: Snapshot) -> tuple[list[str], dict[str, ChangeEvent]]:
     assert snap.sha256 is not None
     data = deps.raw.get(snap.sha256)
     meta = deps.manifest.snapshot_meta(snap.snapshot_id)
     result = parser.parse(snap, data, meta)
     result.check_against(snap)
-    vector_errors = _dispatch(deps, result, snap)
+    events = _dispatch(deps, result, snap)
     state = ContentState.observations_loaded if result.observations else ContentState.content_fetched
     dataset_keys = {resource.dataset_key for resource in result.resources if resource.url == snap.resource_url}
     dataset_id = meta.get("dataset_id")
@@ -230,11 +287,11 @@ def _process(deps: PipelineDeps, parser: Parser, snap: Snapshot) -> tuple[list[s
         matched = _promote_catalog_content_state(deps, dataset_key, snap.resource_url, state) or matched
     if not matched:
         _promote_catalog_content_state_for_url(deps, snap.source_id, snap.resource_url, state)
-    return [doc.doc_key for doc in result.documents], vector_errors
+    return [doc.doc_key for doc in result.documents], events
 
 
-def _dispatch(deps: PipelineDeps, result: ParseResult, snap: Snapshot) -> list[str]:
-    vector_errors: list[str] = []
+def _dispatch(deps: PipelineDeps, result: ParseResult, snap: Snapshot) -> dict[str, ChangeEvent]:
+    events: dict[str, ChangeEvent] = {}
     if result.datasets or result.resources:
         deps.catalog.upsert(result.datasets, result.resources)
         for resource in result.resources:
@@ -242,6 +299,12 @@ def _dispatch(deps: PipelineDeps, result: ParseResult, snap: Snapshot) -> list[s
                 _promote_catalog_content_state(
                     deps, resource.dataset_key, resource.url, ContentState.content_fetched
                 )
+    # 必需的观测值先写完；任何失败都不能推进文档 current。
+    tables: dict[tuple[str, str], list[Observation]] = defaultdict(list)
+    for o in result.observations:
+        tables[(o.source_id, o.table_key)].append(o)
+    for (src, table), obs in tables.items():
+        deps.observations.write_table(src, table, obs)
     by_doc = defaultdict(list)
     for c in result.chunks:
         by_doc[c.doc_key].append(c)
@@ -251,11 +314,8 @@ def _dispatch(deps: PipelineDeps, result: ParseResult, snap: Snapshot) -> list[s
         old_doc, old_text = None, ""
         if compare:
             try:
-                # 重试或解析器升级可能重放旧快照；已写过的版本不生成反向变化。
-                compare = deps.chunks.get_document(doc.doc_key, doc.snapshot_sha256) is None
-                if compare:
-                    old_doc = deps.chunks.get_document(doc.doc_key)
-                    old_text = "\n".join(c.text for c in deps.chunks.chunks_for(doc.doc_key))
+                old_doc = deps.chunks.get_document(doc.doc_key)
+                old_text = "\n".join(c.text for c in deps.chunks.chunks_for(doc.doc_key))
             except Exception:
                 compare = False
                 _LOG.warning("读取旧文档供变化检测失败：%s", doc.doc_key, exc_info=True)
@@ -264,29 +324,35 @@ def _dispatch(deps: PipelineDeps, result: ParseResult, snap: Snapshot) -> list[s
             try:
                 event = detect(old_doc, old_text, doc, "\n".join(c.text for c in chunks), detected_at=datetime.now(UTC))
                 if event is not None:
-                    deps.change_log.append([ChangeEvent.make(
+                    events[doc.doc_key] = ChangeEvent.make(
                         **event.model_dump(exclude={"event_id", "resource_url"}), resource_url=snap.resource_url,
-                    )])
+                    )
             except Exception:
                 _LOG.warning("文档变化检测失败：%s", doc.doc_key, exc_info=True)
-        vector_errors.extend(_publish_document(deps, doc.doc_key, snap, rewritten=True))
-    tables: dict[tuple[str, str], list[Observation]] = defaultdict(list)
-    for o in result.observations:
-        tables[(o.source_id, o.table_key)].append(o)
-    for (src, table), obs in tables.items():
-        deps.observations.write_table(src, table, obs)
-    return vector_errors
+    return events
 
 
-def _publish_document(deps: PipelineDeps, doc_key: str, snap: Snapshot, *, rewritten: bool = False) -> list[str]:
+def _publish_document(
+    deps: PipelineDeps, doc_key: str, snap: Snapshot, *, rewritten: bool = False, event: ChangeEvent | None = None,
+) -> list[str]:
     order = deps.manifest.snapshot_order(snap.snapshot_id)
     if order is None:
         raise ValueError(f"没有快照顺序：{snap.snapshot_id}")
     published = deps.chunks.publish_current(doc_key, snap.sha256, order)
     # 重写同一版本槽位后，即使水位相等也要修复索引；较旧快照不能覆盖较新的索引。
-    if not published and not (rewritten and deps.chunks.current_order(doc_key) == order):
-        return []
+    if not published:
+        current = deps.chunks.get_document(doc_key)
+        if not (rewritten and current is not None and current.snapshot_sha256 == snap.sha256):
+            return []
+    if published and event is not None:
+        try:
+            deps.change_log.append([event])
+        except Exception:
+            _LOG.warning("文档变化写入失败：%s", doc_key, exc_info=True)
     chunks = deps.chunks.chunks_for(doc_key, snap.sha256)
+    if deps.vectors is not None:
+        # 关键词中断或进程退出后，恢复扫描也能定位尚未写完的可选向量。
+        _mark_vector_missing(deps, _load_vector_state(deps), doc_key, chunks, "发布后待写入向量", snap.snapshot_id)
     deps.keyword.delete(doc_key)
     deps.keyword.add(chunks)
     if deps.vectors is not None:

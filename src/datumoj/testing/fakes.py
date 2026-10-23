@@ -75,6 +75,7 @@ from datumoj.core.models import (
     Hit,
     MatchedBy,
     Observation,
+    PublishState,
     Resource,
     Snapshot,
     SnapshotOrder,
@@ -178,6 +179,9 @@ class FakeManifest:
         self._meta: dict[str, dict[str, JsonValue]] = {}
         self._parse: dict[tuple[str, str, str, str], ParseRecord] = {}
         self._writers: dict[tuple[str, str], str] = {}
+        self._by_id: dict[str, Snapshot] = {}
+        self._publish: dict[str, tuple[PublishState, str | None]] = {}
+        self._publish_ids: dict[PublishState, set[str]] = {state: set() for state in PublishState}
 
     def record_snapshot(self, snapshot: Snapshot, meta: Mapping[str, JsonValue] | None = None) -> None:
         if snapshot.snapshot_id in self._meta:
@@ -185,6 +189,27 @@ class FakeManifest:
         checked = _JSON_DICT.validate_python(dict(meta or {}))
         self._meta[snapshot.snapshot_id] = json.loads(json.dumps(checked))
         self._snaps.append(snapshot)
+        self._by_id[snapshot.snapshot_id] = snapshot
+
+    def get_snapshot(self, snapshot_id: str) -> Snapshot | None:
+        return self._by_id.get(snapshot_id)
+
+    def record_publish_state(self, snapshot_id: str, state: PublishState, error: str | None = None) -> None:
+        state = PublishState(state)
+        if snapshot_id not in self._by_id:
+            raise NotFoundError(f"没有快照 {snapshot_id}")
+        previous = self.publish_state(snapshot_id)
+        if previous is not None:
+            self._publish_ids[previous].discard(snapshot_id)
+        self._publish[snapshot_id] = (state, error)
+        self._publish_ids[state].add(snapshot_id)
+
+    def publish_state(self, snapshot_id: str) -> PublishState | None:
+        record = self._publish.get(snapshot_id)
+        return None if record is None else record[0]
+
+    def snapshots_in_publish_state(self, state: PublishState) -> list[str]:
+        return list(self._publish_ids[PublishState(state)])
 
     def snapshot_meta(self, snapshot_id: str) -> dict[str, JsonValue]:
         if snapshot_id not in self._meta:

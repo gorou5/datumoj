@@ -1,7 +1,7 @@
 """抓取记录库（SQLite）：实现 ``datumoj.core.contracts.Manifest``。
 
 每次抓取（含失败的）原样记一行；解析状态另放一张表。写入都在 ``BEGIN IMMEDIATE`` 事务里，
-多个连接同时写会排队（等锁超时见 ``timeout``）。schema 版本记在 ``schema_version`` 表里，v1/v2 原子迁移到 v3，未知版本报错。
+多个连接同时写会排队（等锁超时见 ``timeout``）。schema 版本记在 ``schema_version`` 表里，v1–v3 原子迁移到 v4，未知版本报错。
 """
 
 from __future__ import annotations
@@ -24,9 +24,9 @@ from datumoj.core.contracts import (
     ParseStatus,
     SchemaVersionError,
 )
-from datumoj.core.models import FetchOutcome, Freshness, Snapshot, SnapshotOrder, parse_context_fingerprint, redact_url
+from datumoj.core.models import FetchOutcome, Freshness, PublishState, Snapshot, SnapshotOrder, parse_context_fingerprint, redact_url
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 _SUCCESS = {FetchOutcome.ok, FetchOutcome.not_modified}
 _JSON_DICT = TypeAdapter(dict[str, JsonValue])
 
@@ -62,6 +62,12 @@ CREATE TABLE parse_writers (
     context_fingerprint TEXT NOT NULL,
     PRIMARY KEY (doc_key, sha256)
 );
+CREATE TABLE publish_states (
+    snapshot_id TEXT PRIMARY KEY,
+    state TEXT NOT NULL,
+    error TEXT
+);
+CREATE INDEX publish_states_state ON publish_states (state, snapshot_id);
 """
 
 
@@ -119,6 +125,9 @@ class SqliteManifest:
                 db.execute("ALTER TABLE parsed ADD COLUMN doc_keys TEXT")
                 db.execute("CREATE TABLE parse_writers (doc_key TEXT NOT NULL, sha256 TEXT NOT NULL, "
                            "context_fingerprint TEXT NOT NULL, PRIMARY KEY (doc_key, sha256))")
+            if row is not None and row[0] in (1, 2, 3):
+                db.execute("CREATE TABLE publish_states (snapshot_id TEXT PRIMARY KEY, state TEXT NOT NULL, error TEXT)")
+                db.execute("CREATE INDEX publish_states_state ON publish_states (state, snapshot_id)")
                 db.execute("UPDATE schema_version SET version=?", (SCHEMA_VERSION,))
                 return
             if row is None or row[0] != SCHEMA_VERSION:
@@ -150,6 +159,24 @@ class SqliteManifest:
     def snapshot_order(self, snapshot_id: str) -> SnapshotOrder | None:
         row = self._db.execute("SELECT fetched_at, seq FROM snapshots WHERE snapshot_id=?", (snapshot_id,)).fetchone()
         return None if row is None else SnapshotOrder(fetched_at=_from_ts(row[0]), seq=row[1])
+
+    def get_snapshot(self, snapshot_id: str) -> Snapshot | None:
+        row = self._db.execute("SELECT snapshot FROM snapshots WHERE snapshot_id=?", (snapshot_id,)).fetchone()
+        return None if row is None else Snapshot.model_validate_json(row[0])
+
+    def record_publish_state(self, snapshot_id: str, state: PublishState, error: str | None = None) -> None:
+        state = PublishState(state)
+        with self._tx() as db:
+            if db.execute("SELECT 1 FROM snapshots WHERE snapshot_id=?", (snapshot_id,)).fetchone() is None:
+                raise NotFoundError(f"没有快照 {snapshot_id}")
+            db.execute("INSERT OR REPLACE INTO publish_states VALUES (?,?,?)", (snapshot_id, state.value, error))
+
+    def publish_state(self, snapshot_id: str) -> PublishState | None:
+        row = self._db.execute("SELECT state FROM publish_states WHERE snapshot_id=?", (snapshot_id,)).fetchone()
+        return None if row is None else PublishState(row[0])
+
+    def snapshots_in_publish_state(self, state: PublishState) -> list[str]:
+        return [r[0] for r in self._db.execute("SELECT snapshot_id FROM publish_states WHERE state=?", (PublishState(state).value,))]
 
     def _query(self, where: str, args: Iterable[object] = (), tail: str = "") -> list[Snapshot]:
         rows = self._db.execute(

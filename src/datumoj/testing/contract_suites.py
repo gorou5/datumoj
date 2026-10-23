@@ -69,6 +69,7 @@ from datumoj.core.models import (
     GapState,
     LicenseInfo,
     ObservationRef,
+    PublishState,
     Redistribution,
     SnapshotOrder,
     SourceText,
@@ -345,6 +346,39 @@ class ManifestSuite:
         assert old < new < tie
         assert new.fetched_at == T0 + H
         assert new.seq < old.seq < tie.seq
+
+    def test_get_snapshot_by_id(self, manifest):
+        assert manifest.get_snapshot("missing") is None
+        snaps = [make_snapshot(snapshot_id="older"), make_snapshot(snapshot_id="newer", fetched_at=T0 + H),
+                 make_snapshot(snapshot_id="failed", outcome=FetchOutcome.network_error)]
+        for snap in snaps:
+            manifest.record_snapshot(snap)
+        for snap in snaps:
+            assert manifest.get_snapshot(snap.snapshot_id) == snap
+
+    def test_publish_state_is_per_snapshot_and_queryable(self, manifest):
+        assert manifest.publish_state("missing") is None
+        assert manifest.snapshots_in_publish_state(PublishState.staged) == []
+        for sid in ("a", "b", "legacy"):
+            manifest.record_snapshot(make_snapshot(snapshot_id=sid))
+            assert manifest.publish_state(sid) is None
+        manifest.record_publish_state("a", PublishState.staged)
+        manifest.record_publish_state("b", PublishState.failed, "write failed")
+        assert manifest.publish_state("a") is PublishState.staged
+        assert manifest.publish_state("b") is PublishState.failed
+        assert manifest.snapshots_in_publish_state(PublishState.staged) == ["a"]
+        assert manifest.snapshots_in_publish_state(PublishState.failed) == ["b"]
+        manifest.record_publish_state("b", PublishState.staged)
+        assert set(manifest.snapshots_in_publish_state(PublishState.staged)) == {"a", "b"}
+        assert manifest.snapshots_in_publish_state(PublishState.failed) == []
+        manifest.record_publish_state("a", PublishState.published)
+        assert manifest.snapshots_in_publish_state(PublishState.staged) == ["b"]
+        assert manifest.snapshots_in_publish_state(PublishState.published) == ["a"]
+        assert manifest.publish_state("legacy") is None
+        with pytest.raises(NotFoundError):
+            manifest.record_publish_state("missing", PublishState.staged)
+        with pytest.raises(ValueError):
+            manifest.record_publish_state("a", "invalid")
 
     def test_parse_context_is_part_of_key(self, manifest):
         snap = make_snapshot(snapshot_id="one")

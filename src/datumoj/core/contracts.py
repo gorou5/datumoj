@@ -44,6 +44,7 @@ from datumoj.core.models import (
     LicenseInfo,
     Observation,
     Period,
+    PublishState,
     RedactedUrl,
     Resource,
     Sha256,
@@ -294,6 +295,22 @@ class Manifest(Protocol):
 
     def snapshot_order(self, snapshot_id: str) -> SnapshotOrder | None:
         """记录的 fetched_at + 持久化写入序号；未知快照返回 None。"""
+        ...
+
+    def get_snapshot(self, snapshot_id: str) -> Snapshot | None:
+        """按唯一 snapshot_id 取一次观察；未知返回 None，不扫描来源历史。"""
+        ...
+
+    def record_publish_state(self, snapshot_id: str, state: PublishState, error: str | None = None) -> None:
+        """保存快照发布状态及最近错误；覆盖时清除旧错误。未知快照抛 NotFoundError。"""
+        ...
+
+    def publish_state(self, snapshot_id: str) -> PublishState | None:
+        """未记录发布状态（包括迁移来的快照）或未知快照返回 None。"""
+        ...
+
+    def snapshots_in_publish_state(self, state: PublishState) -> list[str]:
+        """只查询该状态的 snapshot_id，用于有界恢复；顺序未指定。"""
         ...
 
     def latest_snapshot(self, resource_url: str) -> Snapshot | None:
