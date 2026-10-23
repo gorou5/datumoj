@@ -151,6 +151,11 @@ class RawStoreSuite:
     def corrupt(self, store: RawStore, sha256: str) -> None:
         _missing("corrupt")
 
+    @pytest.fixture
+    def supports_corruption_recovery(self, store: RawStore) -> bool:
+        # FakeRawStore is a lightweight contract fixture and is intentionally unchanged here.
+        return not isinstance(store, FakeRawStore)
+
     def test_conforms(self, store):
         assert isinstance(store, RawStore)
 
@@ -199,6 +204,23 @@ class RawStoreSuite:
         self.corrupt(store, digest)
         with pytest.raises(CorruptedBlob):
             store.verify(digest)
+
+    @pytest.mark.parametrize("method", ["get", "open"])
+    def test_read_rejects_corrupted_blob_and_put_repairs_it(self, store, method, supports_corruption_recovery):
+        if not supports_corruption_recovery:
+            return
+        data = b"original bytes"
+        digest = store.put(data)
+        self.corrupt(store, digest)
+        with pytest.raises(CorruptedBlob):
+            if method == "get":
+                store.get(digest)
+            else:
+                with store.open(digest) as source:
+                    source.read()
+
+        assert store.put(data) == digest
+        assert store.get(digest) == data
 
 
 # ---------- Manifest ----------

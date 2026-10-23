@@ -67,15 +67,21 @@ class S3RawStore:
                     digest.update(block)
                     target.write(block)
             sha256 = digest.hexdigest()
-            if not self.exists(sha256):
-                target.seek(0)
+            if self.exists(sha256):
                 try:
-                    self._client.upload_fileobj(
-                        target, self._bucket, self._key(sha256),
-                        Config=TransferConfig(use_threads=False),
-                    )
-                except (BotoCoreError, ClientError):
-                    raise ContractError("S3 上传失败，请检查服务、桶权限和凭证") from None
+                    self.verify(sha256)
+                except (CorruptedBlob, NotFoundError):
+                    pass
+                else:
+                    return sha256
+            target.seek(0)
+            try:
+                self._client.upload_fileobj(
+                    target, self._bucket, self._key(sha256),
+                    Config=TransferConfig(use_threads=False),
+                )
+            except (BotoCoreError, ClientError):
+                raise ContractError("S3 上传失败，请检查服务、桶权限和凭证") from None
             return sha256
 
     def exists(self, sha256: str) -> bool:
