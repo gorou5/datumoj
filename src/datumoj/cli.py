@@ -17,9 +17,10 @@ import typer
 from pydantic import BaseModel
 
 from datumoj import wiring
-from datumoj.analysis.reports import weekly_report
+from datumoj.analysis.reports import previous_week_period, weekly_report
 from datumoj.core import schedule as scheduling
 from datumoj.core.lease import LeaseManager, remote_configured
+from datumoj.core.monitor import attach_cloud_status
 from datumoj.core.models import Citation
 from datumoj.core.pull import data_state
 from datumoj.core.pull import pull as pull_state
@@ -87,12 +88,12 @@ def schedule_options(
         ctx.call_on_close(lambda: _DATA_DIR.reset(token))
 
 
-def _run(feature: str, action: Callable[[Any], Any]) -> None:
+def _run(feature: str, action: Callable[[Any], Any], *, allow_pulled: bool = False) -> None:
     root = _data_dir()
     try:
         with scheduling.workspace_lock(root):
             try:
-                if scheduling.is_pulled_replica(root) and feature not in {"search", "sql", "status"}:
+                if scheduling.is_pulled_replica(root) and feature not in {"search", "sql", "status"} and not allow_pulled:
                     scheduling.ensure_writable(root)
                 deps = _build_wiring(root)
                 deps.require(feature)
@@ -195,7 +196,46 @@ def pull_command(
     generation: int | None = typer.Option(None, "--generation", min=1, help="指定有效历史代次"),
 ) -> None:
     """从远端只读拉取并校验最新有效状态代次。"""
-    _state_call(lambda: pull_state(data_dir if data_dir is not None else _data_dir(), generation))
+    def action() -> dict[str, Any]:
+        root = Path(data_dir if data_dir is not None else _data_dir())
+        with scheduling.workspace_lock(root):
+            result = pull_state(root, generation)
+            marker = root / "state-pull.json"
+            try:
+                record = json.loads(marker.read_text(encoding="utf-8"))
+                if record.get("generation") == result["generation"]:
+                    manager = wiring.build_state(root)
+                    try:
+                        selected = next(
+                            row for row in manager.list()
+                            if row.generation == result["generation"]
+                        )
+                        record["writer"] = selected.writer.model_dump(mode="json")
+                        record["last_successful_runs"] = {
+                            source_id: run.model_dump(mode="json")
+                            for source_id, run in selected.last_successful_runs.items()
+                        }
+                        fd, temporary = tempfile.mkstemp(prefix=".state-pull-", dir=root)
+                        try:
+                            with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                                json.dump(record, stream, ensure_ascii=False)
+                                stream.flush()
+                                os.fsync(stream.fileno())
+                            os.replace(temporary, marker)
+                        finally:
+                            if os.path.exists(temporary):
+                                os.unlink(temporary)
+                    finally:
+                        client = getattr(manager.store, "_client", None)
+                        close = getattr(client, "close", None)
+                        if callable(close):
+                            close()
+            except Exception:
+                # The installed replica remains usable; status falls back to its run ledger.
+                pass
+        return result
+
+    _state_call(action)
 
 
 def _leases() -> LeaseManager:
@@ -451,11 +491,34 @@ def _scheduler_at(
         return deps, scheduler
 
 
+def _monitored_status(scheduler: Any) -> dict[str, Any]:
+    status = scheduler.status()
+    reader = getattr(scheduler, "_read_history", None)
+    history = reader()[0] if callable(reader) else []
+    now = scheduler.now() if callable(getattr(scheduler, "now", None)) else datetime.now(UTC)
+    return attach_cloud_status(
+        status, scheduler.data_dir, scheduler.sources.values(), history, now,
+    )
+
+
+def _pulled_created_at(data_dir: str | Path) -> datetime | None:
+    marker = Path(data_dir) / "state-pull.json"
+    try:
+        if marker.is_symlink():
+            return None
+        value = json.loads(marker.read_text(encoding="utf-8"))
+        created_at = datetime.fromisoformat(value["created_at"])
+        return created_at if created_at.utcoffset() is not None else None
+    except (OSError, UnicodeError, ValueError, KeyError, TypeError):
+        return None
+
+
 @report_app.command("weekly")
 def report_weekly(
     since: str | None = typer.Option(None, "--since", help="开始日期（YYYY-MM-DD）"),
     until: str | None = typer.Option(None, "--until", help="结束日期（YYYY-MM-DD）"),
     out: Path | None = typer.Option(None, "--out", help="报告输出路径"),
+    from_state: bool = typer.Option(False, "--from-state", help="从本机拉取的只读状态重生成上一完整周报"),
 ) -> None:
     """生成带出处的每周变化 Markdown。"""
     def parse_date(value: str | None, name: str) -> date | None:
@@ -473,22 +536,40 @@ def report_weekly(
         if any(item is None for item in (deps.registry, deps.manifest, deps.chunks, deps.change_log)):
             raise wiring.FeatureNotConnected("周报所需的注册表、快照、文档或变化日志尚未接入")
         now = datetime.now(UTC)
-        end_day = parse_date(until, "until") or now.date()
-        start_day = parse_date(since, "since") or (end_day - timedelta(days=6))
+        if from_state:
+            if since is not None or until is not None:
+                raise ValueError("--from-state 不能与 --since/--until 同时使用")
+            if not scheduling.is_pulled_replica(deps.data_dir):
+                raise ValueError("--from-state 需要 datumoj pull 创建的本机副本")
+            now = _pulled_created_at(deps.data_dir)
+            if now is None:
+                raise ValueError("本机副本的代次生成时间无效")
+            start_day, end_day, week_key = previous_week_period(now.date())
+        else:
+            end_day = parse_date(until, "until") or now.date()
+            start_day = parse_date(since, "since") or (end_day - timedelta(days=6))
+            iso_year, iso_week, _ = end_day.isocalendar()
+            week_key = f"{iso_year}-{iso_week:02d}"
         if start_day > end_day:
             raise ValueError("since 不能晚于 until")
         scheduler = scheduling.Scheduler(
-            deps.data_dir, deps.registry.all(), lambda spec: _crawl_report(deps, spec), manifest=deps.manifest,
+            deps.data_dir, deps.registry.all(), lambda spec: _crawl_report(deps, spec),
+            manifest=deps.manifest,
         )
-        status = scheduler.status()
+        if from_state:
+            scheduler.now = lambda: now
+        status = _monitored_status(scheduler)
         alerts = [alert for source in status["sources"] for alert in source["alerts"]]
+        alerts.extend(status.get("cloud_alerts", []))
         content = weekly_report(deps, start_day, end_day, alerts)
-        iso_year, iso_week, _ = end_day.isocalendar()
-        path = out or deps.data_dir / "reports" / f"weekly-{iso_year}-W{iso_week:02d}.md"
+        path = out or (
+            deps.data_dir / "reports" / "weekly" / f"{week_key}.md"
+            if from_state else deps.data_dir / "reports" / f"weekly-{week_key[:4]}-W{week_key[-2:]}.md"
+        )
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
         typer.echo(str(path))
-    _run("report", action)
+    _run("report", action, allow_pulled=from_state)
 
 
 def _schedule_call(action: Callable[[], Any]) -> None:
@@ -507,7 +588,7 @@ def _schedule_call(action: Callable[[], Any]) -> None:
 @schedule_app.command("status")
 def schedule_status() -> None:
     """显示总开关、来源开关、运行记录、下次到期和运行锁（JSON）。"""
-    _schedule_call(lambda: _scheduler().status())
+    _schedule_call(lambda: _monitored_status(_scheduler()))
 
 
 @schedule_app.command("due")

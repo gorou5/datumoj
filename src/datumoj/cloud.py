@@ -11,11 +11,15 @@ import time
 import uuid
 from contextlib import ExitStack, contextmanager, redirect_stderr, redirect_stdout, suppress
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 
 from datumoj import wiring
+from datumoj.analysis.reports import previous_week_period, weekly_report
 from datumoj.core.budget import ParseBudget
+from datumoj.core.contracts import PreconditionFailed
 from datumoj.core.lease import LeaseError, LeaseManager
+from datumoj.core.monitor import _ledger_first_attempts, evaluate_cloud_alerts
 from datumoj.core.models import PublishState
 from datumoj.core.schedule import Scheduler, utcnow, workspace_lock, write_control
 from datumoj.core.state import StateManager, local_write
@@ -104,10 +108,46 @@ def _recover(deps, remaining):
         raise RuntimeError("staged_recovery_failed")
 
 
+def publish_previous_week_report(store, deps, now: datetime, generation=None) -> str:
+    """Publish the previous ISO week's report once, using an immutable key."""
+    report_at = generation.created_at if generation is not None else now
+    start, end, week_key = previous_week_period(report_at.date())
+    object_key = f"reports/weekly/{week_key}.md"
+    if store.get(object_key) is None:
+        scheduler = Scheduler(
+            deps.data_dir, deps.registry.all(), lambda spec: None, manifest=deps.manifest,
+        )
+        scheduler.now = lambda: report_at
+        status = scheduler.status()
+        alerts = [alert for source in status["sources"] for alert in source["alerts"]]
+        if generation is not None:
+            enabled = {
+                row["source_id"] for row in status["sources"] if row.get("effective_enabled")
+            }
+            last_successful = {
+                source_id: {"finished_at": run.finished_at.isoformat()}
+                for source_id, run in generation.last_successful_runs.items()
+            }
+            first_attempts = _ledger_first_attempts(scheduler._read_history()[0])
+            alerts.extend(evaluate_cloud_alerts(
+                deps.registry.all(), enabled, last_successful,
+                generation.created_at, report_at, generation=generation.generation,
+                first_attempts=first_attempts,
+            ))
+        content = weekly_report(deps, start, end, alerts)
+        try:
+            store.put_if_absent(object_key, content.encode("utf-8"))
+        except PreconditionFailed:
+            # Another successful round won the same weekly key.
+            pass
+    return object_key
+
+
 def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: float = 40) -> dict:
     result = {"status": "failed", "exit_status": 1, "generation": None,
               "sources": [], "due": 0, "new": 0, "unchanged": 0, "parsed": 0,
-              "failed_sources": [], "reason": None, "budget_exhausted": False}
+              "failed_sources": [], "reason": None, "budget_exhausted": False,
+              "weekly_report_key": None}
     phase = "configuration"
     manager = leases = lease = deps = None
     started = time.monotonic()
@@ -193,6 +233,11 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
                     generation = manager.push()
                     result["generation"] = generation.generation
                     failed = bool(result["failed_sources"])
+                    if not failed:
+                        phase = "weekly_report"
+                        result["weekly_report_key"] = publish_previous_week_report(
+                            manager.store, deps, utcnow(), generation,
+                        )
                     result.update(status="failed" if failed else "completed", exit_status=int(failed),
                                   reason="source_failed" if failed else None)
         except Exception:
