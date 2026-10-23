@@ -9,9 +9,9 @@ runner: codex
 model: null
 tier: medium
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/core/schedule.py", "src/datumoj/core/monitor.py", "src/datumoj/admin/web.py", "tests/core/test_run_ledger.py", "tests/regressions/test_audit_108.py", "results/DATUMOJ-MAPLE-108/**"]
+scope: ["src/datumoj/core/schedule.py", "src/datumoj/core/monitor.py", "src/datumoj/admin/web.py", "tests/core/test_run_ledger.py", "tests/core/test_schedule.py", "tests/regressions/test_audit_108.py", "results/DATUMOJ-MAPLE-108/**"]
 out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", ".github/**", ".env.example"]
-protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**", "tests/core/test_schedule.py", "tests/core/test_monitor.py", "tests/test_admin.py"]
+protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**", "tests/core/test_monitor.py", "tests/test_admin.py"]
 acceptance:
   automated:
     - cmd: make check T=tests/core/test_run_ledger.py
@@ -48,6 +48,7 @@ max_attempts: 2
 4. 监控：`interrupted` 运行算作失败参与 `consecutive_failures`；running 的不算。
 5. 管理页：后台运行启动失败（线程创建或第一步就抛错）时，页面显示失败和原因（转义），不显示“已开始”。
 6. 新测试 `tests/core/test_run_ledger.py` 覆盖：开始和结束记录、中断判定（锁已释放 / 仍持有）、坏尾行和中间坏行、补换行、旧格式兼容、监控计数、管理页启动失败。`tests/core/test_schedule.py`、`tests/core/test_monitor.py`、`tests/test_admin.py` 必须仍然通过。审核回归测试 `tests/regressions/test_audit_108.py`：用合成数据离线复现审核场景——`runs.jsonl` 最后一行是半截 JSON 时，`Scheduler.status()` 仍能返回并给出告警——断言修好以后的行为，必须通过（不能标 skip / xfail）。全部已有测试（`make check T=tests`）必须仍然通过。
+7. （2026-10-23 第 1 次尝试后补充）`tests/core/test_schedule.py` 的 `test_tick_due_and_run_now_bypasses_due_with_append_only_records` 断言 `runs.jsonl` 正好 4 行、首行与旧格式逐字相同，与“开始写 running、结束写 final”冲突。允许只调整这个测试里关于行数和行内容的断言（按 run_id 配对后，final 记录的原有字段与原断言一致；`last_run` 对应最近一次 final），不改测试的其他意图，在 summary 里说明；该文件其他测试不改。
 
 # 不做
 - 不改运行锁和定时的行为。
