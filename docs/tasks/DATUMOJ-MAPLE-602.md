@@ -9,13 +9,14 @@ runner: codex
 model: null
 tier: low
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/core/monitor.py", "src/datumoj/mcp_server.py", "sources/jp-jma.yaml", "tests/core/test_monitor.py", "tests/test_mcp_server.py", "results/DATUMOJ-MAPLE-602/**"]
+scope: ["src/datumoj/core/monitor.py", "src/datumoj/mcp_server.py", "sources/jp-jma.yaml", "tests/core/test_monitor.py", "tests/test_mcp_server.py", "tests/integration/test_tachibana_m3.py", "results/DATUMOJ-MAPLE-602/**"]
 out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", ".github/**", ".env.example"]
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
   automated:
     - cmd: make check T=tests/core/test_monitor.py
     - cmd: make check T=tests/test_mcp_server.py
+    - cmd: make check T=tests/integration/test_tachibana_m3.py
     - cmd: make check T=tests
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-MAPLE-602/summary.md 完成说明"]
   review: {by: other_family, checklist: ["是否越界", "测试是否覆盖每条要求", "是否通过了对应的契约合格测试", "是否有联网的测试", "是否只依赖契约而没有 import 其他线的实现"]}
@@ -43,6 +44,7 @@ max_attempts: 2
 2. 关闭的来源（`enabled=False`）不报尾部缺口（最近一次成功到现在）；历史上两次成功之间的缺口照常报。
 3. MCP `version` 返回包的真实版本号，不拼后缀；`tests/test_mcp_server.py` 的对应断言改为检查不含 `+`（或与包版本一致）。
 4. `tests/core/test_monitor.py` 里用 `retention_note` 构造短保留来源的用例改用显式标记，并新增：只有 `retention_note` 不报、关闭的来源不报尾部缺口。全部已有测试（`make check T=tests`）必须仍然通过。
+5. （2026-10-23 第 1、2 次尝试后补充）`tests/integration/test_tachibana_m3.py` 的 `test_weekly_report_and_monitor_alerts_match_events` 断言 jp-jma 报 `retention_gap`，但测试里 jp-jma 没有打开，按本任务的新规则（关闭的来源不报尾部缺口）不再报。允许只改这个测试：在调用 `schedule status` 之前用 `cli.scheduling.set_enabled(deps.data_dir, True)` 和 `set_enabled(deps.data_dir, True, ["jp-jma"])` 打开总开关和 jp-jma（或等价写法），保留原断言不变；不改该文件里的其他测试。
 
 # 不做
 - 不改其他来源配置。
