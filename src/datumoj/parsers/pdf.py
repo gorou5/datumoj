@@ -77,6 +77,16 @@ def _raise_pdf_error(exc: Exception) -> None:
     raise ParseError("PDF is damaged or cannot be read") from exc
 
 
+def _metadata_date(source_meta: Mapping[str, JsonValue], field: str) -> date | None:
+    value = source_meta.get(field)
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise ParseError(f"PDF meta 的 {field} 无效：{value!r}") from exc
+
+
 def _close(resource: object | None) -> None:
     if resource is not None:
         try:
@@ -87,7 +97,7 @@ def _close(resource: object | None) -> None:
 
 class PdfParser(Parser):
     name = "pdf"
-    version = "1"
+    version = "2"
     source_kind = "gov_web"
     content_type = "application/pdf"
 
@@ -135,6 +145,13 @@ class PdfParser(Parser):
         document_metadata: dict[str, str] = {
             "pages": str(len(page_texts)),
         }
+        published_at = _metadata_date(source_meta, "published_at")
+        effective_at = _metadata_date(source_meta, "effective_at")
+        if published_at is not None:
+            document_metadata["published_at"] = published_at.isoformat()
+        if effective_at is not None:
+            document_metadata["effective_at"] = effective_at.isoformat()
+
         chunks: list[Chunk] = []
         warnings: list[str] = []
         needs_ocr_pages = 0
@@ -153,6 +170,8 @@ class PdfParser(Parser):
                     title_path=[title],
                     snapshot_sha256=snapshot.sha256,
                     lang="ja",
+                    published_at=published_at,
+                    effective_at=effective_at,
                 )
             )
         document_metadata["needs_ocr_pages"] = str(needs_ocr_pages)
@@ -164,15 +183,6 @@ class PdfParser(Parser):
             document_metadata[META_PARENT_URL] = parent[0]
             document_metadata[META_PARENT_SHA256] = parent[1]
 
-        published_at = None
-        published_value = source_meta.get("published_at")
-        if isinstance(published_value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", published_value):
-            try:
-                published_at = date.fromisoformat(published_value)
-            except ValueError as exc:
-                raise ParseError(f"PDF meta 的 published_at 无效：{published_value!r}") from exc
-            document_metadata["published_at"] = published_value
-
         document = Document(
             doc_key=doc_key,
             source_id=snapshot.source_id,
@@ -182,6 +192,7 @@ class PdfParser(Parser):
             kind=DocKind.pdf,
             content_type="application/pdf",
             published_at=published_at,
+            effective_at=effective_at,
             metadata=document_metadata,
         )
         return ParseResult(documents=[document], chunks=chunks, warnings=warnings)

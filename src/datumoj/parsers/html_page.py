@@ -64,7 +64,7 @@ _META_CONTENT_CHARSET_RE = re.compile(
 
 class HtmlPageParser(Parser):
     name = "gov-web-html-page"
-    version = "2"
+    version = "3"
     source_kind = "gov_web"
     content_type = "text/html"
 
@@ -151,7 +151,7 @@ def _remove_page_chrome(root) -> None:
         ):
             parent = element.getparent()
             if parent is not None:
-                parent.remove(element)
+                element.drop_tree()
 
 
 def _element_text(element) -> str:
