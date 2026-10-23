@@ -2,14 +2,14 @@
 id: DATUMOJ-MAPLE-112
 title: 状态副本按块增量：SQLite 副本切成 256KB 块按内容寻址；关键词索引不进代次、恢复时从 chunks 重建
 project: DATUMOJ
-status: doing
+status: todo
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-102", "DATUMOJ-MAPLE-103", "DATUMOJ-MAPLE-105"]
 runner: claude
 model: null
 tier: high
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/core/state.py", "src/datumoj/cli.py", "docs/adr/0005-state-generations.md", "tests/core/test_state_blocks.py", "results/DATUMOJ-MAPLE-112/**"]
+scope: ["src/datumoj/core/state.py", "src/datumoj/cli.py", "docs/adr/0005-state-generations.md", "tests/core/test_state_blocks.py", "tests/core/test_state.py", "tests/test_cloud_run.py", "results/DATUMOJ-MAPLE-112/**"]
 out_of_scope: [".orch/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", ".github/**", ".env.example", "docs/PLAN.md", "docs/TASKS.md", "docs/plans/**", "docs/tasks/**", "docs/acceptance/**", "docs/references/**"]
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
@@ -47,6 +47,11 @@ max_attempts: 2
 5. 测试 `tests/core/test_state_blocks.py`：分块和拼回的字节完全一致；只改少量行后第二次推送只上传少数块（用计数的假存储断言上传块数远小于总块数）；篡改一个块时恢复失败且不交出目录；恢复后关键词检索结果与原目录一致；旧格式代次仍能恢复；没有 keyword.sqlite 的代次在 `raw=remote` 模式下也能恢复并检索。
 6. 测试断言：命令输出和日志里不出现测试用的凭证值、endpoint 和 bucket 名。
 7. 全部已有测试（`make check T=tests`）必须仍然通过。
+
+8. （2026-10-23 补充，前两次尝试因此失败）`tests/core/test_state.py` 和 `tests/test_cloud_run.py` 里有断言写死了 102/105 的整文件格式，本任务可以改它们，但**只改这些写死旧格式的断言**，其他断言不删不放宽：
+   - `test_state.py::test_no_change_push_lists_once_without_content_download_or_raw_read` 断言 `stores` 的逻辑名集合：改成按新格式断言（各 SQLite 库是 `<库名>.blocks/<序号>` 加整文件校验条目，不含 `keyword.sqlite`，`observations.duckdb` 等照旧），“无变化时只 list 一次、不下载内容、不读 raw”的断言保持不变。
+   - `test_cloud_run.py` 的 `assert_pulled` 逐行比较 `keyword.sqlite` 的 `entries` 表（含 rowid）：关键词索引现在是恢复时重建的，rowid 和行序不保证一致，改成比较不含 rowid 的内容集合（或比较同一组查询的检索结果）；`manifest.sqlite`、`chunks.sqlite` 的逐行比较保持不变。
+   - 不要为了让这些测试通过而改变要求 1–2 的格式。
 
 # 不做
 - 不删除 R2 上的任何对象（旧代次保留和清理另定）。
