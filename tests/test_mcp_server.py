@@ -161,6 +161,77 @@ def test_version(tools):
     assert "+" not in data["data"]["version"]
 
 
+def test_version_includes_pulled_generation_and_vector_coverage(tools):
+    (tools.data_dir / "state-pull.json").write_text(
+        '{"generation":12,"created_at":"2026-10-23T01:02:03+00:00",'
+        '"vector_coverage":{"model":"test","version":"1","dim":3,'
+        '"embedded_chunks":7,"pending_chunks":2},"stores":[]}',
+        encoding="utf-8",
+    )
+    data = _data(_call(tools, "version"))["data"]
+    assert data["data_generation"] == 12
+    assert data["data_generated_at"] == "2026-10-23T01:02:03+00:00"
+    assert data["data_origin"] == "R2 有效代次副本"
+    assert data["vector_coverage_note"] == "向量覆盖 7 / 9"
+
+
+def test_version_identifies_local_data_without_pull_record(tools):
+    data = _data(_call(tools, "version"))["data"]
+    assert data["data_generation"] is None
+    assert data["data_generated_at"] is None
+    assert data["data_origin"] == "本机自建数据"
+
+
+def test_factory_disables_vector_initialization_for_pulled_copy(tools, monkeypatch):
+    import os
+
+    (tools.data_dir / "state-pull.json").write_text(
+        '{"generation":1,"created_at":"2026-10-23T01:02:03+00:00",'
+        '"vector_coverage":null,"stores":[]}',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("DATUMOJ_DATA_DIR", str(tools.data_dir))
+    monkeypatch.setenv("DATUMOJ_VECTORS", "on")
+    observed = []
+
+    def factory():
+        observed.append(os.environ.get("DATUMOJ_VECTORS"))
+        return tools
+
+    data = _data(_run(factory, lambda client: client.call_tool("version")))
+    assert observed == ["off"]
+    assert os.environ["DATUMOJ_VECTORS"] == "on"
+    assert data["data"]["data_origin"] == "R2 有效代次副本"
+
+
+def test_factory_reloads_tools_after_pull_generation_changes(tools, monkeypatch):
+    import json
+
+    monkeypatch.setenv("DATUMOJ_DATA_DIR", str(tools.data_dir))
+    calls = []
+
+    def factory():
+        calls.append(True)
+        return tools
+
+    async def go():
+        async with Client(mcp_server.create_server(factory)) as client:
+            local = _data(await client.call_tool("version"))
+            (tools.data_dir / "state-pull.json").write_text(json.dumps({
+                "generation": 2,
+                "created_at": "2026-10-23T01:02:03+00:00",
+                "vector_coverage": None,
+                "stores": [],
+            }), encoding="utf-8")
+            pulled = _data(await client.call_tool("version"))
+            return local, pulled
+
+    local, pulled = asyncio.run(go())
+    assert len(calls) == 2
+    assert local["data"]["data_origin"] == "本机自建数据"
+    assert pulled["data"]["data_generation"] == 2
+
+
 def test_coverage(tools):
     data = _data(_call(tools, "coverage"))
     assert data["data"]["sources"][0]["source_id"] == "jp-open"

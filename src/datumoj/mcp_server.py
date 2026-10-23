@@ -24,6 +24,8 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
 from datumoj.analysis.tools import AnalysisTools
+from datumoj.core import schedule as scheduling
+from datumoj.core.pull import data_state
 
 FACTORY_ENV = "DATUMOJ_TOOLS_FACTORY"
 SKILL_PATH = Path(__file__).resolve().parents[2] / "skills" / "datumoj" / "SKILL.md"
@@ -66,17 +68,37 @@ def _guarded(fn: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]
 def create_server(tools: AnalysisTools | Callable[[], AnalysisTools]) -> MCPServer:
     """工厂在专用线程首次调用时运行；直接传实例仅适用于已满足线程约束的工具层。"""
     instance: AnalysisTools | None = None
+    instance_generation: tuple[int | None, str | None] | None = None
     executor: ThreadPoolExecutor | None = None
 
     def get_tools() -> AnalysisTools:
-        nonlocal instance
-        if instance is None:
-            instance = tools() if callable(tools) else tools
+        nonlocal instance, instance_generation
+        if callable(tools):
+            root = Path(os.environ.get("DATUMOJ_DATA_DIR", "./data"))
+            state = data_state(root)
+            generation = (state.get("data_generation"), state.get("data_generated_at"))
+            if instance is None or generation != instance_generation:
+                if scheduling.is_pulled_replica(root):
+                    previous_vectors = os.environ.get("DATUMOJ_VECTORS")
+                    os.environ["DATUMOJ_VECTORS"] = "off"
+                    try:
+                        instance = tools()
+                    finally:
+                        if previous_vectors is None:
+                            os.environ.pop("DATUMOJ_VECTORS", None)
+                        else:
+                            os.environ["DATUMOJ_VECTORS"] = previous_vectors
+                else:
+                    instance = tools()
+                instance_generation = generation
+        elif instance is None:
+            instance = tools
         return instance
 
     def release() -> None:
-        nonlocal instance
+        nonlocal instance, instance_generation
         instance = None
+        instance_generation = None
 
     @asynccontextmanager
     async def lifespan(_server: MCPServer):
@@ -94,11 +116,18 @@ def create_server(tools: AnalysisTools | Callable[[], AnalysisTools]) -> MCPServ
         async def wrapper(*args: Any, **kwargs: Any) -> dict[str, Any]:
             if executor is None:
                 raise ToolError("MCP server is not running")
-            return await asyncio.get_running_loop().run_in_executor(executor, functools.partial(fn, *args, **kwargs))
+            root = Path(os.environ.get("DATUMOJ_DATA_DIR", "./data")) if callable(tools) else tools.data_dir
+
+            def invoke() -> dict[str, Any]:
+                with scheduling.workspace_lock(root):
+                    return fn(*args, **kwargs)
+
+            return await asyncio.get_running_loop().run_in_executor(executor, invoke)
 
         return wrapper
 
     server = MCPServer("datumoj", lifespan=lifespan)
+
 
     @server.tool()
     @on_worker
@@ -228,11 +257,15 @@ def create_server(tools: AnalysisTools | Callable[[], AnalysisTools]) -> MCPServ
     @on_worker
     @_guarded
     def version() -> dict[str, Any]:
-        """Report the MCP build version, git commit, data directory and index build time.
+        """Report build details and the local data generation and its creation time.
 
         Call it first to confirm which build the host loaded. Takes no arguments.
         """
-        return get_tools().version()
+        tools = get_tools()
+        result = tools.version()
+        if isinstance(result, dict):
+            result.setdefault("data", {}).update(data_state(tools.data_dir))
+        return result
 
     @server.tool()
     @on_worker

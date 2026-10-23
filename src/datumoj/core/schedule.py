@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import plistlib
 import shutil
+import stat
 import subprocess
 import tempfile
 import uuid
@@ -13,6 +15,7 @@ from collections.abc import Callable, Iterable, Iterator
 from contextlib import ExitStack, contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from threading import local
 from typing import Any
 
 from datumoj.core.contracts import Manifest, SourceSpec
@@ -28,6 +31,24 @@ except ImportError:
     fcntl = None
 
 _WINDOWS_LOCK_OFFSET = 1 << 20
+_WORKSPACE_LOCKS = local()
+
+
+class ReadOnlyReplicaError(ValueError):
+    """A pulled generation cannot be used as a local write workspace."""
+
+
+def is_pulled_replica(data_dir: str | Path) -> bool:
+    marker = Path(data_dir) / "state-pull.json"
+    return marker.exists() or marker.is_symlink()
+
+
+def ensure_writable(data_dir: str | Path) -> None:
+    if is_pulled_replica(data_dir):
+        raise ReadOnlyReplicaError(
+            "这是 datumoj pull 创建的只读副本；本版本不支持本机写回。"
+            "写入需要有效租约和明确的 --force-local 选项；本版本尚不支持本机写回。"
+        )
 
 
 def utcnow() -> datetime:
@@ -107,12 +128,46 @@ def _locked(path: Path, *, blocking: bool = True) -> Iterator[Any]:
             msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
 
 
+@contextmanager
+def workspace_lock(data_dir: str | Path) -> Iterator[None]:
+    """Serialize local operations with pulls through a reentrant directory lock."""
+    root = Path(data_dir).resolve()
+    key = hashlib.sha256(os.fsencode(root)).hexdigest()
+    if os.name == "nt":
+        lock_base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+        lock_dir = lock_base / "Datumoj" / "workspace-locks"
+    else:
+        lock_dir = Path("/tmp") / f"datumoj-workspace-locks-{os.getuid()}"
+    lock_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if os.name != "nt":
+        info = lock_dir.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise PermissionError("workspace lock directory is not private to the current user")
+    lock_path = lock_dir / f"{key}.lock"
+    if getattr(_WORKSPACE_LOCKS, "pid", None) != os.getpid():
+        _WORKSPACE_LOCKS.pid = os.getpid()
+        _WORKSPACE_LOCKS.held = set()
+    held = _WORKSPACE_LOCKS.held
+    lock_key = str(lock_path)
+    if lock_key in held:
+        yield
+        return
+    with _locked(lock_path):
+        held.add(lock_key)
+        try:
+            yield
+        finally:
+            held.remove(lock_key)
+
+
 def write_control(data_dir: str | Path, control: dict[str, Any]) -> None:
     """原子替换完整开关；增量更新请用 set_enabled，避免读改写竞争。"""
     checked = _validate_control(control)
     root = Path(data_dir)
-    with _locked(root / "control.lock"):
-        _atomic_write(root / "control.json", json.dumps(checked, ensure_ascii=False).encode())
+    with workspace_lock(root):
+        ensure_writable(root)
+        with _locked(root / "control.lock"):
+            _atomic_write(root / "control.json", json.dumps(checked, ensure_ascii=False).encode())
 
 
 def set_enabled(
@@ -122,15 +177,17 @@ def set_enabled(
     if type(enabled) is not bool:
         raise ValueError("enabled 必须是布尔值")
     root = Path(data_dir)
-    with _locked(root / "control.lock"):
-        control = read_control(root)
-        if source_ids is None:
-            control["enabled"] = enabled
-        else:
-            for source_id in source_ids:
-                control["sources"][source_id] = {"enabled": enabled}
-        _atomic_write(root / "control.json", json.dumps(control, ensure_ascii=False).encode())
-    return control
+    with workspace_lock(root):
+        ensure_writable(root)
+        with _locked(root / "control.lock"):
+            control = read_control(root)
+            if source_ids is None:
+                control["enabled"] = enabled
+            else:
+                for source_id in source_ids:
+                    control["sources"][source_id] = {"enabled": enabled}
+            _atomic_write(root / "control.json", json.dumps(control, ensure_ascii=False).encode())
+        return control
 
 
 def next_due(schedule: str | None, last_start: datetime | None, now: datetime) -> datetime | None:
@@ -401,10 +458,14 @@ class Scheduler:
 
     def tick(self) -> list[dict[str, Any]]:
         """逐个运行；拿到来源锁之后重新核对开关和到期时间。"""
-        return [self._run(source_id, scheduled=True) for source_id in self.sources]
+        with workspace_lock(self.data_dir):
+            ensure_writable(self.data_dir)
+            return [self._run(source_id, scheduled=True) for source_id in self.sources]
 
     def run_now(self, source_id: str) -> dict[str, Any]:
-        return self._run(source_id, scheduled=False)
+        with workspace_lock(self.data_dir):
+            ensure_writable(self.data_dir)
+            return self._run(source_id, scheduled=False)
 
 
 LABEL = "com.datumoj.schedule"
