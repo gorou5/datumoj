@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from collections import Counter
+from collections.abc import Iterable, Mapping
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, JsonValue
@@ -34,7 +37,10 @@ class Alert(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     source_id: str
-    rule: Literal["consecutive_failures", "parse_failure_rate", "overdue", "retention_gap"]
+    rule: Literal[
+        "consecutive_failures", "parse_failure_rate", "overdue", "retention_gap",
+        "cloud_run_missing", "cloud_stalled",
+    ]
     severity: Literal["warning", "error"]
     message: str
     since: datetime
@@ -90,6 +96,195 @@ def _rate(stats: dict, status: ParseStatus) -> tuple[int, int]:
     failed = stats.get(ParseStatus.failed, stats.get(ParseStatus.failed.value, 0))
     total = sum(stats.values())
     return int(failed), int(total)
+
+
+_SCHEDULE_INTERVALS = {
+    "hourly": timedelta(hours=1),
+    "daily": timedelta(days=1),
+    "monthly": timedelta(days=30),
+}
+
+
+def _aware_datetime(value: object) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return parsed if parsed.utcoffset() is not None else None
+
+
+def _ledger_successes(runs: Iterable[dict]) -> dict[str, dict[str, str]]:
+    latest: dict[str, tuple[datetime, dict[str, str]]] = {}
+    for run in runs:
+        if (not isinstance(run, dict) or run.get("state") == "running"
+                or run.get("status") != "completed" or run.get("exit_status") != 0):
+            continue
+        source_id = run.get("source_id")
+        finished_at = _aware_datetime(run.get("ended_at"))
+        run_id = run.get("run_id")
+        if not isinstance(source_id, str) or not source_id or finished_at is None:
+            continue
+        if not isinstance(run_id, str) or not run_id:
+            run_id = "unknown"
+        previous = latest.get(source_id)
+        if previous is None or finished_at > previous[0]:
+            latest[source_id] = (
+                finished_at, {"run_id": run_id, "finished_at": finished_at.isoformat()},
+            )
+    return {source_id: value[1] for source_id, value in latest.items()}
+
+
+def _ledger_first_attempts(runs: Iterable[dict]) -> dict[str, str]:
+    first: dict[str, datetime] = {}
+    for run in runs:
+        if not isinstance(run, dict):
+            continue
+        source_id = run.get("source_id")
+        started_at = _aware_datetime(run.get("started_at"))
+        if not isinstance(source_id, str) or not source_id or started_at is None:
+            continue
+        previous = first.get(source_id)
+        if previous is None or started_at < previous:
+            first[source_id] = started_at
+    return {source_id: started_at.isoformat() for source_id, started_at in first.items()}
+
+
+def _generation_successes(value: object) -> dict[str, dict[str, str]] | None:
+    if not isinstance(value, dict):
+        return None
+    result: dict[str, dict[str, str]] = {}
+    for source_id, run in value.items():
+        if not isinstance(source_id, str) or not isinstance(run, dict):
+            continue
+        run_id = run.get("run_id")
+        finished_at = _aware_datetime(run.get("finished_at"))
+        if isinstance(run_id, str) and run_id and finished_at is not None:
+            result[source_id] = {"run_id": run_id, "finished_at": finished_at.isoformat()}
+    return result
+
+
+def evaluate_cloud_alerts(
+    sources: Iterable[SourceSpec],
+    enabled_sources: set[str],
+    last_successful_runs: Mapping[str, Mapping[str, str]],
+    generation_created_at: datetime,
+    now: datetime,
+    *,
+    generation: int | None = None,
+    first_attempts: Mapping[str, str] | None = None,
+) -> list[Alert]:
+    """Alert on missed cloud source cycles and a stalled generation pointer."""
+    if generation_created_at.utcoffset() is None or now.utcoffset() is None:
+        raise ValueError("云端代次和当前时间必须带时区")
+
+    specs = list(sources)
+    scheduled = [
+        spec for spec in specs
+        if spec.id in enabled_sources and (spec.schedule or "") in _SCHEDULE_INTERVALS
+    ]
+    alerts: list[Alert] = []
+    for spec in scheduled:
+        interval = _SCHEDULE_INTERVALS[spec.schedule or ""]
+        run = last_successful_runs.get(spec.id)
+        anchor = _aware_datetime(run.get("finished_at")) if run is not None else None
+        first_attempt = _aware_datetime(first_attempts.get(spec.id)) if first_attempts else None
+        anchor = anchor or first_attempt or generation_created_at
+        if now - anchor > interval:
+            alerts.append(Alert(
+                source_id=spec.id,
+                rule="cloud_run_missing",
+                severity="warning",
+                message=f"超过一个 {spec.schedule} 调度周期没有成功运行。",
+                since=anchor,
+                details={
+                    "schedule": spec.schedule or "",
+                    "expected_after_seconds": int(interval.total_seconds()),
+                    "last_success_at": anchor.isoformat() if run is not None else None,
+                    "first_attempt_at": first_attempt.isoformat() if run is None and first_attempt else None,
+                    "generation": generation,
+                },
+            ))
+
+    stall_after = timedelta(hours=2)
+    if now - generation_created_at > stall_after:
+        alerts.append(Alert(
+            source_id="cloud",
+            rule="cloud_stalled",
+            severity="error",
+            message="云端状态代次超过预期时间没有更新。",
+            since=generation_created_at,
+            details={
+                "stalled_after_seconds": int(stall_after.total_seconds()),
+                "generation": generation,
+            },
+        ))
+    return alerts
+
+
+def attach_cloud_status(
+    status: dict,
+    data_dir: str | Path,
+    sources: Iterable[SourceSpec],
+    runs: Iterable[dict],
+    now: datetime,
+) -> dict:
+    """Add generation metadata and cloud-gap alerts for a pulled local replica."""
+    marker = Path(data_dir) / "state-pull.json"
+    if marker.is_symlink() or not marker.is_file():
+        return status
+    try:
+        value = json.loads(marker.read_text(encoding="utf-8"))
+        generation = value.get("generation")
+        created_at = _aware_datetime(value.get("created_at"))
+    except (OSError, UnicodeError, ValueError, AttributeError):
+        return status
+    if type(generation) is not int or generation < 1 or created_at is None:
+        return status
+
+    last_successful = _ledger_successes(runs)
+    generation_runs = _generation_successes(value.get("last_successful_runs"))
+    if generation_runs is not None:
+        last_successful.update(generation_runs)
+    first_attempts = _ledger_first_attempts(runs)
+    raw_writer = value.get("writer")
+    writer_kind = raw_writer.get("kind") if isinstance(raw_writer, dict) else None
+    writer = {
+        "kind": writer_kind if isinstance(writer_kind, str) and writer_kind in {"actions", "local"}
+        else "unknown",
+    }
+    enabled_sources = {
+        row["source_id"] for row in status.get("sources", []) if row.get("effective_enabled")
+    }
+    alerts = evaluate_cloud_alerts(
+        sources, enabled_sources, last_successful, created_at, now, generation=generation,
+        first_attempts=first_attempts,
+    )
+    source_rows = {row["source_id"]: row for row in status.get("sources", [])}
+    global_alerts = []
+    for alert in alerts:
+        serialized = alert.model_dump(mode="json")
+        row = source_rows.get(alert.source_id)
+        if row is None:
+            global_alerts.append(serialized)
+        else:
+            row.setdefault("alerts", []).append(serialized)
+    for row in status.get("sources", []):
+        success = last_successful.get(row["source_id"])
+        row["last_successful_run"] = {"finished_at": success["finished_at"]} if success else None
+    status["cloud"] = {
+        "generation": generation,
+        "created_at": created_at.isoformat(),
+        "writer": writer,
+        "last_successful_runs": {
+            source_id: {"finished_at": run["finished_at"]}
+            for source_id, run in last_successful.items()
+        },
+    }
+    status["cloud_alerts"] = global_alerts
+    status["alert_count"] = sum(len(row.get("alerts", [])) for row in status.get("sources", [])) + len(global_alerts)
+    return status
 
 
 def evaluate_alerts(
@@ -191,12 +386,7 @@ def evaluate_alerts(
         for run in successful_runs
         if (timestamp := (_run_time(run, "ended_at") or _run_time(run, "started_at"))) is not None
     ]
-    schedule_intervals = {
-        "hourly": timedelta(hours=1),
-        "daily": timedelta(hours=24),
-        "monthly": timedelta(days=30),
-    }
-    interval = schedule_intervals.get(spec.schedule or "")
+    interval = _SCHEDULE_INTERVALS.get(spec.schedule or "")
     if enabled and interval is not None:
         anchor = successful_times[-1] if successful_times else (
             _run_time(ordered_runs[0], "started_at") if ordered_runs else None

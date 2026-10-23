@@ -18,6 +18,7 @@ from starlette.routing import Route
 
 from datumoj.core import schedule
 from datumoj.core.models import PipelineStatus
+from datumoj.core.monitor import attach_cloud_status
 from datumoj.index.coverage import INDEX_REBUILDING, index_generation, pipeline_status
 
 
@@ -101,6 +102,7 @@ def _run_form(token: str, source_id: str) -> str:
 
 def _alerts_section(status: dict) -> str:
     alerts = [alert for row in status["sources"] for alert in row.get("alerts", [])]
+    alerts.extend(status.get("cloud_alerts", []))
     alerts.sort(key=lambda alert: (
         0 if alert.get("severity") == "error" else 1,
         str(alert.get("source_id", "")),
@@ -142,7 +144,16 @@ def _ledger_warnings_section(status: dict) -> str:
 
 def _page(deps: object, scheduler: object, token: str, notice: str | None = None) -> str:
     status = scheduler.status()
+    history_reader = getattr(scheduler, "_read_history", None)
+    history = history_reader()[0] if callable(history_reader) else []
+    now = scheduler.now() if callable(getattr(scheduler, "now", None)) else schedule.utcnow()
+    status = attach_cloud_status(
+        status, getattr(deps, "data_dir", getattr(scheduler, "data_dir", ".")),
+        deps.registry.all(), history, now,
+    )
     rows_by_id = {row["source_id"]: row for row in status["sources"]}
+    show_cloud_success = status.get("cloud") is not None
+    success_heading = "<th>最后成功运行</th>" if show_cloud_success else ""
     notice_html = f'<p class="notice">{_e(notice)}</p>' if notice else ""
     sources = deps.registry.all()
     pipeline_rows: dict[str, dict] = {}
@@ -170,6 +181,12 @@ def _page(deps: object, scheduler: object, token: str, notice: str | None = None
         running = row.get("running", False)
         state = "正在运行" if running else ("开启" if row.get("enabled") else "关闭")
         classes = "on" if row.get("enabled") else "off"
+        last_success = row.get("last_successful_run")
+        successful_run = (
+            f'<time>{_e(last_success.get("finished_at"))}</time>'
+            if last_success else '<span class="muted">无成功记录</span>'
+        ) if show_cloud_success else ""
+        success_cell = f"<td>{successful_run}</td>" if show_cloud_success else ""
         pipeline = pipeline_rows.get(spec.id) or PipelineStatus(
             parseable_snapshots=0, parsed=0, parse_failed=0, needs_ocr=0, searchable_chunks=0,
         ).model_dump(mode="json")
@@ -182,6 +199,7 @@ def _page(deps: object, scheduler: object, token: str, notice: str | None = None
             f'<td><span class="pill {classes}">{_e(state)}</span><br>{_switch_form(token, "source", row.get("enabled", False), spec.id)}</td>'
             f'<td>{_e(_schedule_label(row.get("schedule")))}</td>'
             f'<td>{_last_run(last)}</td>'
+            f'{success_cell}'
             f'<td>{_e(row.get("next_due") or "—")}</td>'
             f'<td>{"是" if running else "否"}</td>'
             f'<td>{len(deps.manifest.snapshots_for(spec.id)) if getattr(deps, "manifest", None) is not None else 0}</td>'
@@ -193,8 +211,22 @@ def _page(deps: object, scheduler: object, token: str, notice: str | None = None
             "</tr>"
         )
     if not rows:
-        rows.append('<tr><td colspan="10" class="empty">当前没有登记来源。</td></tr>')
+        colspan = 11 if show_cloud_success else 10
+        rows.append(f'<tr><td colspan="{colspan}" class="empty">当前没有登记来源。</td></tr>')
     master = "开启" if status["enabled"] else "关闭"
+    cloud = status.get("cloud")
+    cloud_section = ""
+    if cloud:
+        writer = cloud.get("writer") or {}
+        writer_kind = {"actions": "Actions", "local": "本机", "unknown": "未知"}.get(
+            writer.get("kind"), "未知",
+        )
+        cloud_section = (
+            '<section class="master" aria-label="云端代次">'
+            f'<div><strong>云端代次</strong><br>第 {_e(cloud.get("generation"))} 代；'
+            f'生成时间：{_e(cloud.get("created_at"))}；写入者：{_e(writer_kind)}</div>'
+            '</section>'
+        )
     return f"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -245,11 +277,12 @@ def _page(deps: object, scheduler: object, token: str, notice: str | None = None
       <div><strong>总开关</strong><br><span class="pill {'on' if status['enabled'] else 'off'}">{master}</span></div>
       {_switch_form(token, "master", status["enabled"])}
     </section>
+    {cloud_section}
     {_alerts_section(status)}
     {_ledger_warnings_section(status)}
     <div class="table-wrap">
       <table>
-        <thead><tr><th>来源</th><th>来源开关</th><th>调度频率</th><th>上次运行</th><th>下次到期</th><th>运行中</th><th>快照数</th><th>raw 空间</th><th>管线覆盖</th><th>操作</th></tr></thead>
+        <thead><tr><th>来源</th><th>来源开关</th><th>调度频率</th><th>上次运行</th>{success_heading}<th>下次到期</th><th>运行中</th><th>快照数</th><th>raw 空间</th><th>管线覆盖</th><th>操作</th></tr></thead>
         <tbody>{''.join(rows)}</tbody>
       </table>
     </div>

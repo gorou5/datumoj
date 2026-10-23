@@ -67,6 +67,15 @@ def _period(since: date | datetime | None, until: date | datetime | None) -> tup
     return start, end
 
 
+def previous_week_period(today: date) -> tuple[date, date, str]:
+    """Return the previous complete ISO week and its stable YYYY-WW key."""
+    this_monday = today - timedelta(days=today.weekday())
+    start = this_monday - timedelta(days=7)
+    end = this_monday - timedelta(days=1)
+    iso_year, iso_week, _ = start.isocalendar()
+    return start, end, f"{iso_year}-{iso_week:02d}"
+
+
 def _event_sha(event: ChangeEvent) -> str | None:
     if event.kind is ChangeKind.removed:
         return event.old_sha256
@@ -240,6 +249,9 @@ def weekly_report(
             lines.append("")
 
     parsed_alerts = [alert if isinstance(alert, Alert) else Alert.model_validate(alert) for alert in alerts]
+    parsed_alerts.sort(key=lambda alert: (
+        alert.source_id, alert.rule, alert.since.isoformat(), alert.severity, alert.message,
+    ))
     lines.extend(["## 提醒", ""])
     if parsed_alerts:
         for alert in parsed_alerts:
