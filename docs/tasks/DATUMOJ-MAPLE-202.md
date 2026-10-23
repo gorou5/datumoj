@@ -9,9 +9,9 @@ runner: claude
 model: null
 tier: high
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/pipeline.py", "tests/test_pipeline_identity.py", "tests/test_pipeline.py", "tests/test_pipeline_retry.py", "tests/test_pipeline_content_state.py", "tests/regressions/test_audit_202.py", "results/DATUMOJ-MAPLE-202/**"]
+scope: ["src/datumoj/pipeline.py", "tests/test_pipeline_identity.py", "tests/test_pipeline.py", "tests/test_pipeline_retry.py", "tests/test_pipeline_content_state.py", "tests/regressions/test_audit_202.py", "src/datumoj/core/contracts.py", "src/datumoj/core/manifest.py", "src/datumoj/testing/fakes.py", "src/datumoj/testing/contract_suites.py", "tests/core/test_manifest.py", "tests/core/test_contracts_maple.py", "tests/test_change_detection.py", "tests/test_pipeline_vectors.py", "tests/integration/test_full_eval.py", "tests/integration/test_tachibana_m2.py", "tests/integration/test_gov_web_e2e.py", "tests/integration/test_stats_e2e.py", "tests/integration/test_law_e2e.py", "results/DATUMOJ-MAPLE-202/**"]
 out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", ".github/**", ".env.example"]
-protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
+protected: ["tests/fixtures/**", "src/datumoj/core/models.py"]
 acceptance:
   automated:
     - cmd: make check T=tests/test_pipeline_identity.py
@@ -19,7 +19,7 @@ acceptance:
     - cmd: make check T=tests/regressions/test_audit_202.py
     - cmd: make check T=tests
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-MAPLE-202/summary.md 完成说明"]
-  review: {by: human, checklist: ["复用条件是否包含上下文指纹", "复用时是否仍登记快照并单调选 current", "重复抓取是否不重解析、不产生变化", "调整的已有断言是否都有理由", "死链查找是否不再全表扫描", "是否越界"]}
+  review: {by: human, checklist: ["复用条件是否包含上下文指纹且检查版本槽位的写入者", "复用时是否仍登记快照并单调选 current", "重复抓取是否不重解析、不产生变化", "调整的已有断言是否都有理由", "死链查找是否不再全表扫描", "是否越界"]}
   human: required
 max_attempts: 2
 ---
@@ -46,6 +46,7 @@ max_attempts: 2
 4. `_record_fetch_changes`：变化日志和 chunk 的查找移出逐 URL 循环（每次调用至多各读一次，或改用按 sha / URL 的定向查询），结果与现在一致；测试断言大量死链时读取次数不随死链数增长。
 5. 新测试 `tests/test_pipeline_identity.py` 覆盖：同字节不同 URL、A→B→A、重复抓取不重解析、法令同字节不同 role 的 meta、指纹不同的快照各自写入、死链查找次数。
 6. `tests/test_pipeline.py`、`tests/test_pipeline_retry.py`、`tests/test_pipeline_content_state.py` 中依赖“同 sha 即跳过”的断言（如 `skipped` 计数）允许按新规则调整，在 summary 里逐条说明；不删测试。审核回归测试 `tests/regressions/test_audit_202.py`：用合成数据离线复现审核场景——同样的字节出现在两个不同 URL 时两个资源都被解析且都可检索；同一资源内容 A→B→A 后 current 为 A——断言修好以后的行为，必须通过（不能标 skip / xfail）。全部已有测试（`make check T=tests`）必须仍然通过。
+7. （2026-10-23 第 1 次尝试后补充）**契约补充，本任务允许**：第 1 次尝试指出，复用解析产物时无法从解析记录找回它产出了哪些文档（重启后也要能找回），且同 doc_key、同 SHA、不同上下文会共用版本槽位。按以下最小方案补：（a）`ParseRecord` 加 `doc_keys: list[str] = []`（成功解析产出的全部 doc_key，可为空），`SqliteManifest` 持久化它（schema 升到 3，v1、v2 都能迁移；迁移来的记录 `doc_keys` 记为未知，未知时不复用、重新解析）；（b）`Manifest` 加 `last_writer(doc_key, sha256) -> str | None`：返回最后一次成功写入该 (doc_key, sha) 版本的上下文指纹（按解析记录写入顺序）；（c）复用条件改为：成功记录存在、`doc_keys` 已知，且其中每个 doc_key 的 `last_writer` 都是本快照的指纹；任一不满足就重新解析（重写该版本槽位）。`FakeManifest`、`ManifestSuite` 同步补用例；ADR 0004 的补充写进 summary（`docs/` 不在 scope，由集成任务合入）。不改 `models.py` 和 ChunkStore 协议。允许把上面 scope 里列出的已有测试中依赖空指纹 `get_parse(sha, parser, version)` 的调用改为传实际快照指纹（只改调用，不改断言含义）。
 
 # 不做
 - 不做跨库的发布点和故障恢复（MAPLE-107）。
