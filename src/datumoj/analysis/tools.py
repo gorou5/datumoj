@@ -37,6 +37,8 @@ from datumoj.core.contracts import (
     ObservationStore,
     ParseError,
     Parser,
+    QueryError,
+    QueryRejected,
     RawStore,
     Registry,
     Retriever,
@@ -52,6 +54,7 @@ from datumoj.core.models import (
     Citation,
     DocKind,
     Document,
+    EvidenceState,
     FetchOutcome,
     Freshness,
     GapState,
@@ -92,10 +95,13 @@ def _result(
     freshness: Freshness | None = None,
     warnings: Iterable[str] = (),
     gap_detail: str | None = None,
+    evidence_state: EvidenceState | None = None,
+    evidence_inputs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return ToolResult[Any](
         data=data, gap_state=gap_state, freshness=freshness or Freshness(),
         warnings=list(dict.fromkeys(warnings)), gap_detail=gap_detail,
+        evidence_state=evidence_state, evidence_inputs=evidence_inputs,
     ).model_dump(mode="json")
 
 
@@ -249,6 +255,93 @@ def _iso_date(value: Any) -> date | None:
         except ValueError:
             return None
     return None
+
+
+_SQL_PART = re.compile(
+    r"'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|--[^\n]*|/\*[\s\S]*?\*/|([A-Za-z_][A-Za-z_0-9]*)|([(),])"
+)
+_AGGREGATES = {"any_value", "array_agg", "avg", "count", "first", "last", "list", "max", "median", "min", "string_agg", "sum"}
+_SIMPLE_LITERAL = r"(?:(?:DATE\s+)?'(?:''|[^'])*'|[-+]?(?:\d+(?:\.\d*)?|\.\d+)|NULL)"
+_SIMPLE_FILTER = re.compile(
+    rf"^\s*(source_id|table_key|time_start|time_end|time_label|area_code|area_label|value)\s*"
+    rf"(?:=|!=|<>|>=|<=|>|<)\s*({_SIMPLE_LITERAL})\s*$|"
+    rf"^\s*(source_id|table_key|time_start|time_end|time_label|area_code|area_label|value)\s+"
+    rf"(?:IN\s*\(\s*{_SIMPLE_LITERAL}(?:\s*,\s*{_SIMPLE_LITERAL})*\s*\)|"
+    rf"BETWEEN\s+{_SIMPLE_LITERAL}\s+AND\s+{_SIMPLE_LITERAL})\s*$",
+    re.I,
+)
+
+
+def _sql_tokens(sql: str) -> list[tuple[str, int, int, int]]:
+    """Return unquoted SQL words with source positions and parenthesis depth."""
+    tokens = []
+    depth = 0
+    for match in _SQL_PART.finditer(sql):
+        word, punctuation = match.group(1), match.group(2)
+        if punctuation == ")":
+            depth = max(0, depth - 1)
+        if word is not None:
+            tokens.append((word.lower(), match.start(1), match.end(1), depth))
+        elif punctuation == "(":
+            depth += 1
+        elif punctuation == ")":
+            tokens.append((punctuation, match.start(2), match.end(2), depth))
+        elif punctuation == ",":
+            tokens.append((punctuation, match.start(2), match.end(2), depth))
+    return tokens
+
+
+def _reads_observations(sql: str) -> bool:
+    tokens = _sql_tokens(sql)
+    return any(
+        word in {"from", "join"} and index + 1 < len(tokens) and tokens[index + 1][0] == "observations"
+        for index, (word, _, _, _) in enumerate(tokens)
+    )
+
+
+def _where_conditions(sql: str) -> list[str]:
+    """Extract top-level WHERE terms joined by AND; complex terms remain verbatim."""
+    tokens = _sql_tokens(sql)
+    where = next((token for token in tokens if token[0] == "where" and token[3] == 0), None)
+    if where is None:
+        return []
+    end = next((
+        token[1] for token in tokens
+        if token[1] > where[2] and token[3] == 0 and token[0] in {
+            "group", "having", "qualify", "order", "limit", "offset", "union", "except", "intersect"
+        }
+    ), len(sql))
+    conditions = []
+    start = where[2]
+    between_and_pending = False
+    for token in tokens:
+        if token[3] != 0 or not where[2] < token[1] < end:
+            continue
+        if token[0] == "between":
+            between_and_pending = True
+            continue
+        if token[0] != "and":
+            continue
+        if between_and_pending:
+            between_and_pending = False
+            continue
+        conditions.append(sql[start:token[1]].strip())
+        start = token[2]
+    if sql[start:end].strip():
+        conditions.append(sql[start:end].strip())
+    return conditions
+
+
+def _has_aggregate(sql: str) -> bool:
+    tokens = _sql_tokens(sql)
+    return any(
+        word in _AGGREGATES and sql[end:].lstrip().startswith("(")
+        for word, _, end, _ in tokens
+    )
+
+
+def _iso_datetime(value: Any) -> str | None:
+    return value.isoformat() if isinstance(value, datetime | date) else (str(value) if value is not None else None)
 
 
 def _cell(value: Any) -> Any:
@@ -645,15 +738,134 @@ class AnalysisTools:
             )
         if res.rows and "obs_id" not in res.columns:
             warnings.append("结果列里没有 obs_id，无法逐行给出出处；需要出处时在 SELECT 里带上 obs_id")
+        evidence_state, linked_rows = self._query_evidence_state(sql, res.rows, res.columns, res.provenance, provenance)
+        if evidence_state is EvidenceState.unavailable:
+            warnings.append(
+                "结果没有可用的逐行出处；请查询原始观测行，并在 SELECT 里保留 source_id、table_key、obs_id，"
+                "同时移除 count/sum/avg 等聚合或按观测行展开结果"
+            )
+        elif evidence_state is EvidenceState.partial:
+            warnings.append(
+                f"仅 {linked_rows}/{len(res.rows)} 行有可用出处；请在 SELECT 里保留 source_id、table_key、obs_id，"
+                "并按观测行查询，避免聚合或丢失行标识"
+            )
         _usage_warning((p["usage_notice"] for p in provenance), warnings)
+        evidence_inputs = self._query_evidence_inputs(sql)
         data = {
             "columns": res.columns, "rows": [[_cell(v) for v in row] for row in res.rows],
             "provenance": provenance, "describe": self._describe_view(),
         }
         freshness = _freshness([(o.source_id, o.fetched_at) for o in res.provenance])
         if not res.rows:
-            return _result(data, GapState.zero_hits, freshness, warnings, "查询没有返回任何行")
-        return _result(data, GapState.ok, freshness, warnings)
+            return _result(
+                data, GapState.zero_hits, freshness, warnings, "查询没有返回任何行",
+                evidence_state, evidence_inputs,
+            )
+        return _result(data, GapState.ok, freshness, warnings, evidence_state=evidence_state,
+                       evidence_inputs=evidence_inputs)
+
+    def _query_evidence_state(
+        self, sql: str, rows: list[tuple[Any, ...]], columns: list[str],
+        observations: list[Observation], provenance: list[dict[str, Any]],
+    ) -> tuple[EvidenceState, int]:
+        """Count result rows that uniquely link to an observation with a snapshot citation."""
+        if not rows or "obs_id" not in columns:
+            return EvidenceState.unavailable, 0
+        indexes = {name: columns.index(name) for name in ("source_id", "table_key", "obs_id") if name in columns}
+        by_id: dict[str, list[Observation]] = {}
+        citations: dict[tuple[str, str, str], dict[str, Any]] = {}
+        for observation, view in zip(observations, provenance, strict=True):
+            by_id.setdefault(observation.obs_id, []).append(observation)
+            citations[(observation.source_id, observation.table_key, observation.obs_id)] = view["citation"]
+        linked = 0
+        obs_index = indexes["obs_id"]
+        identity = [name for name in ("source_id", "table_key") if name in indexes]
+        for row in rows:
+            obs_id = row[obs_index]
+            if not isinstance(obs_id, str):
+                continue
+            matches = by_id.get(obs_id, [])
+            if identity:
+                matches = [
+                    observation for observation in matches
+                    if all(getattr(observation, name) == row[indexes[name]] for name in identity)
+                ]
+            if len(matches) == 1 and citations.get(
+                (matches[0].source_id, matches[0].table_key, matches[0].obs_id)
+            ) is not None:
+                linked += 1
+        if linked == 0:
+            return EvidenceState.unavailable, linked
+        if linked < len(rows) or _has_aggregate(sql):
+            return EvidenceState.partial, linked
+        return EvidenceState.complete, linked
+
+    def _query_evidence_inputs(self, sql: str) -> dict[str, Any]:
+        conditions = _where_conditions(sql)
+        time_fields = {"time_start", "time_end", "time_label"}
+        area_fields = {"area_code", "area_label"}
+
+        def raw_filters(fields: set[str]) -> list[str] | str:
+            matching = [condition for condition in conditions if fields & {token[0] for token in _sql_tokens(condition)}]
+            return list(dict.fromkeys(matching)) if matching else "未识别"
+
+        table_rows: list[tuple[Any, ...]] = []
+        if _reads_observations(sql):
+            table_rows = self._query_all_rows(
+                "SELECT source_id, table_key, snapshot_sha256, min(fetched_at), max(fetched_at) "
+                "FROM observations GROUP BY source_id, table_key, snapshot_sha256 "
+                "ORDER BY source_id, table_key, snapshot_sha256"
+            )
+            if conditions and all(_SIMPLE_FILTER.fullmatch(condition) for condition in conditions):
+                where = " AND ".join(f"({condition})" for condition in conditions)
+                try:
+                    matching = self._query_all_rows(
+                        "SELECT DISTINCT source_id, table_key FROM observations WHERE " + where
+                        + " ORDER BY source_id, table_key"
+                    )
+                    used = {(sid, table) for sid, table in matching}
+                    table_rows = [row for row in table_rows if (row[0], row[1]) in used]
+                except (QueryError, QueryRejected):
+                    # Complex dialect details do not make the original successful query fail.
+                    pass
+
+        grouped: dict[tuple[str, str], dict[str, Any]] = {}
+        for source_id, table_key, snapshot_sha256, first, last in table_rows:
+            key = (source_id, table_key)
+            table = grouped.setdefault(key, {"source_id": source_id, "table_key": table_key, "snapshots": [], "times": []})
+            snapshot_rows = self.manifest.snapshots_by_sha256(snapshot_sha256)
+            matching_snapshots = [snapshot for snapshot in snapshot_rows if snapshot.source_id == source_id]
+            table["snapshots"].append({
+                "sha256": snapshot_sha256,
+                "snapshot_ids": [
+                    {"snapshot_id": snapshot.snapshot_id, "fetched_at": snapshot.fetched_at.isoformat()}
+                    for snapshot in matching_snapshots
+                ],
+            })
+            table["times"].extend(value for value in (first, last) if value is not None)
+        tables = []
+        for key in sorted(grouped):
+            table = grouped[key]
+            times = sorted(_iso_datetime(value) for value in table.pop("times"))
+            tables.append({
+                **table,
+                "snapshots": sorted(table["snapshots"], key=lambda item: item["sha256"]),
+                "fetched_at_range": {"from": times[0] if times else None, "to": times[-1] if times else None},
+            })
+        return {"tables": tables, "filters": {"time": raw_filters(time_fields), "area": raw_filters(area_fields)}}
+
+    def _query_all_rows(self, sql: str) -> list[tuple[Any, ...]]:
+        """Read query pages so an input inventory can exceed the user result row limit."""
+        rows = []
+        offset = 0
+        while True:
+            page = self.observations.query_readonly(
+                f"{sql} LIMIT {MAX_ROWS} OFFSET {offset}", max_rows=MAX_ROWS,
+            ).rows
+            rows.extend(page)
+            if len(page) < MAX_ROWS:
+                return rows
+            offset += MAX_ROWS
 
     def _describe_view(self) -> dict[str, Any]:
         catalog = self.observations.describe()
