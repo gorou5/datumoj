@@ -15,7 +15,6 @@ from datumoj.core.rawstore import FileRawStore
 from datumoj.diagnose import evidence, replay
 from datumoj.testing.samples import T0, make_chunk, make_document, make_snapshot
 
-
 LEGACY_MANIFEST = """
 CREATE TABLE schema_version (version INTEGER NOT NULL);
 INSERT INTO schema_version VALUES (1);
