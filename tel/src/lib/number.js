@@ -41,13 +41,35 @@ export function formatNumber(digits, facts) {
   return splitNumber(digits, facts).join('-');
 }
 
+// Anatomical decomposition for display chips, following the MIC's official
+// diagram (see knowledge/README.md): a fixed number is
+// 国内プレフィックス「0」+ 市外局番 (1-4 digits) + 市内局番 (1-4 digits,
+// area+city = 5) + 加入者番号 (4 digits). The dial-string format stays
+// 03-XXXX-XXXX; only the anatomy separates the trunk 0.
+export function anatomySegments(digits, facts) {
+  if (facts.lineType === 'fixed' && facts.areaCode) {
+    const a = facts.areaCode.length; // includes the leading 0
+    const exchLen = digits.length - a - 4;
+    return ['0', digits.slice(1, a), digits.slice(a, a + exchLen), digits.slice(a + exchLen)];
+  }
+  return splitNumber(digits, facts);
+}
+
+const ANATOMY_LABELS = {
+  fixed: ['国内プレフィックス', '市外局番', '市内局番', '加入者番号'],
+};
+export function anatomyLabels(facts) {
+  if (facts.lineType === 'fixed') return ANATOMY_LABELS.fixed;
+  return segmentLabels(facts.lineType);
+}
+
 const SEG_LABELS = {
   fixed: ['市外局番', '市内局番', '加入者番号'],
-  mobile: ['番号帯', '局番', '加入者番号'],
-  ip050: ['番号帯', '局番', '加入者番号'],
-  free0120: ['番号帯', '局番', '加入者番号'],
-  free0800: ['番号帯', '局番', '加入者番号'],
-  navi0570: ['番号帯', '局番', '加入者番号'],
+  mobile: ['番号帯', '加入者番号', '加入者番号'],
+  ip050: ['番号帯', '加入者番号', '加入者番号'],
+  free0120: ['番号帯', '加入者番号', '加入者番号'],
+  free0800: ['番号帯', '加入者番号', '加入者番号'],
+  navi0570: ['番号帯', '加入者番号', '加入者番号'],
   m2m020: ['番号'],
 };
 export function segmentLabels(lineType) {
