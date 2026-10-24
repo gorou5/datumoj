@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>100 个多源数据融合分析案例 — DATUMOJ</title>
+<style>
+  :root{--ink:#1c1f23;--muted:#5c6470;--line:#e3e1da;--bg:#faf9f6;--card:#fff;--ivy:#3d7a44;--tach:#cf7226;--aha:#fdf6e3}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    line-height:1.65;font-size:14.5px}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 20px 80px}
+  header{padding:44px 0 20px;border-bottom:2px solid var(--ink)}
+  h1{font-size:29px;margin:0 0 8px}
+  .lede{font-size:15.5px;margin:0 0 8px}
+  .meta{color:var(--muted);font-size:13px}
+  a{color:var(--ivy)}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0 4px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 16px}
+  .stat b{font-size:20px;display:block}
+  .stat span{color:var(--muted);font-size:12.5px}
+  .panel{position:sticky;top:0;background:var(--bg);padding:14px 0 10px;z-index:6;border-bottom:1px solid var(--line)}
+  .panel input{width:100%;padding:11px 14px;font-size:15.5px;border:1.5px solid var(--ink);border-radius:9px;background:var(--card)}
+  .shown{color:var(--muted);font-size:13px;margin-top:6px;min-height:18px}
+  @media (max-width:700px){.panel{position:static}}
+  h2.grp{font-size:21px;margin:42px 0 12px}
+  h2.grp .cnt{font-size:13px;color:#fff;background:var(--ink);border-radius:20px;padding:1px 10px;margin-left:10px;vertical-align:2px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(480px,1fr));gap:14px}
+  @media (max-width:560px){.grid{grid-template-columns:1fr}}
+  .case{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .chead{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .no{font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+  .stag{font-size:12px;background:#eef4ee;color:var(--ivy);border-radius:20px;padding:1px 10px}
+  .case h3{font-size:17px;margin:0 0 6px;line-height:1.45}
+  .q{color:var(--ink);margin:0 0 10px}
+  .lab{font-size:12px;color:var(--muted);display:block;margin-bottom:3px;letter-spacing:.03em}
+  .srcs{margin:0 0 10px}
+  .src{display:inline-block;border:1px solid var(--line);border-radius:16px;padding:1px 10px;margin:0 5px 5px 0;
+    font-size:12.5px;color:var(--ivy);text-decoration:none;background:#fcfcf9}
+  .src:hover{border-color:var(--ivy)}
+  .fuse{color:var(--muted);font-size:13.5px;margin:0 0 10px}
+  .aha{background:var(--aha);border-radius:8px;padding:9px 12px;margin:0;font-size:14px}
+  .aha .lab{color:#9a6a1b}
+  footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <p class="meta"><a href="../">← DATUMOJ 计划总览</a> · <a href="../orbis/">orbisdata 资源目录（50 个分析场景）</a></p>
+  <h1>100 个多源数据融合分析案例</h1>
+  <p class="lede">单个数据源只能回答「是什么」，多个数据源拼在一起才能回答「为什么」。这里是 100 个分析案例：每个案例至少引用 <b>3 个官方数据源</b>，把统计、贸易、遥感、金融、健康等原本互不相干的数据融合起来，专门为了产生单看任何一源都得不到的发现——那种让人拍腿的 <b>aha moment</b>。</p>
+  <div class="stats">
+    <div class="stat"><b>100</b><span>分析案例</span></div>
+    <div class="stat"><b>50</b><span>分析场景（每场景 2 例）</span></div>
+    <div class="stat"><b>300</b><span>数据源引用（全部真实可点）</span></div>
+    <div class="stat"><b>≥3</b><span>每例最少数据源</span></div>
+  </div>
+  <p class="meta">数据源全部来自 <a href="../orbis/">orbisdata 资源目录</a>（orbisdata.org 收录的官方数据源）；国家统计局/开放门户以国名标注。案例是分析设计（问题、融合方法、预期发现），不是已完成的分析报告。</p>
+</header>
+
+<div class="panel">
+  <input id="q" type="search" placeholder="逐步筛选案例：输入关键字，如 粮价 / 女性 / 卫星 / 危机…" aria-label="筛选案例">
+  <div class="shown" id="shown"></div>
+</div>
+
+<main id="cases">
+<h2 class="grp">宏观经济与金融<span class="cnt">18 个案例</span></h2>
+<div class="grid">
+<article class="case" data-sc="gdp" data-text="夜里亮灯的地方，gdp 在撒谎吗？一个地区的真实经济活动，和官方公布的 gdp 增速对得上吗？以卫星夜间灯光增速为独立测量，与官方 gdp 增速逐地区做残差排名，残差异常的地区再对照人口与用电数据复核。你会发现：灯光和 gdp 的背离不是噪声——它系统地出现在统计能力最弱的地区，等于给全球统计数据画了一张可信度地图。gdp 与国民经济核算">
+  <div class="chead"><span class="no">#001</span><span class="stag">GDP 与国民经济核算</span></div>
+  <h3>夜里亮灯的地方，GDP 在撒谎吗？</h3>
+  <p class="q">一个地区的真实经济活动，和官方公布的 GDP 增速对得上吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://earth.esa.int/eogateway/catalog" target="_blank" rel="noopener">ESA Earth Observation</a><a class="src" href="https://datatopics.worldbank.org/world-development-indicators" target="_blank" rel="noopener">World Development Indicators</a><a class="src" href="https://nigerianstat.gov.ng" target="_blank" rel="noopener">Nigeria（nigerianstat.gov.ng）</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>以卫星夜间灯光增速为独立测量，与官方 GDP 增速逐地区做残差排名，残差异常的地区再对照人口与用电数据复核。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>你会发现：灯光和 GDP 的背离不是噪声——它系统地出现在统计能力最弱的地区，等于给全球统计数据画了一张可信度地图。</p>
+</article>
+<article class="case" data-sc="gdp" data-text="一个国家，三个 gdp同一国家、同一年的 gdp，imf、oecd 和世界银行为什么给出三个不同的数？三方同口径对账：统一币种与基年后逐项分解差异来源（汇率折算、基准修订、非正规经济估算）。差异的大头从来不是统计错误，而是「定义」——看懂差异分解，就看懂了每个机构眼中的「经济」其实不是同一个东西。gdp 与国民经济核算">
+  <div class="chead"><span class="no">#002</span><span class="stag">GDP 与国民经济核算</span></div>
+  <h3>一个国家，三个 GDP</h3>
+  <p class="q">同一国家、同一年的 GDP，IMF、OECD 和世界银行为什么给出三个不同的数？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.imf.org/en/Publications/WEO" target="_blank" rel="noopener">IMF World Economic Outlook</a><a class="src" href="https://data.oecd.org" target="_blank" rel="noopener">OECD Data Explorer</a><a class="src" href="https://data.worldbank.org" target="_blank" rel="noopener">World Bank — Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>三方同口径对账：统一币种与基年后逐项分解差异来源（汇率折算、基准修订、非正规经济估算）。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>差异的大头从来不是统计错误，而是「定义」——看懂差异分解，就看懂了每个机构眼中的「经济」其实不是同一个东西。</p>
+</article>
+<article class="case" data-sc="trade" data-text="贸易镜像黑洞：出口 100，进口只剩 60a 国说向 b 国出口了 100 亿，b 国却说只从 a 国进口了 60 亿，40 亿去哪了？双边镜像统计逐商品编码比对，扣除运费保险（cif/fob）与转口因素后，剩余差额按商品类别聚类。剩下的差额会精准地集中在少数商品上——镜像差不是统计噪音，它是低报、转口和灰色贸易留下的指纹。国际贸易与海关">
+  <div class="chead"><span class="no">#003</span><span class="stag">国际贸易与海关</span></div>
+  <h3>贸易镜像黑洞：出口 100，进口只剩 60</h3>
+  <p class="q">A 国说向 B 国出口了 100 亿，B 国却说只从 A 国进口了 60 亿，40 亿去哪了？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://comtradeplus.un.org" target="_blank" rel="noopener">UN COMTRADE</a><a class="src" href="https://stats.wto.org" target="_blank" rel="noopener">WTO Stats Portal</a><a class="src" href="https://www.wcoomd.org/en/topics/research/overview.aspx" target="_blank" rel="noopener">WCO Research and Analysis</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>双边镜像统计逐商品编码比对，扣除运费保险（CIF/FOB）与转口因素后，剩余差额按商品类别聚类。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>剩下的差额会精准地集中在少数商品上——镜像差不是统计噪音，它是低报、转口和灰色贸易留下的指纹。</p>
+</article>
+<article class="case" data-sc="trade" data-text="豹子皮去哪了：合法贸易与物种消失cites 许可的野生动植物贸易量，和物种种群的下降速度匹配吗？把许可贸易量、普通商品贸易中的同类条目、红色名录种群趋势按物种-国家对齐做三方核对。你会发现某些物种的「合法贸易量」长期超过其种群可承受的更新量——许可系统本身在给过度利用发通行证。国际贸易与海关">
+  <div class="chead"><span class="no">#004</span><span class="stag">国际贸易与海关</span></div>
+  <h3>豹子皮去哪了：合法贸易与物种消失</h3>
+  <p class="q">CITES 许可的野生动植物贸易量，和物种种群的下降速度匹配吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://trade.cites.org" target="_blank" rel="noopener">CITES Trade Database</a><a class="src" href="https://comtradeplus.un.org" target="_blank" rel="noopener">UN COMTRADE</a><a class="src" href="https://www.iucnredlist.org" target="_blank" rel="noopener">IUCN Red List</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>把许可贸易量、普通商品贸易中的同类条目、红色名录种群趋势按物种-国家对齐做三方核对。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>你会发现某些物种的「合法贸易量」长期超过其种群可承受的更新量——许可系统本身在给过度利用发通行证。</p>
+</article>
+<article class="case" data-sc="prices" data-text="全球房价的多米诺顺序全球城市的房价周期是同步涨落，还是有固定的先后顺序？bis 各国房价指数与 fred、oecd 序列对齐，做跨国领先-滞后相关分析，排出传导次序。房价周期像波浪一样有源头和方向——少数金融中心城市的拐点会领先全球一到两年，等于一张免费的预警地图。物价、通胀与价格指数">
+  <div class="chead"><span class="no">#005</span><span class="stag">物价、通胀与价格指数</span></div>
+  <h3>全球房价的多米诺顺序</h3>
+  <p class="q">全球城市的房价周期是同步涨落，还是有固定的先后顺序？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://data.bis.org" target="_blank" rel="noopener">data.bis.org</a><a class="src" href="https://fred.stlouisfed.org" target="_blank" rel="noopener">fred.stlouisfed.org</a><a class="src" href="https://data.oecd.org" target="_blank" rel="noopener">OECD Data Explorer</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>BIS 各国房价指数与 FRED、OECD 序列对齐，做跨国领先-滞后相关分析，排出传导次序。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>房价周期像波浪一样有源头和方向——少数金融中心城市的拐点会领先全球一到两年，等于一张免费的预警地图。</p>
+</article>
+<article class="case" data-sc="prices" data-text="国际粮价到你家菜篮子，要走几个月？国际小麦价格暴涨，传导到各国国内食品 cpi 需要多久、放大多少？以国际大宗商品价格为冲击源，对各国食品价格序列做时滞分布估计，按进口依赖度分组比较。同样涨 10%，有的国家一个月涨满，有的国家半年只涨 2%——差别不在运气，在汇率制度、补贴与进口结构这三个开关上。物价、通胀与价格指数">
+  <div class="chead"><span class="no">#006</span><span class="stag">物价、通胀与价格指数</span></div>
+  <h3>国际粮价到你家菜篮子，要走几个月？</h3>
+  <p class="q">国际小麦价格暴涨，传导到各国国内食品 CPI 需要多久、放大多少？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.imf.org/en/Data" target="_blank" rel="noopener">International Monetary Fund (IMF) — Data</a><a class="src" href="https://dataviz.vam.wfp.org" target="_blank" rel="noopener">WFP Food Security</a><a class="src" href="https://www.fao.org/giews" target="_blank" rel="noopener">FAO GIEWS</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>以国际大宗商品价格为冲击源，对各国食品价格序列做时滞分布估计，按进口依赖度分组比较。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>同样涨 10%，有的国家一个月涨满，有的国家半年只涨 2%——差别不在运气，在汇率制度、补贴与进口结构这三个开关上。</p>
+</article>
+<article class="case" data-sc="fiscal" data-text="藏在报表之外的政府债务政府公布的债务率，有多少真实负债藏在担保、ppp 和国企里？把显性债务与或有负债（政府担保、ppp 承诺、国企债）分层叠加，重算「全口径债务率」并与公布值对比。一些以「低债务」闻名的国家，全口径一算直接翻倍——财政风险的 aha 不在报表里，在报表的脚注和报表之外。财政、税收与政府债务">
+  <div class="chead"><span class="no">#007</span><span class="stag">财政、税收与政府债务</span></div>
+  <h3>藏在报表之外的政府债务</h3>
+  <p class="q">政府公布的债务率，有多少真实负债藏在担保、PPP 和国企里？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.imf.org/en/Data" target="_blank" rel="noopener">International Monetary Fund (IMF) — Data</a><a class="src" href="https://ec.europa.eu/eurostat" target="_blank" rel="noopener">Eurostat</a><a class="src" href="https://data.oecd.org" target="_blank" rel="noopener">OECD Data Explorer</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>把显性债务与或有负债（政府担保、PPP 承诺、国企债）分层叠加，重算「全口径债务率」并与公布值对比。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>一些以「低债务」闻名的国家，全口径一算直接翻倍——财政风险的 aha 不在报表里，在报表的脚注和报表之外。</p>
+</article>
+<article class="case" data-sc="fiscal" data-text="收入涨了，财力反而弱了资源出口国在价格繁荣期财政收入大涨，为什么危机来时反而最脆弱？把财政收入按资源/非资源拆分，与大宗商品价格周期叠加，测算「剔除资源后的真实财政努力」。繁荣期的收入增长大多是价格送的，不是税基建的——把价格因素剥掉，很多国家的财政努力十年原地踏步。财政、税收与政府债务">
+  <div class="chead"><span class="no">#008</span><span class="stag">财政、税收与政府债务</span></div>
+  <h3>收入涨了，财力反而弱了</h3>
+  <p class="q">资源出口国在价格繁荣期财政收入大涨，为什么危机来时反而最脆弱？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.imf.org/en/Publications/WEO" target="_blank" rel="noopener">IMF World Economic Outlook</a><a class="src" href="https://datatopics.worldbank.org/world-development-indicators" target="_blank" rel="noopener">World Development Indicators</a><a class="src" href="https://stat.gov.kz" target="_blank" rel="noopener">Kazakhstan（stat.gov.kz）</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>把财政收入按资源/非资源拆分，与大宗商品价格周期叠加，测算「剔除资源后的真实财政努力」。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>繁荣期的收入增长大多是价格送的，不是税基建的——把价格因素剥掉，很多国家的财政努力十年原地踏步。</p>
+</article>
+<article class="case" data-sc="money" data-text="危机预警指标的「假警报」考古被奉为危机先行指标的信贷缺口，历史上到底报准了几次、误报了几次？用 bis 长历史信贷数据回测信贷缺口的预警记录，逐次危机核对提前量与误报率。这个指标真正可靠的用法和教科书说的不一样：它对「脆弱性」很准，对「时点」几乎无用——混淆两者是历次误判的源头。货币、银行与金融市场">
+  <div class="chead"><span class="no">#009</span><span class="stag">货币、银行与金融市场</span></div>
+  <h3>危机预警指标的「假警报」考古</h3>
+  <p class="q">被奉为危机先行指标的信贷缺口，历史上到底报准了几次、误报了几次？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://data.bis.org" target="_blank" rel="noopener">data.bis.org</a><a class="src" href="https://www.imf.org/en/Data/Statistics/FSI" target="_blank" rel="noopener">IMF Financial Soundness Indicators</a><a class="src" href="https://data.ecb.europa.eu" target="_blank" rel="noopener">ECB Data Portal</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>用 BIS 长历史信贷数据回测信贷缺口的预警记录，逐次危机核对提前量与误报率。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>这个指标真正可靠的用法和教科书说的不一样：它对「脆弱性」很准，对「时点」几乎无用——混淆两者是历次误判的源头。</p>
+</article>
+<article class="case" data-sc="money" data-text="央行加息，传到房贷要过几道关？政策利率变动传导到实体贷款利率，各国的速度和损耗差多少？三大央行体系的利率链条（政策利率→货币市场→贷款利率）逐环测算传导时滞与损耗率。同样加息 100 个基点，有的国家房贷三个月跟涨 90，有的只跟 30——银行体系结构决定了货币政策的「音量旋钮」根本不在央行手里。货币、银行与金融市场">
+  <div class="chead"><span class="no">#010</span><span class="stag">货币、银行与金融市场</span></div>
+  <h3>央行加息，传到房贷要过几道关？</h3>
+  <p class="q">政策利率变动传导到实体贷款利率，各国的速度和损耗差多少？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://data.ecb.europa.eu" target="_blank" rel="noopener">ECB Data Portal</a><a class="src" href="https://fred.stlouisfed.org" target="_blank" rel="noopener">fred.stlouisfed.org</a><a class="src" href="https://data.rbi.org.in" target="_blank" rel="noopener">data.rbi.org.in</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>三大央行体系的利率链条（政策利率→货币市场→贷款利率）逐环测算传导时滞与损耗率。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>同样加息 100 个基点，有的国家房贷三个月跟涨 90，有的只跟 30——银行体系结构决定了货币政策的「音量旋钮」根本不在央行手里。</p>
+</article>
+<article class="case" data-sc="bop" data-text="fdi 的空转：钱进来了，又汇走了流入的外商直接投资，有多少变成新产能，多少只是利润汇回和内部腾挪？把 fdi 流量拆为新增股权、再投资收益与公司内借贷，再与利润汇回序列对照。不少国家的 fdi 繁荣是会计幻觉：新增投资停滞，撑起数字的是老外资的利润再投资——它随时可以反向流出。国际收支与对外投资">
+  <div class="chead"><span class="no">#011</span><span class="stag">国际收支与对外投资</span></div>
+  <h3>FDI 的空转：钱进来了，又汇走了</h3>
+  <p class="q">流入的外商直接投资，有多少变成新产能，多少只是利润汇回和内部腾挪？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://data.imf.org/?sk=7a51304b-6426-40c0-83dd-ca473ca1fd52" target="_blank" rel="noopener">IMF Balance of Payments</a><a class="src" href="https://unctad.org/topic/investment/world-investment-report" target="_blank" rel="noopener">UNCTAD World Investment Report</a><a class="src" href="https://unctadstat.unctad.org" target="_blank" rel="noopener">UNCTAD Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>把 FDI 流量拆为新增股权、再投资收益与公司内借贷，再与利润汇回序列对照。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>不少国家的 FDI 繁荣是会计幻觉：新增投资停滞，撑起数字的是老外资的利润再投资——它随时可以反向流出。</p>
+</article>
+<article class="case" data-sc="bop" data-text="数字服务贸易的统计盲区云服务、流媒体和远程外包已经无处不在，为什么在国际收支里几乎看不见？以数字连接指标（国际带宽、数据流量）为参照系，与服务贸易统计中的数字类目逐国对照找缺口。数字连接全球前列的国家，服务出口统计却平平无奇——不是经济没发生，是统计框架还活在货物贸易的时代。国际收支与对外投资">
+  <div class="chead"><span class="no">#012</span><span class="stag">国际收支与对外投资</span></div>
+  <h3>数字服务贸易的统计盲区</h3>
+  <p class="q">云服务、流媒体和远程外包已经无处不在，为什么在国际收支里几乎看不见？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://stats.wto.org" target="_blank" rel="noopener">WTO Stats Portal</a><a class="src" href="https://data.imf.org/?sk=7a51304b-6426-40c0-83dd-ca473ca1fd52" target="_blank" rel="noopener">IMF Balance of Payments</a><a class="src" href="https://www.itu.int/en/ITU-D/Statistics" target="_blank" rel="noopener">ITU (International Telecommunication Union) — Statistics</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>以数字连接指标（国际带宽、数据流量）为参照系，与服务贸易统计中的数字类目逐国对照找缺口。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>数字连接全球前列的国家，服务出口统计却平平无奇——不是经济没发生，是统计框架还活在货物贸易的时代。</p>
+</article>
+<article class="case" data-sc="business" data-text="制造业空心化的前哨站一个国家的制造业衰落，在数据上最早从哪里露头？工业增加值、制造业出口结构与中间品进口依赖三条序列联合监测，找领先指标组合。空心化最早露头的地方不是工厂数量，而是中间品进口依赖 quietly 爬升——等产值掉下来，已经晚了五年。企业、产业与营商环境">
+  <div class="chead"><span class="no">#013</span><span class="stag">企业、产业与营商环境</span></div>
+  <h3>制造业空心化的前哨站</h3>
+  <p class="q">一个国家的制造业衰落，在数据上最早从哪里露头？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://stat.unido.org" target="_blank" rel="noopener">UNIDO Statistics</a><a class="src" href="https://stats.oecd.org" target="_blank" rel="noopener">OECD.STAT</a><a class="src" href="https://comtradeplus.un.org" target="_blank" rel="noopener">UN COMTRADE</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>工业增加值、制造业出口结构与中间品进口依赖三条序列联合监测，找领先指标组合。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>空心化最早露头的地方不是工厂数量，而是中间品进口依赖 quietly 爬升——等产值掉下来，已经晚了五年。</p>
+</article>
+<article class="case" data-sc="business" data-text="大企业与小企业，两个平行世界生产率差距在国家之间大，还是在一个国家的大企业与小企业之间大？按企业规模分层的生产率与就业数据跨国拼接，比较「国家间差距」与「国内规模差距」的相对大小。答案是后者常常更大：很多国家的头号问题不是落后于别国，而是国内一半企业被锁在低生产率世界里出不来。企业、产业与营商环境">
+  <div class="chead"><span class="no">#014</span><span class="stag">企业、产业与营商环境</span></div>
+  <h3>大企业与小企业，两个平行世界</h3>
+  <p class="q">生产率差距在国家之间大，还是在一个国家的大企业与小企业之间大？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://stat.unido.org" target="_blank" rel="noopener">UNIDO Statistics</a><a class="src" href="https://ilostat.ilo.org" target="_blank" rel="noopener">ILO (International Labour Organization) — Statistics</a><a class="src" href="https://data.oecd.org" target="_blank" rel="noopener">OECD Data Explorer</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>按企业规模分层的生产率与就业数据跨国拼接，比较「国家间差距」与「国内规模差距」的相对大小。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>答案是后者常常更大：很多国家的头号问题不是落后于别国，而是国内一半企业被锁在低生产率世界里出不来。</p>
+</article>
+<article class="case" data-sc="devfinance" data-text="援助的地理错配开发银行的项目地点，和最需要帮助的地区是同一张地图吗？把三大行项目坐标与贫困、基础设施缺口地图做空间叠加，计算项目密度与需求密度的相关性。项目最密集的地方往往不是最穷的地方，而是「最容易做项目」的地方——援助地图画的是执行便利性，不是需求。发展融资与援助项目">
+  <div class="chead"><span class="no">#015</span><span class="stag">发展融资与援助项目</span></div>
+  <h3>援助的地理错配</h3>
+  <p class="q">开发银行的项目地点，和最需要帮助的地区是同一张地图吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.aiib.org/en/projects/data" target="_blank" rel="noopener">AIIB Projects Data</a><a class="src" href="https://dataportal.opendataforafrica.org" target="_blank" rel="noopener">African Development Bank Data</a><a class="src" href="https://data.adb.org" target="_blank" rel="noopener">Asian Development Bank Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>把三大行项目坐标与贫困、基础设施缺口地图做空间叠加，计算项目密度与需求密度的相关性。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>项目最密集的地方往往不是最穷的地方，而是「最容易做项目」的地方——援助地图画的是执行便利性，不是需求。</p>
+</article>
+<article class="case" data-sc="devfinance" data-text="气候的钱，流向最脆弱的国家了吗？气候基金的资金分配，和各国的气候脆弱性排序一致吗？资金流向与脆弱性指数、排放责任三方对照，检验「谁最脆弱、谁在买单、谁拿到钱」是否自洽。最脆弱的国家拿到的钱常常最少，因为申请能力本身就是一种资源——气候正义的第一道门槛是写标书的能力。发展融资与援助项目">
+  <div class="chead"><span class="no">#016</span><span class="stag">发展融资与援助项目</span></div>
+  <h3>气候的钱，流向最脆弱的国家了吗？</h3>
+  <p class="q">气候基金的资金分配，和各国的气候脆弱性排序一致吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.greenclimate.fund/projects" target="_blank" rel="noopener">Green Climate Fund</a><a class="src" href="https://www.thegef.org/projects-operations/database" target="_blank" rel="noopener">Global Environment Facility</a><a class="src" href="https://unfccc.int/process-and-meetings/transparency-and-reporting/greenhouse-gas-data/ghg-data-unfccc" target="_blank" rel="noopener">UNFCCC GHG Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>资金流向与脆弱性指数、排放责任三方对照，检验「谁最脆弱、谁在买单、谁拿到钱」是否自洽。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>最脆弱的国家拿到的钱常常最少，因为申请能力本身就是一种资源——气候正义的第一道门槛是写标书的能力。</p>
+</article>
+<article class="case" data-sc="findex" data-text="没有银行账户的人，先有了手机钱包哪些国家跳过了银行卡时代，直接进入移动支付？路径和普及速度有何不同？账户普及率、移动订阅与移动支付三条曲线逐国对齐，识别「跳跃式」国家与渐进式国家的分界条件。跳跃发生的条件不是技术，而是银行网点的稀缺——传统金融越空白的地方，移动金融跑得越快，落后反而成了优势。普惠金融与金融发展">
+  <div class="chead"><span class="no">#017</span><span class="stag">普惠金融与金融发展</span></div>
+  <h3>没有银行账户的人，先有了手机钱包</h3>
+  <p class="q">哪些国家跳过了银行卡时代，直接进入移动支付？路径和普及速度有何不同？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.worldbank.org/en/publication/gfdr/data" target="_blank" rel="noopener">Global Financial Development Database</a><a class="src" href="https://datahub.itu.int" target="_blank" rel="noopener">ITU Data Hub</a><a class="src" href="https://data360.worldbank.org" target="_blank" rel="noopener">data360.worldbank.org</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>账户普及率、移动订阅与移动支付三条曲线逐国对齐，识别「跳跃式」国家与渐进式国家的分界条件。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>跳跃发生的条件不是技术，而是银行网点的稀缺——传统金融越空白的地方，移动金融跑得越快，落后反而成了优势。</p>
+</article>
+<article class="case" data-sc="findex" data-text="女性账户鸿沟的三重来源女性银行账户普及率落后，是收入问题、就业问题还是制度问题？把性别账户差距对女性劳动参与、非正规就业占比和身份文件持有率做跨国分解。很多国家女性的账户差距，根子在「没有身份证」这种统计表之外的环节——金融问题最后都落在行政细节上。普惠金融与金融发展">
+  <div class="chead"><span class="no">#018</span><span class="stag">普惠金融与金融发展</span></div>
+  <h3>女性账户鸿沟的三重来源</h3>
+  <p class="q">女性银行账户普及率落后，是收入问题、就业问题还是制度问题？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://data.unwomen.org" target="_blank" rel="noopener">data.unwomen.org</a><a class="src" href="https://www.worldbank.org/en/publication/gfdr/data" target="_blank" rel="noopener">Global Financial Development Database</a><a class="src" href="https://ilostat.ilo.org" target="_blank" rel="noopener">ILO (International Labour Organization) — Statistics</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>把性别账户差距对女性劳动参与、非正规就业占比和身份文件持有率做跨国分解。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>很多国家女性的账户差距，根子在「没有身份证」这种统计表之外的环节——金融问题最后都落在行政细节上。</p>
+</article>
+</div>
+<h2 class="grp">人口与社会<span class="cnt">18 个案例</span></h2>
+<div class="grid">
+<article class="case" data-sc="population" data-text="人口预测为什么总是太乐观？联合国历次人口预测与各国普查实绩相比，误差有没有方向性？把不同年份发布的人口预测与事后普查逐国回测，按生育假设与迁移假设分解误差。误差不是随机的：对生育率下降的速度，预测系统性地慢了半拍——每一次修订都在追赶现实。人口、普查与人口结构">
+  <div class="chead"><span class="no">#019</span><span class="stag">人口、普查与人口结构</span></div>
+  <h3>人口预测为什么总是太乐观？</h3>
+  <p class="q">联合国历次人口预测与各国普查实绩相比，误差有没有方向性？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://population.un.org/dataportal" target="_blank" rel="noopener">UN Population Division</a><a class="src" href="https://unstats.un.org/unsd/demographic-social/products/dyb" target="_blank" rel="noopener">UN Demographic Yearbook</a><a class="src" href="http://www.stats.gov.cn" target="_blank" rel="noopener">China（stats.gov.cn）</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>把不同年份发布的人口预测与事后普查逐国回测，按生育假设与迁移假设分解误差。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>误差不是随机的：对生育率下降的速度，预测系统性地慢了半拍——每一次修订都在追赶现实。</p>
+</article>
+<article class="case" data-sc="population" data-text="人口金字塔上的断层哪些国家的人口结构存在「断层」，它是一次出生低谷还是一次移民潮的疤痕？年龄队列追踪：同一出生队列在不同年份的存活人数变化，反推净迁移与死亡冲击。只看截面金字塔会把移民疤痕误读为出生低谷；把队列连起来看，每个断层都对应一段具体的历史。人口、普查与人口结构">
+  <div class="chead"><span class="no">#020</span><span class="stag">人口、普查与人口结构</span></div>
+  <h3>人口金字塔上的断层</h3>
+  <p class="q">哪些国家的人口结构存在「断层」，它是一次出生低谷还是一次移民潮的疤痕？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://population.un.org/dataportal" target="_blank" rel="noopener">UN Population Division</a><a class="src" href="https://www.migrationdataportal.org" target="_blank" rel="noopener">IOM Migration Data</a><a class="src" href="https://data.unicef.org" target="_blank" rel="noopener">UNICEF Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>年龄队列追踪：同一出生队列在不同年份的存活人数变化，反推净迁移与死亡冲击。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>只看截面金字塔会把移民疤痕误读为出生低谷；把队列连起来看，每个断层都对应一段具体的历史。</p>
+</article>
+<article class="case" data-sc="vital" data-text="统计上不存在的人全球有多少人的出生和死亡从未被任何系统记录？他们分布在哪里？以登记完整率、卫生系统估算与抽样调查三方互校，估算「无登记人口」的规模与分布。没有出生登记的孩子在所有统计里都是隐形的——他们不是数据缺失，是权利缺失，先被数据抹除，再被服务抹除。生育、死亡与生命登记">
+  <div class="chead"><span class="no">#021</span><span class="stag">生育、死亡与生命登记</span></div>
+  <h3>统计上不存在的人</h3>
+  <p class="q">全球有多少人的出生和死亡从未被任何系统记录？他们分布在哪里？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://unstats.un.org/unsd/demographic-social/products/dyb" target="_blank" rel="noopener">UN Demographic Yearbook</a><a class="src" href="https://www.who.int/data/global-health-estimates" target="_blank" rel="noopener">WHO Global Health Estimates</a><a class="src" href="https://data.unicef.org" target="_blank" rel="noopener">UNICEF Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>以登记完整率、卫生系统估算与抽样调查三方互校，估算「无登记人口」的规模与分布。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>没有出生登记的孩子在所有统计里都是隐形的——他们不是数据缺失，是权利缺失，先被数据抹除，再被服务抹除。</p>
+</article>
+<article class="case" data-sc="vital" data-text="热浪真正的死亡账单官方公布的热浪死亡人数，和超额死亡统计差多少倍？极端高温时段的全因超额死亡与官方「热相关死亡」对照，按年龄与城市热岛强度分层。官方数字常常只是超额死亡的零头——热浪杀人的方式是让其他疾病提前发生，死因统计因此系统性看不见它。生育、死亡与生命登记">
+  <div class="chead"><span class="no">#022</span><span class="stag">生育、死亡与生命登记</span></div>
+  <h3>热浪真正的死亡账单</h3>
+  <p class="q">官方公布的热浪死亡人数，和超额死亡统计差多少倍？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.who.int/data/global-health-estimates" target="_blank" rel="noopener">WHO Global Health Estimates</a><a class="src" href="https://climatedata.imf.org" target="_blank" rel="noopener">WMO Climate Data</a><a class="src" href="https://www.insee.fr" target="_blank" rel="noopener">France（insee.fr）</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>极端高温时段的全因超额死亡与官方「热相关死亡」对照，按年龄与城市热岛强度分层。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>官方数字常常只是超额死亡的零头——热浪杀人的方式是让其他疾病提前发生，死因统计因此系统性看不见它。</p>
+</article>
+<article class="case" data-sc="migration" data-text="人走了，钱却回来了移民流出最猛的国家，为什么汇款流入反而创新高？两者何时脱钩？移民存量、难民流量与汇款流入三线叠加，识别汇款与迁移从正相关转为脱钩的临界点。汇款不是移民的影子，它有自己的逻辑：一代移民站稳后汇款才起量——脱钩点标记的是融入完成的那一刻。移民、难民与人口流动">
+  <div class="chead"><span class="no">#023</span><span class="stag">移民、难民与人口流动</span></div>
+  <h3>人走了，钱却回来了</h3>
+  <p class="q">移民流出最猛的国家，为什么汇款流入反而创新高？两者何时脱钩？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.unhcr.org/global-trends" target="_blank" rel="noopener">UNHCR Global Trends</a><a class="src" href="https://www.migrationdataportal.org" target="_blank" rel="noopener">IOM Migration Data</a><a class="src" href="https://databank.worldbank.org" target="_blank" rel="noopener">World Bank DataBank</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>移民存量、难民流量与汇款流入三线叠加，识别汇款与迁移从正相关转为脱钩的临界点。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>汇款不是移民的影子，它有自己的逻辑：一代移民站稳后汇款才起量——脱钩点标记的是融入完成的那一刻。</p>
+</article>
+<article class="case" data-sc="migration" data-text="难民营里的教室去哪了？全球难民儿童的实际失学规模，能用三方数据拼出来吗？难民儿童数 × 学龄占比，对照接收国入学统计中的难民登记数，差额为失学估算，再用营地调查校准。拼出来的失学数比任何单一机构公布的都大，因为每个机构只统计「自己服务到的那部分孩子」。移民、难民与人口流动">
+  <div class="chead"><span class="no">#024</span><span class="stag">移民、难民与人口流动</span></div>
+  <h3>难民营里的教室去哪了？</h3>
+  <p class="q">全球难民儿童的实际失学规模，能用三方数据拼出来吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.unhcr.org/refugee-statistics" target="_blank" rel="noopener">UNHCR Data</a><a class="src" href="https://data.unicef.org" target="_blank" rel="noopener">UNICEF Data</a><a class="src" href="http://uis.unesco.org" target="_blank" rel="noopener">UNESCO Institute for Statistics (UIS)</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>难民儿童数 × 学龄占比，对照接收国入学统计中的难民登记数，差额为失学估算，再用营地调查校准。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>拼出来的失学数比任何单一机构公布的都大，因为每个机构只统计「自己服务到的那部分孩子」。</p>
+</article>
+<article class="case" data-sc="labor" data-text="看不见的经济：非正规就业有多大？非正规经济的规模，劳工统计、金融数据和国家账户为什么给出三个答案？三方估算方法对账：就业调查法、货币需求法与账户缺口法，逐项解释差异来源。三个答案的差异本身就是信息：它们分别量的是就业、交易和收入三个切面——非正规经济不是一块，是一层一层的。就业、工资与劳动力市场">
+  <div class="chead"><span class="no">#025</span><span class="stag">就业、工资与劳动力市场</span></div>
+  <h3>看不见的经济：非正规就业有多大？</h3>
+  <p class="q">非正规经济的规模，劳工统计、金融数据和国家账户为什么给出三个答案？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://ilostat.ilo.org" target="_blank" rel="noopener">ILO (International Labour Organization) — Statistics</a><a class="src" href="https://www.worldbank.org/en/publication/gfdr/data" target="_blank" rel="noopener">Global Financial Development Database</a><a class="src" href="https://www.mospi.gov.in" target="_blank" rel="noopener">India（mospi.gov.in）</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>三方估算方法对账：就业调查法、货币需求法与账户缺口法，逐项解释差异来源。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>三个答案的差异本身就是信息：它们分别量的是就业、交易和收入三个切面——非正规经济不是一块，是一层一层的。</p>
+</article>
+<article class="case" data-sc="labor" data-text="工资涨了，生活却降了名义工资连年增长的国家，为什么居民的实际生活水平在下降？实际工资 = 名义工资经 cpi 平减后，还要再扣掉住房成本（bis 房价与租金）的侵蚀，做「真实可支配」调整。很多国家工资跑赢了 cpi，却跑输了房租——官方「实际工资增长」和体感的差距，就藏在住房不计入的那部分里。就业、工资与劳动力市场">
+  <div class="chead"><span class="no">#026</span><span class="stag">就业、工资与劳动力市场</span></div>
+  <h3>工资涨了，生活却降了</h3>
+  <p class="q">名义工资连年增长的国家，为什么居民的实际生活水平在下降？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://rshiny.ilo.org/dataexplorer46/" target="_blank" rel="noopener">ILO Data Explorer</a><a class="src" href="https://data.oecd.org" target="_blank" rel="noopener">OECD Data Explorer</a><a class="src" href="https://data.bis.org" target="_blank" rel="noopener">data.bis.org</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>实际工资 = 名义工资经 CPI 平减后，还要再扣掉住房成本（BIS 房价与租金）的侵蚀，做「真实可支配」调整。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>很多国家工资跑赢了 CPI，却跑输了房租——官方「实际工资增长」和体感的差距，就藏在住房不计入的那部分里。</p>
+</article>
+<article class="case" data-sc="poverty" data-text="贫困地图的分辨率革命把贫困率从省级细化到村级，需要哪几层数据叠加？调查贫困率 + 卫星建成区/夜光 + 人口栅格，做小区域估计，生成高分辨率贫困地图并与调查真值校验。叠加之后浮现的事实是：最穷的地方常常不在最穷的省里——省级平均数把城市包围的贫困带藏了起来。贫困、不平等与人类发展">
+  <div class="chead"><span class="no">#027</span><span class="stag">贫困、不平等与人类发展</span></div>
+  <h3>贫困地图的分辨率革命</h3>
+  <p class="q">把贫困率从省级细化到村级，需要哪几层数据叠加？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://pip.worldbank.org" target="_blank" rel="noopener">Poverty and Inequality Platform</a><a class="src" href="https://dataspace.copernicus.eu" target="_blank" rel="noopener">Copernicus Data Space</a><a class="src" href="https://population.un.org/dataportal" target="_blank" rel="noopener">UN Population Division</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>调查贫困率 + 卫星建成区/夜光 + 人口栅格，做小区域估计，生成高分辨率贫困地图并与调查真值校验。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>叠加之后浮现的事实是：最穷的地方常常不在最穷的省里——省级平均数把城市包围的贫困带藏了起来。</p>
+</article>
+<article class="case" data-sc="poverty" data-text="贫困与气候的叠加区多维贫困最严重的地方，和气候脆弱性最高的地方是同一批吗？多维贫困指数与气候暴露（干旱、洪水、海平面）空间叠加，识别双重脆弱热点并核对适应资金的流向。叠加区只占全球人口的一小部分，却集中了最深的贫困——对这些地方，扶贫和气候适应其实是同一件事。贫困、不平等与人类发展">
+  <div class="chead"><span class="no">#028</span><span class="stag">贫困、不平等与人类发展</span></div>
+  <h3>贫困与气候的叠加区</h3>
+  <p class="q">多维贫困最严重的地方，和气候脆弱性最高的地方是同一批吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://hdr.undp.org/data-center/documentation-and-downloads" target="_blank" rel="noopener">UNDP Human Development Data</a><a class="src" href="https://dataviz.vam.wfp.org" target="_blank" rel="noopener">WFP Food Security</a><a class="src" href="https://unfccc.int/process-and-meetings/transparency-and-reporting/greenhouse-gas-data/ghg-data-unfccc" target="_blank" rel="noopener">UNFCCC GHG Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>多维贫困指数与气候暴露（干旱、洪水、海平面）空间叠加，识别双重脆弱热点并核对适应资金的流向。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>叠加区只占全球人口的一小部分，却集中了最深的贫困——对这些地方，扶贫和气候适应其实是同一件事。</p>
+</article>
+<article class="case" data-sc="children" data-text="一个孩子，被剥夺了几个维度？儿童贫困只用收入量，会漏掉什么样的孩子？mics 多维指标（营养、教育、卫生、信息）逐维计算剥夺率，再看各维度的重叠结构。漏掉的恰恰是最需要帮助的：收入达标的家庭里，仍有大量孩子在营养和教育维度双重剥夺——钱不是万能的筛子。儿童、青少年与家庭">
+  <div class="chead"><span class="no">#029</span><span class="stag">儿童、青少年与家庭</span></div>
+  <h3>一个孩子，被剥夺了几个维度？</h3>
+  <p class="q">儿童贫困只用收入量，会漏掉什么样的孩子？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://mics.unicef.org" target="_blank" rel="noopener">UNICEF MICS</a><a class="src" href="https://data.unicef.org/resources/dataset/sowc-dataset" target="_blank" rel="noopener">UNICEF SOWC Data</a><a class="src" href="https://www.education-inequalities.org" target="_blank" rel="noopener">UNESCO WIDE Education</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>MICS 多维指标（营养、教育、卫生、信息）逐维计算剥夺率，再看各维度的重叠结构。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>漏掉的恰恰是最需要帮助的：收入达标的家庭里，仍有大量孩子在营养和教育维度双重剥夺——钱不是万能的筛子。</p>
+</article>
+<article class="case" data-sc="children" data-text="供应链末端的童工风险哪些出口产业的繁荣，与童工风险的上升在空间上重合？童工发生率地图与出口导向型农业/矿业产区叠加，检验出口扩张与童工变化的时空相关性。重合点不是随机的「穷」：童工风险集中出现在全球供应链的最上游环节——离最终消费者最远的地方。儿童、青少年与家庭">
+  <div class="chead"><span class="no">#030</span><span class="stag">儿童、青少年与家庭</span></div>
+  <h3>供应链末端的童工风险</h3>
+  <p class="q">哪些出口产业的繁荣，与童工风险的上升在空间上重合？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://ilostat.ilo.org" target="_blank" rel="noopener">ILO (International Labour Organization) — Statistics</a><a class="src" href="https://comtradeplus.un.org" target="_blank" rel="noopener">UN COMTRADE</a><a class="src" href="https://data.unicef.org" target="_blank" rel="noopener">UNICEF Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>童工发生率地图与出口导向型农业/矿业产区叠加，检验出口扩张与童工变化的时空相关性。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>重合点不是随机的「穷」：童工风险集中出现在全球供应链的最上游环节——离最终消费者最远的地方。</p>
+</article>
+<article class="case" data-sc="gender" data-text="无偿照护的影子 gdp如果把无偿照护劳动按市场工资计价，相当于各国 gdp 的多少？时间利用调查的照护时长 × 替代工资估值，与各国 gdp 并列比较，再对照托育政策的覆盖差异。这个影子 gdp 普遍达到显性 gdp 的一到两成，而且哪个国家照护越「免费」，女性就业的代价就越以隐形方式支付。性别与妇女发展">
+  <div class="chead"><span class="no">#031</span><span class="stag">性别与妇女发展</span></div>
+  <h3>无偿照护的影子 GDP</h3>
+  <p class="q">如果把无偿照护劳动按市场工资计价，相当于各国 GDP 的多少？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://data.unwomen.org" target="_blank" rel="noopener">data.unwomen.org</a><a class="src" href="https://ilostat.ilo.org" target="_blank" rel="noopener">ILO (International Labour Organization) — Statistics</a><a class="src" href="https://hdr.undp.org/data-center" target="_blank" rel="noopener">UNDP Human Development Reports</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>时间利用调查的照护时长 × 替代工资估值，与各国 GDP 并列比较，再对照托育政策的覆盖差异。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>这个影子 GDP 普遍达到显性 GDP 的一到两成，而且哪个国家照护越「免费」，女性就业的代价就越以隐形方式支付。</p>
+</article>
+<article class="case" data-sc="gender" data-text="玻璃天花板的三层证据议会席位、企业高管和工资差距，三个层面的性别不平等是一致的吗？三层指标逐国标准化后比较一致性，找出「某一层突出、另一层垫底」的错位国家深挖制度原因。三层常常对不上：有的国家议会靠配额冲上去了，工资差距却纹丝不动——配额修的是门面，管线问题还在后面。性别与妇女发展">
+  <div class="chead"><span class="no">#032</span><span class="stag">性别与妇女发展</span></div>
+  <h3>玻璃天花板的三层证据</h3>
+  <p class="q">议会席位、企业高管和工资差距，三个层面的性别不平等是一致的吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://data.unwomen.org" target="_blank" rel="noopener">data.unwomen.org</a><a class="src" href="https://data.oecd.org" target="_blank" rel="noopener">OECD Data Explorer</a><a class="src" href="https://rshiny.ilo.org/dataexplorer46/" target="_blank" rel="noopener">ILO Data Explorer</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>三层指标逐国标准化后比较一致性，找出「某一层突出、另一层垫底」的错位国家深挖制度原因。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>三层常常对不上：有的国家议会靠配额冲上去了，工资差距却纹丝不动——配额修的是门面，管线问题还在后面。</p>
+</article>
+<article class="case" data-sc="crime" data-text="犯罪网络寄生在合法贸易上毒品与违禁品的流动路径，和合法贸易的通道有多重合？缉获数据标注的走私路径与合法贸易流向、港口吞吐叠加，计算路径重合度并找异常偏离的贸易流。走私不是另建了一套物流，它就是合法物流的影子——查异常貿易流，比查毒品本身更早发现通道的转移。犯罪、司法与公共安全">
+  <div class="chead"><span class="no">#033</span><span class="stag">犯罪、司法与公共安全</span></div>
+  <h3>犯罪网络寄生在合法贸易上</h3>
+  <p class="q">毒品与违禁品的流动路径，和合法贸易的通道有多重合？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.unodc.org/unodc/en/data-and-analysis/world-drug-report-2026.html" target="_blank" rel="noopener">UNODC World Drug Report</a><a class="src" href="https://comtradeplus.un.org" target="_blank" rel="noopener">UN COMTRADE</a><a class="src" href="https://trade.cites.org" target="_blank" rel="noopener">CITES Trade Database</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>缉获数据标注的走私路径与合法贸易流向、港口吞吐叠加，计算路径重合度并找异常偏离的贸易流。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>走私不是另建了一套物流，它就是合法物流的影子——查异常貿易流，比查毒品本身更早发现通道的转移。</p>
+</article>
+<article class="case" data-sc="crime" data-text="洗钱中心与犯罪率的错位金融中心城市的犯罪统计为什么「看起来」出奇地干净？跨境银行敞口（bis 所在地统计）与犯罪、缉获数据对照，检验金融活动规模与犯罪可见度的关系。犯罪率量的是街头，洗钱量的是账本——用街头指标给金融中心打分，等于用温度计量体重。犯罪、司法与公共安全">
+  <div class="chead"><span class="no">#034</span><span class="stag">犯罪、司法与公共安全</span></div>
+  <h3>洗钱中心与犯罪率的错位</h3>
+  <p class="q">金融中心城市的犯罪统计为什么「看起来」出奇地干净？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.interpol.int/en/How-we-work/Statistics" target="_blank" rel="noopener">INTERPOL Statistics</a><a class="src" href="https://dataunodc.un.org" target="_blank" rel="noopener">UNODC Data Portal</a><a class="src" href="https://data.bis.org" target="_blank" rel="noopener">data.bis.org</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>跨境银行敞口（BIS 所在地统计）与犯罪、缉获数据对照，检验金融活动规模与犯罪可见度的关系。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>犯罪率量的是街头，洗钱量的是账本——用街头指标给金融中心打分，等于用温度计量体重。</p>
+</article>
+<article class="case" data-sc="housing" data-text="买不起房，到底是谁的病？房价收入比最高的城市，病根是收入低、供给少还是资金多？房价收入比逐城市分解为房价端与收入端，再对照建设量与跨境资本流入做归因分类。同一张「买不起」排行榜里藏着三种完全不同的病：有的缺供给，有的缺收入，有的纯粹是全球资本的停车场。住房、城市与区域发展">
+  <div class="chead"><span class="no">#035</span><span class="stag">住房、城市与区域发展</span></div>
+  <h3>买不起房，到底是谁的病？</h3>
+  <p class="q">房价收入比最高的城市，病根是收入低、供给少还是资金多？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://data.unhabitat.org" target="_blank" rel="noopener">Un-Habitat Urban Data</a><a class="src" href="https://data.bis.org" target="_blank" rel="noopener">data.bis.org</a><a class="src" href="https://ec.europa.eu/eurostat" target="_blank" rel="noopener">Eurostat</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>房价收入比逐城市分解为房价端与收入端，再对照建设量与跨境资本流入做归因分类。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>同一张「买不起」排行榜里藏着三种完全不同的病：有的缺供给，有的缺收入，有的纯粹是全球资本的停车场。</p>
+</article>
+<article class="case" data-sc="housing" data-text="城市正在吃掉农田全球城市扩张吞噬耕地的速度，和粮食安全的地图对得上吗？土地覆盖变化（建成区扩张）与耕地面积、粮食自给率序列叠加，识别「扩张压在优质耕地上」的城市群。城市扩张最爱挑平坦肥沃的土地下手——被吃掉的耕地质量远高于平均水平，面积账低估了粮食账的损失。住房、城市与区域发展">
+  <div class="chead"><span class="no">#036</span><span class="stag">住房、城市与区域发展</span></div>
+  <h3>城市正在吃掉农田</h3>
+  <p class="q">全球城市扩张吞噬耕地的速度，和粮食安全的地图对得上吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.espon.eu" target="_blank" rel="noopener">ESPON Data</a><a class="src" href="https://dataspace.copernicus.eu" target="_blank" rel="noopener">Copernicus Data Space</a><a class="src" href="https://www.fao.org/faostat" target="_blank" rel="noopener">FAO FAOSTAT</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>土地覆盖变化（建成区扩张）与耕地面积、粮食自给率序列叠加，识别「扩张压在优质耕地上」的城市群。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>城市扩张最爱挑平坦肥沃的土地下手——被吃掉的耕地质量远高于平均水平，面积账低估了粮食账的损失。</p>
+</article>
+</div>
+<h2 class="grp">健康、教育与科技<span class="cnt">14 个案例</span></h2>
+<div class="grid">
+<article class="case" data-sc="health" data-text="气候正在给医院送病人热浪与空气污染对就诊和死亡的影响，能提前多久预警？气象与污染日数据同医院负担（超额就诊/死亡）对齐，估计暴露-反应曲线与预警提前量。影响不是即时的：热浪的健康账单在事件后一周才结清——预警系统盯着气温，医院感受到的却是滞后的波浪。公共卫生与疾病监测">
+  <div class="chead"><span class="no">#037</span><span class="stag">公共卫生与疾病监测</span></div>
+  <h3>气候正在给医院送病人</h3>
+  <p class="q">热浪与空气污染对就诊和死亡的影响，能提前多久预警？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.who.int/data/gho" target="_blank" rel="noopener">WHO Global Health Observatory</a><a class="src" href="https://climatedata.imf.org" target="_blank" rel="noopener">WMO Climate Data</a><a class="src" href="https://www.eea.europa.eu" target="_blank" rel="noopener">European Environment Agency</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>气象与污染日数据同医院负担（超额就诊/死亡）对齐，估计暴露-反应曲线与预警提前量。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>影响不是即时的：热浪的健康账单在事件后一周才结清——预警系统盯着气温，医院感受到的却是滞后的波浪。</p>
+</article>
+<article class="case" data-sc="health" data-text="艾滋防治的钱，花在发病最多的地方吗？unaids 的流行病学地图与卫生资金的流向地图，错位有多大？新发感染与疾病负担按区分组，与资金拨付强度对照，计算「每单位负担获得的资金」的分布公平性。错位的方向很一致：负担最重的地区单位资金最少，因为资金跟着「项目执行能力」走，不跟着病毒走。公共卫生与疾病监测">
+  <div class="chead"><span class="no">#038</span><span class="stag">公共卫生与疾病监测</span></div>
+  <h3>艾滋防治的钱，花在发病最多的地方吗？</h3>
+  <p class="q">UNAIDS 的流行病学地图与卫生资金的流向地图，错位有多大？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://aidsinfo.unaids.org" target="_blank" rel="noopener">UNAIDS AIDSinfo</a><a class="src" href="https://www.who.int/data/gho" target="_blank" rel="noopener">WHO Global Health Observatory</a><a class="src" href="https://dataportal.opendataforafrica.org" target="_blank" rel="noopener">African Development Bank Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>新发感染与疾病负担按区分组，与资金拨付强度对照，计算「每单位负担获得的资金」的分布公平性。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>错位的方向很一致：负担最重的地区单位资金最少，因为资金跟着「项目执行能力」走，不跟着病毒走。</p>
+</article>
+<article class="case" data-sc="healthsys" data-text="卫生支出的拐点：多花钱不再买命卫生支出与预期寿命的曲线在哪个点变平？各国离拐点多远？支出-寿命散点拟合边际回报曲线，按收入分组找拐点，并识别「低支出高寿命」的效率样本。曲线变平的位置比想象中早得多：一批低支出国家靠公共卫生基础项拿到了高回报——钱之外的制度才是关键变量。医疗系统与全球卫生估计">
+  <div class="chead"><span class="no">#039</span><span class="stag">医疗系统与全球卫生估计</span></div>
+  <h3>卫生支出的拐点：多花钱不再买命</h3>
+  <p class="q">卫生支出与预期寿命的曲线在哪个点变平？各国离拐点多远？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.who.int/data/global-health-estimates" target="_blank" rel="noopener">WHO Global Health Estimates</a><a class="src" href="https://www.who.int/data/gho" target="_blank" rel="noopener">WHO Global Health Observatory</a><a class="src" href="https://pip.worldbank.org" target="_blank" rel="noopener">Poverty and Inequality Platform</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>支出-寿命散点拟合边际回报曲线，按收入分组找拐点，并识别「低支出高寿命」的效率样本。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>曲线变平的位置比想象中早得多：一批低支出国家靠公共卫生基础项拿到了高回报——钱之外的制度才是关键变量。</p>
+</article>
+<article class="case" data-sc="healthsys" data-text="结核病的贫困指纹结核发病率能不能被贫困和住房拥挤「预测」出来？tb 发病率对贫困率、居住拥挤度与营养指标做跨国回归，看残差找出防控体系真正起作用的国家。模型能解释大部分发病率——剩下解释不了的残差里，藏着防控体系的真本事：同样的贫困，有的国家就是压得住。医疗系统与全球卫生估计">
+  <div class="chead"><span class="no">#040</span><span class="stag">医疗系统与全球卫生估计</span></div>
+  <h3>结核病的贫困指纹</h3>
+  <p class="q">结核发病率能不能被贫困和住房拥挤「预测」出来？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.who.int/teams/global-tuberculosis-programme/data" target="_blank" rel="noopener">WHO Tb Data</a><a class="src" href="https://pip.worldbank.org" target="_blank" rel="noopener">Poverty and Inequality Platform</a><a class="src" href="https://data.unhabitat.org" target="_blank" rel="noopener">Un-Habitat Urban Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>TB 发病率对贫困率、居住拥挤度与营养指标做跨国回归，看残差找出防控体系真正起作用的国家。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>模型能解释大部分发病率——剩下解释不了的残差里，藏着防控体系的真本事：同样的贫困，有的国家就是压得住。</p>
+</article>
+<article class="case" data-sc="healthregion" data-text="同一个国家，在两个系统里有两个数字who 总部数据库与区域办公室数据库，同一指标对得上吗？同国同年同指标三方抽取比对，统计不一致的比例并追踪修订记录的方向。不一致的修订方向有规律：数字总是朝着「更好看」的方向修——数据治理的问题最后都是激励的问题。区域卫生统计">
+  <div class="chead"><span class="no">#041</span><span class="stag">区域卫生统计</span></div>
+  <h3>同一个国家，在两个系统里有两个数字</h3>
+  <p class="q">WHO 总部数据库与区域办公室数据库，同一指标对得上吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://gateway.euro.who.int" target="_blank" rel="noopener">WHO EURO Health Gateway</a><a class="src" href="https://www.who.int/data/gho" target="_blank" rel="noopener">WHO Global Health Observatory</a><a class="src" href="https://www.istat.it" target="_blank" rel="noopener">Italy（istat.it）</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>同国同年同指标三方抽取比对，统计不一致的比例并追踪修订记录的方向。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>不一致的修订方向有规律：数字总是朝着「更好看」的方向修——数据治理的问题最后都是激励的问题。</p>
+</article>
+<article class="case" data-sc="healthregion" data-text="拉美的卫生不平等图谱拉美各国之间的卫生差距大，还是国内城乡差距大？把区域卫生方差分解为国家间与国内（城乡、族群）两层，比较哪一层占主导。主导层是国内：拉美的卫生不平等首先不是穷国与富国之别，而是同一国家里两个世界之别。区域卫生统计">
+  <div class="chead"><span class="no">#042</span><span class="stag">区域卫生统计</span></div>
+  <h3>拉美的卫生不平等图谱</h3>
+  <p class="q">拉美各国之间的卫生差距大，还是国内城乡差距大？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.paho.org/en/data-visualization-lab" target="_blank" rel="noopener">WHO PAHO Data Lab</a><a class="src" href="https://statistics.cepal.org/portal/cepalstat" target="_blank" rel="noopener">ECLAC CEPALSTAT</a><a class="src" href="https://data.undp.org" target="_blank" rel="noopener">UNDP Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>把区域卫生方差分解为国家间与国内（城乡、族群）两层，比较哪一层占主导。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>主导层是国内：拉美的卫生不平等首先不是穷国与富国之别，而是同一国家里两个世界之别。</p>
+</article>
+<article class="case" data-sc="education" data-text="学历越高，越容易失业？哪些国家存在「教育回报悖论」：受教育程度越高，失业率反而越高？按教育层级分列的失业率与教育质量（pisa）、产业结构对照，定位悖论国家并分解成因。悖论国家的共同点是教育扩招跑在了产业升级前面——文凭在通胀，岗位没有，问题不在学校在产业。教育与人力资本">
+  <div class="chead"><span class="no">#043</span><span class="stag">教育与人力资本</span></div>
+  <h3>学历越高，越容易失业？</h3>
+  <p class="q">哪些国家存在「教育回报悖论」：受教育程度越高，失业率反而越高？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="http://uis.unesco.org" target="_blank" rel="noopener">UNESCO Institute for Statistics (UIS)</a><a class="src" href="https://www.oecd.org/pisa/data" target="_blank" rel="noopener">OECD PISA Data</a><a class="src" href="https://ilostat.ilo.org" target="_blank" rel="noopener">ILO (International Labour Organization) — Statistics</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>按教育层级分列的失业率与教育质量（PISA）、产业结构对照，定位悖论国家并分解成因。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>悖论国家的共同点是教育扩招跑在了产业升级前面——文凭在通胀，岗位没有，问题不在学校在产业。</p>
+</article>
+<article class="case" data-sc="education" data-text="教育的钱，流进了谁的口袋？教育支出增加时，获益的是贫困家庭的孩子还是中产家庭的孩子？按家庭收入五分位拆解教育受益分布，与支出结构（学段、地区）对照做受益归属分析。很多国家的教育支出名义上普惠，实际分配是累退的：花在大学阶段的钱，系统性补贴了本来就占优势的家庭。教育与人力资本">
+  <div class="chead"><span class="no">#044</span><span class="stag">教育与人力资本</span></div>
+  <h3>教育的钱，流进了谁的口袋？</h3>
+  <p class="q">教育支出增加时，获益的是贫困家庭的孩子还是中产家庭的孩子？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.education-inequalities.org" target="_blank" rel="noopener">UNESCO WIDE Education</a><a class="src" href="http://uis.unesco.org" target="_blank" rel="noopener">UNESCO Institute for Statistics (UIS)</a><a class="src" href="https://data.unicef.org" target="_blank" rel="noopener">UNICEF Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>按家庭收入五分位拆解教育受益分布，与支出结构（学段、地区）对照做受益归属分析。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>很多国家的教育支出名义上普惠，实际分配是累退的：花在大学阶段的钱，系统性补贴了本来就占优势的家庭。</p>
+</article>
+<article class="case" data-sc="science" data-text="大科学的开放红利cern 式开放数据对科研产出的拉动，能从数据上看见吗？开放数据的下载与复用记录，对照论文产出与跨国合作网络的变化，做开放前后的对照分析。开放的红利不体现在数据生产国身上：复用最多的是没有能力自建大科学装置的国家——开放是最便宜的技术援助。科技、研发与创新">
+  <div class="chead"><span class="no">#045</span><span class="stag">科技、研发与创新</span></div>
+  <h3>大科学的开放红利</h3>
+  <p class="q">CERN 式开放数据对科研产出的拉动，能从数据上看见吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://opendata.cern.ch" target="_blank" rel="noopener">opendata.cern.ch</a><a class="src" href="https://data.jrc.ec.europa.eu" target="_blank" rel="noopener">JRC Data Catalogue</a><a class="src" href="https://data.oecd.org" target="_blank" rel="noopener">OECD Data Explorer</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>开放数据的下载与复用记录，对照论文产出与跨国合作网络的变化，做开放前后的对照分析。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>开放的红利不体现在数据生产国身上：复用最多的是没有能力自建大科学装置的国家——开放是最便宜的技术援助。</p>
+</article>
+<article class="case" data-sc="science" data-text="核能扩张的真实节奏各国宣布的核电雄心与实际建设进度之间，隔着多少水分？iaea 机组状态库（规划/在建/并网）与宣布目标逐国对账，计算各阶段的历史转化率。从宣布到并网的历史转化率低得惊人——用转化率折一下，各国的「核电雄心」要缩水一大半才接近现实。科技、研发与创新">
+  <div class="chead"><span class="no">#046</span><span class="stag">科技、研发与创新</span></div>
+  <h3>核能扩张的真实节奏</h3>
+  <p class="q">各国宣布的核电雄心与实际建设进度之间，隔着多少水分？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.iaea.org/resources/databases" target="_blank" rel="noopener">IAEA Databases</a><a class="src" href="https://www.iea.org/data-and-statistics" target="_blank" rel="noopener">IEA Data and Statistics</a><a class="src" href="https://data.oecd.org" target="_blank" rel="noopener">OECD Data Explorer</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>IAEA 机组状态库（规划/在建/并网）与宣布目标逐国对账，计算各阶段的历史转化率。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>从宣布到并网的历史转化率低得惊人——用转化率折一下，各国的「核电雄心」要缩水一大半才接近现实。</p>
+</article>
+<article class="case" data-sc="ip" data-text="专利泡沫指数专利申请量暴涨的国家，高技术出口跟上了吗？谁在为泡沫买单？专利量、高技术产品出口与工业产出三线对比，构造「专利-产业转化率」并做跨国排名。转化率最低的恰恰是补贴最猛的：当专利数量成为考核指标，它就停止成为创新指标——古德哈特定律的全球实证。知识产权与专利">
+  <div class="chead"><span class="no">#047</span><span class="stag">知识产权与专利</span></div>
+  <h3>专利泡沫指数</h3>
+  <p class="q">专利申请量暴涨的国家，高技术出口跟上了吗？谁在为泡沫买单？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.wipo.int/ipstats" target="_blank" rel="noopener">WIPO Ip Statistics</a><a class="src" href="https://comtradeplus.un.org" target="_blank" rel="noopener">UN COMTRADE</a><a class="src" href="https://stat.unido.org" target="_blank" rel="noopener">UNIDO Statistics</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>专利量、高技术产品出口与工业产出三线对比，构造「专利-产业转化率」并做跨国排名。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>转化率最低的恰恰是补贴最猛的：当专利数量成为考核指标，它就停止成为创新指标——古德哈特定律的全球实证。</p>
+</article>
+<article class="case" data-sc="ip" data-text="追赶者的专利路径长什么样？后发国家的专利结构演变，是在复制先行者的路线还是走出了新路？按技术领域分解专利组合，与产业升级阶段对照，比較不同追赶者的领域进入顺序。成功追赶者的共同点不是专利多，而是进入顺序：都先在他人的产业链环节里拿专利，再向两端爬。知识产权与专利">
+  <div class="chead"><span class="no">#048</span><span class="stag">知识产权与专利</span></div>
+  <h3>追赶者的专利路径长什么样？</h3>
+  <p class="q">后发国家的专利结构演变，是在复制先行者的路线还是走出了新路？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.wipo.int/ipstats" target="_blank" rel="noopener">WIPO Ip Statistics</a><a class="src" href="https://stat.unido.org" target="_blank" rel="noopener">UNIDO Statistics</a><a class="src" href="https://datahub.itu.int" target="_blank" rel="noopener">ITU Data Hub</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>按技术领域分解专利组合，与产业升级阶段对照，比較不同追赶者的领域进入顺序。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>成功追赶者的共同点不是专利多，而是进入顺序：都先在他人的产业链环节里拿专利，再向两端爬。</p>
+</article>
+<article class="case" data-sc="culture" data-text="旅游繁荣的环境账单游客量创新高的国家，为此支付的碳成本记在哪本账上？入境游客与航空客运量估算旅游相关排放，与目的地国家的减排承诺对照做压力测试。旅游排放在国家清单里被拆散记在航空、能源、废弃物各处——拼回来才发现，它是不少小岛国家的头号排放源。文化、旅游与遗产">
+  <div class="chead"><span class="no">#049</span><span class="stag">文化、旅游与遗产</span></div>
+  <h3>旅游繁荣的环境账单</h3>
+  <p class="q">游客量创新高的国家，为此支付的碳成本记在哪本账上？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.untourism.int/tourism-statistics/tourism-statistics-database" target="_blank" rel="noopener">UN Tourism Statistics Database</a><a class="src" href="https://www.icao.int/safety/iStars" target="_blank" rel="noopener">ICAO Safety Data</a><a class="src" href="https://unfccc.int/process-and-meetings/transparency-and-reporting/greenhouse-gas-data/ghg-data-unfccc" target="_blank" rel="noopener">UNFCCC GHG Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>入境游客与航空客运量估算旅游相关排放，与目的地国家的减排承诺对照做压力测试。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>旅游排放在国家清单里被拆散记在航空、能源、废弃物各处——拼回来才发现，它是不少小岛国家的头号排放源。</p>
+</article>
+<article class="case" data-sc="culture" data-text="世界遗产的过载临界点世界遗产地的游客压力到什么程度开始反噬遗产本身与当地社区？遗产地游客强度与居民人口、住房成本变化叠加，找「旅游收益转为净负担」的拐点特征。拐点确实存在且可测：越过之后居民流失加速，遗产地开始空心化成布景——保护的对象先消失了。文化、旅游与遗产">
+  <div class="chead"><span class="no">#050</span><span class="stag">文化、旅游与遗产</span></div>
+  <h3>世界遗产的过载临界点</h3>
+  <p class="q">世界遗产地的游客压力到什么程度开始反噬遗产本身与当地社区？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://whc.unesco.org/en/list" target="_blank" rel="noopener">UNESCO World Heritage List</a><a class="src" href="https://www.untourism.int/tourism-data/un-tourism-tourism-dashboard" target="_blank" rel="noopener">UN Tourism Data Dashboard</a><a class="src" href="https://data.unhabitat.org" target="_blank" rel="noopener">Un-Habitat Urban Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>遗产地游客强度与居民人口、住房成本变化叠加，找「旅游收益转为净负担」的拐点特征。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>拐点确实存在且可测：越过之后居民流失加速，遗产地开始空心化成布景——保护的对象先消失了。</p>
+</article>
+</div>
+<h2 class="grp">农业、资源与环境<span class="cnt">20 个案例</span></h2>
+<div class="grid">
+<article class="case" data-sc="agri" data-text="从云层到粮价：干旱的传导链一次干旱从气象事件变成粮价危机，要经过哪几环、提前多久能看见？干旱指数→产量→库存→价格四环逐环测算时滞与衰减，拼出完整的传导时间表。全链条走完要 6 到 12 个月——粮价危机从来不是突发的，它在云层里就已经写好了，只是没人把四环连起来看。农业与粮食安全">
+  <div class="chead"><span class="no">#051</span><span class="stag">农业与粮食安全</span></div>
+  <h3>从云层到粮价：干旱的传导链</h3>
+  <p class="q">一次干旱从气象事件变成粮价危机，要经过哪几环、提前多久能看见？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://climatedata.imf.org" target="_blank" rel="noopener">WMO Climate Data</a><a class="src" href="https://www.fao.org/faostat" target="_blank" rel="noopener">FAO FAOSTAT</a><a class="src" href="https://www.fao.org/giews" target="_blank" rel="noopener">FAO GIEWS</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>干旱指数→产量→库存→价格四环逐环测算时滞与衰减，拼出完整的传导时间表。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>全链条走完要 6 到 12 个月——粮价危机从来不是突发的，它在云层里就已经写好了，只是没人把四环连起来看。</p>
+</article>
+<article class="case" data-sc="agri" data-text="农业援助打偏了吗？农村发展项目的选址，和贫困与农业潜力的地图重合吗？项目点位与贫困率、农业适宜性空间叠加，区分「打在贫困上」「打在潜力上」「两头落空」三类项目。相当比例的项目落在「不穷又有别人投」的舒适区——援助选址服从的是机构的地理惯性，不是地图上的需求。农业与粮食安全">
+  <div class="chead"><span class="no">#052</span><span class="stag">农业与粮食安全</span></div>
+  <h3>农业援助打偏了吗？</h3>
+  <p class="q">农村发展项目的选址，和贫困与农业潜力的地图重合吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.ifad.org" target="_blank" rel="noopener">ifad.org</a><a class="src" href="https://pip.worldbank.org" target="_blank" rel="noopener">Poverty and Inequality Platform</a><a class="src" href="https://www.fao.org/hih-geospatial-platform" target="_blank" rel="noopener">FAO Geospatial Platform</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>项目点位与贫困率、农业适宜性空间叠加，区分「打在贫困上」「打在潜力上」「两头落空」三类项目。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>相当比例的项目落在「不穷又有别人投」的舒适区——援助选址服从的是机构的地理惯性，不是地图上的需求。</p>
+</article>
+<article class="case" data-sc="fishery" data-text="过度捕捞的三重证据一个渔场的资源衰退，捕捞量、船队规模和物种状态三方数据谁先报警？捕捞量、船舶吨位与物种评估三线对齐同一渔场，比较各自的拐点出现时间。捕捞量是最后一个报警的——它靠加大努力量硬撑出虚假繁荣；船队数据里早几年就写明了结局。渔业与海洋资源">
+  <div class="chead"><span class="no">#053</span><span class="stag">渔业与海洋资源</span></div>
+  <h3>过度捕捞的三重证据</h3>
+  <p class="q">一个渔场的资源衰退，捕捞量、船队规模和物种状态三方数据谁先报警？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.fao.org/fishery/statistics-query/en/capture" target="_blank" rel="noopener">FAO FishStatJ</a><a class="src" href="https://gisis.imo.org" target="_blank" rel="noopener">IMO Maritime Data</a><a class="src" href="https://www.iucnredlist.org" target="_blank" rel="noopener">IUCN Red List</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>捕捞量、船舶吨位与物种评估三线对齐同一渔场，比较各自的拐点出现时间。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>捕捞量是最后一个报警的——它靠加大努力量硬撑出虚假繁荣；船队数据里早几年就写明了结局。</p>
+</article>
+<article class="case" data-sc="fishery" data-text="消失的鱼，去了哪个市场？捕捞量下降的海域，鱼从贸易数据里以什么形式「补」回来了？捕捞-进出口-表观消费三本账按物种组对账，识别以进口和养殖填补野生缺口的路径。野生鱼消失的速度被贸易账掩盖了：消费端毫无感觉，因为缺口被养殖和远洋捕捞默默对冲——账面平衡，生态透支。渔业与海洋资源">
+  <div class="chead"><span class="no">#054</span><span class="stag">渔业与海洋资源</span></div>
+  <h3>消失的鱼，去了哪个市场？</h3>
+  <p class="q">捕捞量下降的海域，鱼从贸易数据里以什么形式「补」回来了？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.fao.org/fishery/statistics-query/en/capture" target="_blank" rel="noopener">FAO FishStatJ</a><a class="src" href="https://comtradeplus.un.org" target="_blank" rel="noopener">UN COMTRADE</a><a class="src" href="https://www.fao.org/faostat" target="_blank" rel="noopener">FAO FAOSTAT</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>捕捞-进出口-表观消费三本账按物种组对账，识别以进口和养殖填补野生缺口的路径。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>野生鱼消失的速度被贸易账掩盖了：消费端毫无感觉，因为缺口被养殖和远洋捕捞默默对冲——账面平衡，生态透支。</p>
+</article>
+<article class="case" data-sc="forest" data-text="荒漠化的真正推手土地退化是气候变干造成的，还是用地方式造成的？责任能分开吗？把退化栅格的降水趋势与土地利用强度分开建模，逐区域做归因分解。多数热点的第一推手是利用强度而非降水：气候是背景的干旱化，用地方式才是点火的手——治理抓错变量就会全盘落空。林业、土地与荒漠化">
+  <div class="chead"><span class="no">#055</span><span class="stag">林业、土地与荒漠化</span></div>
+  <h3>荒漠化的真正推手</h3>
+  <p class="q">土地退化是气候变干造成的，还是用地方式造成的？责任能分开吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://data.unccd.int/" target="_blank" rel="noopener">UNCCD Data Hub</a><a class="src" href="https://dataspace.copernicus.eu" target="_blank" rel="noopener">Copernicus Data Space</a><a class="src" href="https://www.fao.org/faostat" target="_blank" rel="noopener">FAO FAOSTAT</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>把退化栅格的降水趋势与土地利用强度分开建模，逐区域做归因分解。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>多数热点的第一推手是利用强度而非降水：气候是背景的干旱化，用地方式才是点火的手——治理抓错变量就会全盘落空。</p>
+</article>
+<article class="case" data-sc="forest" data-text="碳汇的申报与实测各国向 unfccc 申报的森林碳汇，和卫星遥感测算的对得上吗？申报碳汇与遥感森林面积/生物量变化独立测算对照，差异按申报方法类型聚类。差异大的国家有个共同点：用了最有利于自己的核算口径——碳汇正在成为一种可以通过选口径「生产」出来的数字。林业、土地与荒漠化">
+  <div class="chead"><span class="no">#056</span><span class="stag">林业、土地与荒漠化</span></div>
+  <h3>碳汇的申报与实测</h3>
+  <p class="q">各国向 UNFCCC 申报的森林碳汇，和卫星遥感测算的对得上吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.fao.org/hih-geospatial-platform" target="_blank" rel="noopener">FAO Geospatial Platform</a><a class="src" href="https://unfccc.int/process-and-meetings/transparency-and-reporting/greenhouse-gas-data/ghg-data-unfccc" target="_blank" rel="noopener">UNFCCC GHG Data</a><a class="src" href="https://dataspace.copernicus.eu" target="_blank" rel="noopener">Copernicus Data Space</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>申报碳汇与遥感森林面积/生物量变化独立测算对照，差异按申报方法类型聚类。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>差异大的国家有个共同点：用了最有利于自己的核算口径——碳汇正在成为一种可以通过选口径「生产」出来的数字。</p>
+</article>
+<article class="case" data-sc="water" data-text="干旱预警的水文盲区水文观测站最稀疏的地方，是不是恰好最依赖水数据做决策的地方？观测站密度与人口、水资源压力叠加，圈出「高压力、低观测」的双重风险区。观测空白与用水压力高度重叠：最需要靠数据分配水资源的地方，恰恰没有数据——全球水治理在为无测站地区盲飞。水资源与水利">
+  <div class="chead"><span class="no">#057</span><span class="stag">水资源与水利</span></div>
+  <h3>干旱预警的水文盲区</h3>
+  <p class="q">水文观测站最稀疏的地方，是不是恰好最依赖水数据做决策的地方？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.fao.org/aquastat" target="_blank" rel="noopener">FAO AQUASTAT</a><a class="src" href="https://oscar.wmo.int/surface" target="_blank" rel="noopener">WMO Oscar Surface</a><a class="src" href="https://population.un.org/dataportal" target="_blank" rel="noopener">UN Population Division</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>观测站密度与人口、水资源压力叠加，圈出「高压力、低观测」的双重风险区。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>观测空白与用水压力高度重叠：最需要靠数据分配水资源的地方，恰恰没有数据——全球水治理在为无测站地区盲飞。</p>
+</article>
+<article class="case" data-sc="water" data-text="灌溉的隐形扩张官方灌溉面积增长平缓，卫星看到的实际灌溉扩张为什么快得多？遥感识别的实际灌溉面积与官方报告逐年比对，差异区再对照地下水位与作物结构。差出来的部分大多是未登记的机井灌溉——地下水在被计划外开采，而水资源账本上根本没有这笔支出。水资源与水利">
+  <div class="chead"><span class="no">#058</span><span class="stag">水资源与水利</span></div>
+  <h3>灌溉的隐形扩张</h3>
+  <p class="q">官方灌溉面积增长平缓，卫星看到的实际灌溉扩张为什么快得多？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.fao.org/aquastat" target="_blank" rel="noopener">FAO AQUASTAT</a><a class="src" href="https://www.fao.org/hih-geospatial-platform" target="_blank" rel="noopener">FAO Geospatial Platform</a><a class="src" href="https://www.fao.org/faostat" target="_blank" rel="noopener">FAO FAOSTAT</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>遥感识别的实际灌溉面积与官方报告逐年比对，差异区再对照地下水位与作物结构。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>差出来的部分大多是未登记的机井灌溉——地下水在被计划外开采，而水资源账本上根本没有这笔支出。</p>
+</article>
+<article class="case" data-sc="energy" data-text="能源转型的三本账装机、发电、排放三本账放在一起，哪些国家的转型是「装了不用」？可再生装机增速、实际发电占比与电力部门排放三线对照，算出装机的「兑现率」。装机竞赛和真实转型是两回事：一些装机冠军的发电占比纹丝不动，卡在电网和调度规则上——瓶颈从来不是面板。能源、电力与矿产">
+  <div class="chead"><span class="no">#059</span><span class="stag">能源、电力与矿产</span></div>
+  <h3>能源转型的三本账</h3>
+  <p class="q">装机、发电、排放三本账放在一起，哪些国家的转型是「装了不用」？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.iea.org/data-and-statistics" target="_blank" rel="noopener">IEA Data and Statistics</a><a class="src" href="https://www.irena.org/Data" target="_blank" rel="noopener">IRENA Data</a><a class="src" href="https://unfccc.int/process-and-meetings/transparency-and-reporting/greenhouse-gas-data/ghg-data-unfccc" target="_blank" rel="noopener">UNFCCC GHG Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>可再生装机增速、实际发电占比与电力部门排放三线对照，算出装机的「兑现率」。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>装机竞赛和真实转型是两回事：一些装机冠军的发电占比纹丝不动，卡在电网和调度规则上——瓶颈从来不是面板。</p>
+</article>
+<article class="case" data-sc="energy" data-text="石油流向的地缘重构制裁与地缘冲突之后，全球石油流向图被改写了多少？双边石油贸易流向在冲击前后做网络重构分析，识别新通道的形成与价格折扣的分布。流向改写的速度比所有人预期的都快，代价藏在价格里：同一批油多绕的每一海里，都变成了某个人的折扣和另一个人的溢价。能源、电力与矿产">
+  <div class="chead"><span class="no">#060</span><span class="stag">能源、电力与矿产</span></div>
+  <h3>石油流向的地缘重构</h3>
+  <p class="q">制裁与地缘冲突之后，全球石油流向图被改写了多少？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.opec.org/opec_web/en/publications/338.htm" target="_blank" rel="noopener">OPEC Statistics</a><a class="src" href="https://comtradeplus.un.org" target="_blank" rel="noopener">UN COMTRADE</a><a class="src" href="https://fred.stlouisfed.org" target="_blank" rel="noopener">fred.stlouisfed.org</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>双边石油贸易流向在冲击前后做网络重构分析，识别新通道的形成与价格折扣的分布。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>流向改写的速度比所有人预期的都快，代价藏在价格里：同一批油多绕的每一海里，都变成了某个人的折扣和另一个人的溢价。</p>
+</article>
+<article class="case" data-sc="renewables" data-text="阳光最足的地方，装机反而垫底太阳能资源禀赋与实际装机利用率之间，隔着什么？资源禀赋（辐照/风速）与装机密度做比值排名，洼地国家再对照融资成本与电网接入排队时间。洼地的共同点不是缺钱，是缺「接入确定性」：资本不怕回报低，怕的是并网时间表没人能给出。可再生能源与能源转型">
+  <div class="chead"><span class="no">#061</span><span class="stag">可再生能源与能源转型</span></div>
+  <h3>阳光最足的地方，装机反而垫底</h3>
+  <p class="q">太阳能资源禀赋与实际装机利用率之间，隔着什么？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.irena.org/Data" target="_blank" rel="noopener">IRENA Data</a><a class="src" href="https://dataspace.copernicus.eu" target="_blank" rel="noopener">Copernicus Data Space</a><a class="src" href="https://www.iea.org/data-and-statistics" target="_blank" rel="noopener">IEA Data and Statistics</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>资源禀赋（辐照/风速）与装机密度做比值排名，洼地国家再对照融资成本与电网接入排队时间。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>洼地的共同点不是缺钱，是缺「接入确定性」：资本不怕回报低，怕的是并网时间表没人能给出。</p>
+</article>
+<article class="case" data-sc="renewables" data-text="投资到了，电却没通可再生装机大涨的国家，为什么还有大量人口用不上电？装机增长与电力可及率（sdg7）逐国对照，找出「装机热、可及冷」的错位国家并拆解电网投资占比。错位国的钱大多砸在发电端，配电端长期欠账——发得出、送不到，最后一公里电网才是真正的瓶颈。可再生能源与能源转型">
+  <div class="chead"><span class="no">#062</span><span class="stag">可再生能源与能源转型</span></div>
+  <h3>投资到了，电却没通</h3>
+  <p class="q">可再生装机大涨的国家，为什么还有大量人口用不上电？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.irena.org/Data" target="_blank" rel="noopener">IRENA Data</a><a class="src" href="https://dataportal.opendataforafrica.org" target="_blank" rel="noopener">African Development Bank Data</a><a class="src" href="https://unstats.un.org/sdgs/dataportal" target="_blank" rel="noopener">UN Sdg Indicators Database</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>装机增长与电力可及率（SDG7）逐国对照，找出「装机热、可及冷」的错位国家并拆解电网投资占比。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>错位国的钱大多砸在发电端，配电端长期欠账——发得出、送不到，最后一公里电网才是真正的瓶颈。</p>
+</article>
+<article class="case" data-sc="climate" data-text="自报排放的可信度审计各国温室气体清单与大气反演、遥感测算之间的差距，有没有系统性方向？自下而上清单与自上而下观测估算逐部门对照，重点看甲烷等「易漏报」部门的偏差方向。偏差方向高度一致：难测的部门系统性偏低——不是谁造假，是清单方法对无组织排放天然近视，需要观测来配眼镜。气候与气象">
+  <div class="chead"><span class="no">#063</span><span class="stag">气候与气象</span></div>
+  <h3>自报排放的可信度审计</h3>
+  <p class="q">各国温室气体清单与大气反演、遥感测算之间的差距，有没有系统性方向？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://unfccc.int/process-and-meetings/transparency-and-reporting/greenhouse-gas-data/ghg-data-unfccc" target="_blank" rel="noopener">UNFCCC GHG Data</a><a class="src" href="https://climatedata.imf.org" target="_blank" rel="noopener">WMO Climate Data</a><a class="src" href="https://earth.esa.int/eogateway/catalog" target="_blank" rel="noopener">ESA Earth Observation</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>自下而上清单与自上而下观测估算逐部门对照，重点看甲烷等「易漏报」部门的偏差方向。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>偏差方向高度一致：难测的部门系统性偏低——不是谁造假，是清单方法对无组织排放天然近视，需要观测来配眼镜。</p>
+</article>
+<article class="case" data-sc="climate" data-text="气候损失被低估了几倍？灾害造成的经济损失，报给 sendai 的数字和国民账户里的痕迹差多少？申报直接损失与资本存量异常、健康负担变化交叉估算，测算低估倍数及其与统计能力的关系。低估倍数与收入水平负相关：越穷的国家损失记账越不全——全球气候损失的总账，从一开始就是向下偏的。气候与气象">
+  <div class="chead"><span class="no">#064</span><span class="stag">气候与气象</span></div>
+  <h3>气候损失被低估了几倍？</h3>
+  <p class="q">灾害造成的经济损失，报给 Sendai 的数字和国民账户里的痕迹差多少？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://sendaimonitor.undrr.org/" target="_blank" rel="noopener">Undrr Sendai Monitor</a><a class="src" href="https://datatopics.worldbank.org/world-development-indicators" target="_blank" rel="noopener">World Development Indicators</a><a class="src" href="https://www.who.int/data/global-health-estimates" target="_blank" rel="noopener">WHO Global Health Estimates</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>申报直接损失与资本存量异常、健康负担变化交叉估算，测算低估倍数及其与统计能力的关系。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>低估倍数与收入水平负相关：越穷的国家损失记账越不全——全球气候损失的总账，从一开始就是向下偏的。</p>
+</article>
+<article class="case" data-sc="disaster" data-text="灾害从来不是平等的同样的灾害强度，打在不同收入群体身上的损失和恢复速度差多少？灾害事件与受影响人口的贫困结构匹配，比较不同群体的资产损失率与恢复时长。强度的分布是自然给的，损失的分布是社会给的：同一场洪水，穷人的资产损失率是富人的数倍，恢复时间以年计。灾害风险与应急响应">
+  <div class="chead"><span class="no">#065</span><span class="stag">灾害风险与应急响应</span></div>
+  <h3>灾害从来不是平等的</h3>
+  <p class="q">同样的灾害强度，打在不同收入群体身上的损失和恢复速度差多少？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://sendaimonitor.undrr.org/" target="_blank" rel="noopener">Undrr Sendai Monitor</a><a class="src" href="https://data.humdata.org" target="_blank" rel="noopener">Humanitarian Data Exchange</a><a class="src" href="https://pip.worldbank.org" target="_blank" rel="noopener">Poverty and Inequality Platform</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>灾害事件与受影响人口的贫困结构匹配，比较不同群体的资产损失率与恢复时长。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>强度的分布是自然给的，损失的分布是社会给的：同一场洪水，穷人的资产损失率是富人的数倍，恢复时间以年计。</p>
+</article>
+<article class="case" data-sc="disaster" data-text="预警的最后一公里气象预警发得出、收不到——预警覆盖与灾害死亡率之间差的是哪一环？预警系统能力、通信普及与灾害死亡率三方对照，定位死亡率居高不下的断裂环节。很多国家预警技术不缺，死人死在「最后一公里」：预警到了县里，到不了村里——通信普及率才是预警系统的一部分。灾害风险与应急响应">
+  <div class="chead"><span class="no">#066</span><span class="stag">灾害风险与应急响应</span></div>
+  <h3>预警的最后一公里</h3>
+  <p class="q">气象预警发得出、收不到——预警覆盖与灾害死亡率之间差的是哪一环？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://climatedata.imf.org" target="_blank" rel="noopener">WMO Climate Data</a><a class="src" href="https://datahub.itu.int" target="_blank" rel="noopener">ITU Data Hub</a><a class="src" href="https://sendaimonitor.undrr.org/" target="_blank" rel="noopener">Undrr Sendai Monitor</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>预警系统能力、通信普及与灾害死亡率三方对照，定位死亡率居高不下的断裂环节。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>很多国家预警技术不缺，死人死在「最后一公里」：预警到了县里，到不了村里——通信普及率才是预警系统的一部分。</p>
+</article>
+<article class="case" data-sc="environ" data-text="物种危机的三重证据链一个物种走向濒危，种群、贸易和栖息地三条曲线谁先转头？同一物种的种群评估、贸易量与栖息地变化时间对齐，做领先-滞后分析。栖息地曲线最先转头，贸易量最后才降——等市场信号出现时，保护窗口已经关了一大半，监测顺序应该倒过来。环境、生态与生物多样性">
+  <div class="chead"><span class="no">#067</span><span class="stag">环境、生态与生物多样性</span></div>
+  <h3>物种危机的三重证据链</h3>
+  <p class="q">一个物种走向濒危，种群、贸易和栖息地三条曲线谁先转头？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.iucnredlist.org" target="_blank" rel="noopener">IUCN Red List</a><a class="src" href="https://trade.cites.org" target="_blank" rel="noopener">CITES Trade Database</a><a class="src" href="https://resources.unep-wcmc.org/" target="_blank" rel="noopener">Unep-Wcmc Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>同一物种的种群评估、贸易量与栖息地变化时间对齐，做领先-滞后分析。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>栖息地曲线最先转头，贸易量最后才降——等市场信号出现时，保护窗口已经关了一大半，监测顺序应该倒过来。</p>
+</article>
+<article class="case" data-sc="environ" data-text="污染的健康账单该寄给谁？工业污染造成的健康损失，能按行业和地区算清楚吗？污染排放、暴露人口与呼吸系统疾病负担三层叠加，按行业做归因分解。账单的最大份额来自少数高排放行业与大城市的叠加区——治理的杠杆不在全面减排，而在几十个具体的点上。环境、生态与生物多样性">
+  <div class="chead"><span class="no">#068</span><span class="stag">环境、生态与生物多样性</span></div>
+  <h3>污染的健康账单该寄给谁？</h3>
+  <p class="q">工业污染造成的健康损失，能按行业和地区算清楚吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.eea.europa.eu" target="_blank" rel="noopener">European Environment Agency</a><a class="src" href="https://gateway.euro.who.int" target="_blank" rel="noopener">WHO EURO Health Gateway</a><a class="src" href="https://stat.unido.org" target="_blank" rel="noopener">UNIDO Statistics</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>污染排放、暴露人口与呼吸系统疾病负担三层叠加，按行业做归因分解。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>账单的最大份额来自少数高排放行业与大城市的叠加区——治理的杠杆不在全面减排，而在几十个具体的点上。</p>
+</article>
+<article class="case" data-sc="geo" data-text="用卫星审计统计局不依赖官方口径，单靠遥感能把一国的城市化和建设活动测多准？建成区面积、夜光与建设用地三类遥感指标对照官方统计，做跨城市的一致性审计。遥感测出的建成区增速系统性高于官方口径——土地财政的激励写在统计里；卫星不会撒谎，但需要人去看。地理空间与地球观测">
+  <div class="chead"><span class="no">#069</span><span class="stag">地理空间与地球观测</span></div>
+  <h3>用卫星审计统计局</h3>
+  <p class="q">不依赖官方口径，单靠遥感能把一国的城市化和建设活动测多准？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://dataspace.copernicus.eu" target="_blank" rel="noopener">Copernicus Data Space</a><a class="src" href="https://earth.esa.int/eogateway/catalog" target="_blank" rel="noopener">ESA Earth Observation</a><a class="src" href="https://www.ibge.gov.br" target="_blank" rel="noopener">Brazil（ibge.gov.br）</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>建成区面积、夜光与建设用地三类遥感指标对照官方统计，做跨城市的一致性审计。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>遥感测出的建成区增速系统性高于官方口径——土地财政的激励写在统计里；卫星不会撒谎，但需要人去看。</p>
+</article>
+<article class="case" data-sc="geo" data-text="在战火里监测粮食冲突地区进不去、统计停摆，怎么知道那里的作物长势和粮荒风险？遥感植被指数与冲突事件、流离失所数据叠加，做无人区粮食安全风险制图。卫星成了唯一在场的「统计员」：冲突区的粮荒可以在收成失败前两个月被看见——前提是有人把三层图叠在一起。地理空间与地球观测">
+  <div class="chead"><span class="no">#070</span><span class="stag">地理空间与地球观测</span></div>
+  <h3>在战火里监测粮食</h3>
+  <p class="q">冲突地区进不去、统计停摆，怎么知道那里的作物长势和粮荒风险？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.fao.org/hih-geospatial-platform" target="_blank" rel="noopener">FAO Geospatial Platform</a><a class="src" href="https://data.jrc.ec.europa.eu" target="_blank" rel="noopener">JRC Data Catalogue</a><a class="src" href="https://data.humdata.org" target="_blank" rel="noopener">Humanitarian Data Exchange</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>遥感植被指数与冲突事件、流离失所数据叠加，做无人区粮食安全风险制图。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>卫星成了唯一在场的「统计员」：冲突区的粮荒可以在收成失败前两个月被看见——前提是有人把三层图叠在一起。</p>
+</article>
+</div>
+<h2 class="grp">基础设施与产业<span class="cnt">8 个案例</span></h2>
+<div class="grid">
+<article class="case" data-sc="transport" data-text="航空安全的连通性代价航空安全记录差的国家，为此付出多大的连通性惩罚？安全审计结果与航线网络、游客量、贸易时效对照，测算安全评级对连通性的弹性。安全评级低一级，丢的不只是面子：直飞航线和游客以可测的速度减少——安全是隐形的贸易基础设施。交通、邮政与物流">
+  <div class="chead"><span class="no">#071</span><span class="stag">交通、邮政与物流</span></div>
+  <h3>航空安全的连通性代价</h3>
+  <p class="q">航空安全记录差的国家，为此付出多大的连通性惩罚？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.icao.int/safety/iStars" target="_blank" rel="noopener">ICAO Safety Data</a><a class="src" href="https://www.untourism.int/tourism-statistics/tourism-statistics-database" target="_blank" rel="noopener">UN Tourism Statistics Database</a><a class="src" href="https://stats.wto.org" target="_blank" rel="noopener">WTO Stats Portal</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>安全审计结果与航线网络、游客量、贸易时效对照，测算安全评级对连通性的弹性。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>安全评级低一级，丢的不只是面子：直飞航线和游客以可测的速度减少——安全是隐形的贸易基础设施。</p>
+</article>
+<article class="case" data-sc="transport" data-text="全球供应链的咽喉哪些海峡和港口是全球贸易的单点故障？替代路线的代价是多少？海运通道流量与双边贸易依赖做网络中心性分析，逐个咽喉做中断情景的成本估算。咽喉的脆弱性不在流量最大处，而在「没有替代路线」的品类上——有些商品的全球供应链实际上只有一条船道宽。交通、邮政与物流">
+  <div class="chead"><span class="no">#072</span><span class="stag">交通、邮政与物流</span></div>
+  <h3>全球供应链的咽喉</h3>
+  <p class="q">哪些海峡和港口是全球贸易的单点故障？替代路线的代价是多少？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://gisis.imo.org" target="_blank" rel="noopener">IMO Maritime Data</a><a class="src" href="https://comtradeplus.un.org" target="_blank" rel="noopener">UN COMTRADE</a><a class="src" href="https://www.upu.int/en/resources/statistics" target="_blank" rel="noopener">UPU Statistics</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>海运通道流量与双边贸易依赖做网络中心性分析，逐个咽喉做中断情景的成本估算。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>咽喉的脆弱性不在流量最大处，而在「没有替代路线」的品类上——有些商品的全球供应链实际上只有一条船道宽。</p>
+</article>
+<article class="case" data-sc="digital" data-text="数字鸿沟如何变成金融鸿沟宽带没通到的地方，金融服务是不是也自动缺席？两条鸿沟的重合度多高？宽带覆盖、账户普及与电商活跃三层地图叠加，测算鸿沟重合度与传导顺序。两条鸿沟几乎完全重合且有固定顺序：先断网，再断金融，最后断机会——修数字基础设施就是在修金融普惠。通信、互联网与数字经济">
+  <div class="chead"><span class="no">#073</span><span class="stag">通信、互联网与数字经济</span></div>
+  <h3>数字鸿沟如何变成金融鸿沟</h3>
+  <p class="q">宽带没通到的地方，金融服务是不是也自动缺席？两条鸿沟的重合度多高？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.itu.int/en/ITU-D/Statistics" target="_blank" rel="noopener">ITU (International Telecommunication Union) — Statistics</a><a class="src" href="https://www.worldbank.org/en/publication/gfdr/data" target="_blank" rel="noopener">Global Financial Development Database</a><a class="src" href="https://data360.worldbank.org" target="_blank" rel="noopener">data360.worldbank.org</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>宽带覆盖、账户普及与电商活跃三层地图叠加，测算鸿沟重合度与传导顺序。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>两条鸿沟几乎完全重合且有固定顺序：先断网，再断金融，最后断机会——修数字基础设施就是在修金融普惠。</p>
+</article>
+<article class="case" data-sc="digital" data-text="宽带进了村，成绩变了吗？学校宽带普及与学习成果之间的关系，在控制了收入之后还成立吗？学校联网率与学习成果跨国对照，逐步加入收入、师资等控制变量看关系的变化。裸相关很漂亮，控制收入后缩水大半——宽带是放大器不是发动机：它放大好学校的优势，也放大差距。通信、互联网与数字经济">
+  <div class="chead"><span class="no">#074</span><span class="stag">通信、互联网与数字经济</span></div>
+  <h3>宽带进了村，成绩变了吗？</h3>
+  <p class="q">学校宽带普及与学习成果之间的关系，在控制了收入之后还成立吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://datahub.itu.int" target="_blank" rel="noopener">ITU Data Hub</a><a class="src" href="http://uis.unesco.org" target="_blank" rel="noopener">UNESCO Institute for Statistics (UIS)</a><a class="src" href="https://www.oecd.org/pisa/data" target="_blank" rel="noopener">OECD PISA Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>学校联网率与学习成果跨国对照，逐步加入收入、师资等控制变量看关系的变化。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>裸相关很漂亮，控制收入后缩水大半——宽带是放大器不是发动机：它放大好学校的优势，也放大差距。</p>
+</article>
+<article class="case" data-sc="industry" data-text="工业碳强度的真实排名把贸易里的隐含碳算进去，各国的工业碳强度排名会翻转多少？生产端排放与消费端（贸易调整）排放双口径计算，比较两套排名的位移。不少「绿色标兵」的低碳是进口来的：把隐含碳算回去，排名大洗牌——减排的外包不等于减排。制造业与工业生产">
+  <div class="chead"><span class="no">#075</span><span class="stag">制造业与工业生产</span></div>
+  <h3>工业碳强度的真实排名</h3>
+  <p class="q">把贸易里的隐含碳算进去，各国的工业碳强度排名会翻转多少？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://stat.unido.org" target="_blank" rel="noopener">UNIDO Statistics</a><a class="src" href="https://www.iea.org/data-and-statistics" target="_blank" rel="noopener">IEA Data and Statistics</a><a class="src" href="https://comtradeplus.un.org" target="_blank" rel="noopener">UN COMTRADE</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>生产端排放与消费端（贸易调整）排放双口径计算，比较两套排名的位移。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>不少「绿色标兵」的低碳是进口来的：把隐含碳算回去，排名大洗牌——减排的外包不等于减排。</p>
+</article>
+<article class="case" data-sc="industry" data-text="机器人来了，工人去哪了？自动化推进最快的行业，就业是消失了还是换了个形态？行业自动化强度（专利与资本品）与就业结构变化对照，追踪被置换劳动力的去向部门。就业总量没消失，消失的是中间层：工人从工厂流向服务业的低薪段——自动化的问题从来是分配，不是总量。制造业与工业生产">
+  <div class="chead"><span class="no">#076</span><span class="stag">制造业与工业生产</span></div>
+  <h3>机器人来了，工人去哪了？</h3>
+  <p class="q">自动化推进最快的行业，就业是消失了还是换了个形态？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://stat.unido.org" target="_blank" rel="noopener">UNIDO Statistics</a><a class="src" href="https://rshiny.ilo.org/dataexplorer46/" target="_blank" rel="noopener">ILO Data Explorer</a><a class="src" href="https://www.wipo.int/ipstats" target="_blank" rel="noopener">WIPO Ip Statistics</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>行业自动化强度（专利与资本品）与就业结构变化对照，追踪被置换劳动力的去向部门。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>就业总量没消失，消失的是中间层：工人从工厂流向服务业的低薪段——自动化的问题从来是分配，不是总量。</p>
+</article>
+<article class="case" data-sc="space" data-text="卫星的公益价值链免费对地观测数据最终变成了哪些公共产品？价值在传递中放大了几倍？追踪同一批卫星数据在农业监测、灾害评估中的复用链条，统计下游应用与受益环节。同一景影像在防灾、农业、保险里被用了几十次——开放数据的价值不在下载量，在它变成多少个决策的原料。航空、航天与空间活动">
+  <div class="chead"><span class="no">#077</span><span class="stag">航空、航天与空间活动</span></div>
+  <h3>卫星的公益价值链</h3>
+  <p class="q">免费对地观测数据最终变成了哪些公共产品？价值在传递中放大了几倍？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://earth.esa.int/eogateway/catalog" target="_blank" rel="noopener">ESA Earth Observation</a><a class="src" href="https://www.fao.org/hih-geospatial-platform" target="_blank" rel="noopener">FAO Geospatial Platform</a><a class="src" href="https://sendaimonitor.undrr.org/" target="_blank" rel="noopener">Undrr Sendai Monitor</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>追踪同一批卫星数据在农业监测、灾害评估中的复用链条，统计下游应用与受益环节。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>同一景影像在防灾、农业、保险里被用了几十次——开放数据的价值不在下载量，在它变成多少个决策的原料。</p>
+</article>
+<article class="case" data-sc="space" data-text="空间天气：航班时刻表之外的变量太阳风暴这类空间天气事件，对航空运行的影响能被数据证实吗？空间天气事件日志与航班异常、通信中断报告时间对齐，做事件研究。影响真实存在但被系统性低估：它从不写进延误原因代码——很多「不明原因」的运行扰动，其实来自太阳。航空、航天与空间活动">
+  <div class="chead"><span class="no">#078</span><span class="stag">航空、航天与空间活动</span></div>
+  <h3>空间天气：航班时刻表之外的变量</h3>
+  <p class="q">太阳风暴这类空间天气事件，对航空运行的影响能被数据证实吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://earth.esa.int/eogateway/catalog" target="_blank" rel="noopener">ESA Earth Observation</a><a class="src" href="https://www.icao.int/safety/iStars" target="_blank" rel="noopener">ICAO Safety Data</a><a class="src" href="https://oscar.wmo.int/surface" target="_blank" rel="noopener">WMO Oscar Surface</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>空间天气事件日志与航班异常、通信中断报告时间对齐，做事件研究。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>影响真实存在但被系统性低估：它从不写进延误原因代码——很多「不明原因」的运行扰动，其实来自太阳。</p>
+</article>
+</div>
+<h2 class="grp">国家与区域综合<span class="cnt">22 个案例</span></h2>
+<div class="grid">
+<article class="case" data-sc="national" data-text="一个数字的旅行变形记同一个指标从国家统计局出发，经过联合国再到世界银行，每一站被改了什么？选取指标做全链路追踪：原始值、转载值与加工值逐站比对，记录修订、估算与口径切换的位置。变形大多发生在不起眼的环节：插值补缺、口径拼接——用户以为自己在引用「日本的数据」，其实引用的是三手加工品。国家综合统计（一站式）">
+  <div class="chead"><span class="no">#079</span><span class="stag">国家综合统计（一站式）</span></div>
+  <h3>一个数字的旅行变形记</h3>
+  <p class="q">同一个指标从国家统计局出发，经过联合国再到世界银行，每一站被改了什么？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.stat.go.jp" target="_blank" rel="noopener">Japan（stat.go.jp）</a><a class="src" href="https://data.un.org" target="_blank" rel="noopener">United Nations Statistics Division (UNSD) UNdata</a><a class="src" href="https://datatopics.worldbank.org/world-development-indicators" target="_blank" rel="noopener">World Development Indicators</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>选取指标做全链路追踪：原始值、转载值与加工值逐站比对，记录修订、估算与口径切换的位置。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>变形大多发生在不起眼的环节：插值补缺、口径拼接——用户以为自己在引用「日本的数据」，其实引用的是三手加工品。</p>
+</article>
+<article class="case" data-sc="national" data-text="人口的三本账普查数、行政登记数和国际估计数，哪个离真相最近？何时分叉？三套人口数逐年对照，分叉点与普查年份、登记制度改革事件对齐做断点分析。三本账在普查年短暂重合，随后各自漂移——国际估计的分叉最平滑，因为它本质上是模型，不是测量。国家综合统计（一站式）">
+  <div class="chead"><span class="no">#080</span><span class="stag">国家综合统计（一站式）</span></div>
+  <h3>人口的三本账</h3>
+  <p class="q">普查数、行政登记数和国际估计数，哪个离真相最近？何时分叉？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://nigerianstat.gov.ng" target="_blank" rel="noopener">Nigeria（nigerianstat.gov.ng）</a><a class="src" href="https://population.un.org/dataportal" target="_blank" rel="noopener">UN Population Division</a><a class="src" href="https://unstats.un.org/unsd/demographic-social/products/dyb" target="_blank" rel="noopener">UN Demographic Yearbook</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>三套人口数逐年对照，分叉点与普查年份、登记制度改革事件对齐做断点分析。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>三本账在普查年短暂重合，随后各自漂移——国际估计的分叉最平滑，因为它本质上是模型，不是测量。</p>
+</article>
+<article class="case" data-sc="opendata" data-text="僵尸数据集：开放了，没人用政府开放数据里有多少是发布后再无人问津的「僵尸数据」？以更新频率、下载与 api 调用为活跃度指标，给开放数据集做「生命体征」分级。僵尸比例高得惊人，而且集中在发布冲刺期之后——很多开放门户是发布会驱动的，不是需求驱动的。政府开放数据集下载">
+  <div class="chead"><span class="no">#081</span><span class="stag">政府开放数据集下载</span></div>
+  <h3>僵尸数据集：开放了，没人用</h3>
+  <p class="q">政府开放数据里有多少是发布后再无人问津的「僵尸数据」？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://data.europa.eu" target="_blank" rel="noopener">data.europa.eu</a><a class="src" href="https://data.humdata.org" target="_blank" rel="noopener">Humanitarian Data Exchange</a><a class="src" href="https://www.bankofengland.co.uk/statistics" target="_blank" rel="noopener">United Kingdom（bankofengland.co.uk）</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>以更新频率、下载与 API 调用为活跃度指标，给开放数据集做「生命体征」分级。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>僵尸比例高得惊人，而且集中在发布冲刺期之后——很多开放门户是发布会驱动的，不是需求驱动的。</p>
+</article>
+<article class="case" data-sc="opendata" data-text="开放数据的跨境复用链一个国家发布的数据集，最终被哪些外国机构和应用复用了？追踪数据集的元数据引用与衍生作品记录，绘制跨境复用的流向网络。复用链的形状出人意料：小国的高质量数据集被复用的次数远超大国——数据外交里，质量比体量更管用。政府开放数据集下载">
+  <div class="chead"><span class="no">#082</span><span class="stag">政府开放数据集下载</span></div>
+  <h3>开放数据的跨境复用链</h3>
+  <p class="q">一个国家发布的数据集，最终被哪些外国机构和应用复用了？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://data.europa.eu" target="_blank" rel="noopener">data.europa.eu</a><a class="src" href="https://ec.europa.eu/eurostat" target="_blank" rel="noopener">Eurostat</a><a class="src" href="https://www.govdata.de" target="_blank" rel="noopener">Germany（govdata.de）</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>追踪数据集的元数据引用与衍生作品记录，绘制跨境复用的流向网络。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>复用链的形状出人意料：小国的高质量数据集被复用的次数远超大国——数据外交里，质量比体量更管用。</p>
+</article>
+<article class="case" data-sc="regional" data-text="欧盟口径的隐形调和成员国数据变成「欧盟统计」之前，经历了多少不为人知的调和？成员国原始发布与 eurostat 终值逐指标比对，归纳调和的类型（季节调整、口径统一、缺失填补）。「欧洲数据质量高」的背后是一支隐形编辑队伍：调和工作不改变哪个数字，只改变数字的可比性——而这恰恰最值钱。区域比较（欧盟/东盟/非盟等）">
+  <div class="chead"><span class="no">#083</span><span class="stag">区域比较（欧盟/东盟/非盟等）</span></div>
+  <h3>欧盟口径的隐形调和</h3>
+  <p class="q">成员国数据变成「欧盟统计」之前，经历了多少不为人知的调和？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://ec.europa.eu/eurostat" target="_blank" rel="noopener">Eurostat</a><a class="src" href="https://www.destatis.de" target="_blank" rel="noopener">Germany（destatis.de）</a><a class="src" href="https://www.insee.fr" target="_blank" rel="noopener">France（insee.fr）</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>成员国原始发布与 Eurostat 终值逐指标比对，归纳调和的类型（季节调整、口径统一、缺失填补）。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>「欧洲数据质量高」的背后是一支隐形编辑队伍：调和工作不改变哪个数字，只改变数字的可比性——而这恰恰最值钱。</p>
+</article>
+<article class="case" data-sc="regional" data-text="东盟统计一致性体检东盟十国的同名指标，定义真的统一吗？拿贸易数据先验一下。成员国双边贸易与区域汇总、外部基准（unctad）三方对账，量化口径不一致的幅度。同名指标下面藏着十种定义——区域一体化的进度，最后要落在统计口径的统一上，而这一步最少被讨论。区域比较（欧盟/东盟/非盟等）">
+  <div class="chead"><span class="no">#084</span><span class="stag">区域比较（欧盟/东盟/非盟等）</span></div>
+  <h3>东盟统计一致性体检</h3>
+  <p class="q">东盟十国的同名指标，定义真的统一吗？拿贸易数据先验一下。</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.asean.org" target="_blank" rel="noopener">ASEAN (Association of Southeast Asian Nations)</a><a class="src" href="https://www.bps.go.id" target="_blank" rel="noopener">Indonesia（bps.go.id）</a><a class="src" href="https://unctadstat.unctad.org" target="_blank" rel="noopener">UNCTAD Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>成员国双边贸易与区域汇总、外部基准（UNCTAD）三方对账，量化口径不一致的幅度。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>同名指标下面藏着十种定义——区域一体化的进度，最后要落在统计口径的统一上，而这一步最少被讨论。</p>
+</article>
+<article class="case" data-sc="globaldb" data-text="同一个指标，三种真相wdi、undata 与 oecd 对同一指标的数值差异，来自定义、来源还是修订节奏？抽取跨库同名指标逐年比对，差异按来源机构、插值方法与修订时间三类归因。最大的差异源是「来源机构不同」：全球数据库不是一面镜子，是三扇朝向不同的窗——选库即选立场。全球发展指标与跨国数据库">
+  <div class="chead"><span class="no">#085</span><span class="stag">全球发展指标与跨国数据库</span></div>
+  <h3>同一个指标，三种真相</h3>
+  <p class="q">WDI、UNdata 与 OECD 对同一指标的数值差异，来自定义、来源还是修订节奏？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://datatopics.worldbank.org/world-development-indicators" target="_blank" rel="noopener">World Development Indicators</a><a class="src" href="https://data.un.org" target="_blank" rel="noopener">United Nations Statistics Division (UNSD) UNdata</a><a class="src" href="https://stats.oecd.org" target="_blank" rel="noopener">OECD.STAT</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>抽取跨库同名指标逐年比对，差异按来源机构、插值方法与修订时间三类归因。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>最大的差异源是「来源机构不同」：全球数据库不是一面镜子，是三扇朝向不同的窗——选库即选立场。</p>
+</article>
+<article class="case" data-sc="globaldb" data-text="全球数据库的时滞地图国家数据发布后，要等多久才进入全球数据库？时滞的分布公平吗？以国家首次发布时间为起点，测算进入各全球库的延迟，并与国家收入、统计能力做相关分析。时滞与统计能力正相关：最需要被看见的国家，恰恰是最后被数据库收录的——全球数据版图自带马太效应。全球发展指标与跨国数据库">
+  <div class="chead"><span class="no">#086</span><span class="stag">全球发展指标与跨国数据库</span></div>
+  <h3>全球数据库的时滞地图</h3>
+  <p class="q">国家数据发布后，要等多久才进入全球数据库？时滞的分布公平吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://data360.worldbank.org" target="_blank" rel="noopener">data360.worldbank.org</a><a class="src" href="https://unstats.un.org/sdgs/dataportal" target="_blank" rel="noopener">UN Sdg Indicators Database</a><a class="src" href="https://www.knbs.or.ke" target="_blank" rel="noopener">Kenya（knbs.or.ke）</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>以国家首次发布时间为起点，测算进入各全球库的延迟，并与国家收入、统计能力做相关分析。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>时滞与统计能力正相关：最需要被看见的国家，恰恰是最后被数据库收录的——全球数据版图自带马太效应。</p>
+</article>
+<article class="case" data-sc="sdg" data-text="sdg 官方进度 vs 独立测量各国报告的 sdg 进度，用遥感和第三方数据独立测一遍，能对上吗？选取可独立测量的 sdg 指标（森林、水质、建成区、夜光贫困）做影子评估，与官方进度对照。官方进度系统性偏乐观，尤其在指标由本国自选自报的部分——独立测量不是不信任，是给诚实者发勋章。sdg 可持续发展监测">
+  <div class="chead"><span class="no">#087</span><span class="stag">SDG 可持续发展监测</span></div>
+  <h3>SDG 官方进度 vs 独立测量</h3>
+  <p class="q">各国报告的 SDG 进度，用遥感和第三方数据独立测一遍，能对上吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://unstats.un.org/sdgs/dataportal" target="_blank" rel="noopener">UN Sdg Indicators Database</a><a class="src" href="https://dataspace.copernicus.eu" target="_blank" rel="noopener">Copernicus Data Space</a><a class="src" href="https://hdr.undp.org/data-center/documentation-and-downloads" target="_blank" rel="noopener">UNDP Human Development Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>选取可独立测量的 SDG 指标（森林、水质、建成区、夜光贫困）做影子评估，与官方进度对照。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>官方进度系统性偏乐观，尤其在指标由本国自选自报的部分——独立测量不是不信任，是给诚实者发勋章。</p>
+</article>
+<article class="case" data-sc="sdg" data-text="sdg 的三角地带饥饿、气候与贫困三个目标在哪里叠加成同一个问题？sdg1/2/13 指标空间叠加，识别三重压力国家并追踪三类政策（农业、气候、社保）的协同度。三角地带的国家名单高度稳定：对它们而言三个目标根本是同一个目标——分开治理就是重复买单。sdg 可持续发展监测">
+  <div class="chead"><span class="no">#088</span><span class="stag">SDG 可持续发展监测</span></div>
+  <h3>SDG 的三角地带</h3>
+  <p class="q">饥饿、气候与贫困三个目标在哪里叠加成同一个问题？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://unstats.un.org/sdgs/dataportal" target="_blank" rel="noopener">UN Sdg Indicators Database</a><a class="src" href="https://www.fao.org/faostat" target="_blank" rel="noopener">FAO FAOSTAT</a><a class="src" href="https://unfccc.int/process-and-meetings/transparency-and-reporting/greenhouse-gas-data/ghg-data-unfccc" target="_blank" rel="noopener">UNFCCC GHG Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>SDG1/2/13 指标空间叠加，识别三重压力国家并追踪三类政策（农业、气候、社保）的协同度。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>三角地带的国家名单高度稳定：对它们而言三个目标根本是同一个目标——分开治理就是重复买单。</p>
+</article>
+<article class="case" data-sc="humanitarian" data-text="被遗忘的危机指数人道危机的资金响应，和危机的实际需求之间差多少？什么在驱动差距？危机需求评分与资金到位率对照，检验媒体曝光、地理邻近与捐助国利益的解释力。需求解释不了资金的一半：地理和眼球才是大头——「被遗忘」不是修辞，是可以用数据量出来的系统性偏斜。人道主义与危机响应">
+  <div class="chead"><span class="no">#089</span><span class="stag">人道主义与危机响应</span></div>
+  <h3>被遗忘的危机指数</h3>
+  <p class="q">人道危机的资金响应，和危机的实际需求之间差多少？什么在驱动差距？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://data.humdata.org" target="_blank" rel="noopener">Humanitarian Data Exchange</a><a class="src" href="https://www.unhcr.org/global-trends" target="_blank" rel="noopener">UNHCR Global Trends</a><a class="src" href="https://dataviz.vam.wfp.org" target="_blank" rel="noopener">WFP Food Security</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>危机需求评分与资金到位率对照，检验媒体曝光、地理邻近与捐助国利益的解释力。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>需求解释不了资金的一半：地理和眼球才是大头——「被遗忘」不是修辞，是可以用数据量出来的系统性偏斜。</p>
+</article>
+<article class="case" data-sc="humanitarian" data-text="危机响应的速度差同类危机在不同地区，国际响应到达的速度为什么差几倍？以危机事件为样本，测算从预警、呼吁到资金到位的全链时滞并做地区间比较。速度差的最大来源不是物流，是预警到呼吁之间的行政链条——危机还在走流程，窗口已经关了一半。人道主义与危机响应">
+  <div class="chead"><span class="no">#090</span><span class="stag">人道主义与危机响应</span></div>
+  <h3>危机响应的速度差</h3>
+  <p class="q">同类危机在不同地区，国际响应到达的速度为什么差几倍？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://data.humdata.org" target="_blank" rel="noopener">Humanitarian Data Exchange</a><a class="src" href="https://dataviz.vam.wfp.org" target="_blank" rel="noopener">WFP Food Security</a><a class="src" href="https://www.unrwa.org/resources/about-unrwa/unrwa-figures" target="_blank" rel="noopener">UNRWA Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>以危机事件为样本，测算从预警、呼吁到资金到位的全链时滞并做地区间比较。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>速度差的最大来源不是物流，是预警到呼吁之间的行政链条——危机还在走流程，窗口已经关了一半。</p>
+</article>
+<article class="case" data-sc="governance" data-text="治理数据的多源三角验证治理水平测不准？把三套互不隶属的指标放一起，哪里一致、哪里打架？三套治理相关指标逐国对照，一致区视为稳健结论，打架区逐个深挖口径与立场来源。打架的地方最有信息量：指标分歧的地图，几乎就是地缘立场的地图——治理测量本身也是治理的一部分。政府效能与公共管理">
+  <div class="chead"><span class="no">#091</span><span class="stag">政府效能与公共管理</span></div>
+  <h3>治理数据的多源三角验证</h3>
+  <p class="q">治理水平测不准？把三套互不隶属的指标放一起，哪里一致、哪里打架？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://data.oecd.org" target="_blank" rel="noopener">OECD Data Explorer</a><a class="src" href="https://www.osce.org" target="_blank" rel="noopener">OSCE Statistics</a><a class="src" href="https://data.undp.org" target="_blank" rel="noopener">UNDP Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>三套治理相关指标逐国对照，一致区视为稳健结论，打架区逐个深挖口径与立场来源。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>打架的地方最有信息量：指标分歧的地图，几乎就是地缘立场的地图——治理测量本身也是治理的一部分。</p>
+</article>
+<article class="case" data-sc="governance" data-text="透明度的形式与实质数据发布量最大的政府，数据真的最好用吗？发布量与可用性（机器可读、更新及时、许可开放）双维度评分，找「高发布、低可用」的错位样本。错位样本比比皆是：发布量是政绩，可用性是成本——当考核只数发布量，透明就会退化为表演。政府效能与公共管理">
+  <div class="chead"><span class="no">#092</span><span class="stag">政府效能与公共管理</span></div>
+  <h3>透明度的形式与实质</h3>
+  <p class="q">数据发布量最大的政府，数据真的最好用吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://data.europa.eu" target="_blank" rel="noopener">data.europa.eu</a><a class="src" href="https://www.imf.org/en/Data" target="_blank" rel="noopener">International Monetary Fund (IMF) — Data</a><a class="src" href="https://data.oecd.org" target="_blank" rel="noopener">OECD Data Explorer</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>发布量与可用性（机器可读、更新及时、许可开放）双维度评分，找「高发布、低可用」的错位样本。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>错位样本比比皆是：发布量是政绩，可用性是成本——当考核只数发布量，透明就会退化为表演。</p>
+</article>
+<article class="case" data-sc="security" data-text="军费的财政挤出账军费上升的年份，卫生和教育支出被挤掉了多少？军费占 gdp 变化与民生支出占比做面板对照，控制收入与冲突状态后看挤出效应。挤出真实存在但不对称：军费涨时民生让路，军费降时民生却补不回来——棘轮只朝一个方向转。军事、防务与安全支出">
+  <div class="chead"><span class="no">#093</span><span class="stag">军事、防务与安全支出</span></div>
+  <h3>军费的财政挤出账</h3>
+  <p class="q">军费上升的年份，卫生和教育支出被挤掉了多少？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://milex.sipri.org" target="_blank" rel="noopener">SIPRI Military Expenditure</a><a class="src" href="https://www.imf.org/en/Publications/WEO" target="_blank" rel="noopener">IMF World Economic Outlook</a><a class="src" href="https://www.who.int/data/global-health-estimates" target="_blank" rel="noopener">WHO Global Health Estimates</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>军费占 GDP 变化与民生支出占比做面板对照，控制收入与冲突状态后看挤出效应。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>挤出真实存在但不对称：军费涨时民生让路，军费降时民生却补不回来——棘轮只朝一个方向转。</p>
+</article>
+<article class="case" data-sc="security" data-text="军控核查的开放数据边界ctbto 和 opcw 的核查数据开放到什么粒度？透明与安全的平衡点在哪？梳理三家核查机构公开数据的粒度、延迟与限制条件，做透明度光谱比较。最开放的不是人们以为的民用机构——核查数据的开放程度取决于验证需求：越需要外部复核的领域，反而越透明。军事、防务与安全支出">
+  <div class="chead"><span class="no">#094</span><span class="stag">军事、防务与安全支出</span></div>
+  <h3>军控核查的开放数据边界</h3>
+  <p class="q">CTBTO 和 OPCW 的核查数据开放到什么粒度？透明与安全的平衡点在哪？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.ctbto.org/resources" target="_blank" rel="noopener">CTBTO Resources</a><a class="src" href="https://www.opcw.org/media-centre/opcw-numbers" target="_blank" rel="noopener">OPCW Data</a><a class="src" href="https://www.iaea.org/resources/databases" target="_blank" rel="noopener">IAEA Databases</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>梳理三家核查机构公开数据的粒度、延迟与限制条件，做透明度光谱比较。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>最开放的不是人们以为的民用机构——核查数据的开放程度取决于验证需求：越需要外部复核的领域，反而越透明。</p>
+</article>
+<article class="case" data-sc="foodprice" data-text="粮价危机的提前量giews 的预警平均比价格实际暴涨早多少？预警的「狼来了」记录如何？历史预警事件与价格序列对齐，测算提前量与命中率，误报事件逐个复盘触发条件。预警的实际价值不在命中率，在提前量分布：哪怕一半是虚惊，提前两个月的准备时间也值回票价。粮食价格与市场预警">
+  <div class="chead"><span class="no">#095</span><span class="stag">粮食价格与市场预警</span></div>
+  <h3>粮价危机的提前量</h3>
+  <p class="q">GIEWS 的预警平均比价格实际暴涨早多少？预警的「狼来了」记录如何？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://www.fao.org/giews" target="_blank" rel="noopener">FAO GIEWS</a><a class="src" href="https://dataviz.vam.wfp.org" target="_blank" rel="noopener">WFP Food Security</a><a class="src" href="https://climatedata.imf.org" target="_blank" rel="noopener">WMO Climate Data</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>历史预警事件与价格序列对齐，测算提前量与命中率，误报事件逐个复盘触发条件。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>预警的实际价值不在命中率，在提前量分布：哪怕一半是虚惊，提前两个月的准备时间也值回票价。</p>
+</article>
+<article class="case" data-sc="foodprice" data-text="冲击来了，谁在缓冲？粮价冲击之下，汇款、社会保障和粮食储备哪个缓冲最有效？粮价冲击期的消费平滑程度与三种缓冲机制的覆盖强度对照，逐国比较缓冲效率。汇款的缓冲速度最快、社会保障最稳、储备最贵——最有效的国家不是三选一，而是让三层缓冲各就其位。粮食价格与市场预警">
+  <div class="chead"><span class="no">#096</span><span class="stag">粮食价格与市场预警</span></div>
+  <h3>冲击来了，谁在缓冲？</h3>
+  <p class="q">粮价冲击之下，汇款、社会保障和粮食储备哪个缓冲最有效？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://dataviz.vam.wfp.org" target="_blank" rel="noopener">WFP Food Security</a><a class="src" href="https://rshiny.ilo.org/dataexplorer46/" target="_blank" rel="noopener">ILO Data Explorer</a><a class="src" href="https://databank.worldbank.org" target="_blank" rel="noopener">World Bank DataBank</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>粮价冲击期的消费平滑程度与三种缓冲机制的覆盖强度对照，逐国比较缓冲效率。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>汇款的缓冲速度最快、社会保障最稳、储备最贵——最有效的国家不是三选一，而是让三层缓冲各就其位。</p>
+</article>
+<article class="case" data-sc="timeseries" data-text="两百年利率史的制度断点把 fred 与各国央行的长序列拼起来，全球利率史上有几个真正的制度断点？多国长利率序列拼接后做结构性断点检验，断点与金本位、布雷顿森林、通胀目标制等制度事件对齐。两百年里真正的断点屈指可数，而且每次断点后利率的「正常水平」都被重写——当下争论的「中性利率」，历史上从不存在。长期时间序列与历史数据">
+  <div class="chead"><span class="no">#097</span><span class="stag">长期时间序列与历史数据</span></div>
+  <h3>两百年利率史的制度断点</h3>
+  <p class="q">把 FRED 与各国央行的长序列拼起来，全球利率史上有几个真正的制度断点？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://fred.stlouisfed.org" target="_blank" rel="noopener">fred.stlouisfed.org</a><a class="src" href="https://data.rbi.org.in" target="_blank" rel="noopener">data.rbi.org.in</a><a class="src" href="https://data.ecb.europa.eu" target="_blank" rel="noopener">ECB Data Portal</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>多国长利率序列拼接后做结构性断点检验，断点与金本位、布雷顿森林、通胀目标制等制度事件对齐。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>两百年里真正的断点屈指可数，而且每次断点后利率的「正常水平」都被重写——当下争论的「中性利率」，历史上从不存在。</p>
+</article>
+<article class="case" data-sc="timeseries" data-text="把人口转型拼成一条完整曲线历史人口年鉴与现代普查之间隔着战争与制度变迁，怎么拼成一条可信的长曲线？历史序列与现代序列在重叠年份做桥接校准，断裂处用队列存活法复核，生成带置信区间的长程人口曲线。拼完才看清：很多被当作「当代现象」的人口变化，其实是半个世纪前某个队列事件的回声——人口是最慢的变量，也是最有预谋感的变量。长期时间序列与历史数据">
+  <div class="chead"><span class="no">#098</span><span class="stag">长期时间序列与历史数据</span></div>
+  <h3>把人口转型拼成一条完整曲线</h3>
+  <p class="q">历史人口年鉴与现代普查之间隔着战争与制度变迁，怎么拼成一条可信的长曲线？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://unstats.un.org/unsd/demographic-social/products/dyb" target="_blank" rel="noopener">UN Demographic Yearbook</a><a class="src" href="https://population.un.org/dataportal" target="_blank" rel="noopener">UN Population Division</a><a class="src" href="https://www.stat.go.jp" target="_blank" rel="noopener">Japan（stat.go.jp）</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>历史序列与现代序列在重叠年份做桥接校准，断裂处用队列存活法复核，生成带置信区间的长程人口曲线。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>拼完才看清：很多被当作「当代现象」的人口变化，其实是半个世纪前某个队列事件的回声——人口是最慢的变量，也是最有预谋感的变量。</p>
+</article>
+<article class="case" data-sc="law" data-text="立法密度 vs 执行落差环境与农业法规越齐全的国家，实际成效是不是越好？法规数量与领域成效指标（产量可持续性、环境质量）对照，测算「立法-成效」的转化率分布。转化率与立法密度几乎无关，与监测能力高度相关：没有数据的法律等于没有法律——执法的前提是先有统计。法规、标准与官方文本">
+  <div class="chead"><span class="no">#099</span><span class="stag">法规、标准与官方文本</span></div>
+  <h3>立法密度 vs 执行落差</h3>
+  <p class="q">环境与农业法规越齐全的国家，实际成效是不是越好？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://faolex.fao.org" target="_blank" rel="noopener">FAO FAOLEX</a><a class="src" href="https://www.fao.org/faostat" target="_blank" rel="noopener">FAO FAOSTAT</a><a class="src" href="https://www.eea.europa.eu" target="_blank" rel="noopener">European Environment Agency</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>法规数量与领域成效指标（产量可持续性、环境质量）对照，测算「立法-成效」的转化率分布。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>转化率与立法密度几乎无关，与监测能力高度相关：没有数据的法律等于没有法律——执法的前提是先有统计。</p>
+</article>
+<article class="case" data-sc="law" data-text="批准了，没执行各国批准的劳工公约数量，和劳动指标的改善对得上吗？公约批准记录与童工、工时、安全等实施指标对照，识别「高批准、低改善」的象征性合规国家。批准是外交姿态，执行是国内政治：两者的差距在数据上一目了然——国际法真正的约束力，要到统计表里找。法规、标准与官方文本">
+  <div class="chead"><span class="no">#100</span><span class="stag">法规、标准与官方文本</span></div>
+  <h3>批准了，没执行</h3>
+  <p class="q">各国批准的劳工公约数量，和劳动指标的改善对得上吗？</p>
+  <div class="srcs"><span class="lab">数据源</span><a class="src" href="https://normlex.ilo.org" target="_blank" rel="noopener">ILO NORMLEX</a><a class="src" href="https://rshiny.ilo.org/dataexplorer46/" target="_blank" rel="noopener">ILO Data Explorer</a><a class="src" href="http://www.statssa.gov.za" target="_blank" rel="noopener">South Africa（statssa.gov.za）</a></div>
+  <p class="fuse"><span class="lab">融合方法</span>公约批准记录与童工、工时、安全等实施指标对照，识别「高批准、低改善」的象征性合规国家。</p>
+  <p class="aha"><span class="lab">💡 Aha</span>批准是外交姿态，执行是国内政治：两者的差距在数据上一目了然——国际法真正的约束力，要到统计表里找。</p>
+</article>
+</div>
+</main>
+
+<footer>
+  <p>配套阅读：<a href="../orbis/">orbisdata 资源目录 · 50 个数据分析场景</a>（按场景找数据源，支持关键字逐步筛选）。DATUMOJ · 连接官方公开数据，不囤数据 · 2026-10-22</p>
+</footer>
+</div>
+<script>
+const q = document.getElementById('q'), shown = document.getElementById('shown');
+const cards = Array.from(document.querySelectorAll('.case'));
+const heads = Array.from(document.querySelectorAll('h2.grp'));
+function apply(){
+  const ts = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  let n = 0;
+  for (const c of cards){
+    const hit = !ts.length || ts.every(t => c.dataset.text.includes(t) || c.textContent.toLowerCase().includes(t));
+    c.style.display = hit ? '' : 'none'; if (hit) n++;
+  }
+  heads.forEach(h => {
+    let el = h.nextElementSibling, any = false;
+    if (el) for (const c of el.children) if (c.style.display !== 'none') any = true;
+    h.style.display = any ? '' : 'none'; if (el) el.style.display = any ? '' : 'none';
+  });
+  shown.textContent = ts.length ? ('匹配 ' + n + ' / 100 个案例') : '';
+}
+q.addEventListener('input', apply);
+</script>
+</body>
+</html>

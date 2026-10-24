@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>30 个单源数据失真验证案例 — DATUMOJ</title>
+<style>
+  :root{--ink:#1c1f23;--muted:#5c6470;--line:#e3e1da;--bg:#faf9f6;--card:#fff;--ivy:#3d7a44;--red:#b3382e;--aha:#fdf3f2}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    line-height:1.65;font-size:14.5px}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 20px 80px}
+  header{padding:44px 0 20px;border-bottom:2px solid var(--ink)}
+  h1{font-size:29px;margin:0 0 8px}
+  .lede{font-size:15.5px;margin:0 0 8px}
+  .meta{color:var(--muted);font-size:13px}
+  a{color:var(--ivy)}
+  .kit{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:16px 0 4px}
+  .kit .k{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+  .kit b{display:block;font-size:15px}
+  .kit span{color:var(--muted);font-size:12.5px}
+  .panel{position:sticky;top:0;background:var(--bg);padding:14px 0 10px;z-index:6;border-bottom:1px solid var(--line)}
+  .panel input{width:100%;padding:11px 14px;font-size:15.5px;border:1.5px solid var(--ink);border-radius:9px;background:var(--card)}
+  .shown{color:var(--muted);font-size:13px;margin-top:6px;min-height:18px}
+  @media (max-width:700px){.panel{position:static}}
+  h2.grp{font-size:21px;margin:42px 0 12px}
+  h2.grp .cnt{font-size:13px;color:#fff;background:var(--ink);border-radius:20px;padding:1px 10px;margin-left:10px;vertical-align:2px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(480px,1fr));gap:14px}
+  @media (max-width:560px){.grid{grid-template-columns:1fr}}
+  .case{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .chead{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .no{font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+  .tag{font-size:12px;border-radius:20px;padding:1px 10px}
+  .tag.real{background:#fbeae8;color:var(--red);border:1px solid #ecc5c1}
+  .tag.hypo{background:#eef1f6;color:#3c5a80;border:1px solid #cfd9e8}
+  .case h3{font-size:17px;margin:0 0 8px;line-height:1.45}
+  .lab{font-size:12px;color:var(--muted);display:block;margin-bottom:3px;letter-spacing:.03em}
+  .hyp{margin:0 0 10px}
+  .srcs{margin:0 0 10px}
+  .src{display:inline-block;border:1px solid var(--line);border-radius:16px;padding:1px 10px;margin:0 5px 5px 0;
+    font-size:12.5px;color:var(--ivy);text-decoration:none;background:#fcfcf9}
+  .src:hover{border-color:var(--ivy)}
+  .method{color:var(--muted);font-size:13.5px;margin:0 0 10px}
+  .signal{background:var(--aha);border-radius:8px;padding:9px 12px;margin:0;font-size:14px}
+  .signal .lab{color:var(--red)}
+  footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <p class="meta"><a href="../">← DATUMOJ 计划总览</a> · <a href="../cases/">100 个多源融合分析案例</a> · <a href="../orbis/">orbisdata 资源目录</a></p>
+  <h1>30 个单源数据失真验证案例</h1>
+  <p class="lede">一个数据源说了算的世界里，造假只需要改一本账；多个数据源互相作证的世界里，每本账都要和整个物理世界对得上。这里是 30 个「打假设计」：每个都盯住<b>一个国家的某项特定数据</b>，先立「它可能失真」的假设，再用 <b>3 个以上独立数据源</b>交叉验证——能坐实，也能洗清。</p>
+  <div class="kit">
+    <div class="k"><b>镜像法</b><span>你在自己账上改的数字，在对方账上留着原件（双边贸易、区域汇总）</span></div>
+    <div class="k"><b>实物量锚点</b><span>用电、货运、药品消耗、疫苗供应——造假成本最高的物理量</span></div>
+    <div class="k"><b>卫星复核</b><span>夜光、气溶胶、土地覆盖：悬在所有报表头顶的审计员</span></div>
+    <div class="k"><b>超额与存量反推</b><span>总死亡不需要确诊，债务存量不会说谎——流量可修饰，存量不行</span></div>
+    <div class="k"><b>统计指纹</b><span>擦改率、末位数字、分布聚集：数字可以改，分布形状改不了</span></div>
+  </div>
+  <p class="meta">标签说明：<b>历史实证</b>（13 例）指有公开记录的失真事件——IMF 谴责、统计资格摘牌、司法判例、官方事后修订；<b>假设设计</b>（17 例）是待检验的假设与方法设计，不构成对当事国的指控——验证结果同样可能洗清嫌疑。全部 90 处验证源引用均来自 orbisdata 官方数据源目录，可直达。</p>
+</header>
+
+<div class="panel">
+  <input id="q" type="search" placeholder="逐步筛选：输入关键字，如 阿根廷 / 镜像 / 卫星 / 就业…" aria-label="筛选案例">
+  <div class="shown" id="shown"></div>
+</div>
+
+<main id="cases">
+<h2 class="grp">总量注水<span class="cnt">3 例</span></h2>
+<div class="grid">
+<article class="case" data-text="中国省级 gdp 加总与全国 gdp地方官员晋升与 gdp 挂钩，各省公布的 gdp 之和长期系统性高于全国数，注水集中在统计能力弱、增长压力大的省份。省级加总与全国数的差额做时间序列；再以各省夜光增速为独立标尺，看哪省官方增速与灯光背离最大。坐实：差额长期为正且与考核周期同步，背离大的省份事后被下修。洗清：差额收敛至抽样误差范围且与夜光一致。总量注水">
+  <div class="chead"><span class="no">V01</span><span class="tag real">历史实证</span></div>
+  <h3>中国 · 省级 GDP 加总与全国 GDP</h3>
+  <p class="hyp"><span class="lab">作假假设</span>地方官员晋升与 GDP 挂钩，各省公布的 GDP 之和长期系统性高于全国数，注水集中在统计能力弱、增长压力大的省份。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="http://www.stats.gov.cn" target="_blank" rel="noopener">China（stats.gov.cn）</a><a class="src" href="https://www.imf.org/en/Publications/WEO" target="_blank" rel="noopener">IMF World Economic Outlook</a><a class="src" href="https://dataspace.copernicus.eu" target="_blank" rel="noopener">Copernicus Data Space</a></div>
+  <p class="method"><span class="lab">验证方法</span>省级加总与全国数的差额做时间序列；再以各省夜光增速为独立标尺，看哪省官方增速与灯光背离最大。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：差额长期为正且与考核周期同步，背离大的省份事后被下修。洗清：差额收敛至抽样误差范围且与夜光一致。</p>
+</article>
+<article class="case" data-text="多国（威权体制样本）官方 gdp 增速体制激励使统计系统倾向高报增长：henderson 等人的研究假设威权国家的 gdp 增速被系统性高估。夜光弹性法：用民主国家标定「灯光-gdp」关系，再预测各国「应然 gdp」，与官方值比残差并按体制类型分组。坐实：同一体制组残差系统性偏正（官方高于灯光预测约三成）。这正是已发表研究的实证结果——单源自报的总量，必须用天上的眼睛复核。总量注水">
+  <div class="chead"><span class="no">V02</span><span class="tag real">历史实证</span></div>
+  <h3>多国（威权体制样本） · 官方 GDP 增速</h3>
+  <p class="hyp"><span class="lab">作假假设</span>体制激励使统计系统倾向高报增长：Henderson 等人的研究假设威权国家的 GDP 增速被系统性高估。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://datatopics.worldbank.org/world-development-indicators" target="_blank" rel="noopener">World Development Indicators</a><a class="src" href="https://earth.esa.int/eogateway/catalog" target="_blank" rel="noopener">ESA Earth Observation</a><a class="src" href="https://data.un.org" target="_blank" rel="noopener">United Nations Statistics Division (UNSD) UNdata</a></div>
+  <p class="method"><span class="lab">验证方法</span>夜光弹性法：用民主国家标定「灯光-GDP」关系，再预测各国「应然 GDP」，与官方值比残差并按体制类型分组。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：同一体制组残差系统性偏正（官方高于灯光预测约三成）。这正是已发表研究的实证结果——单源自报的总量，必须用天上的眼睛复核。</p>
+</article>
+<article class="case" data-text="中国工业增加值增速2008 年后工业增速与用电、货运的背离引发质疑，「克强指数」假设官方工业数据平滑了真实波动。用电量、铁路货运量、信贷投放三指标合成对照指数，与官方工业增速做周期同步性检验。坐实：对照指数的波动幅度系统性大于官方数且拐点领先。启示：高频实物量指标造假成本高，是平滑数据的天然测谎仪。总量注水">
+  <div class="chead"><span class="no">V03</span><span class="tag real">历史实证</span></div>
+  <h3>中国 · 工业增加值增速</h3>
+  <p class="hyp"><span class="lab">作假假设</span>2008 年后工业增速与用电、货运的背离引发质疑，「克强指数」假设官方工业数据平滑了真实波动。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="http://www.stats.gov.cn" target="_blank" rel="noopener">China（stats.gov.cn）</a><a class="src" href="https://www.iea.org/data-and-statistics" target="_blank" rel="noopener">IEA Data and Statistics</a><a class="src" href="https://databank.worldbank.org" target="_blank" rel="noopener">World Bank DataBank</a></div>
+  <p class="method"><span class="lab">验证方法</span>用电量、铁路货运量、信贷投放三指标合成对照指数，与官方工业增速做周期同步性检验。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：对照指数的波动幅度系统性大于官方数且拐点领先。启示：高频实物量指标造假成本高，是平滑数据的天然测谎仪。</p>
+</article>
+</div>
+<h2 class="grp">物价操纵<span class="cnt">3 例</span></h2>
+<div class="grid">
+<article class="case" data-text="阿根廷官方 cpi（indec）2007–2015政府为压低通胀挂钩债务成本与舆论压力，干预统计局发布的 cpi，官方通胀率长期仅为独立测算的三分之一左右。三方对账：各省物价指数、在线价格抓取与 imf 采用的替代估算对官方 cpi 做偏离监测；2013 年 imf 正式谴责、2016 年新政府重启统计。坐实：偏离持续八年且方向恒定，imf 罕见动用谴责程序。aha：一个国家可以靠改统计「省下」几十亿债务利息，直到所有债权人改用别人的尺子。物价操纵">
+  <div class="chead"><span class="no">V04</span><span class="tag real">历史实证</span></div>
+  <h3>阿根廷 · 官方 CPI（INDEC）2007–2015</h3>
+  <p class="hyp"><span class="lab">作假假设</span>政府为压低通胀挂钩债务成本与舆论压力，干预统计局发布的 CPI，官方通胀率长期仅为独立测算的三分之一左右。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://www.indec.gob.ar" target="_blank" rel="noopener">Argentina（indec.gob.ar）</a><a class="src" href="https://www.imf.org/en/Data" target="_blank" rel="noopener">International Monetary Fund (IMF) — Data</a><a class="src" href="https://data.oecd.org" target="_blank" rel="noopener">OECD Data Explorer</a></div>
+  <p class="method"><span class="lab">验证方法</span>三方对账：各省物价指数、在线价格抓取与 IMF 采用的替代估算对官方 CPI 做偏离监测；2013 年 IMF 正式谴责、2016 年新政府重启统计。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：偏离持续八年且方向恒定，IMF 罕见动用谴责程序。aha：一个国家可以靠改统计「省下」几十亿债务利息，直到所有债权人改用别人的尺子。</p>
+</article>
+<article class="case" data-text="土耳其官方通胀率（tüi̇k）民间机构 enag 测得的通胀长期约为官方两倍，假设官方 cpi 在篮子权重与采集环节存在系统性低估。复现法：用公开的在线价格与租金数据按官方权重重算 cpi，再逐项定位与官方序列分叉的商品组。坐实：分叉集中在少数权重被技术处理的组别。洗清：重算结果落入官方置信区间，民间测算的样本偏差被证伪。物价操纵">
+  <div class="chead"><span class="no">V05</span><span class="tag hypo">假设设计</span></div>
+  <h3>土耳其 · 官方通胀率（TÜİK）</h3>
+  <p class="hyp"><span class="lab">作假假设</span>民间机构 ENAG 测得的通胀长期约为官方两倍，假设官方 CPI 在篮子权重与采集环节存在系统性低估。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://www.tuik.gov.tr" target="_blank" rel="noopener">Turkey（tuik.gov.tr）</a><a class="src" href="https://www.imf.org/en/Data" target="_blank" rel="noopener">International Monetary Fund (IMF) — Data</a><a class="src" href="https://data.oecd.org" target="_blank" rel="noopener">OECD Data Explorer</a></div>
+  <p class="method"><span class="lab">验证方法</span>复现法：用公开的在线价格与租金数据按官方权重重算 CPI，再逐项定位与官方序列分叉的商品组。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：分叉集中在少数权重被技术处理的组别。洗清：重算结果落入官方置信区间，民间测算的样本偏差被证伪。</p>
+</article>
+<article class="case" data-text="中国cpi 中的居住成本假设 cpi 对居住成本的权重与价格采集长期滞后于真实房租，使通胀被结构性低估、货币政策被误导。以房价与市场租金序列重构「居住成本子指数」，用支出调查的真实权重替换官方权重，重算十年 cpi 路径。坐实：重算路径在房地产上行期系统性高于官方值。关键不在造假，在权重——改权重比改数字更隐蔽，也更难追责。物价操纵">
+  <div class="chead"><span class="no">V06</span><span class="tag hypo">假设设计</span></div>
+  <h3>中国 · CPI 中的居住成本</h3>
+  <p class="hyp"><span class="lab">作假假设</span>假设 CPI 对居住成本的权重与价格采集长期滞后于真实房租，使通胀被结构性低估、货币政策被误导。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="http://www.stats.gov.cn" target="_blank" rel="noopener">China（stats.gov.cn）</a><a class="src" href="https://data.bis.org" target="_blank" rel="noopener">data.bis.org</a><a class="src" href="https://data.oecd.org" target="_blank" rel="noopener">OECD Data Explorer</a></div>
+  <p class="method"><span class="lab">验证方法</span>以房价与市场租金序列重构「居住成本子指数」，用支出调查的真实权重替换官方权重，重算十年 CPI 路径。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：重算路径在房地产上行期系统性高于官方值。关键不在造假，在权重——改权重比改数字更隐蔽，也更难追责。</p>
+</article>
+</div>
+<h2 class="grp">财政粉饰<span class="cnt">3 例</span></h2>
+<div class="grid">
+<article class="case" data-text="希腊政府赤字率 2009为满足欧元区财政规则与市场融资，赤字被长期低报；2009 年新政府上台后，赤字率从 3.7% 一路上修至 15.4%。修订链考古：逐年比对各次发布的赤字版本，用债务存量变化反推真实流量（存量-流量调整），定位被挪出报表的支出。坐实：存量反推与公布流量长期对不上，差额藏在掉期与表外安排里。aha：流量可以修饰，存量不会说谎——债务是财政造假的最终墓地。财政粉饰">
+  <div class="chead"><span class="no">V07</span><span class="tag real">历史实证</span></div>
+  <h3>希腊 · 政府赤字率 2009</h3>
+  <p class="hyp"><span class="lab">作假假设</span>为满足欧元区财政规则与市场融资，赤字被长期低报；2009 年新政府上台后，赤字率从 3.7% 一路上修至 15.4%。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://ec.europa.eu/eurostat" target="_blank" rel="noopener">Eurostat</a><a class="src" href="https://www.imf.org/en/Data" target="_blank" rel="noopener">International Monetary Fund (IMF) — Data</a><a class="src" href="https://www.statistics.gr" target="_blank" rel="noopener">Greece（statistics.gr）</a></div>
+  <p class="method"><span class="lab">验证方法</span>修订链考古：逐年比对各次发布的赤字版本，用债务存量变化反推真实流量（存量-流量调整），定位被挪出报表的支出。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：存量反推与公布流量长期对不上，差额藏在掉期与表外安排里。aha：流量可以修饰，存量不会说谎——债务是财政造假的最终墓地。</p>
+</article>
+<article class="case" data-text="中国地方政府债务（城投）假设地方将城投平台债务排除在政府口径之外，公布的政府债务率显著低于国际可比口径。口径对账：官方政府债、imf「增扩口径」估算与 bis 非金融部门信贷三方对照，差额按平台类型分解。坐实：三方差额巨大且随土地财政周期波动。验证的价值不在抓现行，而在给出一条市场实际在用的影子债务曲线。财政粉饰">
+  <div class="chead"><span class="no">V08</span><span class="tag hypo">假设设计</span></div>
+  <h3>中国 · 地方政府债务（城投）</h3>
+  <p class="hyp"><span class="lab">作假假设</span>假设地方将城投平台债务排除在政府口径之外，公布的政府债务率显著低于国际可比口径。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://www.imf.org/en/Data" target="_blank" rel="noopener">International Monetary Fund (IMF) — Data</a><a class="src" href="http://www.stats.gov.cn" target="_blank" rel="noopener">China（stats.gov.cn）</a><a class="src" href="https://data.bis.org" target="_blank" rel="noopener">data.bis.org</a></div>
+  <p class="method"><span class="lab">验证方法</span>口径对账：官方政府债、IMF「增扩口径」估算与 BIS 非金融部门信贷三方对照，差额按平台类型分解。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：三方差额巨大且随土地财政周期波动。验证的价值不在抓现行，而在给出一条市场实际在用的影子债务曲线。</p>
+</article>
+<article class="case" data-text="印度gdp 回算序列 20152015 年基年与新方法发布后历史增速被整体上修，假设方法变更中混入了使增长「更好看」的选择。新旧序列重叠期对账：把上修幅度与企业数据库覆盖、企业部门代理指标（税收、用电）做一致性检验。坐实：上修幅度无法被代理指标解释的部分集中于特定年份。洗清：代理指标同步上修，方法论之争落幕——验证对双方都是解脱。财政粉饰">
+  <div class="chead"><span class="no">V09</span><span class="tag hypo">假设设计</span></div>
+  <h3>印度 · GDP 回算序列 2015</h3>
+  <p class="hyp"><span class="lab">作假假设</span>2015 年基年与新方法发布后历史增速被整体上修，假设方法变更中混入了使增长「更好看」的选择。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://www.mospi.gov.in" target="_blank" rel="noopener">India（mospi.gov.in）</a><a class="src" href="https://www.imf.org/en/Data" target="_blank" rel="noopener">International Monetary Fund (IMF) — Data</a><a class="src" href="https://datatopics.worldbank.org/world-development-indicators" target="_blank" rel="noopener">World Development Indicators</a></div>
+  <p class="method"><span class="lab">验证方法</span>新旧序列重叠期对账：把上修幅度与企业数据库覆盖、企业部门代理指标（税收、用电）做一致性检验。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：上修幅度无法被代理指标解释的部分集中于特定年份。洗清：代理指标同步上修，方法论之争落幕——验证对双方都是解脱。</p>
+</article>
+</div>
+<h2 class="grp">人口失真<span class="cnt">3 例</span></h2>
+<div class="grid">
+<article class="case" data-text="尼日利亚人口普查总数人口数直接决定联邦拨款与选区划分，各州有系统性高报人口的激励，普查总数可能被「政治灌溉」。分母对账：普查人口与疫苗接种分母、学龄儿童数、选民登记三套独立序列逐州比对，找人口增速违背人口学约束的州。坐实：某些州的人口增速超过生育与迁移能解释的上限。人口学有守恒律——多出来的人，必须在别的账本上也找得到。人口失真">
+  <div class="chead"><span class="no">V10</span><span class="tag hypo">假设设计</span></div>
+  <h3>尼日利亚 · 人口普查总数</h3>
+  <p class="hyp"><span class="lab">作假假设</span>人口数直接决定联邦拨款与选区划分，各州有系统性高报人口的激励，普查总数可能被「政治灌溉」。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://nigerianstat.gov.ng" target="_blank" rel="noopener">Nigeria（nigerianstat.gov.ng）</a><a class="src" href="https://population.un.org/dataportal" target="_blank" rel="noopener">UN Population Division</a><a class="src" href="https://data.unicef.org" target="_blank" rel="noopener">UNICEF Data</a></div>
+  <p class="method"><span class="lab">验证方法</span>分母对账：普查人口与疫苗接种分母、学龄儿童数、选民登记三套独立序列逐州比对，找人口增速违背人口学约束的州。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：某些州的人口增速超过生育与迁移能解释的上限。人口学有守恒律——多出来的人，必须在别的账本上也找得到。</p>
+</article>
+<article class="case" data-text="亚美尼亚出生性别比出生性别比长期高达 110 以上，假设背后是系统性的性别选择，而非登记偏差。三方互校：出生登记性别比、产检与生育史调查、队列存活反推，区分「没登记」与「没出生」。坐实：三源一致指向出生环节的选择行为。aha：性别比是少数无法靠改报表掩盖的指标——队列会跟着一代人走完一生。人口失真">
+  <div class="chead"><span class="no">V11</span><span class="tag real">历史实证</span></div>
+  <h3>亚美尼亚 · 出生性别比</h3>
+  <p class="hyp"><span class="lab">作假假设</span>出生性别比长期高达 110 以上，假设背后是系统性的性别选择，而非登记偏差。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://www.armstat.am" target="_blank" rel="noopener">Armenia（armstat.am）</a><a class="src" href="https://www.unfpa.org/data" target="_blank" rel="noopener">UNFPA Data</a><a class="src" href="https://data.unicef.org" target="_blank" rel="noopener">UNICEF Data</a></div>
+  <p class="method"><span class="lab">验证方法</span>三方互校：出生登记性别比、产检与生育史调查、队列存活反推，区分「没登记」与「没出生」。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：三源一致指向出生环节的选择行为。aha：性别比是少数无法靠改报表掩盖的指标——队列会跟着一代人走完一生。</p>
+</article>
+<article class="case" data-text="埃塞俄比亚疫苗接种率（行政报告）行政接种率屡现超过 100%，假设分子（接种数）注水与分母（目标人口）低估同时存在。行政数据与住户调查（mics）覆盖率对账，再用疫苗供应量做物理上限封顶检验。坐实：行政值突破供应量上限。洗清：调查与行政收敛，分母问题定位到具体普查年份——无论哪种结果，卫生规划都受益。人口失真">
+  <div class="chead"><span class="no">V12</span><span class="tag hypo">假设设计</span></div>
+  <h3>埃塞俄比亚 · 疫苗接种率（行政报告）</h3>
+  <p class="hyp"><span class="lab">作假假设</span>行政接种率屡现超过 100%，假设分子（接种数）注水与分母（目标人口）低估同时存在。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://www.who.int/data/gho" target="_blank" rel="noopener">WHO Global Health Observatory</a><a class="src" href="https://mics.unicef.org" target="_blank" rel="noopener">UNICEF MICS</a><a class="src" href="https://www.ess.gov.et" target="_blank" rel="noopener">Ethiopia（ess.gov.et）</a></div>
+  <p class="method"><span class="lab">验证方法</span>行政数据与住户调查（MICS）覆盖率对账，再用疫苗供应量做物理上限封顶检验。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：行政值突破供应量上限。洗清：调查与行政收敛，分母问题定位到具体普查年份——无论哪种结果，卫生规划都受益。</p>
+</article>
+</div>
+<h2 class="grp">就业粉饰<span class="cnt">3 例</span></h2>
+<div class="grid">
+<article class="case" data-text="日本每月勤劳统计调查（工资）2018厚生劳动省长期未按规定抽样大企业并违规处理样本，工资增速被系统性扭曲十余年，直到 2018 年曝光重算。以社保缴纳记录与税务口径的工资总额为独立标尺，与调查序列对账；重算后的修订幅度本身就是失真幅度的证据。坐实：官方承认违规并发布修订，失业保险少付波及两千万人。aha：最讲规矩的统计系统也会在「惯例」里慢慢滑出轨道——程序合规才是数据诚信的地基。就业粉饰">
+  <div class="chead"><span class="no">V13</span><span class="tag real">历史实证</span></div>
+  <h3>日本 · 每月勤劳统计调查（工资）2018</h3>
+  <p class="hyp"><span class="lab">作假假设</span>厚生劳动省长期未按规定抽样大企业并违规处理样本，工资增速被系统性扭曲十余年，直到 2018 年曝光重算。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://www.stat.go.jp" target="_blank" rel="noopener">Japan（stat.go.jp）</a><a class="src" href="https://ilostat.ilo.org" target="_blank" rel="noopener">ILO (International Labour Organization) — Statistics</a><a class="src" href="https://data.oecd.org" target="_blank" rel="noopener">OECD Data Explorer</a></div>
+  <p class="method"><span class="lab">验证方法</span>以社保缴纳记录与税务口径的工资总额为独立标尺，与调查序列对账；重算后的修订幅度本身就是失真幅度的证据。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：官方承认违规并发布修订，失业保险少付波及两千万人。aha：最讲规矩的统计系统也会在「惯例」里慢慢滑出轨道——程序合规才是数据诚信的地基。</p>
+</article>
+<article class="case" data-text="俄罗斯失业率假设官方失业率对危机的反应被系统性平滑：经济收缩期失业「纹丝不动」，靠压低劳动参与率吸收冲击。弹性检验：失业率对产出的历史弹性与跨国基准对照，同时追踪参与率与非正规就业的镜像变化。坐实：产出冲击在参与率与工时里现形、唯独不在失业率里。失业率可以撒谎，但总工时不会——要看的从来不止一个指标。就业粉饰">
+  <div class="chead"><span class="no">V14</span><span class="tag hypo">假设设计</span></div>
+  <h3>俄罗斯 · 失业率</h3>
+  <p class="hyp"><span class="lab">作假假设</span>假设官方失业率对危机的反应被系统性平滑：经济收缩期失业「纹丝不动」，靠压低劳动参与率吸收冲击。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://rosstat.gov.ru" target="_blank" rel="noopener">Russia（rosstat.gov.ru）</a><a class="src" href="https://rshiny.ilo.org/dataexplorer46/" target="_blank" rel="noopener">ILO Data Explorer</a><a class="src" href="https://data.oecd.org" target="_blank" rel="noopener">OECD Data Explorer</a></div>
+  <p class="method"><span class="lab">验证方法</span>弹性检验：失业率对产出的历史弹性与跨国基准对照，同时追踪参与率与非正规就业的镜像变化。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：产出冲击在参与率与工时里现形、唯独不在失业率里。失业率可以撒谎，但总工时不会——要看的从来不止一个指标。</p>
+</article>
+<article class="case" data-text="沙特阿拉伯本地化就业率（saudization）企业为应付本地雇佣配额可能登记「幽灵雇员」，官方本地化率与真实就业脱节。登记就业与社保缴费、工资发放记录三方对账，抽查低工资段的「名义岗位」聚集程度。坐实：登记与缴费之间出现成规模的系统性缺口。配额制造数字，缴费记录不会陪演——验证的关键是找到不说谎的那本账。就业粉饰">
+  <div class="chead"><span class="no">V15</span><span class="tag hypo">假设设计</span></div>
+  <h3>沙特阿拉伯 · 本地化就业率（Saudization）</h3>
+  <p class="hyp"><span class="lab">作假假设</span>企业为应付本地雇佣配额可能登记「幽灵雇员」，官方本地化率与真实就业脱节。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://www.stats.gov.sa" target="_blank" rel="noopener">Saudi Arabia（stats.gov.sa）</a><a class="src" href="https://ilostat.ilo.org" target="_blank" rel="noopener">ILO (International Labour Organization) — Statistics</a><a class="src" href="https://www.imf.org/en/Data" target="_blank" rel="noopener">International Monetary Fund (IMF) — Data</a></div>
+  <p class="method"><span class="lab">验证方法</span>登记就业与社保缴费、工资发放记录三方对账，抽查低工资段的「名义岗位」聚集程度。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：登记与缴费之间出现成规模的系统性缺口。配额制造数字，缴费记录不会陪演——验证的关键是找到不说谎的那本账。</p>
+</article>
+</div>
+<h2 class="grp">贸易造假<span class="cnt">3 例</span></h2>
+<div class="grid">
+<article class="case" data-text="中国—香港对港出口额 20132013 年初对港出口增速异常飙升，假设企业借虚假贸易套取出口退税并绕道转移资金。镜像检验：内地报告的对港出口与香港报告的自内地进口逐月比对，差额与利差、汇率预期事件对齐。坐实：镜像差在监管出手后骤然收窄。aha：贸易造假最怕镜像——你在自己账上改的数字，在对方账上留着原件。贸易造假">
+  <div class="chead"><span class="no">V16</span><span class="tag real">历史实证</span></div>
+  <h3>中国—香港 · 对港出口额 2013</h3>
+  <p class="hyp"><span class="lab">作假假设</span>2013 年初对港出口增速异常飙升，假设企业借虚假贸易套取出口退税并绕道转移资金。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="http://www.stats.gov.cn" target="_blank" rel="noopener">China（stats.gov.cn）</a><a class="src" href="https://comtradeplus.un.org" target="_blank" rel="noopener">UN COMTRADE</a><a class="src" href="https://stats.wto.org" target="_blank" rel="noopener">WTO Stats Portal</a></div>
+  <p class="method"><span class="lab">验证方法</span>镜像检验：内地报告的对港出口与香港报告的自内地进口逐月比对，差额与利差、汇率预期事件对齐。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：镜像差在监管出手后骤然收窄。aha：贸易造假最怕镜像——你在自己账上改的数字，在对方账上留着原件。</p>
+</article>
+<article class="case" data-text="巴基斯坦进口申报值为少缴关税，进口商系统性低报成交价格，假设官方进口值长期低于伙伴国出口镜像值。镜像差按商品编码定位，集中比对单价分布：申报单价与伙伴国离岸单价的比值在哪些品类系统性塌陷。坐实：低报集中于高税率品类且单价分布出现人为截断。洗清：差额被运费与转口解释——镜像法的好处是结论非黑即白。贸易造假">
+  <div class="chead"><span class="no">V17</span><span class="tag hypo">假设设计</span></div>
+  <h3>巴基斯坦 · 进口申报值</h3>
+  <p class="hyp"><span class="lab">作假假设</span>为少缴关税，进口商系统性低报成交价格，假设官方进口值长期低于伙伴国出口镜像值。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://comtradeplus.un.org" target="_blank" rel="noopener">UN COMTRADE</a><a class="src" href="https://www.pbs.gov.pk" target="_blank" rel="noopener">Pakistan（pbs.gov.pk）</a><a class="src" href="https://www.wcoomd.org/en/topics/research/overview.aspx" target="_blank" rel="noopener">WCO Research and Analysis</a></div>
+  <p class="method"><span class="lab">验证方法</span>镜像差按商品编码定位，集中比对单价分布：申报单价与伙伴国离岸单价的比值在哪些品类系统性塌陷。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：低报集中于高税率品类且单价分布出现人为截断。洗清：差额被运费与转口解释——镜像法的好处是结论非黑即白。</p>
+</article>
+<article class="case" data-text="俄罗斯（制裁期）经第三国转口贸易制裁后俄与欧盟的直接贸易骤降，假设缺口经中亚与高加索第三国以转口形式补回，总量并未消失。三角镜像：欧盟对第三国出口激增品类与第三国对俄出口激增品类逐项配对，检验时间与商品编码的耦合度。坐实：同一批商品编码在两侧同步起量。全球贸易账本是守恒的——堵住一扇门，流量会在别家的报表上鼓出来。贸易造假">
+  <div class="chead"><span class="no">V18</span><span class="tag hypo">假设设计</span></div>
+  <h3>俄罗斯（制裁期） · 经第三国转口贸易</h3>
+  <p class="hyp"><span class="lab">作假假设</span>制裁后俄与欧盟的直接贸易骤降，假设缺口经中亚与高加索第三国以转口形式补回，总量并未消失。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://comtradeplus.un.org" target="_blank" rel="noopener">UN COMTRADE</a><a class="src" href="https://unctadstat.unctad.org" target="_blank" rel="noopener">UNCTAD Data</a><a class="src" href="https://stats.wto.org" target="_blank" rel="noopener">WTO Stats Portal</a></div>
+  <p class="method"><span class="lab">验证方法</span>三角镜像：欧盟对第三国出口激增品类与第三国对俄出口激增品类逐项配对，检验时间与商品编码的耦合度。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：同一批商品编码在两侧同步起量。全球贸易账本是守恒的——堵住一扇门，流量会在别家的报表上鼓出来。</p>
+</article>
+</div>
+<h2 class="grp">卫生数据失真<span class="cnt">2 例</span></h2>
+<div class="grid">
+<article class="case" data-text="俄罗斯covid-19 报告死亡数官方报告的疫情死亡数与全因超额死亡之间出现数倍差距，假设死因归类环节系统性低计。超额死亡法：以疫情前死亡率为基线计算各月超额死亡，与官方新冠死亡、地区民政登记三方对照。坐实：超额死亡数倍于报告数且在多个统计体系中互相印证。疫情里最诚实的指标是总死亡——它不需要先确诊。卫生数据失真">
+  <div class="chead"><span class="no">V19</span><span class="tag real">历史实证</span></div>
+  <h3>俄罗斯 · COVID-19 报告死亡数</h3>
+  <p class="hyp"><span class="lab">作假假设</span>官方报告的疫情死亡数与全因超额死亡之间出现数倍差距，假设死因归类环节系统性低计。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://www.who.int/data/global-health-estimates" target="_blank" rel="noopener">WHO Global Health Estimates</a><a class="src" href="https://rosstat.gov.ru" target="_blank" rel="noopener">Russia（rosstat.gov.ru）</a><a class="src" href="https://unstats.un.org/unsd/demographic-social/products/dyb" target="_blank" rel="noopener">UN Demographic Yearbook</a></div>
+  <p class="method"><span class="lab">验证方法</span>超额死亡法：以疫情前死亡率为基线计算各月超额死亡，与官方新冠死亡、地区民政登记三方对照。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：超额死亡数倍于报告数且在多个统计体系中互相印证。疫情里最诚实的指标是总死亡——它不需要先确诊。</p>
+</article>
+<article class="case" data-text="埃塞俄比亚结核病发病率报告发病率与国际援助额度挂钩时，报告数可能双向失真：高报以争取资源，或低报以显示防控成效。报告发病率与患病率调查、药品采购量、实验室确诊数四方对账，检验报告数与独立锚点的一致性。坐实：报告数与药品消耗 implied 的病例数长期背离。卫生数据验证的诀窍：病例可以多报少报，吃掉的药不会。卫生数据失真">
+  <div class="chead"><span class="no">V20</span><span class="tag hypo">假设设计</span></div>
+  <h3>埃塞俄比亚 · 结核病发病率报告</h3>
+  <p class="hyp"><span class="lab">作假假设</span>发病率与国际援助额度挂钩时，报告数可能双向失真：高报以争取资源，或低报以显示防控成效。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://www.who.int/teams/global-tuberculosis-programme/data" target="_blank" rel="noopener">WHO Tb Data</a><a class="src" href="https://www.who.int/data/gho" target="_blank" rel="noopener">WHO Global Health Observatory</a><a class="src" href="https://www.ess.gov.et" target="_blank" rel="noopener">Ethiopia（ess.gov.et）</a></div>
+  <p class="method"><span class="lab">验证方法</span>报告发病率与患病率调查、药品采购量、实验室确诊数四方对账，检验报告数与独立锚点的一致性。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：报告数与药品消耗 implied 的病例数长期背离。卫生数据验证的诀窍：病例可以多报少报，吃掉的药不会。</p>
+</article>
+</div>
+<h2 class="grp">环境数据造假<span class="cnt">3 例</span></h2>
+<div class="grid">
+<article class="case" data-text="中国空气质量监测站数据（西安案）地方环保人员为达标用棉纱堵塞采样器干扰国控监测站数据，2016 年以案发，成为环境监测造假的标志性案件。站点异常检测：被干扰时段的数据平滑度与周边站点、卫星气溶胶光学厚度对照，断点与人事考核节点对齐。坐实：涉事人员获刑，官方通报确认。aha：造假者的破绽是数据「太干净」——真实世界的空气从不那样听话，周边站点和卫星都是目击证人。环境数据造假">
+  <div class="chead"><span class="no">V21</span><span class="tag real">历史实证</span></div>
+  <h3>中国 · 空气质量监测站数据（西安案）</h3>
+  <p class="hyp"><span class="lab">作假假设</span>地方环保人员为达标用棉纱堵塞采样器干扰国控监测站数据，2016 年以案发，成为环境监测造假的标志性案件。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="http://www.stats.gov.cn" target="_blank" rel="noopener">China（stats.gov.cn）</a><a class="src" href="https://earth.esa.int/eogateway/catalog" target="_blank" rel="noopener">ESA Earth Observation</a><a class="src" href="https://www.who.int/data/gho" target="_blank" rel="noopener">WHO Global Health Observatory</a></div>
+  <p class="method"><span class="lab">验证方法</span>站点异常检测：被干扰时段的数据平滑度与周边站点、卫星气溶胶光学厚度对照，断点与人事考核节点对齐。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：涉事人员获刑，官方通报确认。aha：造假者的破绽是数据「太干净」——真实世界的空气从不那样听话，周边站点和卫星都是目击证人。</p>
+</article>
+<article class="case" data-text="南非电厂排放自报数据电力公司自报的二氧化硫与颗粒物排放，可能与卫星遥感的柱浓度系统性背离。以 sentinel 遥感 no₂/so₂ 柱浓度反演排放，与企业自报逐厂对照，背离大的厂再核对发电量与煤耗。坐实：自报与遥感的比值在个别厂显著偏低。排放可以写在纸上改小，写不到大气里——卫星是悬在头顶的审计员。环境数据造假">
+  <div class="chead"><span class="no">V22</span><span class="tag hypo">假设设计</span></div>
+  <h3>南非 · 电厂排放自报数据</h3>
+  <p class="hyp"><span class="lab">作假假设</span>电力公司自报的二氧化硫与颗粒物排放，可能与卫星遥感的柱浓度系统性背离。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://dataspace.copernicus.eu" target="_blank" rel="noopener">Copernicus Data Space</a><a class="src" href="https://www.eea.europa.eu" target="_blank" rel="noopener">European Environment Agency</a><a class="src" href="http://www.statssa.gov.za" target="_blank" rel="noopener">South Africa（statssa.gov.za）</a></div>
+  <p class="method"><span class="lab">验证方法</span>以 Sentinel 遥感 NO₂/SO₂ 柱浓度反演排放，与企业自报逐厂对照，背离大的厂再核对发电量与煤耗。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：自报与遥感的比值在个别厂显著偏低。排放可以写在纸上改小，写不到大气里——卫星是悬在头顶的审计员。</p>
+</article>
+<article class="case" data-text="印度造林面积与森林覆盖率官方造林面积连年大增，但假设其中大量是单一树种种植园与重复计数，天然林仍在流失。官方造林统计与遥感森林覆盖变化对照，并区分天然林与种植园的光谱特征，检验「总覆盖稳定」下的结构替换。坐实：覆盖率持平的表面下，天然林换成了种植园。总数可以靠算术守恒，结构守恒不了——这也是所有总量指标的通病。环境数据造假">
+  <div class="chead"><span class="no">V23</span><span class="tag hypo">假设设计</span></div>
+  <h3>印度 · 造林面积与森林覆盖率</h3>
+  <p class="hyp"><span class="lab">作假假设</span>官方造林面积连年大增，但假设其中大量是单一树种种植园与重复计数，天然林仍在流失。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://www.fao.org/hih-geospatial-platform" target="_blank" rel="noopener">FAO Geospatial Platform</a><a class="src" href="https://dataspace.copernicus.eu" target="_blank" rel="noopener">Copernicus Data Space</a><a class="src" href="https://unfccc.int/process-and-meetings/transparency-and-reporting/greenhouse-gas-data/ghg-data-unfccc" target="_blank" rel="noopener">UNFCCC GHG Data</a></div>
+  <p class="method"><span class="lab">验证方法</span>官方造林统计与遥感森林覆盖变化对照，并区分天然林与种植园的光谱特征，检验「总覆盖稳定」下的结构替换。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：覆盖率持平的表面下，天然林换成了种植园。总数可以靠算术守恒，结构守恒不了——这也是所有总量指标的通病。</p>
+</article>
+</div>
+<h2 class="grp">教育数据造假<span class="cnt">2 例</span></h2>
+<div class="grid">
+<article class="case" data-text="美国（亚特兰大）公立学校统考成绩为达成问责指标，亚特兰大学区大规模涂改学生答题卡，2011 年调查确认，数十名教育者涉案。擦改痕迹统计：各考场答题卡擦改率与成绩跃升幅度对照，异常耦合的考场再与后续年级的成績回落交叉验证。坐实：涉案者被起诉定罪。aha：作弊留下的不是成绩异常，而是统计指纹——擦改率与跃升幅度的相关性，比成绩本身更诚实。教育数据造假">
+  <div class="chead"><span class="no">V24</span><span class="tag real">历史实证</span></div>
+  <h3>美国（亚特兰大） · 公立学校统考成绩</h3>
+  <p class="hyp"><span class="lab">作假假设</span>为达成问责指标，亚特兰大学区大规模涂改学生答题卡，2011 年调查确认，数十名教育者涉案。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://www.census.gov" target="_blank" rel="noopener">United States（census.gov）</a><a class="src" href="https://www.oecd.org/pisa/data" target="_blank" rel="noopener">OECD PISA Data</a><a class="src" href="http://uis.unesco.org" target="_blank" rel="noopener">UNESCO Institute for Statistics (UIS)</a></div>
+  <p class="method"><span class="lab">验证方法</span>擦改痕迹统计：各考场答题卡擦改率与成绩跃升幅度对照，异常耦合的考场再与后续年级的成績回落交叉验证。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：涉案者被起诉定罪。aha：作弊留下的不是成绩异常，而是统计指纹——擦改率与跃升幅度的相关性，比成绩本身更诚实。</p>
+</article>
+<article class="case" data-text="巴基斯坦在校生人数与「幽灵学校」教育经费按在校人数拨付，假设部分学校虚报人数甚至空挂校名套取经费与教师编制。行政名册与实地抽查、学龄人口推算、教师工资发放记录四方对账，测算名册膨胀率。坐实：名册人数系统性高于任何独立锚点。人数可以写在表上，孩子不会凭空坐在教室里——分母类造假怕的都是物理世界。教育数据造假">
+  <div class="chead"><span class="no">V25</span><span class="tag hypo">假设设计</span></div>
+  <h3>巴基斯坦 · 在校生人数与「幽灵学校」</h3>
+  <p class="hyp"><span class="lab">作假假设</span>教育经费按在校人数拨付，假设部分学校虚报人数甚至空挂校名套取经费与教师编制。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="http://uis.unesco.org" target="_blank" rel="noopener">UNESCO Institute for Statistics (UIS)</a><a class="src" href="https://data.unicef.org" target="_blank" rel="noopener">UNICEF Data</a><a class="src" href="https://www.pbs.gov.pk" target="_blank" rel="noopener">Pakistan（pbs.gov.pk）</a></div>
+  <p class="method"><span class="lab">验证方法</span>行政名册与实地抽查、学龄人口推算、教师工资发放记录四方对账，测算名册膨胀率。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：名册人数系统性高于任何独立锚点。人数可以写在表上，孩子不会凭空坐在教室里——分母类造假怕的都是物理世界。</p>
+</article>
+</div>
+<h2 class="grp">金融数据粉饰<span class="cnt">2 例</span></h2>
+<div class="grid">
+<article class="case" data-text="越南银行不良贷款率官方不良率长期保持低位，假设大量问题贷款通过展期与资产管理公司转移被留在报表之外。以信贷增速、房地产敞口与 vamc 特殊债券规模重构「影子不良率」，与官方值做长期对照。坐实：影子不良率数倍于官方值且先于危机指标恶化。不良率可以搬家，风险不会消失——它只是在等一个认账的日子。金融数据粉饰">
+  <div class="chead"><span class="no">V26</span><span class="tag hypo">假设设计</span></div>
+  <h3>越南 · 银行不良贷款率</h3>
+  <p class="hyp"><span class="lab">作假假设</span>官方不良率长期保持低位，假设大量问题贷款通过展期与资产管理公司转移被留在报表之外。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://www.imf.org/en/Data/Statistics/FSI" target="_blank" rel="noopener">IMF Financial Soundness Indicators</a><a class="src" href="https://data.bis.org" target="_blank" rel="noopener">data.bis.org</a><a class="src" href="https://www.nso.gov.vn" target="_blank" rel="noopener">Vietnam（nso.gov.vn）</a></div>
+  <p class="method"><span class="lab">验证方法</span>以信贷增速、房地产敞口与 VAMC 特殊债券规模重构「影子不良率」，与官方值做长期对照。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：影子不良率数倍于官方值且先于危机指标恶化。不良率可以搬家，风险不会消失——它只是在等一个认账的日子。</p>
+</article>
+<article class="case" data-text="黎巴嫩（危机前）央行外汇储备充足性危机前官方储备看似充足，假设其中大量是商业银行被强制存放的外汇与金融工程的会计产物，真实可用储备远低。储备质量拆解：总储备扣除银行外汇存款与掉期负债得「净可用储备」，与短期外债覆盖线对照——2019 年危机爆发后拆解被事后证实。坐实：危机后官方承认巨额亏损。aha：储备的数字从来不是重点，构成才是——把别人的钱算成自己的，是会计上最古老的戏法。金融数据粉饰">
+  <div class="chead"><span class="no">V27</span><span class="tag real">历史实证</span></div>
+  <h3>黎巴嫩（危机前） · 央行外汇储备充足性</h3>
+  <p class="hyp"><span class="lab">作假假设</span>危机前官方储备看似充足，假设其中大量是商业银行被强制存放的外汇与金融工程的会计产物，真实可用储备远低。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://data.imf.org/?sk=7a51304b-6426-40c0-83dd-ca473ca1fd52" target="_blank" rel="noopener">IMF Balance of Payments</a><a class="src" href="https://data.bis.org" target="_blank" rel="noopener">data.bis.org</a><a class="src" href="https://data.worldbank.org" target="_blank" rel="noopener">World Bank — Data</a></div>
+  <p class="method"><span class="lab">验证方法</span>储备质量拆解：总储备扣除银行外汇存款与掉期负债得「净可用储备」，与短期外债覆盖线对照——2019 年危机爆发后拆解被事后证实。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：危机后官方承认巨额亏损。aha：储备的数字从来不是重点，构成才是——把别人的钱算成自己的，是会计上最古老的戏法。</p>
+</article>
+</div>
+<h2 class="grp">选举与犯罪统计<span class="cnt">3 例</span></h2>
+<div class="grid">
+<article class="case" data-text="俄罗斯选举投票率与得票率分布法证研究假设部分选区的投票率与得票率被人为推高，数据分布会留下不自然的统计指纹。指纹检验：投票率-得票率联合分布的异常聚集、整数百分比峰值、末位数字均匀性，与选民名册基数交叉核对。坐实：分布出现自然选举过程极难产生的聚集形态。洗清：指纹检验在对照国家不显著。票数可以改，分布形状改不了——这是统计法证学最锋利的一刀。选举与犯罪统计">
+  <div class="chead"><span class="no">V28</span><span class="tag hypo">假设设计</span></div>
+  <h3>俄罗斯 · 选举投票率与得票率分布</h3>
+  <p class="hyp"><span class="lab">作假假设</span>法证研究假设部分选区的投票率与得票率被人为推高，数据分布会留下不自然的统计指纹。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://www.osce.org" target="_blank" rel="noopener">OSCE Statistics</a><a class="src" href="https://rosstat.gov.ru" target="_blank" rel="noopener">Russia（rosstat.gov.ru）</a><a class="src" href="https://unstats.un.org/unsd/demographic-social/products/dyb" target="_blank" rel="noopener">UN Demographic Yearbook</a></div>
+  <p class="method"><span class="lab">验证方法</span>指纹检验：投票率-得票率联合分布的异常聚集、整数百分比峰值、末位数字均匀性，与选民名册基数交叉核对。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：分布出现自然选举过程极难产生的聚集形态。洗清：指纹检验在对照国家不显著。票数可以改，分布形状改不了——这是统计法证学最锋利的一刀。</p>
+</article>
+<article class="case" data-text="英国警方记录犯罪数警方记录的犯罪数与受害调查长期背离，2014 年英国统计局撤销其「国家统计」资格认定。记录犯罪与犯罪受害调查（csew）双轨对照，凶杀等硬指标做锚点，定位背离扩大的警局与案件类型。坐实：官方资格被摘牌并启动整改。aha：当考核盯着犯罪率，警察最容易做的不是破案，是不立案——受害者调查是绕过登记环节的旁路真相。选举与犯罪统计">
+  <div class="chead"><span class="no">V29</span><span class="tag real">历史实证</span></div>
+  <h3>英国 · 警方记录犯罪数</h3>
+  <p class="hyp"><span class="lab">作假假设</span>警方记录的犯罪数与受害调查长期背离，2014 年英国统计局撤销其「国家统计」资格认定。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://www.ons.gov.uk" target="_blank" rel="noopener">United Kingdom（ons.gov.uk）</a><a class="src" href="https://dataunodc.un.org" target="_blank" rel="noopener">UNODC Data Portal</a><a class="src" href="https://www.who.int/data/gho" target="_blank" rel="noopener">WHO Global Health Observatory</a></div>
+  <p class="method"><span class="lab">验证方法</span>记录犯罪与犯罪受害调查（CSEW）双轨对照，凶杀等硬指标做锚点，定位背离扩大的警局与案件类型。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：官方资格被摘牌并启动整改。aha：当考核盯着犯罪率，警察最容易做的不是破案，是不立案——受害者调查是绕过登记环节的旁路真相。</p>
+</article>
+<article class="case" data-text="美国（纽约）compstat 案件降格绩效考核压力下，假设部分警区把重罪案件降格记录以压低犯罪率，统计改善部分来自账本而非街头。警方数据与医院急诊、验尸官记录的暴力伤害数据对照，检验两类数据在考核强化后的背离程度。坐实：街头暴力锚点平稳而账面重罪骤降。医院不看考核表：身体留下的记录，是犯罪统计最难篡改的镜像。选举与犯罪统计">
+  <div class="chead"><span class="no">V30</span><span class="tag hypo">假设设计</span></div>
+  <h3>美国（纽约） · CompStat 案件降格</h3>
+  <p class="hyp"><span class="lab">作假假设</span>绩效考核压力下，假设部分警区把重罪案件降格记录以压低犯罪率，统计改善部分来自账本而非街头。</p>
+  <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://www.census.gov" target="_blank" rel="noopener">United States（census.gov）</a><a class="src" href="https://dataunodc.un.org" target="_blank" rel="noopener">UNODC Data Portal</a><a class="src" href="https://www.who.int/data/gho" target="_blank" rel="noopener">WHO Global Health Observatory</a></div>
+  <p class="method"><span class="lab">验证方法</span>警方数据与医院急诊、验尸官记录的暴力伤害数据对照，检验两类数据在考核强化后的背离程度。</p>
+  <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：街头暴力锚点平稳而账面重罪骤降。医院不看考核表：身体留下的记录，是犯罪统计最难篡改的镜像。</p>
+</article>
+</div>
+</main>
+
+<footer>
+  <p>配套阅读：<a href="../cases/">100 个多源数据融合分析案例</a> · <a href="../orbis/">orbisdata 资源目录 · 50 个数据分析场景</a>。DATUMOJ · 连接官方公开数据，不囤数据 · 2026-10-22</p>
+</footer>
+</div>
+<script>
+const q = document.getElementById('q'), shown = document.getElementById('shown');
+const cards = Array.from(document.querySelectorAll('.case'));
+const heads = Array.from(document.querySelectorAll('h2.grp'));
+function apply(){
+  const ts = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  let n = 0;
+  for (const c of cards){
+    const hit = !ts.length || ts.every(t => c.dataset.text.includes(t) || c.textContent.toLowerCase().includes(t));
+    c.style.display = hit ? '' : 'none'; if (hit) n++;
+  }
+  heads.forEach(h => {
+    let el = h.nextElementSibling, any = false;
+    if (el) for (const c of el.children) if (c.style.display !== 'none') any = true;
+    h.style.display = any ? '' : 'none'; if (el) el.style.display = any ? '' : 'none';
+  });
+  shown.textContent = ts.length ? ('匹配 ' + n + ' / 30 个案例') : '';
+}
+q.addEventListener('input', apply);
+</script>
+</body>
+</html>
