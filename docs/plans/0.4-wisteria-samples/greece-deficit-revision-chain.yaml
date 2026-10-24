@@ -1,0 +1,80 @@
+# Eltiro 需求定义样例：一个模拟的外部项目注入的需求（0.4 计划 H1），取自试点 V07（https://plan.datumoj.com/verify/）。
+# 这是设计样例，还没有代码校验它；契约 001 定 schema 时以本目录为基准，字段可以改，但它表达的东西都要能表达。
+# 一份需求一个文件（0.4 计划第 6.1 节）。写法约定：
+#   - 指标用文字描述概念，不写死表名；preferred_sources 只是偏好，用注册表的来源 id（intl-* 为 0.4 计划接入，id 以 H2 定稿为准），Eltiro 自己去匹配。
+#   - examples 里的正例、反例用来判断匹配对不对，反例专门写口径相近但不能混用的东西。
+#   - 运算只能从固定的运算库里选（第 6.5 节），不能写代码。
+
+schema: eltiro.request/v0
+id: greece-deficit-revision-chain
+version: 1
+consumer: example-analysis-site
+purpose: >-
+  希腊政府赤字率在各次发布中如何被修订；同时用债务存量的变化对照赤字流量，
+  看两者之间的差额（存量流量调整）在哪几年异常。
+source_case: "verify V07 希腊 · 政府赤字率 2009"
+
+entities:
+  countries: [GRC]
+period:
+  from: "2000"
+  to: "2015"
+  frequency: annual
+revisions: all                            # 每个来源的历次发布都要，按发布时间排
+
+indicators:
+  - key: deficit_pct_gdp
+    concept: 一般政府净借贷（赤字为负），占 GDP 的百分比
+    unit: percent_of_gdp
+    preferred_sources: [eu-eurostat, intl-imf-weo]
+    min_sources: 2
+    keep_separate_by: [source, release]
+    examples:
+      positive:
+        - "Eurostat: Government deficit/surplus, % of GDP (gov_10dd_edpt1)"
+      negative:
+        - "中央政府赤字（不是一般政府）"
+        - "基本赤字（扣除利息）"
+  - key: debt_eur
+    concept: 一般政府总债务，马斯特里赫特口径，以欧元计
+    unit: EUR
+    preferred_sources: [eu-eurostat]
+    min_sources: 1
+    keep_separate_by: [source, release]
+  - key: deficit_eur
+    concept: 一般政府净借贷，以欧元计
+    unit: EUR
+    preferred_sources: [eu-eurostat]
+    min_sources: 1
+    keep_separate_by: [source, release]
+
+align:
+  keys: [country, year, release]
+  require_same_unit: true
+
+operations:
+  - id: revision_delta
+    op: revision_diff                     # 同一年份的值相对首次发布的变化
+    input: deficit_pct_gdp
+  - id: debt_change
+    op: diff_lag                          # 债务存量的年度变化
+    input: debt_eur
+    lag: 1
+  - id: stock_flow_adjustment
+    op: diff                              # 债务变化 - 赤字（赤字为负，所以相加）
+    left: debt_change
+    right: deficit_eur
+    sign: plus
+
+output:
+  fields: [country, year, source, release_id, released_at, deficit_pct_gdp, revision_delta,
+           debt_eur, debt_change, deficit_eur, stock_flow_adjustment, citation_id]
+  format: [parquet]
+
+accept_outflow: [raw_ok, derived_only]
+models:
+  max_tier: low                           # 指标都有标准编号，确定性匹配应该够
+  allow_cloud: false
+run:
+  trigger: on_new_generation
+  notify_on: [binding_stale, definition_changed, gap_filled]
