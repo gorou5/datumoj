@@ -1,5 +1,5 @@
 // HTML rendering for tel.datumoj.com. No inline client JS; search is a plain GET form.
-import { formatNumber, anatomySegments, anatomyLabels, neighbors } from './number.js';
+import { formatNumber, splitNumber, anatomySegments, neighbors } from './number.js';
 
 export function esc(s) {
   return String(s ?? '')
@@ -9,11 +9,19 @@ export function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
+// External source link: only http(s) URLs become anchors. DB rows carry
+// source URLs; HTML-escaping alone would still let a javascript:/data:
+// value execute on click, so the scheme is whitelisted here.
+export function extLink(url, label, attrs = '') {
+  return /^https?:\/\//i.test(String(url || ''))
+    ? `<a href="${esc(url)}"${attrs}>${label}</a>`
+    : esc(label);
+}
+
 const CSS = `
 :root{color-scheme:light dark}
 *{box-sizing:border-box}
 body{font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;margin:0;line-height:1.7;background:#fafafa;color:#1a1a1a}
-@media(prefers-color-scheme:dark){body{background:#14161a;color:#e8e8e8}a{color:#7db4ff}.card,.seg-explain{background:#1e2126;border-color:#333}.meta{color:#aaa}}
 a{color:#0b57d0;text-decoration:none}a:hover{text-decoration:underline}
 header{border-bottom:1px solid #ddd;padding:.8rem 1rem;display:flex;gap:1rem;align-items:baseline;flex-wrap:wrap}
 header .logo{font-weight:700;font-size:1.15rem;color:inherit}
@@ -41,12 +49,16 @@ th{width:11rem;color:#555;font-weight:600}
 .segbtn{border:2px solid transparent;border-radius:14px;padding:.5rem .9rem .35rem;cursor:pointer;font:inherit;background:#eef1f4;text-align:center}
 .segbtn .segdigits{display:block;font-size:clamp(1.9rem,8.5vw,3.6rem);font-weight:700;letter-spacing:.04em;line-height:1.15;color:#33424f}
 .segbtn .segcap{display:block;font-size:.72rem;color:#71808d;margin-top:.15rem}
-.seg-a{background:#dcebf5}.seg-b{background:#e2ecd9}.seg-c{background:#f6ead0}
+.seg-a{background:#dcebf5}.seg-b{background:#e2ecd9}.seg-c{background:#f6ead0}.seg-d{background:#e9e0f2}
+.hero-facts{max-width:640px;margin:.9rem auto 0;text-align:left;background:#fbfaf6;border:1px solid #e7e1d2;border-radius:10px;padding:.7rem 1.1rem}
+.hero-fact{margin:.25rem 0;font-size:.92rem;color:#3d473a}
+.hero-fact b{color:#22303c}
 .segbtn.is-active{border-color:#5b84a6;box-shadow:0 3px 14px rgba(60,70,90,.18)}
 .hero-hyphen{align-self:center;font-size:clamp(1.4rem,6vw,2.6rem);color:#a3aeb8}
 .seg-explain{max-width:640px;margin:1.1rem auto 0;text-align:left;background:#fff;border:1px solid #e7e1d2;border-left:6px solid #7d9db5;border-radius:10px;padding:.9rem 1.1rem}
 .seg-explain[data-seg="1"]{border-left-color:#a3b899}
 .seg-explain[data-seg="2"]{border-left-color:#dfc08a}
+.seg-explain[data-seg="3"]{border-left-color:#b39ddb}
 .seg-explain h2{font-size:1.05rem;margin:0 0 .3rem}
 .seg-explain p{margin:0}
 .hero-note{color:#8a94a0;font-size:.88rem;margin-top:.9rem}
@@ -60,6 +72,36 @@ th{width:11rem;color:#555;font-weight:600}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 footer{border-top:1px solid #ddd;margin-top:2rem;padding:1rem;font-size:.85rem;color:#777}
 ul.tight{margin:.3rem 0;padding-left:1.2rem}
+/* Dark scheme LAST: these rules must follow the base component rules above —
+   an earlier version of this block sat near the top of the stylesheet and
+   silently lost the cascade to the base rules (white cards in dark mode). */
+@media(prefers-color-scheme:dark){
+body{background:#14161a;color:#e8e8e8}
+a{color:#7db4ff}
+header{border-bottom-color:#333}
+footer{border-top-color:#333;color:#999}
+.card,.seg-explain{background:#1e2126;border-color:#3a3f46}
+.seg-explain{border-left-color:#7d9db5}
+.seg-explain[data-seg="1"]{border-left-color:#a3b899}
+.seg-explain[data-seg="2"]{border-left-color:#dfc08a}
+.seg-explain[data-seg="3"]{border-left-color:#b39ddb}
+th,td{border-bottom-color:#333}
+th{color:#aaa}
+.meta,.crumbs{color:#aaa}
+.seg{border-color:#444}.seg span{color:#aaa}
+.badge{border-color:#666}
+.hero-kicker{color:#93a5b3}
+.segbtn .segdigits{color:#eef4f9}
+.segbtn .segcap{color:#aebfca}
+.seg-a{background:#274b66}.seg-b{background:#38512f}.seg-c{background:#5f4b22}.seg-d{background:#463a63}
+.segbtn.is-active{border-color:#9fc2dd;box-shadow:0 3px 14px rgba(0,0,0,.5)}
+.hero-hyphen{color:#5f7182}
+.hero-facts{background:#1e2126;border-color:#3a3f46}
+.hero-fact{color:#cfd8cf}.hero-fact b{color:#eef4f9}
+.hero-note,.home-links{color:#93a0ab}
+.shuffle{background:#1e2126;border-color:#4a5058;color:#e8e8e8}
+.searchbox input,.bigsearch input{background:#1e2126;color:#e8e8e8;border-color:#4a5058;box-shadow:none}
+}
 `;
 
 export function layout({ title, description, robots, canonical, jsonLd, body }) {
@@ -72,7 +114,7 @@ export function layout({ title, description, robots, canonical, jsonLd, body }) 
 <meta name="description" content="${esc(description || '')}">
 ${robots ? `<meta name="robots" content="${esc(robots)}">` : ''}
 ${canonical ? `<link rel="canonical" href="${esc(canonical)}">` : ''}
-${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>` : ''}
+${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd).replace(/<\//g, '<\\/')}</script>` : ''}
 <style>${CSS}</style>
 </head>
 <body>
@@ -95,54 +137,200 @@ function searchForm(value = '') {
 </form>`;
 }
 
-export function homePage() {
+// Payload for the homepage hero (/random.json): the fullest explanation we
+// can give for one randomly drawn, really-designated number — every line
+// type, with the fixed-line exchange (市内局番, the old 分局) explained.
+export function randomHero(f) {
+  const formatted = formatNumber(f.digits, f);
+  const carrier = f.block.carrierName;
+  let segments;
+  let defaultSeg = 0;
+  if (f.lineType === 'fixed') {
+    const parts = anatomySegments(f.digits, f);
+    const ma = f.mas && f.mas.length === 1 ? f.mas[0] : null;
+    segments = [
+      {
+        text: parts[0], label: '国内プレフィックス', title: '国内プレフィックス「0」',
+        explain: '日本国内で市外へかける際の合図（トランクプレフィックス）です。海外からかける場合は +81 に置き換わり、この0は省略されます。',
+      },
+      {
+        text: parts[1], label: '市外局番', title: `市外局番（0${parts[1]}）`,
+        explain: `固定電話の地域を表す番号です。市外局番 0${parts[1]} は${f.prefecture || '日本'}のエリアで使われています。市外局番と市内局番は、合わせて5桁になるよう設計されています。`,
+      },
+      {
+        text: parts[2], label: '市内局番', title: '市内局番（かつての「分局」）',
+        explain: `もともとは電話交換局（分局）が担当するエリアごとに割り当てられた部分で、その電話がどの交換局の管轄かを示していました。交換の自動化・IP化で「分局」という実体は薄れましたが、市内局番は今も単位料金区域（MA）の中の番号区画として、事業者ごとに割り当てられています。${ma ? `この番号の区画は ${ma.charge_area_name}MA（番号区画コード ${ma.zone_code}）に属し、対象地域は ${ma.region} です。` : ''}${carrier ? `割当事業者は ${carrier} です。` : ''}`,
+      },
+      {
+        text: parts[3], label: '加入者番号', title: '加入者番号',
+        explain: '市内局番のエリアの中で、各契約回線に割り当てられる4桁の番号です。それ自体に地域や事業者の意味はありません。',
+      },
+    ];
+    defaultSeg = 2;
+  } else if (f.lineType === 'm2m020') {
+    const p = f.block.prefix;
+    segments = [
+      {
+        text: p, label: '番号区画', title: '020番号の区画',
+        explain: `020は、携帯電話網を使うM2M（機器間通信）等専用の番号帯です。一般の音声通話用ではなく、IoT機器やデータ通信端末に割り当てられます。${carrier ? `この区画の割当事業者は ${carrier} です。` : ''}桁数は用途により12〜14桁です。`,
+      },
+      {
+        text: f.digits.slice(p.length), label: '識別番号', title: '識別番号',
+        explain: '個々の機器・回線を識別するための番号部分です。',
+      },
+    ];
+  } else {
+    const parts = splitNumber(f.digits, f);
+    const band = parts[0];
+    let bandExplain;
+    if (f.lineType === 'mobile') {
+      bandExplain = `${band} は携帯電話の番号帯です。${carrier ? `当初の割当事業者は ${carrier} です。` : ''}2006年に番号ポータビリティ（MNP）が始まって以降、事業者を変えても番号はそのまま使えるため、現在の契約事業者はこの番号からは分かりません。`;
+    } else if (f.lineType === 'ip050') {
+      bandExplain = `050 はIP電話の番号帯です（2003年に利用開始）。${carrier ? `割当事業者は ${carrier} です。` : ''}インターネット回線を使う電話で、市外局番と違い地域とは結びついていません。番号ポータビリティの対象です。`;
+    } else if (f.lineType === 'free0120' || f.lineType === 'free0800') {
+      bandExplain = `${band} は着信課金（フリーダイヤル）の番号帯です。通話料は着信側が負担し、かける側は無料です。${carrier ? `割当事業者は ${carrier} です。` : ''}企業や団体の問い合わせ窓口などに使われます。`;
+    } else {
+      bandExplain = `0570 はナビダイヤルの番号帯です。全国共通の窓口番号を実際の着信先へ振り分ける仕組みで、通話料は発信者負担（有料）です。${carrier ? `割当事業者は ${carrier} です。` : ''}`;
+    }
+    const restExplain =
+      f.lineType === 'mobile' || f.lineType === 'ip050'
+        ? '契約者ごとに割り当てられる加入者番号の一部です。携帯電話・IP電話には固定電話のような「分局」（交換局エリア）の仕組みがなく、この数字から地域や現在の契約事業者は分かりません。'
+        : '契約した企業・団体ごとに割り当てられる加入者番号の一部です。数字から地域は分かりません。';
+    segments = [
+      { text: band, label: '番号帯', title: `番号帯（${band}）`, explain: bandExplain },
+      { text: parts[1], label: '加入者番号', title: '加入者番号（前半）', explain: restExplain },
+      { text: parts[2], label: '加入者番号', title: '加入者番号（後半）', explain: restExplain },
+    ];
+  }
+  const facts = [{ k: '番号の種類', v: f.lineTypeName }];
+  if (carrier) facts.push({ k: '割当事業者', v: carrier });
+  if (f.lineType === 'fixed') {
+    if (f.prefecture) facts.push({ k: '都道府県', v: f.prefecture });
+    if (f.mas && f.mas.length === 1) {
+      facts.push({ k: '単位料金区域（MA）', v: `${f.mas[0].charge_area_name}MA（番号区画コード ${f.mas[0].zone_code}）` });
+      facts.push({ k: '対象地域', v: f.mas[0].region });
+    }
+  }
+  if (f.lineType === 'mobile' || f.lineType === 'ip050') facts.push({ k: '地域', v: '番号から地域は特定できません' });
+  facts.push({ k: 'データ出典', v: f.block.source || '総務省 電気通信番号計画' });
+  return {
+    digits: f.digits,
+    formatted,
+    kicker: `日本の電話番号の例（${f.lineTypeName}）`,
+    segments,
+    facts,
+    defaultSeg,
+  };
+}
+
+// Offline fallback heroes: real designated blocks whose carrier facts were
+// verified against the MIC designation data on 2026-10-22 (033101 = 大江戸
+// テレコム, 090101 = NTTドコモ, 0800777 / 0120923 = KDDI). Used when D1 is
+// unavailable (e.g. free-tier daily quota) so the homepage hero and
+// /random.json never dead-end on XXXX placeholders. Explanations are
+// generated by randomHero itself from these facts, so wording never drifts
+// from the live path.
+const FALLBACK_FACTS = [
+  {
+    digits: '0331015678', lineType: 'fixed', lineTypeName: '固定電話（0AB-J）',
+    areaCode: '03', prefecture: '東京都', mas: [],
+    block: { prefix: '033101', carrierName: '大江戸テレコム株式会社', source: '総務省 電気通信番号指定状況' },
+  },
+  {
+    digits: '09010123456', lineType: 'mobile', lineTypeName: '携帯電話',
+    block: { prefix: '090101', carrierName: '株式会社NTTドコモ', source: '総務省 電気通信番号指定状況' },
+  },
+  {
+    digits: '08007779633', lineType: 'free0800', lineTypeName: 'フリーダイヤル（0800）',
+    block: { prefix: '0800777', carrierName: 'KDDI株式会社', source: '総務省 電気通信番号指定状況' },
+  },
+  {
+    digits: '0120923499', lineType: 'free0120', lineTypeName: 'フリーダイヤル（0120）',
+    block: { prefix: '0120923', carrierName: 'KDDI株式会社', source: '総務省 電気通信番号指定状況' },
+  },
+];
+export const FALLBACK_HEROES = FALLBACK_FACTS.map((f) => randomHero(f));
+
+export function homePage(hero, fallbacks, popular) {
+  const segColors = ['seg-a', 'seg-b', 'seg-c', 'seg-d'];
+  const segHtml = hero.segments
+    .map(
+      (s, i) =>
+        `${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<button type="button" class="segbtn ${segColors[i % 4]}${i === hero.defaultSeg ? ' is-active' : ''}" data-seg="${i}" aria-pressed="${i === hero.defaultSeg}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></button>`
+    )
+    .join('');
+  const heroJson = JSON.stringify(hero).replace(/<\//g, '<\\/');
+  const fallbacksJson = JSON.stringify(fallbacks || []).replace(/<\//g, '<\\/');
   const body = `
 <div class="home">
 <h1 class="sr-only">日本の電話番号データベース</h1>
-<p class="hero-kicker">日本の携帯電話番号（11桁）の例</p>
-<div class="hero-num" role="group" aria-label="電話番号の各部分">
-<button type="button" class="segbtn seg-a is-active" data-seg="0" aria-pressed="true"><span class="segdigits" id="segd0">090</span><span class="segcap">番号帯</span></button>
-<span class="hero-hyphen">-</span>
-<button type="button" class="segbtn seg-b" data-seg="1" aria-pressed="false"><span class="segdigits" id="segd1">XXXX</span><span class="segcap">加入者番号</span></button>
-<span class="hero-hyphen">-</span>
-<button type="button" class="segbtn seg-c" data-seg="2" aria-pressed="false"><span class="segdigits" id="segd2">XXXX</span><span class="segcap">加入者番号</span></button>
+<p class="hero-kicker" id="heroKicker">${esc(hero.kicker)}</p>
+<div class="hero-num" id="heroSegs" role="group" aria-label="電話番号の各部分">
+${segHtml}
 </div>
-<div class="seg-explain" id="segExplain" data-seg="0" aria-live="polite">
-<h2 id="segTitle">番号帯（070 / 080 / 090）</h2>
-<p id="segText">携帯電話の番号帯です。もともとは契約した事業者を表す目印でしたが、2006年に番号ポータビリティ（MNP）が始まって以降、事業者を変えても番号はそのまま使えるため、いまの事業者はこの3桁からは分かりません。2024年には新しい番号帯として060も指定されました。</p>
+<div class="seg-explain" id="segExplain" data-seg="${hero.defaultSeg}" aria-live="polite">
+<h2 id="segTitle">${esc(hero.segments[hero.defaultSeg].title)}</h2>
+<p id="segText">${esc(hero.segments[hero.defaultSeg].explain)}</p>
 </div>
-<p class="hero-note">表示される番号は毎回ランダムな例です。色のついた部分を押すと、その部分の意味が表示されます。<button type="button" class="shuffle" id="shuffleBtn">別の番号を表示</button></p>
-<p class="hero-note">なお固定電話の番号は10桁です。桁数の違いの成り立ちは<a href="/history">日本の電話番号の歴史</a>へ。</p>
+<p class="hero-note">表示される番号は、総務省の指定データにある実在の番号区画から毎回ランダムに選ばれています。色のついた部分を押すと、その部分の意味が表示されます。<button type="button" class="shuffle" id="shuffleBtn">別の番号を表示</button> <a id="heroDetail" href="/${esc(hero.digits)}">この番号（${esc(hero.formatted)}）の詳細ページ</a></p>
 <form class="bigsearch" action="/search" method="get" role="search">
 <input type="search" name="q" inputmode="numeric" autocomplete="off" placeholder="電話番号を入力（例：090-1234-5678）" aria-label="電話番号">
 <button type="submit">調べる</button>
 </form>
+${popular && popular.length ? `<section class="card" aria-label="よく調べられている番号">
+<h2>よく調べられている番号</h2>
+<ul class="tight">
+${popular.map((p) => `<li><a href="/${esc(p.digits)}">${esc(p.formatted)}</a> <span class="meta">調べられた回数：${esc(String(p.views))}回</span></li>`).join('\n')}
+</ul>
+<p class="meta">このサイトで実際に調べられた回数が多い番号です。</p>
+</section>` : ''}
 <p class="home-links"><a href="/gov">政府機関の番号</a> ・ <a href="/history">日本の電話番号の歴史</a> ・ <a href="/about">このサイトについて</a></p>
 </div>
 <script>
 (function(){
-  var EXPLAIN=[
-    {t:'番号帯（070 / 080 / 090）',x:'携帯電話の番号帯です。もともとは契約した事業者を表す目印でしたが、2006年に番号ポータビリティ（MNP）が始まって以降、事業者を変えても番号はそのまま使えるため、いまの事業者はこの3桁からは分かりません。2024年には新しい番号帯として060も指定されました。'},
-    {t:'加入者番号（前半4桁）',x:'契約者ごとに割り当てられる加入者番号（8桁）の前半です。固定電話の市内局番と違い、地域を表すものではありません。'},
-    {t:'加入者番号（後半4桁）',x:'加入者番号の後半4桁です。前半と合わせた8桁が、その契約回線を識別する固有の番号になります。'}
-  ];
-  var BANDS=['070','080','090'];
-  function rnd(n){var s='';for(var i=0;i<n;i++){s+=Math.floor(Math.random()*10);}return s;}
-  function newNumber(){
-    document.getElementById('segd0').textContent=BANDS[Math.floor(Math.random()*BANDS.length)];
-    document.getElementById('segd1').textContent=rnd(4);
-    document.getElementById('segd2').textContent=rnd(4);
-  }
-  var btns=document.querySelectorAll('.segbtn');
+  var segsEl=document.getElementById('heroSegs');
+  var kick=document.getElementById('heroKicker');
+  var titleEl=document.getElementById('segTitle'), textEl=document.getElementById('segText'), card=document.getElementById('segExplain');
+  var detail=document.getElementById('heroDetail');
+  var COLORS=['seg-a','seg-b','seg-c','seg-d'];
+  var FALLBACKS=${fallbacksJson};
+  var fbIdx=-1;
+  var data=${heroJson};
   function select(i){
+    if(!data||!data.segments[i])return;
+    var btns=segsEl.querySelectorAll('.segbtn');
     for(var j=0;j<btns.length;j++){btns[j].classList.toggle('is-active',j===i);btns[j].setAttribute('aria-pressed',j===i?'true':'false');}
-    document.getElementById('segTitle').textContent=EXPLAIN[i].t;
-    document.getElementById('segText').textContent=EXPLAIN[i].x;
-    document.getElementById('segExplain').setAttribute('data-seg',String(i));
+    titleEl.textContent=data.segments[i].title;
+    textEl.textContent=data.segments[i].explain;
+    card.setAttribute('data-seg',String(i));
   }
-  for(var k=0;k<btns.length;k++){(function(k){btns[k].addEventListener('click',function(){select(k);});})(k);}
-  document.getElementById('shuffleBtn').addEventListener('click',newNumber);
-  newNumber();
+  function render(d){
+    data=d;
+    kick.textContent=d.kicker;
+    segsEl.innerHTML='';
+    d.segments.forEach(function(s,i){
+      if(i>0){var h=document.createElement('span');h.className='hero-hyphen';h.textContent='-';segsEl.appendChild(h);}
+      var b=document.createElement('button');b.type='button';b.className='segbtn '+COLORS[i%COLORS.length];b.setAttribute('aria-pressed','false');
+      var ds=document.createElement('span');ds.className='segdigits';ds.textContent=s.text;
+      var cs=document.createElement('span');cs.className='segcap';cs.textContent=s.label;
+      b.appendChild(ds);b.appendChild(cs);
+      b.addEventListener('click',function(){select(i);});
+      segsEl.appendChild(b);
+    });
+    detail.href='/'+d.digits;detail.textContent='この番号（'+d.formatted+'）の詳細ページ';
+    select(d.defaultSeg||0);
+  }
+  function wire(){
+    var btns=segsEl.querySelectorAll('.segbtn');
+    for(var k=0;k<btns.length;k++){(function(k){btns[k].addEventListener('click',function(){select(k);});})(k);}
+  }
+  function load(){
+    fetch('/random.json',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('random');return r.json();}).then(render).catch(function(){
+      if(FALLBACKS.length){fbIdx=(fbIdx+1)%FALLBACKS.length;render(FALLBACKS[fbIdx]);}
+    });
+  }
+  document.getElementById('shuffleBtn').addEventListener('click',load);
+  wire();
 })();
 </script>`;
   return layout({
@@ -156,11 +344,15 @@ export function homePage() {
 export function numberPage(facts) {
   const f = facts;
   const formatted = formatNumber(f.digits, f);
-  const segs = anatomySegments(f.digits, f);
-  const labels = anatomyLabels(f);
-  const segHtml = segs
-    .map((s, i) => `<div class="seg"><b>${esc(s)}</b><span>${esc(labels[i] || '')}</span></div>`)
+  const hero = randomHero(f);
+  const segColors = ['seg-a', 'seg-b', 'seg-c', 'seg-d'];
+  const segHtml = hero.segments
+    .map(
+      (s, i) =>
+        `${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<button type="button" class="segbtn ${segColors[i % 4]}${i === hero.defaultSeg ? ' is-active' : ''}" data-seg="${i}" aria-pressed="${i === hero.defaultSeg}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></button>`
+    )
     .join('');
+  const heroJson = JSON.stringify(hero.segments).replace(/<\//g, '<\\/');
   const crumbs = [{ name: 'ホーム', url: 'https://tel.datumoj.com/' }, { name: f.lineTypeName, url: `https://tel.datumoj.com/type/${f.lineType}` }];
   if (f.areaCode) crumbs.push({ name: `市外局番 ${f.areaCode}`, url: `https://tel.datumoj.com/area/${f.areaCode}` });
   crumbs.push({ name: formatted, url: `https://tel.datumoj.com/${f.digits}` });
@@ -168,6 +360,7 @@ export function numberPage(facts) {
 
   const rows = [];
   rows.push(`<tr><th>電話番号</th><td>${esc(formatted)}（${esc(f.digits)}）</td></tr>`);
+  rows.push(`<tr><th>調べられた回数</th><td><span id="viewCount">集計中…</span></td></tr>`);
   rows.push(`<tr><th>番号の種類</th><td>${esc(f.lineTypeName)}</td></tr>`);
   if (f.prefecture) rows.push(`<tr><th>都道府県</th><td>${esc(f.prefecture)}</td></tr>`);
   if (f.mas && f.mas.length === 1) {
@@ -193,7 +386,7 @@ export function numberPage(facts) {
       .map(
         (g) => `<h2><span class="badge">政府機関</span>${esc(g.agency_name)}</h2>
 <p>この番号は政府機関「${esc(g.agency_name)}」の${esc(g.number_kind)}番号として、公式サイトで公表されています。${g.label ? esc(g.label) : ''}</p>
-<p class="meta">出典：<a href="${esc(g.source_url)}" rel="noopener">公式ページ</a>（${esc(g.verified_on || '-')} 確認）</p>`
+<p class="meta">出典：${extLink(g.source_url, '公式ページ', ' rel="noopener"')}（${esc(g.verified_on || '-')} 確認）</p>`
       )
       .join('');
     sections += `<div class="card">${govItems}
@@ -205,7 +398,7 @@ export function numberPage(facts) {
       .map(
         (x) => `<div class="card flag"><p><span class="badge">第三者標識・${esc(x.source_tier)}級</span><b>${esc(x.publisher)}（${esc(x.source_name)}）</b></p>
 <p>${esc(x.label)}${x.published_on ? `（${esc(x.published_on)} 公表）` : ''}</p>
-<p class="meta">出典：${x.evidence_url || x.source_url ? `<a href="${esc(x.evidence_url || x.source_url)}" rel="nofollow noopener">元の公表ページ</a>` : '公表資料'}／最終確認：${esc(x.last_verified || '-')}</p></div>`
+<p class="meta">出典：${x.evidence_url || x.source_url ? extLink(x.evidence_url || x.source_url, '元の公表ページ', ' rel="nofollow noopener"') : '公表資料'}／最終確認：${esc(x.last_verified || '-')}</p></div>`
       )
       .join('');
     sections += `<h2>第三者機関による標識</h2>${items}
@@ -228,34 +421,119 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
     sections += `<div class="card"><h2>利用者からの報告</h2><p>この番号について ${f.reportCount} 件の報告が寄せられています。</p><ul class="tight">${items}</ul>
 <p class="meta">報告は利用者の投稿を審査のうえ集計したもので、事実認定ではありません。</p></div>`;
   }
-  // Neighbors
-  const nb = neighbors(f.digits, 3);
+  // Neighbors (SEO watch: internal-link density around target numbers)
+  const nb = neighbors(f.digits, 5);
   const nbLinks = [...nb.prev.reverse(), ...nb.next]
     .map((n) => `<a href="/${n}">${esc(formatNumber(n, f))}</a>`)
     .join(' ／ ');
   sections += `<div class="card"><h2>近い番号</h2><p>${nbLinks}</p></div>`;
 
+  // FAQ: visible Q&A generated from this number's facts, mirrored into
+  // FAQPage structured data below (the two must stay in sync).
+  const who = f.block.carrierName
+    ? `割当事業者は ${f.block.carrierName} です。`
+    : '割当事業者の詳細データは整備中です。';
+  const faq = [
+    {
+      q: `${formatted} はどこからの電話ですか？`,
+      a: `${formatted} は${f.lineTypeName}の番号です。${who}${f.prefecture ? `地域は${f.prefecture}です。` : ''}${f.portable ? '番号ポータビリティの対象のため、現在の契約事業者が割当事業者と異なる場合があります。' : ''}なお発信者番号は偽装されることもあるため、番号表示だけで相手を断定はできません。`,
+    },
+    {
+      q: `${formatted} に電話をかけると料金はかかりますか？`,
+      a:
+        f.lineType === 'free0120' || f.lineType === 'free0800'
+          ? `${formatted} は着信課金（フリーダイヤル）の番号で、発信者の通話料は無料です（着信側が負担します）。`
+          : f.lineType === 'navi0570'
+            ? 'ナビダイヤル（0570）は発信者負担の有料通話で、通話時間に応じた料金がかかります。'
+            : `${formatted} への通話は発信者に通話料がかかります（金額はご契約のプランによります）。`,
+    },
+    {
+      q: '知らない番号から着信がありました。どうすればいいですか？',
+      a: 'すぐに折り返さず、まず番号の情報を確認してください。不在着信だけでは通話料は発生しません。金銭の振り込みや個人情報を求められた場合は応じず一度切り、消費生活の相談は消費者ホットライン「188」、事件性がある場合は警察相談専用電話「#9110」へご相談ください。',
+    },
+  ];
+  sections += `<div class="card"><h2>よくある質問</h2>${faq.map((x) => `<h3>${esc(x.q)}</h3><p>${esc(x.a)}</p>`).join('')}</div>`;
+  // Anonymous comments (owner rules: <=10 chars, no hostile language —
+  // enforced server-side in lib/social.js). Loaded by script because the
+  // page HTML itself is edge-cached.
+  sections += `<div class="card"><h2>匿名コメント</h2>
+<p class="meta">10文字以内・匿名で投稿できます。人を傷つける言葉は投稿できません。コメントは投稿者の感想であり、事実を示すものではありません。</p>
+<ul class="tight" id="cmtList"><li class="meta">読み込み中…</li></ul>
+<form id="cmtForm" autocomplete="off"><input type="text" id="cmtInput" maxlength="10" placeholder="10文字以内で感想を" aria-label="匿名コメント"> <button type="submit">投稿</button></form>
+<p class="meta" id="cmtMsg"></p></div>`;
+
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'WebPage',
-    name: `${formatted} の電話番号情報`,
-    url: `https://tel.datumoj.com/${f.digits}`,
-    breadcrumb: {
-      '@type': 'BreadcrumbList',
-      itemListElement: crumbs.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: c.url })),
-    },
+    '@graph': [
+      {
+        '@type': 'WebPage',
+        name: `${formatted} の電話番号情報`,
+        url: `https://tel.datumoj.com/${f.digits}`,
+        breadcrumb: {
+          '@type': 'BreadcrumbList',
+          itemListElement: crumbs.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: c.url })),
+        },
+      },
+      {
+        '@type': 'FAQPage',
+        mainEntity: faq.map((x) => ({
+          '@type': 'Question',
+          name: x.q,
+          acceptedAnswer: { '@type': 'Answer', text: x.a },
+        })),
+      },
+    ],
   };
   const body = `
 <p class="crumbs">${crumbHtml}</p>
-<h1>${esc(formatted)}</h1>
-<div class="segs">${segHtml}</div>
+<h1 class="sr-only">${esc(formatted)} の電話番号情報</h1>
+<div class="hero-num" role="group" aria-label="電話番号の各部分">${segHtml}</div>
+<div class="seg-explain" id="segExplain" data-seg="${hero.defaultSeg}" aria-live="polite"><h2 id="segTitle">${esc(hero.segments[hero.defaultSeg].title)}</h2><p id="segText">${esc(hero.segments[hero.defaultSeg].explain)}</p></div>
+<script>(function(){var SEGS=${heroJson};var btns=document.querySelectorAll('.segbtn');var t=document.getElementById('segTitle'),x=document.getElementById('segText'),c=document.getElementById('segExplain');function sel(i){for(var j=0;j<btns.length;j++){btns[j].classList.toggle('is-active',j===i);btns[j].setAttribute('aria-pressed',j===i?'true':'false');}t.textContent=SEGS[i].title;x.textContent=SEGS[i].explain;c.setAttribute('data-seg',String(i));}for(var k=0;k<btns.length;k++){(function(k){btns[k].addEventListener('click',function(){sel(k);});})(k);}})();</script>
+<script>(function(){
+  var D='${f.digits}';
+  var vc=document.getElementById('viewCount');
+  fetch('/view/'+D,{method:'POST'}).then(function(r){return r.json();}).then(function(j){if(vc)vc.textContent=(j.views||0)+' 回';}).catch(function(){if(vc)vc.textContent='-';});
+  var list=document.getElementById('cmtList'),form=document.getElementById('cmtForm'),input=document.getElementById('cmtInput'),msg=document.getElementById('cmtMsg');
+  function showComments(cs){
+    list.innerHTML='';
+    if(!cs.length){var li0=document.createElement('li');li0.className='meta';li0.textContent='まだコメントはありません。';list.appendChild(li0);return;}
+    cs.forEach(function(cm){var li=document.createElement('li');li.textContent=cm.body+' ';var s=document.createElement('span');s.className='meta';s.textContent='（'+String(cm.created_at).slice(0,10)+'）';li.appendChild(s);list.appendChild(li);});
+  }
+  fetch('/comments.json?n='+D).then(function(r){return r.json();}).then(function(j){showComments(j.comments||[]);}).catch(function(){});
+  form.addEventListener('submit',function(ev){
+    ev.preventDefault();
+    fetch('/comment',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({number:D,body:input.value})})
+      .then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j};});})
+      .then(function(res){
+        if(res.ok){input.value='';msg.textContent='投稿しました。';showComments(res.j.comments||[]);}
+        else{msg.textContent=res.j.message||'投稿できませんでした。';}
+      }).catch(function(){msg.textContent='投稿できませんでした。';});
+  });
+})();</script>
 <div class="card"><table>${rows.join('')}</table></div>
 ${sections}
 ${searchForm()}
 <p class="meta">データ出典：${esc(f.block.source || '総務省 電気通信番号計画')}。このページは区画データから自動生成されています。</p>`;
+  // tel/seo-watch（第3ラウンド）: バックログ4「タイトル・説明文の磨き込み」。
+  // 番号そのものの検索意図（誰から／迷惑電話か／通話料は）に、本文と同じ事実
+  // （総務省指定データ・第三者機関標識）で正直に答えられる範囲で書く。
+  // 新たな断定・キーワード詰め込みはしない。
+  const carrier = f.block.carrierName || '';
+  const freeDial = f.lineType === 'free0800' || f.lineType === 'free0120';
+  const titleBits = [
+    f.gov ? f.gov.agency_name : '',
+    f.lineTypeName,
+    carrier ? `割当${carrier}` : '',
+    f.prefecture || '',
+    freeDial ? '通話料無料' : '',
+  ].filter(Boolean);
+  const flagNote = f.tpFlags.length
+    ? `第三者機関の標識が${f.tpFlags.length}件登録されています。`
+    : '現時点で第三者機関の詐欺標識の登録はありません。';
   return layout({
-    title: `${formatted} の電話番号情報｜${f.gov ? f.gov.agency_name + '・' : ''}${f.lineTypeName}${f.prefecture ? '・' + f.prefecture : ''}`,
-    description: `${formatted} は${f.lineTypeName}の番号です。${f.prefecture ? '地域は' + f.prefecture + '。' : ''}単位料金区域（MA）・割当事業者・番号帯の指定時期などを公的データで表示。第三者機関の標識も確認できます。`,
+    title: `${formatted} の電話番号情報｜${titleBits.join('・')}`,
+    description: `${formatted} は${f.lineTypeName}の番号です。${carrier ? `総務省の指定データでは割当事業者は${carrier}です。` : ''}${freeDial ? '通話料は着信側が負担し、かける側は無料です。' : ''}${f.prefecture ? `地域は${f.prefecture}です。` : ''}${flagNote}知らない番号への対処法も掲載しています。`,
     robots: f.tier === 1 ? undefined : 'noindex,follow',
     canonical: `https://tel.datumoj.com/${f.digits}`,
     jsonLd,
@@ -297,8 +575,22 @@ ${searchForm()}`;
   });
 }
 
+// tel/seo-watch（第2ラウンド）: 種類ハブから Tier 1 番号ページへの内部リンク。
+// 対象番号は tel/seo/SEO_LOG.md の SEO 監視対象で、総務省指定データに
+// 6 桁以上の区画＋割当事業者を持つ実データページ（sitemap 掲載済み）。
+const FEATURED_NUMBERS = {
+  free0800: [{ digits: '08007779633', lineType: 'free0800' }],
+  free0120: [{ digits: '0120923499', lineType: 'free0120' }],
+};
+
 export function typePage(hub) {
   const lt = hub.lineType;
+  const featured = FEATURED_NUMBERS[lt.code] || [];
+  const featuredHtml = featured.length
+    ? `<div class="card"><h2>番号の例</h2><p>この種類で、総務省の指定データに基づく詳細ページがある番号の例です。</p><ul class="tight">${featured
+        .map((f) => `<li><a href="/${f.digits}">${esc(formatNumber(f.digits, { lineType: f.lineType }))}</a></li>`)
+        .join('')}</ul></div>`
+    : '';
   const rows = hub.blocks
     .map(
       (b) => `<tr><th>${esc(b.prefix)}</th><td>${b.designated_on ? esc(b.designated_on) + '〜' : ''} ${esc(b.note || '')}</td></tr>`
@@ -311,6 +603,7 @@ export function typePage(hub) {
 <div class="card"><h2>番号帯</h2><table>${rows}</table>
 ${hub.detailCount ? `<p class="meta">このほか、総務省の指定状況に基づく事業者別区画（6桁単位）が ${hub.detailCount} 件あり、各番号のページで割当事業者として表示されます。</p>` : ''}
 </div>
+${featuredHtml}
 ${searchForm()}`;
   return layout({
     title: `${lt.name_ja} の番号帯一覧`,
@@ -375,6 +668,14 @@ export function historyPage() {
 <h1>日本の電話番号の歴史</h1>
 <p>いまの電話番号の形——固定電話は10桁、携帯電話は11桁——は、130年あまりの積み重ねの結果です。桁数が変わるたびに、その背景には「番号が足りなくなる」という問題がありました。</p>
 <div class="card"><table>${rows}</table></div>
+<div class="card"><h2>このサイトで番号を調べる</h2>
+<p>このページは制度の歴史の概説です。個別の番号の割当状況（種類・割当事業者・地域）は、各番号のページで総務省の指定データから確認できます。</p>
+<ul class="tight">
+<li><a href="/type/free0120">0120フリーダイヤルの番号を調べる</a>（1985年開始）</li>
+<li><a href="/type/free0800">0800フリーダイヤルの番号を調べる</a></li>
+<li><a href="/gov">政府機関の電話番号一覧</a>（公式サイトの出典付き）</li>
+<li><a href="/about">データの出典と作り方</a></li>
+</ul></div>
 <p class="meta">本ページは総務省「電気通信番号制度」関係資料など公的資料に基づく概説です。個別の番号の割当状況は、各番号のページで確認できます。</p>
 ${searchForm()}`;
   return layout({
@@ -395,7 +696,7 @@ export function govPage(agencies, numbersByAgency) {
     .map((a) => {
       const nums = (byAgency.get(a.name) || [])
         .map(
-          (n) => `<li><a href="/${esc(n.number)}">${esc(n.number)}</a>（${esc(n.number_kind)}）${n.label ? ' — ' + esc(n.label) : ''} <span class="meta">出典：<a href="${esc(n.source_url)}" rel="noopener">公式ページ</a></span></li>`
+          (n) => `<li><a href="/${esc(n.number)}">${esc(n.number)}</a>（${esc(n.number_kind)}）${n.label ? ' — ' + esc(n.label) : ''} <span class="meta">出典：${extLink(n.source_url, '公式ページ', ' rel="noopener"')}</span></li>`
         )
         .join('');
       return `<div class="card"><h2>${esc(a.name)}</h2><ul class="tight">${nums || '<li class="meta">番号は確認中です</li>'}</ul></div>`;
