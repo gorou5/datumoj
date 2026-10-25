@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import uuid
 from pathlib import PurePosixPath
 
 import boto3
@@ -12,6 +13,73 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from datumoj.core.contracts import ContractError, PreconditionFailed
 from datumoj.core.storage import StorageConfig, load_s3_credentials
+
+
+def probe_conditional_writes(store: S3StateObjectStore) -> dict:
+    """Exercise real conditions on one disposable key; expose fixed labels only.
+
+    Cleanup deliberately uses an unconditional DELETE: the very capability being
+    tested may be broken. That DELETE can only target this invocation's probe.
+    """
+    key = f"probe/{uuid.uuid4().hex}"
+    result = {"supported": False, "check": "put_if_absent_create"}
+    try:
+        etag = store.put_if_absent(key, b"initial")
+        if store.get(key) != (b"initial", etag):
+            return result
+        result["check"] = "put_if_absent_existing"
+        try:
+            store.put_if_absent(key, b"unexpected")
+        except PreconditionFailed:
+            pass
+        else:
+            return result
+        if store.get(key) != (b"initial", etag):
+            return result
+
+        result["check"] = "put_if_match_update"
+        etag = store.put_if_match(key, b"updated", etag)
+        if store.get(key) != (b"updated", etag):
+            return result
+        wrong = f'"{uuid.uuid4().hex}"'
+        while wrong == etag:
+            wrong = f'"{uuid.uuid4().hex}"'
+        result["check"] = "put_if_match_wrong_etag"
+        try:
+            store.put_if_match(key, b"unexpected", wrong)
+        except PreconditionFailed:
+            pass
+        else:
+            return result
+        if store.get(key) != (b"updated", etag):
+            return result
+
+        result["check"] = "delete_if_match_wrong_etag"
+        try:
+            store.delete_if_match(key, wrong)
+        except PreconditionFailed:
+            pass
+        else:
+            return result
+        if store.get(key) != (b"updated", etag):
+            return result
+        result["check"] = "delete_if_match_delete"
+        store.delete_if_match(key, etag)
+        if store.get(key) is not None:
+            return result
+        result.update(supported=True, check="complete")
+        return result
+    except Exception:
+        return result
+    finally:
+        try:
+            store._client.delete_object(Bucket=store._bucket, Key=store._key(key))
+        except Exception:
+            # Preserve the original failing check. A successful probe whose
+            # cleanup failed must also refuse the run.
+            if result["supported"]:
+                result.update(supported=False, check="cleanup")
+            result["cleanup_failed"] = True
 
 
 def check_key(key: str, *, prefix: bool = False) -> str:

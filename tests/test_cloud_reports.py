@@ -158,6 +158,9 @@ def test_cloud_run_only_claims_weekly_key_after_a_successful_round(
             return [spec.id]
 
     published = []
+    # This unit test isolates weekly-report publication; S3 probing is covered
+    # with real conditional operations in test_state_s3 and test_cloud_run.
+    monkeypatch.setattr(cloud, "probe_conditional_writes", lambda _store: {"supported": True, "check": "complete"})
     monkeypatch.setattr(cloud.wiring, "build_state", lambda _root: manager)
     monkeypatch.setattr(cloud.wiring, "build", lambda _root: deps)
     monkeypatch.setattr(cloud, "LeaseManager", FakeLeases)

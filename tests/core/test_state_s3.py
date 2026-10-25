@@ -10,7 +10,7 @@ from botocore.exceptions import ClientError, EndpointConnectionError
 from moto import mock_aws
 
 from datumoj.core.contracts import ContractError
-from datumoj.core.state_s3 import S3StateObjectStore
+from datumoj.core.state_s3 import S3StateObjectStore, probe_conditional_writes
 from datumoj.core.storage import StorageConfig
 from datumoj.testing.contract_suites import StateObjectStoreSuite
 
@@ -101,3 +101,64 @@ def test_invalid_keys_never_reach_sdk(state_store, key):
     for action in (state_store.get, state_store.exists, state_store.list):
         with pytest.raises(ValueError):
             action(key)
+
+
+def test_probe_supported_and_only_touches_disposable_keys(state_store, monkeypatch):
+    for key in ("current.json", "write-lease.json", "generations/1.json"):
+        state_store.put(key, b"preserve")
+    before = {key: state_store.get(key) for key in state_store.list()}
+    calls = []
+    original = state_store._client._make_api_call
+
+    def observe(operation, params):
+        calls.append((operation, params.copy()))
+        return original(operation, params)
+
+    monkeypatch.setattr(state_store._client, "_make_api_call", observe)
+    assert probe_conditional_writes(state_store) == {"supported": True, "check": "complete"}
+    assert all(params["Key"].startswith("project/state/probe/") for _, params in calls)
+    assert len({params["Key"] for _, params in calls}) == 1
+    puts = [params for operation, params in calls if operation == "PutObject"]
+    deletes = [params for operation, params in calls if operation == "DeleteObject"]
+    assert [p.get("IfNoneMatch") for p in puts] == ["*", "*", None, None]
+    assert puts[2]["IfMatch"] != puts[3]["IfMatch"]
+    assert deletes[0]["IfMatch"] == puts[3]["IfMatch"]
+    assert deletes[1]["IfMatch"] != deletes[0]["IfMatch"]
+    assert "IfMatch" not in deletes[2]  # Unconditional cleanup is probe-only.
+    assert {key: state_store.get(key) for key in state_store.list()} == before
+
+
+@pytest.mark.parametrize("stage", ["PutObject", "GetObject", "HeadObject", "DeleteObject"])
+def test_probe_io_failure_is_sanitized_and_cleanup_attempted(state_store, monkeypatch, stage):
+    original = state_store._client._make_api_call
+    cleanup = []
+
+    def fail(operation, params):
+        if operation == "DeleteObject" and "IfMatch" not in params:
+            cleanup.append(params["Key"])
+            return original(operation, params)
+        if operation == stage:
+            raise EndpointConnectionError(endpoint_url="https://private.example.invalid/secret")
+        return original(operation, params)
+
+    monkeypatch.setattr(state_store._client, "_make_api_call", fail)
+    result = probe_conditional_writes(state_store)
+    assert not result["supported"]
+    assert "private" not in str(result) and "secret" not in str(result)
+    assert len(cleanup) == 1 and cleanup[0].startswith("project/state/probe/")
+    assert state_store.list("probe/") == []
+
+
+def test_probe_cleanup_failure_refuses_run(state_store, monkeypatch):
+    original = state_store._client.delete_object
+
+    def delete(**params):
+        if "IfMatch" not in params:
+            raise RuntimeError("synthetic private details")
+        return original(**params)
+
+    monkeypatch.setattr(state_store._client, "delete_object", delete)
+    assert probe_conditional_writes(state_store) == {
+        "supported": False, "check": "cleanup", "cleanup_failed": True,
+    }
+    assert state_store.list("probe/") == []
