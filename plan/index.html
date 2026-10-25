@@ -21,7 +21,8 @@
   nav{position:sticky;top:0;background:var(--bg);padding:12px 0;border-bottom:1px solid var(--line);z-index:5}
   nav a{color:var(--muted);text-decoration:none;margin-right:18px;font-size:14px}
   nav a:hover{color:var(--ink)}
-  h2{font-size:23px;margin:52px 0 6px;padding-top:10px}
+  h2{font-size:23px;margin:52px 0 6px;padding-top:10px;scroll-margin-top:64px}
+  @media (max-width:600px){h2{scroll-margin-top:120px}}
   h2 .sub{display:block;font-size:13px;color:var(--muted);font-weight:400;margin-top:2px}
   h3{font-size:17px;margin:26px 0 8px}
   p{margin:8px 0}
@@ -68,7 +69,7 @@
 </nav>
 <div style="background:#fff;border:1px solid #e3e1da;border-left:4px solid #3d7a44;border-radius:10px;padding:14px 18px;margin:18px 0"><b>附：数据源目录</b> —— orbisdata.org 收录的 471 个官方数据资源地址，已按 50 个预设数据分析场景组织，支持关键字逐步筛选：<a href="orbis/">orbisdata 资源目录 · 按数据场景分类 →</a></div>
 <div style="background:#fff;border:1px solid #e3e1da;border-left:4px solid #cf7226;border-radius:10px;padding:14px 18px;margin:18px 0"><b>新：100 个多源数据融合分析案例</b> —— 每个案例至少引用 3 个官方数据源，把统计、贸易、遥感、金融等数据拼起来做知识发现，专为 aha moment 而写：<a href="cases/">100 个多源数据融合分析案例 →</a></div>
-<div style="background:#fff;border:1px solid #e3e1da;border-left:4px solid #b3382e;border-radius:10px;padding:14px 18px;margin:18px 0"><b>新：30 个单源数据失真验证案例</b> —— 假设一个国家的某项数据可能作假，再用 3 个以上独立数据源交叉打假（镜像法／实物量锚点／卫星复核／统计指纹）；13 例有公开实证记录，17 例是假设设计：<a href="verify/">30 个单源数据失真验证案例 →</a></div>
+<div style="background:#fff;border:1px solid #e3e1da;border-left:4px solid #b3382e;border-radius:10px;padding:14px 18px;margin:18px 0"><b>新：30 个单源数据失真验证案例</b> —— 假设一个国家的某项数据可能作假，以 3 个以上独立数据源交叉验证为目标，公开记录不足时注明限制（镜像法／实物量锚点／卫星复核／统计指纹）；13 例有公开实证记录，17 例是假设设计：<a href="verify/">30 个单源数据失真验证案例 →</a></div>
 <div style="background:#fff;border:1px solid #e3e1da;border-left:4px solid #3d7a44;border-radius:10px;padding:14px 18px;margin:18px 0"><b>新：Hugging Face「government」数据集全量调查</b> —— 把 HF 上 389 个 government 关键词数据集全部盘点一遍：谁在做、都是什么、热度在哪，以及有没有人已经做过 datumoj 想做的事（结论：注册表与垂直登记库两个方向都是空白）：<a href="hf-gov/">389 个数据集全量调查报告 →</a></div>
 
 
@@ -281,24 +282,24 @@
 </ul>
 <h3>任务草稿（约 18 个，接口稳定后再写成任务文件）</h3>
 <table>
-  <tr><th>号</th><th>线</th><th>内容</th><th>依赖（IVY）</th><th>审查</th></tr>
-  <tr><td>001</td><td>契约</td><td>契约修订：ChangeEvent、Redaction、Document.kind、快照父子关系</td><td>002</td><td>human</td></tr>
-  <tr><td>101</td><td>A</td><td>定时：schedule 命令（launchd / cron）、防重入锁、运行记录</td><td>105</td><td>other_family</td></tr>
-  <tr><td>102</td><td>A</td><td>抓取监控与 status 提醒</td><td>101</td><td>other_family</td></tr>
-  <tr><td>201</td><td>B</td><td>PDF 解析器（按页切块、needs_ocr、加密和损坏处理）</td><td>002、003</td><td>other_family</td></tr>
-  <tr><td>202</td><td>B</td><td>HTML 正文抽取与分节切块、日期抽取、SPA 外壳识别</td><td>002、003</td><td>other_family</td></tr>
-  <tr><td>203</td><td>B</td><td>KKJ 采集器（日期分段、满 1000 条自动二分、附件任务）</td><td>105</td><td>other_family</td></tr>
-  <tr><td>204</td><td>B</td><td>KKJ 公告解析与脱敏</td><td>001、003</td><td>human</td></tr>
-  <tr><td>205</td><td>B</td><td>政策网页定向采集器（种子、深度、域名、robots、URL 规范化）</td><td>105</td><td>other_family</td></tr>
-  <tr><td>401</td><td>D</td><td>BODIK：CKAN 复用 + DataStore 读取</td><td>401</td><td>other_family</td></tr>
-  <tr><td>601</td><td>F</td><td>变化检测（ChangeEvent 生成）</td><td>001、601</td><td>other_family</td></tr>
-  <tr><td>602</td><td>F</td><td>每周变化报告与 report 命令</td><td>601</td><td>other_family</td></tr>
-  <tr><td>603</td><td>F</td><td>工具层与 MCP：list_changes、search_notices</td><td>001、603/604</td><td>other_family</td></tr>
-  <tr><td>701</td><td>G</td><td>评测题：KKJ 10、政策网页 10、变化 5、脱敏与注入 3</td><td>701</td><td>human</td></tr>
-  <tr><td>702</td><td>G</td><td>回答规则更新：采购和政策问答（不判断资格和中标）</td><td>704</td><td>human</td></tr>
-  <tr><td>901</td><td>集成</td><td>检查点 m1：KKJ + PDF 端到端</td><td>201、203、204</td><td>human</td></tr>
-  <tr><td>902</td><td>集成</td><td>检查点 m2：政策网页 + BODIK</td><td>202、205、401</td><td>human</td></tr>
-  <tr><td>903</td><td>集成</td><td>检查点 m3：定时 + 变化报告 + 全部评测门槛（TACHIBANA 完成）</td><td>全部</td><td>human</td></tr>
+  <tr><th>号</th><th>线</th><th>内容</th><th>依赖（含版本）</th><th>审查</th></tr>
+  <tr><td>001</td><td>契约</td><td>契约修订：ChangeEvent、Redaction、Document.kind、快照父子关系</td><td>IVY-002（0.1）</td><td>human</td></tr>
+  <tr><td>101</td><td>A</td><td>定时：schedule 命令（launchd / cron）、防重入锁、运行记录</td><td>IVY-105（0.1）</td><td>other_family</td></tr>
+  <tr><td>102</td><td>A</td><td>抓取监控与 status 提醒</td><td>TACHIBANA-101（0.2，本表内部）</td><td>other_family</td></tr>
+  <tr><td>201</td><td>B</td><td>PDF 解析器（按页切块、needs_ocr、加密和损坏处理）</td><td>IVY-002、IVY-003（0.1）</td><td>other_family</td></tr>
+  <tr><td>202</td><td>B</td><td>HTML 正文抽取与分节切块、日期抽取、SPA 外壳识别</td><td>IVY-002、IVY-003（0.1）</td><td>other_family</td></tr>
+  <tr><td>203</td><td>B</td><td>KKJ 采集器（日期分段、满 1000 条自动二分、附件任务）</td><td>IVY-105（0.1）</td><td>other_family</td></tr>
+  <tr><td>204</td><td>B</td><td>KKJ 公告解析与脱敏</td><td>TACHIBANA-001（0.2，本表内部）；IVY-003（0.1）</td><td>human</td></tr>
+  <tr><td>205</td><td>B</td><td>政策网页定向采集器（种子、深度、域名、robots、URL 规范化）</td><td>IVY-105（0.1）</td><td>other_family</td></tr>
+  <tr><td>401</td><td>D</td><td>BODIK：CKAN 复用 + DataStore 读取</td><td>IVY-401（0.1）</td><td>other_family</td></tr>
+  <tr><td>601</td><td>F</td><td>变化检测（ChangeEvent 生成）</td><td>TACHIBANA-001（0.2，本表内部）；IVY-601（0.1）</td><td>other_family</td></tr>
+  <tr><td>602</td><td>F</td><td>每周变化报告与 report 命令</td><td>TACHIBANA-601（0.2，本表内部）</td><td>other_family</td></tr>
+  <tr><td>603</td><td>F</td><td>工具层与 MCP：list_changes、search_notices</td><td>TACHIBANA-001（0.2，本表内部）；IVY-603、IVY-604（0.1）</td><td>other_family</td></tr>
+  <tr><td>701</td><td>G</td><td>评测题：KKJ 10、政策网页 10、变化 5、脱敏与注入 3</td><td>IVY-701（0.1）</td><td>human</td></tr>
+  <tr><td>702</td><td>G</td><td>回答规则更新：采购和政策问答（不判断资格和中标）</td><td>IVY-704（0.1）</td><td>human</td></tr>
+  <tr><td>901</td><td>集成</td><td>检查点 m1：KKJ + PDF 端到端</td><td>TACHIBANA-201、TACHIBANA-203、TACHIBANA-204（0.2，本表内部）</td><td>human</td></tr>
+  <tr><td>902</td><td>集成</td><td>检查点 m2：政策网页 + BODIK</td><td>TACHIBANA-202、TACHIBANA-205、TACHIBANA-401（0.2，本表内部）</td><td>human</td></tr>
+  <tr><td>903</td><td>集成</td><td>检查点 m3：定时 + 变化报告 + 全部评测门槛（TACHIBANA 完成）</td><td>本表全部 TACHIBANA 任务（0.2）</td><td>human</td></tr>
 </table>
 <p class="muted">不做：OCR（扫描件只标记 needs_ocr）、登录后页面、全站爬取、投标资格等个案判断、主动推送。主对话步骤 H0–H4：审契约修订与锁依赖 → 录样本（KKJ、政策网页、BODIK）→ 种子清单定稿并逐站核对规约 → 装定时任务试运行一周 → TACHIBANA 验收并打 tag。</p>
 
