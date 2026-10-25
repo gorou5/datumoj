@@ -1,0 +1,11 @@
+name = "navi-feed"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+routes = [
+  { pattern = "navi.datumoj.com/feed.json", zone_name = "datumoj.com" },
+]
+
+[[kv_namespaces]]
+binding = "NAVI_FEED"
+id = "968b406b312b43f18def0ef5f9449394"

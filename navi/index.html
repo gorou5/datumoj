@@ -20,6 +20,12 @@
   .t{font-weight:700;font-size:1rem}
   .d{color:var(--sub);font-size:.88rem;margin-top:.15rem}
   .u{color:var(--acc);font-size:.8rem;margin-top:.3rem;word-break:break-all}
+  .feed{display:flex;flex-direction:column;gap:.55rem;margin-bottom:.4rem}
+  .fi{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:8px;padding:.6rem .9rem}
+  .fi .m{font-size:.78rem;color:var(--sub)}
+  .fi .tx{font-size:.95rem}
+  .fi a{color:var(--acc);font-size:.82rem}
+  .ftag{display:inline-block;font-size:.72rem;font-weight:700;border:1px solid var(--line);border-radius:999px;padding:.02rem .5rem;margin-right:.4rem;color:var(--ink)}
   .tag{display:inline-block;font-size:.72rem;font-weight:700;color:#8e1414;background:#fdecea;border:1px solid #e3a49f;border-radius:999px;padding:.05rem .5rem;margin-left:.45rem;vertical-align:.12em}
   footer{margin-top:2.6rem;color:var(--sub);font-size:.82rem}
 </style>
@@ -28,6 +34,23 @@
 <div class="wrap">
   <h1>Datumoj 导航</h1>
   <p class="lede">Datumoj 全部给人看的产出都汇总在这里：对外站点、计划页面，以及最新的汇报与演示。</p>
+
+  <h2>最新动态</h2>
+  <div class="feed" id="feed"><p class="lede">加载中…</p></div>
+  <p class="lede" style="font-size:.85rem">动态每天定时从仓库与运维记录核实后更新，没有变化就不写。协作者同步近况：把文件（Markdown / HTML 优先，任何格式均可）放进仓库 <b>navi/inbox/</b> 目录，每天整理进这里并归档。</p>
+  <script>
+  fetch('/feed.json').then(function(r){return r.json();}).then(function(items){
+    var box=document.getElementById('feed');
+    if(!items || !items.length){ box.innerHTML='<p class="lede">暂无动态。</p>'; return; }
+    box.innerHTML = items.map(function(it){
+      var link = it.url ? ' <a href="'+it.url+'">查看</a>' : '';
+      var tag = it.tag ? '<span class="ftag">'+it.tag+'</span>' : '';
+      return '<div class="fi"><div class="m">'+tag+it.date+'</div><div class="tx">'+it.text+link+'</div></div>';
+    }).join('');
+  }).catch(function(){
+    document.getElementById('feed').innerHTML='<p class="lede">动态加载失败，请稍后再看。</p>';
+  });
+  </script>
 
   <h2>最新产出</h2>
   <div class="grid">
