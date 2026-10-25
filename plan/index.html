@@ -352,6 +352,14 @@
   function render(d) {
     // 先校验、在临时节点里渲染完，再替换；数据不全时抛错，静态回退内容保持原样
     if (!d || !Array.isArray(d.versions) || !Array.isArray(d.milestones)) throw new Error("bad milestones.json");
+    var known = {};
+    d.versions.forEach(function (v) {
+      if (!v || !v.version || !v.codename || !STATUS[v.status]) throw new Error("bad version entry");
+      known[v.version] = true;
+    });
+    d.milestones.forEach(function (m) {
+      if (!m || !m.id || !m.title || !known[m.version] || !STATUS[m.status]) throw new Error("bad milestone entry");
+    });
     var vs = document.createDocumentFragment();
     d.versions.forEach(function (v) {
       var c = el("div", "vcard " + (CARD[v.version] || "future"));
