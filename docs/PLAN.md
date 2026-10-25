@@ -291,8 +291,9 @@ datumoj/
 | **0.1** | **IVY（蔦）** | 契约 → 法令链路 → 目录与统计 → AI 分析入口（第一阶段） | **已完成**（2026-10-21，tag `v0.1.0-ivy`），48 个任务，验收见 `docs/acceptance/` |
 | 0.2 | **TACHIBANA（橘）** | 日本扩面与持续运营：省厅和自治体政策网页与 PDF、BODIK、抓取监控、每周变化报告、存储适配层（为网络存储做准备）、注册层描述导出，并补上 IVY 遗留的检索缺口。KKJ 采购公告移出本版本（2026-10-22） | **开发完成**，已合并进 `main`（#15，2026-10-22），检查点 m1 已打 tag；H4 真实问答验收待做。计划见 `docs/plans/0.2-tachibana.md` |
 | 0.3 | **MAPLE（楓）** | 云端运行（GitHub Actions 定时抓取，raw 和索引上 R2、可从 R2 重建、按来源设频率，即 ADR 0002 的实现；一周试运行）；欧美来源（data.europa.eu、Eurostat、英德法荷门户、Federal Register、世界银行 WDI）；日本新来源（e-Stat API、国土数值信息、2024 经济普查、医疗开放数据、ABR 地址） | 计划见 `docs/plans/0.3-maple.md` |
+| 0.4 | **WISTERIA（藤）** | 新子系统 Eltiro（按外部项目注入的需求，匹配并提取资料库里的数据，带出处和许可闸门）；现有系统改名 Rikolto 并回归；观测值按发布时间查询；试点所需的国际来源（IMF、OECD、ILO、UN COMTRADE、WTO） | 草案，计划见 `docs/plans/0.4-wisteria.md` |
 
-其他候选代号：片喰 Katabami、柏 Oak、桐 Paulownia、藤 Wisteria、葵 Aoi、桔梗 Bellflower、菊 Chrysanthemum。
+其他候选代号：片喰 Katabami、柏 Oak、桐 Paulownia、葵 Aoi、桔梗 Bellflower、菊 Chrysanthemum。
 
 ### 8.3 IVY（0.1）内部的检查点
 
@@ -389,4 +390,5 @@ datumoj/
 | 10 | jp-gov-web 种子清单 | 内阁府、总务省、大阪市，M4 开始前再细化到具体栏目。东京都、大阪府（规约不允许复制转载）和经产省（对爬虫返回 403）2026-10-22 决定不进 0.2 |
 | 11 | 旧项目真实样本 | 从 `local-runtime-evidence/` 挑小样本（每个来源几 MB 以内）放进 `tests/fixtures/`，缺的在 H1 和 H3 里补录 |
 | 12 | 数据保留与清理（2026-10-22） | DATUMOJ 不做数据清理；保留和清理由另外的 batch 机制处理 |
-| 13 | 来源说明字段（2026-10-22） | 保存目的、保留期限等说明不作硬性要求；注册层描述 JSON 由 `sources/*.yaml` 导出 |
+| 13 | 子系统命名（2026-10-24） | DATUMOJ 是整个项目；采集、存储和问答入口叫 Rikolto（0.4 起改名）；按需求提取数据的 batch 叫 Eltiro（0.4 新建，在 DATUMOJ 内）；第 12 条说的保留和删除叫 Purigo，仍不做 |
+| 14 | 来源说明字段（2026-10-22） | 保存目的、保留期限等说明不作硬性要求；注册层描述 JSON 由 `sources/*.yaml` 导出 |
