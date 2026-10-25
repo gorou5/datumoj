@@ -58,7 +58,7 @@ def test_examples_only_contain_fictional_credentials_and_hosts():
         text = path.read_text()
         assert not re.search(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b|-----BEGIN .*PRIVATE KEY-----", text)
         assert not re.search(r"\b(?:10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+)\b", text)
-        assert "/Users/" not in text and "/home/aaron" not in text
+        assert "/Users/" not in text and "/home/" not in text
         for host in re.findall(r"https?://([^/\s:`]+)", text):
             assert host == "nas.example"
 
