@@ -35,6 +35,7 @@ indicators:
       negative:
         - "中央政府赤字（不是一般政府）"
         - "基本赤字（扣除利息）"
+        - "预算目标或预测值（不是实绩发布，如 IMF WEO 当年及以后年份的预测）"
   - key: debt_eur
     concept: 一般政府总债务，马斯特里赫特口径，以欧元计
     unit: EUR

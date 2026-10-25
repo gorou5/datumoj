@@ -53,15 +53,25 @@ align:
   require_same_unit: true                 # 单位不同的不对齐，报出来
 
 operations:
+  # 单位相同不等于数量级相同（如 IMF WEO 以十亿计）：先显式统一到 1 个货币单位。
+  # 各来源的发布倍率取自来源元数据，作为换算依据写进出处；倍率未确认的来源不进下面的 spread，记入缺口报告。
+  - id: gdp_usd_units
+    op: rescale
+    input: gdp_usd
+    target_scale: 1
+  - id: gdp_lcu_units
+    op: rescale
+    input: gdp_lcu
+    target_scale: 1
   - id: spread_usd
     op: source_spread                     # 每个国家、年份内各来源与中位数的差，以及最大最小差
-    input: gdp_usd
+    input: gdp_usd_units
   - id: spread_lcu
     op: source_spread
-    input: gdp_lcu
+    input: gdp_lcu_units
 
 output:
-  fields: [country, year, source, gdp_usd, gdp_lcu, spread_usd, spread_lcu, release_id, citation_id]
+  fields: [country, year, source, gdp_usd_units, gdp_lcu_units, spread_usd, spread_lcu, release_id, citation_id]
   format: [parquet, csv]
 
 accept_outflow: [raw_ok, derived_only]    # 只能输出派生结果的来源也可以用
