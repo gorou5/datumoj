@@ -21,7 +21,6 @@ export default {
         'cache-control': 'public, max-age=120',
         'access-control-allow-origin': '*',
         'x-feed-raw': raw === null ? 'null' : String(raw.length),
-        ...(err ? { 'x-feed-error': err } : {}),
       },
     });
   },
