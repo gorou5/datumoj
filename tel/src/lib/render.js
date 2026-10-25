@@ -46,6 +46,7 @@ th{width:11rem;color:#555;font-weight:600}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.4rem .8rem}
 .hero-kicker{color:#71808d;font-size:.95rem;margin:0 0 .5rem}
 .hero-num{display:flex;align-items:stretch;justify-content:center;gap:.35rem;flex-wrap:wrap}
+.hero-seg{display:flex;gap:inherit}
 .segbtn{border:2px solid transparent;border-radius:14px;padding:.5rem .9rem .35rem;cursor:pointer;font:inherit;background:#eef1f4;text-align:center}
 .segbtn .segdigits{display:block;font-size:clamp(1.9rem,8.5vw,3.6rem);font-weight:700;letter-spacing:.04em;line-height:1.15;color:#33424f}
 .segbtn .segcap{display:block;font-size:.72rem;color:#71808d;margin-top:.15rem}
@@ -268,7 +269,7 @@ export function homePage(hero, fallbacks, popular) {
   const segHtml = hero.segments
     .map(
       (s, i) =>
-        `${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<button type="button" class="segbtn ${segColors[i % 4]}${i === hero.defaultSeg ? ' is-active' : ''}" data-seg="${i}" aria-pressed="${i === hero.defaultSeg}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></button>`
+        `<span class="hero-seg">${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<button type="button" class="segbtn ${segColors[i % 4]}${i === hero.defaultSeg ? ' is-active' : ''}" data-seg="${i}" aria-pressed="${i === hero.defaultSeg}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></button></span>`
     )
     .join('');
   const heroJson = JSON.stringify(hero).replace(/<\//g, '<\\/');
@@ -321,13 +322,14 @@ ${popular.map((p) => `<li><a href="/${esc(p.digits)}">${esc(p.formatted)}</a> <s
     kick.textContent=d.kicker;
     segsEl.innerHTML='';
     d.segments.forEach(function(s,i){
-      if(i>0){var h=document.createElement('span');h.className='hero-hyphen';h.textContent='-';segsEl.appendChild(h);}
+      var group=document.createElement('span');group.className='hero-seg';
+      if(i>0){var h=document.createElement('span');h.className='hero-hyphen';h.textContent='-';group.appendChild(h);}
       var b=document.createElement('button');b.type='button';b.className='segbtn '+COLORS[i%COLORS.length];b.setAttribute('aria-pressed','false');
       var ds=document.createElement('span');ds.className='segdigits';ds.textContent=s.text;
       var cs=document.createElement('span');cs.className='segcap';cs.textContent=s.label;
       b.appendChild(ds);b.appendChild(cs);
       b.addEventListener('click',function(){select(i);});
-      segsEl.appendChild(b);
+      group.appendChild(b);segsEl.appendChild(group);
     });
     detail.href='/'+d.digits;detail.textContent='この番号（'+d.formatted+'）の詳細ページ';
     select(d.defaultSeg||0);
@@ -361,7 +363,7 @@ export function numberPage(facts) {
   const segHtml = hero.segments
     .map(
       (s, i) =>
-        `${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<button type="button" class="segbtn ${segColors[i % 4]}${i === hero.defaultSeg ? ' is-active' : ''}" data-seg="${i}" aria-pressed="${i === hero.defaultSeg}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></button>`
+        `<span class="hero-seg">${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<button type="button" class="segbtn ${segColors[i % 4]}${i === hero.defaultSeg ? ' is-active' : ''}" data-seg="${i}" aria-pressed="${i === hero.defaultSeg}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></button></span>`
     )
     .join('');
   const heroJson = JSON.stringify(hero.segments).replace(/<\//g, '<\\/');

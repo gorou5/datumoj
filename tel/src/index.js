@@ -34,12 +34,14 @@ async function drawRandomHero(db) {
     // Draw from the small hero_candidate sample table (migration 0006):
     // ORDER BY RANDOM() over ~30k designated blocks scanned the whole table
     // on every homepage render.
+    const types = ['fixed', 'mobile', 'ip050', 'free0120', 'free0800', 'navi0570', 'm2m020'];
     for (let attempt = 0; attempt < 6; attempt++) {
+      const lt = types[Math.floor(Math.random() * types.length)];
       const brow = await db
-        .prepare('SELECT prefix, line_type FROM hero_candidate ORDER BY RANDOM() LIMIT 1')
+        .prepare('SELECT prefix FROM hero_candidate WHERE line_type = ? ORDER BY RANDOM() LIMIT 1')
+        .bind(lt)
         .first();
       if (!brow) continue;
-      const lt = brow.line_type;
       const ltRow = await db.prepare('SELECT digits FROM line_type WHERE code = ?').bind(lt).first();
       let digits = brow.prefix;
       while (digits.length < ltRow.digits) digits += Math.floor(Math.random() * 10);

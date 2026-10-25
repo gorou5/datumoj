@@ -21,7 +21,7 @@ const BLOCK_SELECT = `SELECT b.id AS block_id, b.line_type, b.prefix, b.designat
   WHERE b.prefix = ?`;
 
 export async function findBlock(db, digits) {
-  for (let len = digits.length; len >= 3; len--) {
+  for (let len = digits.length; len >= 2; len--) {
     const row = await db.prepare(BLOCK_SELECT).bind(digits.slice(0, len)).first();
     if (row) return row;
   }
