@@ -5,7 +5,7 @@
 //   导航 › <parent> › <current page>
 // Original files stay untouched; disabling this Worker removes the bars.
 const STYLE = `<style>
-.datumoj-crumbs{position:fixed;top:10px;left:10px;z-index:9999;display:flex;gap:.4rem;align-items:center;font:500 12.5px/1.5 -apple-system,"Hiragino Sans","Noto Sans CJK SC","Microsoft YaHei",sans-serif;background:rgba(255,255,255,.9);backdrop-filter:blur(6px);border:1px solid rgba(30,50,80,.18);border-radius:999px;padding:.28rem .8rem;box-shadow:0 2px 10px rgba(20,40,70,.12)}
+.datumoj-crumbs{position:fixed;bottom:12px;left:10px;z-index:9999;display:flex;gap:.4rem;align-items:center;font:500 12.5px/1.5 -apple-system,"Hiragino Sans","Noto Sans CJK SC","Microsoft YaHei",sans-serif;background:rgba(255,255,255,.9);backdrop-filter:blur(6px);border:1px solid rgba(30,50,80,.18);border-radius:999px;padding:.28rem .8rem;box-shadow:0 2px 10px rgba(20,40,70,.12)}
 .datumoj-crumbs a{color:#205f9e;text-decoration:none;white-space:nowrap}
 .datumoj-crumbs a:hover{text-decoration:underline}
 .datumoj-crumbs .sep{color:#8a97a5}
