@@ -29,7 +29,8 @@
         "kind": {
           "enum": [
             "actions",
-            "local"
+            "local",
+            "nas"
           ],
           "title": "Kind",
           "type": "string"

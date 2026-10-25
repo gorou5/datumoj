@@ -149,7 +149,15 @@ def test_first_pull_and_unchanged_pull_reuse_all_objects(remote, tmp_path, monke
     assert first["generation"] == generation.generation
     assert first["verified"] is True
     assert first["downloaded_objects"] > 0
-    assert json.loads((target / "state-pull.json").read_text())["generation"] == generation.generation
+    marker = json.loads((target / "state-pull.json").read_text())
+    assert marker["generation"] == generation.generation
+    assert marker["writer"]["kind"] == "actions"
+    assert marker["last_successful_runs"] == {
+        source_id: run.model_dump(mode="json")
+        for source_id, run in generation.last_successful_runs.items()
+    }
+    assert marker["pulled_at"] == first["pulled_at"]
+    assert first["pulled_at"].endswith("+00:00") or first["pulled_at"].endswith("Z")
     raw = snapshots[0]
     assert (target / "raw" / raw.sha256[:2] / raw.sha256).exists()
     observed.content_gets.clear()

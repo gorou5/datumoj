@@ -38,6 +38,7 @@ docker compose run --rm datumoj cloud check
 
 配置和凭证只通过 `env_file: ./env.local` 传入，不放进镜像、compose 或版本库。
 复制出来的 compose.yaml 与 env.local 留在 NAS；不要提交真实配置。
+NAS 的环境文件设置 `DATUMOJ_WRITER_KIND=nas`，使状态代次和写入租约明确标记 NAS 写入者。
 镜像显式复制源码、来源描述及 schema，不复制本地数据；`.dockerignore` 也排除
 `.env*`、data、.orch、results、.git、.venv、handoff 和实际 env 文件。
 

@@ -26,6 +26,7 @@ from datumoj.core.models import (
     Snapshot,
     Source,
     SourceText,
+    StateWriter,
     TimeBasis,
     ToolResult,
     UsageScope,
@@ -601,6 +602,11 @@ def test_freshness():
         Freshness(as_of=datetime(2026, 10, 20))
 
 
+@pytest.mark.parametrize("kind", ["actions", "local", "nas"])
+def test_state_writer_kinds_remain_readable(kind):
+    assert StateWriter(kind=kind, run_id="synthetic-run").kind == kind
+
+
 def test_tool_result_shell():
     r = ToolResult[list[Hit]](data=[make_hit()], gap_state=GapState.ok, freshness=Freshness(as_of=FETCHED))
     dumped = r.model_dump(mode="json")
@@ -632,7 +638,7 @@ def test_export_schemas_matches_committed(tmp_path):
     names = {p.name for p in written}
     for model in ["Source", "Dataset", "Resource", "Snapshot", "FetchOutcome", "Document", "Chunk",
                   "Observation", "Citation", "UsageScope", "Redistribution", "TimeBasis", "Hit", "GapState",
-                  "Freshness", "ToolResult", "SourceText"]:
+                  "Freshness", "ToolResult", "SourceText", "StateGeneration"]:
         assert f"{model}.schema.json" in names
     committed = {p.name for p in SCHEMAS_DIR.glob("*.schema.json")}
     assert committed == names, "schemas/ 与模型不一致，请重新执行 export_schemas('schemas')"

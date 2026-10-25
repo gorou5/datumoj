@@ -75,6 +75,7 @@ def test_previous_week_report_is_written_once_and_from_state_rebuilds_same_file(
     marker = {
         "generation": 3,
         "created_at": now.isoformat(),
+        "pulled_at": now.isoformat(),
         "writer": {"kind": "actions", "run_id": "workflow-3"},
         "last_successful_runs": {},
     }
@@ -129,7 +130,8 @@ def test_cloud_run_only_claims_weekly_key_after_a_successful_round(
         generation=1, created_at=datetime(2026, 10, 20, tzinfo=UTC), last_successful_runs={},
     )
     manager = SimpleNamespace(
-        store=SimpleNamespace(get=lambda _key: None), list=lambda: [], push=lambda: generation,
+        store=SimpleNamespace(get=lambda _key: None), writer=SimpleNamespace(kind="nas"),
+        list=lambda: [], push=lambda: generation,
         before_write=None, before_publish=None,
     )
 
@@ -185,33 +187,40 @@ def test_cloud_run_only_claims_weekly_key_after_a_successful_round(
 
 def test_pull_cli_persists_generation_monitor_metadata(tmp_path, monkeypatch):
     root = tmp_path / "replica"
-    generation = SimpleNamespace(
-        generation=4,
-        writer=SimpleNamespace(model_dump=lambda **kwargs: {"kind": "actions", "run_id": "workflow-4"}),
-        last_successful_runs={
-            "jp-test": SimpleNamespace(model_dump=lambda **kwargs: {
-                "run_id": "source-run-3", "finished_at": "2026-10-22T00:00:00Z",
-            }),
-        },
-    )
-    manager = SimpleNamespace(
-        list=lambda: [generation],
-        store=SimpleNamespace(),
-    )
-
+    pulled_at = datetime(2026, 10, 22, 0, 10, tzinfo=UTC)
     def pull_state(data_dir, selected_generation):
         data_dir.mkdir(parents=True, exist_ok=True)
         (data_dir / "state-pull.json").write_text(json.dumps({
             "generation": 4, "created_at": "2026-10-22T00:00:00Z",
+            "pulled_at": pulled_at.isoformat(),
+            "writer": {"kind": "nas", "run_id": "writer-run-4"},
+            "last_successful_runs": {
+                "jp-test": {"run_id": "source-run-3", "finished_at": "2026-10-22T00:00:00Z"},
+            },
         }), encoding="utf-8")
-        return {"generation": 4, "created_at": "2026-10-22T00:00:00Z"}
+        return {"generation": 4, "created_at": "2026-10-22T00:00:00Z", "pulled_at": pulled_at.isoformat()}
+
+    spec = make_spec("jp-test", schedule="hourly")
+    scheduler = SimpleNamespace(
+        data_dir=root, sources={spec.id: spec}, now=lambda: pulled_at,
+        status=lambda: {"enabled": True, "sources": [{
+            "source_id": spec.id, "effective_enabled": True, "alerts": [],
+        }], "alert_count": 0},
+        _read_history=lambda: ([], []),
+    )
 
     monkeypatch.setattr(cli, "pull_state", pull_state)
-    monkeypatch.setattr(cli.wiring, "build_state", lambda _root: manager)
+    monkeypatch.setattr(cli, "_scheduler_at", lambda *_args, **_kwargs: (None, scheduler))
 
     result = CliRunner().invoke(cli.app, ["pull", "--data-dir", str(root)])
 
     assert result.exit_code == 0, result.output
     marker = json.loads((root / "state-pull.json").read_text(encoding="utf-8"))
-    assert marker["writer"] == {"kind": "actions", "run_id": "workflow-4"}
+    assert marker["writer"] == {"kind": "nas", "run_id": "writer-run-4"}
     assert marker["last_successful_runs"]["jp-test"]["run_id"] == "source-run-3"
+    payload = json.loads(result.output)
+    assert payload["cloud"]["writer"] == {"kind": "nas"}
+    assert payload["cloud"]["last_successful_runs"] == {
+        "jp-test": {"finished_at": "2026-10-22T00:00:00+00:00"},
+    }
+    assert payload["cloud"]["pulled_at"] == pulled_at.isoformat()

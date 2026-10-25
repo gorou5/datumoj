@@ -61,7 +61,8 @@ def test_pulled_status_includes_generation_writer_successes_and_alerts(tmp_path)
     (tmp_path / "state-pull.json").write_text(json.dumps({
         "generation": 7,
         "created_at": created_at.isoformat(),
-        "writer": {"kind": "actions"},
+        "pulled_at": (T0 - timedelta(minutes=10)).isoformat(),
+        "writer": {"kind": "nas"},
         "last_successful_runs": {spec.id: _success("run-6", T0 - timedelta(hours=2))},
     }), encoding="utf-8")
     status = {
@@ -76,7 +77,9 @@ def test_pulled_status_includes_generation_writer_successes_and_alerts(tmp_path)
     assert result["cloud"] == {
         "generation": 7,
         "created_at": created_at.isoformat(),
-        "writer": {"kind": "actions"},
+        "pulled_at": (T0 - timedelta(minutes=10)).isoformat(),
+        "status_basis": "以上次 pull 时的远端状态为准",
+        "writer": {"kind": "nas"},
         "last_successful_runs": {spec.id: {"finished_at": (T0 - timedelta(hours=2)).isoformat()}},
     }
     assert result["sources"][0]["last_successful_run"] == {
@@ -93,7 +96,8 @@ def test_failed_source_without_prior_success_uses_its_first_ledger_attempt(tmp_p
     (tmp_path / "state-pull.json").write_text(json.dumps({
         "generation": 8,
         "created_at": created_at.isoformat(),
-        "writer": {"kind": "actions"},
+        "pulled_at": (T0 - timedelta(minutes=10)).isoformat(),
+        "writer": {"kind": "nas"},
         "last_successful_runs": {},
     }), encoding="utf-8")
     run = {
@@ -123,7 +127,6 @@ def test_local_status_is_unchanged_without_pull_marker(tmp_path):
     }
     assert attach_cloud_status(status, tmp_path, [spec], [], T0) == status
     assert "cloud" not in status
-
     scheduler = SimpleNamespace(
         data_dir=tmp_path, sources={spec.id: spec}, now=lambda: T0,
         status=lambda: json.loads(json.dumps(status)), _read_history=lambda: ([], []),
@@ -136,12 +139,32 @@ def test_local_status_is_unchanged_without_pull_marker(tmp_path):
     assert "最后成功运行" not in page and "无成功记录" not in page
 
 
+def test_stale_replica_reports_only_replica_stale_for_cloud(tmp_path):
+    spec = make_spec("jp-hourly", schedule="hourly")
+    (tmp_path / "state-pull.json").write_text(json.dumps({
+        "generation": 9,
+        "created_at": (T0 - timedelta(minutes=10)).isoformat(),
+        "pulled_at": (T0 - timedelta(hours=3)).isoformat(),
+        "writer": {"kind": "nas"},
+        "last_successful_runs": {spec.id: _success("run-8", T0 - timedelta(minutes=5))},
+    }), encoding="utf-8")
+    status = {
+        "enabled": True,
+        "sources": [{"source_id": spec.id, "effective_enabled": True, "alerts": []}],
+    }
+
+    result = attach_cloud_status(status, tmp_path, [spec], [], T0)
+
+    assert [alert["rule"] for alert in result["cloud_alerts"]] == ["replica_stale"]
+
+
 def test_schedule_status_and_admin_page_show_cloud_generation(tmp_path, monkeypatch):
     spec = make_spec("jp-test", schedule="hourly")
     created_at = T0 - timedelta(hours=3)
     (tmp_path / "state-pull.json").write_text(json.dumps({
         "generation": 9,
         "created_at": created_at.isoformat(),
+        "pulled_at": (T0 - timedelta(minutes=5)).isoformat(),
         "writer": {"kind": "actions"},
         "last_successful_runs": {spec.id: _success("source-run-8", T0 - timedelta(minutes=30))},
     }), encoding="utf-8")

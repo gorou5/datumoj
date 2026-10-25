@@ -331,8 +331,19 @@ def build_state(data_dir: str | Path | None = None):
 
     config = load_storage_config(data_dir=data_dir)
     run_id = os.environ.get("GITHUB_RUN_ID")
-    writer = StateWriter(kind="actions" if run_id else "local", run_id=run_id or uuid.uuid4().hex)
+    kind = state_writer_kind()
+    writer = StateWriter(kind=kind, run_id=run_id or uuid.uuid4().hex)
     return StateManager(S3StateObjectStore(config), config.data_dir, writer=writer)
+
+
+def state_writer_kind() -> str:
+    """Return the configured writer kind, preserving the legacy Actions fallback."""
+    configured = os.environ.get("DATUMOJ_WRITER_KIND")
+    if configured is not None:
+        if configured not in {"actions", "local", "nas"}:
+            raise ValueError("DATUMOJ_WRITER_KIND 必须是 actions、local 或 nas")
+        return configured
+    return "actions" if os.environ.get("GITHUB_RUN_ID") else "local"
 
 
 def build_tools() -> Any:

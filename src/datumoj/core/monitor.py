@@ -39,7 +39,7 @@ class Alert(BaseModel):
     source_id: str
     rule: Literal[
         "consecutive_failures", "parse_failure_rate", "overdue", "retention_gap",
-        "cloud_run_missing", "cloud_stalled",
+        "cloud_run_missing", "cloud_stalled", "replica_stale",
     ]
     severity: Literal["warning", "error"]
     message: str
@@ -238,10 +238,13 @@ def attach_cloud_status(
         value = json.loads(marker.read_text(encoding="utf-8"))
         generation = value.get("generation")
         created_at = _aware_datetime(value.get("created_at"))
+        pulled_at = _aware_datetime(value.get("pulled_at"))
     except (OSError, UnicodeError, ValueError, AttributeError):
         return status
     if type(generation) is not int or generation < 1 or created_at is None:
         return status
+    if now.utcoffset() is None:
+        raise ValueError("云端监控当前时间必须带时区")
 
     last_successful = _ledger_successes(runs)
     generation_runs = _generation_successes(value.get("last_successful_runs"))
@@ -251,16 +254,27 @@ def attach_cloud_status(
     raw_writer = value.get("writer")
     writer_kind = raw_writer.get("kind") if isinstance(raw_writer, dict) else None
     writer = {
-        "kind": writer_kind if isinstance(writer_kind, str) and writer_kind in {"actions", "local"}
+        "kind": writer_kind if isinstance(writer_kind, str) and writer_kind in {"actions", "local", "nas"}
         else "unknown",
     }
     enabled_sources = {
         row["source_id"] for row in status.get("sources", []) if row.get("effective_enabled")
     }
-    alerts = evaluate_cloud_alerts(
-        sources, enabled_sources, last_successful, created_at, now, generation=generation,
-        first_attempts=first_attempts,
-    )
+    if pulled_at is None or now - pulled_at > timedelta(hours=2):
+        alerts = [Alert(
+            source_id="cloud", rule="replica_stale", severity="warning",
+            message="本机云端副本超过两小时未更新，请先执行 datumoj pull。",
+            since=pulled_at or created_at,
+            details={
+                "pulled_at": pulled_at.isoformat() if pulled_at else None,
+                "stale_after_seconds": 7200,
+            },
+        )]
+    else:
+        alerts = evaluate_cloud_alerts(
+            sources, enabled_sources, last_successful, created_at, now, generation=generation,
+            first_attempts=first_attempts,
+        )
     source_rows = {row["source_id"]: row for row in status.get("sources", [])}
     global_alerts = []
     for alert in alerts:
@@ -273,14 +287,19 @@ def attach_cloud_status(
     for row in status.get("sources", []):
         success = last_successful.get(row["source_id"])
         row["last_successful_run"] = {"finished_at": success["finished_at"]} if success else None
+    cloud_successes: dict[str, dict[str, str] | None] = {
+        source_id: {"finished_at": run["finished_at"]}
+        for source_id, run in last_successful.items()
+    }
+    for row in status.get("sources", []):
+        cloud_successes.setdefault(row["source_id"], None)
     status["cloud"] = {
         "generation": generation,
         "created_at": created_at.isoformat(),
+        "pulled_at": pulled_at.isoformat() if pulled_at else None,
+        "status_basis": "以上次 pull 时的远端状态为准",
         "writer": writer,
-        "last_successful_runs": {
-            source_id: {"finished_at": run["finished_at"]}
-            for source_id, run in last_successful.items()
-        },
+        "last_successful_runs": cloud_successes,
     }
     status["cloud_alerts"] = global_alerts
     status["alert_count"] = sum(len(row.get("alerts", [])) for row in status.get("sources", [])) + len(global_alerts)

@@ -47,7 +47,7 @@ class LocalFetcher:
 
 @pytest.fixture
 def world(tmp_path, monkeypatch, httpserver, caplog):
-    for name in ("DATUMOJ_VECTORS", "DATUMOJ_VECTOR_LIMIT", "DATUMOJ_S3_ENDPOINT"):
+    for name in ("DATUMOJ_VECTORS", "DATUMOJ_VECTOR_LIMIT", "DATUMOJ_S3_ENDPOINT", "DATUMOJ_WRITER_KIND"):
         monkeypatch.delenv(name, raising=False)
     for key, value in ENV.items():
         monkeypatch.setenv(key, value)
