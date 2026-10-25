@@ -16,8 +16,7 @@ def load():
 
 def test_triggers_concurrency_permissions_and_timeout():
     workflow = load()
-    assert set(workflow["on"]) == {"schedule", "workflow_dispatch"}
-    assert workflow["on"]["schedule"] == [{"cron": "17 * * * *"}]
+    assert set(workflow["on"]) == {"workflow_dispatch"}
     assert workflow["concurrency"] == {"group": "datumoj-cloud-run", "cancel-in-progress": False}
     assert workflow["permissions"] == {"contents": "read"}
     assert set(workflow["jobs"]) == {"run"}

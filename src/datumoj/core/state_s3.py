@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import os
 from pathlib import PurePosixPath
 
 import boto3
@@ -12,7 +11,7 @@ from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
 from datumoj.core.contracts import ContractError, PreconditionFailed
-from datumoj.core.storage import StorageConfig
+from datumoj.core.storage import StorageConfig, load_s3_credentials
 
 
 def check_key(key: str, *, prefix: bool = False) -> str:
@@ -31,18 +30,16 @@ class S3StateObjectStore:
 
     def __init__(self, config: StorageConfig):
         if not config.s3_endpoint or not config.s3_bucket:
-            raise ValueError("状态存储需要 R2_ENDPOINT 和 DATUMOJ_S3_BUCKET")
-        for name in ("R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"):
-            if not os.environ.get(name):
-                raise ValueError(f"缺少 {name}")
+            raise ValueError("状态存储需要 DATUMOJ_S3_ENDPOINT 和 DATUMOJ_S3_BUCKET")
+        access_key, secret_key = load_s3_credentials()
         self._bucket = config.s3_bucket
         self._prefix = config.s3_prefix.strip("/")
         check_key(self._prefix, prefix=True)
         try:
             self._client = boto3.client(
                 "s3", endpoint_url=config.s3_endpoint, region_name=config.s3_region,
-                aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
-                aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
                 config=Config(signature_version="s3v4", s3={"addressing_style": "path"},
                               connect_timeout=10, read_timeout=60, retries={"max_attempts": 2}),
             )

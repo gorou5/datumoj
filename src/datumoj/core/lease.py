@@ -16,6 +16,7 @@ from threading import Event, Thread
 
 from datumoj.core.contracts import ContractError, PreconditionFailed, StateObjectStore
 from datumoj.core.models import WriteLease
+from datumoj.core.storage import s3_remote_configured
 
 LEASE_KEY = "write-lease.json"
 
@@ -26,9 +27,7 @@ class LeaseError(ContractError):
 
 def remote_configured() -> bool:
     """Partial remote configuration must also fail closed, never run locally."""
-    return any(os.environ.get(key) for key in (
-        "DATUMOJ_S3_BUCKET", "R2_ENDPOINT", "DATUMOJ_S3_ENDPOINT",
-    ))
+    return s3_remote_configured()
 
 
 class LeaseManager:

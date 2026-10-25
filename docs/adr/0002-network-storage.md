@@ -200,3 +200,11 @@ manifest、chunks、FTS 的全局身份、水位、跨来源查询及发布事�
 未变副本；发生变化的库仍需传整份一致副本，不能称其为增量页同步。
 若每轮确实重传 1.8 GB，下载+上传约 3.6 GB（预算假设），应单独测运行时间/变化量再决定拆分。
 不能复制活跃主库而遗漏 WAL；本诊断的文件大小清单不是一致备份。
+
+## 补充（MAPLE-115，2026-10-25）
+
+网络存储改为 NAS 上的 S3 兼容服务。R2 代码和 GitHub Actions 工作流保留但不启用；
+Actions 只保留手动触发。S3 endpoint、bucket、prefix、region 和凭证使用通用的
+`DATUMOJ_S3_*` 变量名；`R2_ENDPOINT`、`R2_ACCESS_KEY_ID` 和
+`R2_SECRET_ACCESS_KEY` 继续作为旧名兼容，成对的新旧变量若同时设置必须一致。
+条件写入能力的检查放在 MAPLE-116。
