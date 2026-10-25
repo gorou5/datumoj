@@ -442,6 +442,37 @@ def _publish_document(
     order = deps.manifest.snapshot_order(snap.snapshot_id)
     if order is None:
         raise ValueError(f"没有快照顺序：{snap.snapshot_id}")
+    current_order = deps.chunks.current_order(doc_key)
+    current_lookup_failed = False
+    current = None
+    if current_order is None:
+        try:
+            current = deps.chunks.get_document(doc_key)
+        except Exception:
+            current_lookup_failed = True
+            _LOG.warning("读取当前文档失败；按 manifest 顺序保护发布：%s", doc_key, exc_info=True)
+    if current_order is None and (current is not None or current_lookup_failed):
+        current_orders = []
+        if current is not None:
+            for candidate in deps.manifest.snapshots_by_sha256(current.snapshot_sha256):
+                if candidate.source_id != snap.source_id or candidate.resource_url != snap.resource_url:
+                    continue
+                candidate_order = deps.manifest.snapshot_order(candidate.snapshot_id)
+                if candidate_order is not None:
+                    current_orders.append(candidate_order)
+        if current_orders:
+            deps.chunks.publish_current(doc_key, current.snapshot_sha256, max(current_orders))
+        else:
+            known_orders = [order]
+            for candidate in deps.manifest.snapshots_for(snap.source_id):
+                if candidate.resource_url != snap.resource_url:
+                    continue
+                candidate_order = deps.manifest.snapshot_order(candidate.snapshot_id)
+                if candidate_order is not None:
+                    known_orders.append(candidate_order)
+            if order < max(known_orders):
+                _LOG.warning("当前文档快照缺少 manifest 记录，为避免回退跳过发布：%s", doc_key)
+                return []
     published = deps.chunks.publish_current(doc_key, snap.sha256, order)
     # 重写同一版本槽位后，即使水位相等也要修复索引；较旧快照不能覆盖较新的索引。
     if not published:
