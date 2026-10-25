@@ -187,7 +187,7 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
             leases = LeaseManager(manager.store)
             phase = "lease_acquire"
             try:
-                lease = leases.acquire(f"actions/{uuid.uuid4().hex}", force=True)
+                lease = leases.acquire(f"{manager.writer.kind}/{uuid.uuid4().hex}", force=True)
             except LeaseError:
                 if leases.status().get("active"):
                     result.update(status="skipped", exit_status=0, reason="跳过：写入租约已占用")

@@ -58,7 +58,7 @@ class LeaseManager:
     @staticmethod
     def _holder(holder: str) -> None:
         kind, separator, run_id = holder.partition("/")
-        if kind not in {"local", "actions"} or not separator or not run_id or any(
+        if kind not in {"local", "actions", "nas"} or not separator or not run_id or any(
             ord(c) < 32 for c in holder
         ):
             raise LeaseError("租约持有者无效")

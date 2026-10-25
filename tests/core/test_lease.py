@@ -71,6 +71,16 @@ def test_competing_acquisition(leases):
     manager.check(winners[0])
 
 
+def test_nas_holder_and_existing_holder_validation(leases):
+    manager, _ = leases
+    lease = manager.acquire("nas/run-117")
+    assert lease.holder == "nas/run-117"
+    manager.release(lease.holder, lease.token)
+    for holder in ("nas/", "unknown/run", "nas/run\x01bad"):
+        with pytest.raises(LeaseError):
+            manager.acquire(holder)
+
+
 def test_renew_release_require_owner_and_preserve_identity(leases, store):
     manager, clock = leases
     lease = manager.acquire("local/one")

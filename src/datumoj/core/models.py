@@ -316,7 +316,7 @@ class StoreCopy(_Model):
 class StateWriter(_Model):
     """写入者身份，不包含凭据或主机信息。"""
 
-    kind: Literal["actions", "local"]
+    kind: Literal["actions", "local", "nas"]
     run_id: Text
 
 

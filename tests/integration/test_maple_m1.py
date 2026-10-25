@@ -26,6 +26,7 @@ from typer.testing import CliRunner
 
 from datumoj import cli, cloud, mcp_server, wiring
 from datumoj.core import registry, schedule, state
+import datumoj.core.pull as pull_module
 from datumoj.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
 from datumoj.core.lease import LeaseManager
 from datumoj.core.models import SourceText, TimeBasis
@@ -44,6 +45,7 @@ ENV = {
     "DATUMOJ_S3_PREFIX": "synthetic-maple-prefix",
     "DATUMOJ_S3_REGION": "us-east-1",
     "DATUMOJ_RAW_BACKEND": "s3",
+    "DATUMOJ_WRITER_KIND": "nas",
 }
 HOURLY, DAILY = "jp-hourly", "jp-daily"
 SQL = "SELECT source_id, table_key, obs_id, value, note FROM observations ORDER BY source_id, obs_id"
@@ -112,6 +114,7 @@ def test_two_cloud_generations_pull_mcp_and_operational_guards(tmp_path, monkeyp
             return clock[0].astimezone(tz)
 
     monkeypatch.setattr(state, "datetime", FrozenDatetime)
+    monkeypatch.setattr(pull_module, "datetime", FrozenDatetime)
     monkeypatch.setattr(cloud, "utcnow", lambda: clock[0])
     scheduler_type = schedule.Scheduler
     monkeypatch.setattr(schedule, "Scheduler", partial(scheduler_type, now=lambda: clock[0]))
@@ -223,7 +226,7 @@ def test_two_cloud_generations_pull_mcp_and_operational_guards(tmp_path, monkeyp
             generations = state.StateManager(store, tmp_path / "unused").list()
             assert [g.generation for g in generations] == [2, 1]
             assert generations[0].previous_generation == 1
-            assert generations[0].writer.kind == "actions"
+            assert generations[0].writer.kind == "nas"
             assert set(generations[0].last_successful_runs) == {HOURLY, DAILY}
             coverage = generations[0].vector_coverage
             assert coverage.embedded_chunks == 68 and coverage.pending_chunks == 0
@@ -245,7 +248,8 @@ def test_two_cloud_generations_pull_mcp_and_operational_guards(tmp_path, monkeyp
             writes_before_pull = len(uploads)
             pulled = invoke(["pull", "--data-dir", str(local)])
             assert pulled["generation"] == 2 and pulled["verified"]
-            assert json.loads((local / "state-pull.json").read_text())["writer"]["kind"] == "actions"
+            assert pulled["cloud"]["writer"]["kind"] == "nas"
+            assert json.loads((local / "state-pull.json").read_text())["writer"]["kind"] == "nas"
             # Replicas deliberately serve keyword retrieval without an embedding
             # service. Compare the full MCP responses in that same supported mode.
             async def read_cloud():
@@ -314,16 +318,27 @@ def test_two_cloud_generations_pull_mcp_and_operational_guards(tmp_path, monkeyp
             assert invoke(["pull", "--data-dir", str(local)])["generation"] == 2
             assert asyncio.run(read_local()) == actual  # Neither new SQL values nor failed chunks leak.
 
-            # Omit another scheduled round; status reads the pulled ledger and
-            # generation metadata, rather than manufacturing a failed run.
+            # Without another pull, a stale local replica cannot distinguish a
+            # stalled remote from an unrefreshed copy.
             clock[0] += timedelta(hours=2, seconds=1)
+            status = invoke(["schedule", "status"])
+            hourly = next(row for row in status["sources"] if row["source_id"] == HOURLY)
+            daily = next(row for row in status["sources"] if row["source_id"] == DAILY)
+            assert {alert["rule"] for alert in status["cloud_alerts"]} == {"replica_stale"}
+            assert "cloud_stalled" not in {alert["rule"] for alert in status["cloud_alerts"]}
+            assert status["cloud"]["generation"] == 2
+
+            # Pulling against the old remote generation detects the gap and the
+            # fresh local replica keeps reporting that remote state.
+            pulled = invoke(["pull", "--data-dir", str(local)])
+            assert pulled["generation"] == 2 and pulled["verified"]
+            assert "cloud_stalled" in {alert["rule"] for alert in pulled["cloud"]["alerts"]}
             status = invoke(["schedule", "status"])
             hourly = next(row for row in status["sources"] if row["source_id"] == HOURLY)
             daily = next(row for row in status["sources"] if row["source_id"] == DAILY)
             assert "cloud_run_missing" in {alert["rule"] for alert in hourly["alerts"]}
             assert "cloud_run_missing" not in {alert["rule"] for alert in daily["alerts"]}
             assert "cloud_stalled" in {alert["rule"] for alert in status["cloud_alerts"]}
-            assert status["cloud"]["generation"] == 2
             assert store.get(report_key)[0] == report_bytes
 
             evidence = {"commands": commands, "upload_bytes": sizes,

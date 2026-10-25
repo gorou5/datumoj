@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-import uuid
 from collections.abc import Callable
 from contextvars import ContextVar
 from dataclasses import replace
@@ -210,39 +209,38 @@ def pull_command(
         root = Path(data_dir if data_dir is not None else _data_dir())
         with scheduling.workspace_lock(root):
             result = pull_state(root, generation)
-            marker = root / "state-pull.json"
-            try:
-                record = json.loads(marker.read_text(encoding="utf-8"))
-                if record.get("generation") == result["generation"]:
-                    manager = wiring.build_state(root)
-                    try:
-                        selected = next(
-                            row for row in manager.list()
-                            if row.generation == result["generation"]
-                        )
-                        record["writer"] = selected.writer.model_dump(mode="json")
-                        record["last_successful_runs"] = {
-                            source_id: run.model_dump(mode="json")
-                            for source_id, run in selected.last_successful_runs.items()
-                        }
-                        fd, temporary = tempfile.mkstemp(prefix=".state-pull-", dir=root)
-                        try:
-                            with os.fdopen(fd, "w", encoding="utf-8") as stream:
-                                json.dump(record, stream, ensure_ascii=False)
-                                stream.flush()
-                                os.fsync(stream.fileno())
-                            os.replace(temporary, marker)
-                        finally:
-                            if os.path.exists(temporary):
-                                os.unlink(temporary)
-                    finally:
-                        client = getattr(manager.store, "_client", None)
-                        close = getattr(client, "close", None)
-                        if callable(close):
-                            close()
-            except Exception:
-                # The installed replica remains usable; status falls back to its run ledger.
-                pass
+            scheduler = _scheduler_at(root, read_only=True)[1]
+            pulled_at = result.get("pulled_at")
+            if isinstance(pulled_at, str):
+                try:
+                    parsed_pull_time = datetime.fromisoformat(pulled_at)
+                    if parsed_pull_time.utcoffset() is not None:
+                        scheduler.now = lambda: parsed_pull_time
+                except ValueError:
+                    pass
+            monitored = _monitored_status(scheduler)
+            cloud = monitored.get("cloud")
+            if cloud is not None:
+                alerts = [
+                    alert for row in monitored.get("sources", []) for alert in row.get("alerts", [])
+                    if alert.get("rule") in {"cloud_run_missing", "cloud_stalled", "replica_stale"}
+                ]
+                alerts.extend(
+                    alert for alert in monitored.get("cloud_alerts", [])
+                    if alert.get("rule") in {"cloud_run_missing", "cloud_stalled", "replica_stale"}
+                )
+                result["cloud"] = {
+                    "generation": cloud["generation"],
+                    "created_at": cloud["created_at"],
+                    "pulled_at": cloud["pulled_at"],
+                    "status_basis": cloud["status_basis"],
+                    "writer": cloud["writer"],
+                    "last_successful_runs": cloud["last_successful_runs"],
+                    "alerts": [
+                        {key: alert[key] for key in ("source_id", "rule", "since") if key in alert}
+                        for alert in alerts
+                    ],
+                }
         return result
 
     _state_call(action)
@@ -259,9 +257,9 @@ def lease_acquire(
 ) -> None:
     """Only this response contains the new token; keep stdout private."""
     def action():
-        run_id = os.environ.get("GITHUB_RUN_ID")
-        owner = holder or (f"actions/{run_id}" if run_id else f"local/{uuid.uuid4().hex}")
-        return _leases().acquire(owner, force=force)
+        state = wiring.build_state(_data_dir())
+        owner = holder or f"{state.writer.kind}/{state.writer.run_id}"
+        return LeaseManager(state.store).acquire(owner, force=force)
     _state_call(action)
 
 

@@ -8,6 +8,7 @@ import os
 import re
 import sys
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -271,9 +272,16 @@ def pull(
                 if generation is None and (not current or current[0].generation != selected.generation):
                     raise PullError("拉取期间远端代次已更新，请重试")
 
+                pulled_at = datetime.now(UTC)
                 record = {
                     "generation": selected.generation,
                     "created_at": selected.created_at.isoformat(),
+                    "pulled_at": pulled_at.isoformat(),
+                    "writer": selected.writer.model_dump(mode="json"),
+                    "last_successful_runs": {
+                        source_id: run.model_dump(mode="json")
+                        for source_id, run in selected.last_successful_runs.items()
+                    },
                     "vector_coverage": (selected.vector_coverage.model_dump(mode="json")
                                         if selected.vector_coverage is not None else None),
                     "stores": [{"name": copy.name, "sha256": copy.sha256} for copy in selected.stores],
@@ -285,6 +293,7 @@ def pull(
             return {
                 "generation": selected.generation,
                 "created_at": selected.created_at.isoformat(),
+                "pulled_at": pulled_at.isoformat(),
                 "copies": len(selected.stores),
                 "raw_objects": report["raw_objects"],
                 "downloaded_objects": cached_store.downloaded_objects,
