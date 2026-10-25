@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DATUMOJ NAS 容量预估</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="assets/fonts.css">
+<style>
+/* 布局：左侧文字一栏，右侧固定的“存储卷”，数据流从左边汇入；四个期限与最少/最多驱动卷的水位 */
+:root {
+  --abyss: #040a17;      /* 底色：深海蓝 */
+  --deep: #0a1830;       /* 面板 */
+  --line: #1c3357;       /* 细线 */
+  --ink: #dce8fb;        /* 正文 */
+  --mute: #8299bd;       /* 次要文字 */
+  --flow: #3d9bff;       /* 主数据流蓝 */
+  --ice: #a6e6ff;        /* 高亮冰蓝 */
+  --lo: #48d4e8;         /* 最少情形 */
+  --hi: #5b7dff;         /* 最多情形 */
+  --warn: #f0b955;       /* 语义：注意 */
+  --f-disp: "Noto Serif SC", "Songti SC", serif;
+  --f-body: "Noto Sans SC", "PingFang SC", "Hiragino Sans", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { background: var(--abyss); color: var(--ink); font: 400 16px/1.75 var(--f-body); overflow-x: hidden; }
+#gl { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
+#labels { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+#labels span { position: absolute; font: 500 11px/1 var(--f-mono); color: var(--mute); white-space: nowrap; transform: translateY(-50%); letter-spacing: .04em; }
+#labels span.fill { color: var(--ice); font-weight: 600; font-size: 12.5px; }
+#labels span.other { color: var(--mute); }
+main { position: relative; z-index: 2; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1240px; margin: 0 auto; }
+.col { max-width: 640px; min-width: 0; }
+section { padding-block: 14vh 6vh; }
+.eyebrow { font: 600 12px/1 var(--f-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--flow); }
+h1, h2 { font-family: var(--f-disp); font-weight: 900; text-wrap: balance; margin: 0; letter-spacing: .01em; }
+h1 { font-size: clamp(52px, 9vw, 112px); line-height: 1.02; margin-top: 18px;
+  background: linear-gradient(100deg, var(--ink) 30%, var(--ice) 60%, var(--flow)); -webkit-background-clip: text; background-clip: text; color: transparent; padding-bottom: .08em; text-shadow: none; }
+h2 { font-size: clamp(30px, 4.2vw, 46px); line-height: 1.2; margin-top: 14px; }
+h3 { font: 700 18px/1.4 var(--f-body); margin: 0; }
+p { margin: 14px 0 0; }
+.lead { font-size: 18.5px; color: var(--ink); max-width: 36em; }
+.muted { color: var(--mute); }
+b, strong { font-weight: 700; }
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.lo { color: var(--lo); } .hi { color: var(--hi); }
+.shadow { text-shadow: 0 1px 18px var(--abyss), 0 0 2px var(--abyss); }
+
+/* hero */
+.hero { min-height: 92vh; display: flex; align-items: center; padding-block: 12vh 6vh; }
+.hz-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin-top: 40px; border-top: 1px solid var(--line); max-width: 640px; }
+.hz-row div { padding: 14px 14px 0 0; border-right: 1px solid var(--line); }
+.hz-row div:last-child { border-right: 0; }
+.hz-row div + div { padding-left: 14px; }
+.hz-row small { display: block; font: 500 12px/1.3 var(--f-mono); color: var(--mute); letter-spacing: .06em; }
+.hz-row b { display: block; font: 600 clamp(20px, 2.4vw, 28px)/1.2 var(--f-mono); color: var(--ice); margin-top: 8px; font-variant-numeric: tabular-nums; }
+.hz-row em { display: block; font: 400 12.5px/1.3 var(--f-mono); font-style: normal; color: var(--lo); margin-top: 4px; }
+.verdict { margin-top: 30px; display: inline-flex; gap: 12px; align-items: baseline; flex-wrap: wrap; padding: 12px 16px; border: 1px solid var(--flow); border-radius: 4px; background: color-mix(in srgb, var(--abyss) 70%, transparent); }
+.verdict span { font: 600 12px/1 var(--f-mono); color: var(--flow); letter-spacing: .12em; }
+
+/* 现状 */
+.stack { margin-top: 26px; display: grid; gap: 10px; }
+.srow { display: grid; grid-template-columns: 9.5em minmax(0, 1fr) 5.2em; gap: 12px; align-items: center; font-size: 14px; }
+.srow .bar { height: 12px; background: color-mix(in srgb, var(--line) 60%, transparent); border-radius: 2px; position: relative; overflow: hidden; }
+.srow .bar i { position: absolute; inset: 0 auto 0 0; background: var(--flow); border-radius: 2px; }
+.srow .bar i.ghost { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--warn) 55%, transparent) 0 4px, transparent 4px 8px); }
+.srow .bar i.real { background: var(--ice); }
+.srow .v { font: 600 13px/1 var(--f-mono); text-align: right; font-variant-numeric: tabular-nums; }
+.facts { margin-top: 28px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; border-top: 1px solid var(--line); padding-top: 18px; }
+.facts b { display: block; font: 600 26px/1.1 var(--f-mono); color: var(--ice); font-variant-numeric: tabular-nums; }
+.facts small { display: block; color: var(--mute); font-size: 13px; line-height: 1.5; margin-top: 6px; }
+.facts .warn b { color: var(--warn); }
+
+/* 方法 */
+.formula { margin-top: 24px; font: 500 14.5px/2.1 var(--f-mono); color: var(--ink); }
+.formula span { display: inline-block; padding: 0 9px; border: 1px solid var(--line); border-radius: 3px; background: color-mix(in srgb, var(--deep) 85%, transparent); line-height: 1.9; }
+.formula i { font-style: normal; color: var(--mute); padding: 0 6px; }
+.ptable { margin-top: 22px; width: 100%; border-collapse: collapse; font-size: 14px; }
+.ptable th, .ptable td { text-align: left; padding: 9px 10px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.ptable th { font: 600 12px/1.3 var(--f-mono); color: var(--mute); letter-spacing: .08em; }
+.ptable td:nth-child(2) { color: var(--lo); } .ptable td:nth-child(3) { color: var(--hi); }
+.ptable td small { display: block; color: var(--mute); font-size: 12.5px; }
+.scroll-x { overflow-x: auto; }
+
+/* 交互面板 */
+.panel { background: color-mix(in srgb, var(--deep) 88%, transparent); border: 1px solid var(--line); border-radius: 6px; padding: 26px clamp(16px, 3vw, 32px); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); margin-top: 28px; min-width: 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.seg button { font: 500 14px/1 var(--f-body); color: var(--mute); background: transparent; border: 0; padding: 10px 16px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--flow); color: var(--abyss); font-weight: 700; }
+.seg.sc button[aria-pressed="true"][data-sc="min"] { background: var(--lo); }
+.seg.sc button[aria-pressed="true"][data-sc="max"] { background: var(--hi); color: #fff; }
+.seg button:focus-visible, .opt:focus-visible { outline: 2px solid var(--ice); outline-offset: 2px; }
+.when { font: 500 13px/1.4 var(--f-mono); color: var(--mute); }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 34px; margin-top: 26px; }
+.ch-h { font: 600 12px/1.3 var(--f-mono); letter-spacing: .1em; color: var(--mute); text-transform: uppercase; margin-bottom: 12px; }
+.big { font: 600 clamp(34px, 4vw, 48px)/1 var(--f-mono); font-variant-numeric: tabular-nums; }
+.big small { font-size: .42em; color: var(--mute); margin-left: 6px; font-weight: 400; }
+
+/* 构成条 */
+.comp { display: flex; height: 26px; margin-top: 16px; border-radius: 3px; overflow: hidden; background: var(--line); }
+.comp i { display: block; height: 100%; min-width: 2px; transition: flex-grow .5s ease; }
+.legend { margin-top: 14px; display: grid; gap: 6px; font-size: 13.5px; }
+.legend div { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.legend i { width: 12px; height: 12px; border-radius: 2px; }
+.legend span:last-child { font: 600 13px/1 var(--f-mono); font-variant-numeric: tabular-nums; }
+
+/* 来源条 */
+.src { display: grid; gap: 7px; }
+.src div { display: grid; grid-template-columns: 11.5em minmax(0, 1fr) 4.6em; gap: 10px; align-items: center; font-size: 13px; }
+.src .t { position: relative; height: 14px; }
+.src .t i { position: absolute; left: 0; top: 0; height: 14px; border-radius: 2px; transition: width .5s ease; }
+.src .t i.mx { background: color-mix(in srgb, var(--hi) 75%, transparent); }
+.src .t i.mn { background: var(--lo); height: 6px; top: 4px; }
+.src .v { font: 600 12px/1.2 var(--f-mono); text-align: right; font-variant-numeric: tabular-nums; color: var(--hi); }
+.src .v small { display: block; color: var(--lo); font-weight: 400; }
+
+/* 对数范围图 */
+.range { position: relative; margin-top: 8px; padding-bottom: 30px; }
+.rrow { display: grid; grid-template-columns: 5.5em minmax(0, 1fr); gap: 14px; align-items: center; height: 46px; }
+.rrow > span { font: 500 14px/1.2 var(--f-body); }
+.rrow > span small { display: block; font: 400 11.5px/1.2 var(--f-mono); color: var(--mute); }
+.rtrack { position: relative; height: 100%; }
+.rtrack .seg-r { position: absolute; top: 50%; height: 8px; transform: translateY(-50%); background: linear-gradient(90deg, var(--lo), var(--hi)); border-radius: 4px; }
+.rtrack .dot { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid var(--abyss); }
+.rtrack .lab { position: absolute; top: 50%; font: 600 12px/1 var(--f-mono); transform: translateY(-50%); white-space: nowrap; }
+.rrow.on > span { color: var(--ice); font-weight: 700; }
+.rrow.on .seg-r { height: 12px; box-shadow: 0 0 14px color-mix(in srgb, var(--flow) 60%, transparent); }
+.raxis { position: absolute; left: calc(5.5em + 14px); right: 0; top: 0; bottom: 0; pointer-events: none; }
+.raxis .tk { position: absolute; top: 0; bottom: 22px; border-left: 1px solid var(--line); }
+.raxis .tk span { position: absolute; bottom: -20px; transform: translateX(-50%); font: 400 11px/1 var(--f-mono); color: var(--mute); white-space: nowrap; }
+.raxis .cap { position: absolute; top: -6px; bottom: 22px; border-left: 1px dashed var(--ice); }
+.raxis .cap span { position: absolute; top: -16px; transform: translateX(-50%); font: 600 11px/1 var(--f-mono); color: var(--ice); white-space: nowrap; }
+
+/* 表 */
+.ntable { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 14.5px; min-width: 560px; }
+.ntable th, .ntable td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; }
+.ntable th:first-child, .ntable td:first-child { text-align: left; }
+.ntable thead th { font: 600 12px/1.3 var(--f-mono); color: var(--mute); letter-spacing: .06em; }
+.ntable td { font-family: var(--f-mono); }
+.ntable td:first-child { font-family: var(--f-body); }
+.ntable td:first-child small { display: block; color: var(--mute); font-size: 12px; }
+.ntable td.u { font-weight: 600; }
+.ntable .lo-c { color: var(--lo); } .ntable .hi-c { color: var(--hi); }
+
+/* 方案 */
+.opts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 28px; }
+.opt { background: color-mix(in srgb, var(--deep) 90%, transparent); border: 1px solid var(--line); border-radius: 6px; padding: 22px; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.opt.pick { border-color: var(--flow); box-shadow: 0 0 0 1px var(--flow) inset; }
+.opt .tag { font: 600 11.5px/1 var(--f-mono); letter-spacing: .12em; color: var(--mute); }
+.opt.pick .tag { color: var(--flow); }
+.opt .cfg { font: 600 21px/1.3 var(--f-mono); color: var(--ice); }
+.opt ul { margin: 0; padding-left: 1.1em; font-size: 14px; color: var(--ink); display: grid; gap: 4px; }
+.opt ul li::marker { color: var(--flow); }
+.opt .foot { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13px; color: var(--mute); }
+
+/* 发现与风险 */
+.finds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 28px; }
+.find { border-top: 2px solid var(--flow); padding-top: 14px; min-width: 0; }
+.find b.n { display: block; font: 600 28px/1.1 var(--f-mono); color: var(--ice); }
+.find p { font-size: 14.5px; color: var(--ink); margin-top: 8px; }
+.find p.muted { color: var(--mute); font-size: 13.5px; }
+.risks { margin-top: 26px; display: grid; gap: 0; border-top: 1px solid var(--line); }
+.risks div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 20px; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+.risks div span:first-child { color: var(--warn); }
+.notes { margin-top: 30px; font-size: 13.5px; color: var(--mute); display: grid; gap: 6px; max-width: 760px; }
+.notes b { color: var(--ink); font-weight: 500; }
+footer { padding-block: 6vh 10vh; font: 400 12px/1.6 var(--f-mono); color: var(--mute); }
+
+@media (max-width: 900px) {
+  #gl { opacity: .4; }
+  #labels { display: none; }
+  .grid2, .opts, .finds { grid-template-columns: minmax(0, 1fr); }
+  .facts { grid-template-columns: minmax(0, 1fr); }
+  .risks div { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  section { padding-block: 9vh 4vh; }
+}
+@media (max-width: 520px) {
+  .hz-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hz-row div:nth-child(2) { border-right: 0; }
+  .hz-row div:nth-child(3) { padding-left: 0; }
+  .srow { grid-template-columns: 7em minmax(0, 1fr) 4.4em; font-size: 13px; }
+  .src div { grid-template-columns: 8em minmax(0, 1fr) 4.4em; font-size: 12px; }
+  .rrow { grid-template-columns: 4.2em minmax(0, 1fr); }
+  .raxis { left: calc(4.2em + 14px); }
+  .rtrack .lab { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .comp i, .src .t i { transition: none; } }
+</style>
+
+<canvas id="gl" aria-hidden="true"></canvas>
+<div id="labels" aria-hidden="true"></div>
+
+<main>
+<div class="wrap">
+
+  <section class="hero" data-h="2" data-sc="max">
+    <div class="col shadow">
+      <div class="eyebrow">DATUMOJ · 0.3 外部存储 · 2026-10-25 估算</div>
+      <h1>NAS 要多大</h1>
+      <p class="lead">按现在的采集节奏和 0.3、0.4 的计划推算：<b>1 年内</b>可用空间最少要 <b class="lo num">28 GB</b>，最多约 <b class="hi num">1 TB</b>；<b>远景</b>（约 3 年）最少 <b class="lo num">81 GB</b>，最多约 <b class="hi num">3.5 TB</b>。两头相差几十倍，主要看两件事：气象厅每小时的防灾 XML 全留还是封顶，存储开不开压缩。</p>
+      <div class="hz-row" id="hzRow"></div>
+      <div class="verdict"><span>建议</span>4 盘位 NAS，先装 2 × 4 TB 做 RAID1，raw 另做一份异地备份</div>
+    </div>
+  </section>
+
+  <section id="now" data-h="-1" data-sc="max">
+    <div class="col shadow">
+      <div class="eyebrow">现在 · 本机实测</div>
+      <h2>盘上 21 GB，有用的约 6.6 GB</h2>
+      <p class="muted">2026-10-24 在本机状态目录量的。向量库占了 15 GB，可真正的向量只有 0.16 GB，其余是 LanceDB 每次写入留下的旧版本，一共 32,789 份清单。</p>
+      <div class="stack">
+        <div class="srow"><span>向量库（LanceDB）</span><span class="bar"><i class="ghost" style="width:100%"></i><i class="real" style="width:1.1%"></i></span><span class="v">15.0 GB</span></div>
+        <div class="srow"><span>气象厅 raw</span><span class="bar"><i style="width:21.7%"></i></span><span class="v">3.26 GB</span></div>
+        <div class="srow"><span>SQLite 分块与关键词</span><span class="bar"><i style="width:12%"></i></span><span class="v">≈1.8 GB</span></div>
+        <div class="srow"><span>其他 raw 与状态</span><span class="bar"><i style="width:9.2%"></i></span><span class="v">≈1.4 GB</span></div>
+      </div>
+      <p class="muted" style="font-size:13px">浅蓝是真实向量，斜纹是旧版本。“其他”一行由 6.6 GB 减去前三项得出，没有单独量。</p>
+      <div class="facts">
+        <div><b>34 GiB</b><small>现有 7 个来源的 raw 上限合计（sources/*.yaml）</small></div>
+        <div><b>440 MB</b><small>气象厅每天新增，约 1,340 份 XML；一年约 160 GB</small></div>
+        <div class="warn"><b>≈5 天</b><small>按这个速度，气象厅碰到 5 GiB 上限，之后停止采集</small></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="method" data-h="0" data-sc="min">
+    <div class="col shadow">
+      <div class="eyebrow">怎么算</div>
+      <h2>五层叠起来，再留三成余量</h2>
+      <p class="muted">raw 按 sha256 存，只增不删（团队定的“不做清理”）。其余各层都由 raw 推出来，所以先估每个来源的 raw，再按比例加上其余几层。</p>
+      <div class="formula">
+        <span>raw × 压缩率</span><i>+</i><span>索引</span><i>+</i><span>观测库</span><i>+</i><span>状态代次</span><i>+</i><span>日志等</span><i>÷ 0.7 =</i><span style="border-color:var(--flow);color:var(--ice)">需要的可用空间</span>
+      </div>
+      <div class="scroll-x">
+      <table class="ptable">
+        <thead><tr><th>参数</th><th>最少</th><th>最多</th></tr></thead>
+        <tbody>
+          <tr><td>压缩<small>NAS 文件系统压缩（zstd / lz4）</small></td><td>× 0.5</td><td>不压缩</td></tr>
+          <tr><td>索引<small>SQLite 分块、FTS5 关键词、向量</small></td><td>raw 的 12%</td><td>raw 的 40%</td></tr>
+          <tr><td>观测库<small>DuckDB / Parquet，只算结构化来源</small></td><td>5%</td><td>25%，含修订历史</td></tr>
+          <tr><td>状态代次<small>ADR 0005：分块去重，保留当前和上一代</small></td><td>索引的 15%</td><td>整份一代 + 6.5 GB 增量</td></tr>
+          <tr><td>气象厅<small>每小时防灾 XML</small></td><td>封顶 5 GB</td><td>全留，每天 0.44 GB</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="muted" style="font-size:13.5px">期限对应的进度是我的假设：3 个月 ≈ MAPLE 完成；半年 ≈ WISTERIA 试点；1 年 ≈ 国际来源扩开；远景 ≈ 3 年，接入 130 个案例用到的其余来源。</p>
+    </div>
+  </section>
+
+  <section id="horizons" data-h="ui" data-sc="ui">
+    <div class="col shadow">
+      <div class="eyebrow">四个期限</div>
+      <h2>选一个期限，看空间花在哪</h2>
+      <p class="muted">右边的圆柱是一个 4 TB 的卷，水位就是所选情形需要的可用空间；细环标出另一种情形。</p>
+    </div>
+    <div class="panel">
+      <div class="controls">
+        <div class="seg" role="group" aria-label="期限" id="segH">
+          <button type="button" id="h0" data-h="0" aria-pressed="false">3 个月</button>
+          <button type="button" id="h1" data-h="1" aria-pressed="false">半年</button>
+          <button type="button" id="h2" data-h="2" aria-pressed="true">1 年</button>
+          <button type="button" id="h3" data-h="3" aria-pressed="false">远景</button>
+        </div>
+        <div class="seg sc" role="group" aria-label="情形" id="segS">
+          <button type="button" id="scMin" data-sc="min" aria-pressed="false">最少</button>
+          <button type="button" id="scMax" data-sc="max" aria-pressed="true">最多</button>
+        </div>
+        <span class="when" id="when"></span>
+      </div>
+
+      <div class="ch-h" style="margin-top:28px">四个期限的范围 · 可用空间 · 对数刻度</div>
+      <div class="range" id="range"></div>
+
+      <div class="grid2">
+        <div>
+          <div class="ch-h">这一期需要</div>
+          <div class="big" id="bigV"></div>
+          <div class="muted" id="bigSub" style="font-size:13.5px;margin-top:6px"></div>
+          <div class="comp" id="comp" role="img" aria-label="空间构成"></div>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div>
+          <div class="ch-h">按来源的 raw（未压缩）· <span class="hi">最多</span> / <span class="lo">最少</span></div>
+          <div class="src" id="src"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="table" data-h="3" data-sc="max">
+    <div class="col shadow">
+      <div class="eyebrow">汇总</div>
+      <h2>最少和最多，四个期限</h2>
+    </div>
+    <div class="panel scroll-x">
+      <table class="ntable">
+        <thead><tr><th>期限</th><th class="lo-c">最少 · 数据</th><th class="lo-c">最少 · 可用空间</th><th class="hi-c">最多 · 数据</th><th class="hi-c">最多 · 可用空间</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <p class="muted" style="font-size:13px;margin-top:12px">“数据”是五层之和；“可用空间”再除以 0.7，留三成余量给重建索引、换向量模型时的临时双份和文件系统本身。单位是十进制 GB / TB。</p>
+    </div>
+  </section>
+
+  <section id="pick" data-h="3" data-sc="max">
+    <div class="col shadow">
+      <div class="eyebrow">怎么买</div>
+      <h2>两块 4 TB 镜像够到远景，空盘位留给以后</h2>
+      <p class="muted">RAID1 两块盘互为镜像，坏一块不丢数据；但 RAID 不是备份，误删和整机故障它都挡不住。</p>
+    </div>
+    <div class="opts">
+      <div class="opt">
+        <div class="tag">够用就行</div>
+        <div class="cfg">2 盘位 · 2 × 2 TB RAID1</div>
+        <ul><li>可用约 2 TB</li><li>覆盖 1 年最多情形（1.0 TB），还剩一半</li><li>远景最多情形不够，要整体换大盘</li></ul>
+        <div class="foot">适合先只跑日本来源、气象厅封顶的情况</div>
+      </div>
+      <div class="opt pick" tabindex="0">
+        <div class="tag">建议</div>
+        <div class="cfg">4 盘位 · 先装 2 × 4 TB RAID1</div>
+        <ul><li>可用约 4 TB</li><li>覆盖远景最多情形（3.5 TB）</li><li>空着两个盘位，以后加两块就能翻倍</li></ul>
+        <div class="foot">选 NAS 级硬盘；文件系统选支持透明压缩的（Btrfs 或 ZFS）</div>
+      </div>
+      <div class="opt">
+        <div class="tag">对照 · R2</div>
+        <div class="cfg">按量计费，无需买盘</div>
+        <ul><li>1 TB 约每月 15 美元，3.5 TB 约 53 美元</li><li>出网免费，读写操作另计</li><li>本机建索引仍要一份本地副本</li></ul>
+        <div class="foot">按 R2 标准存储公开价 0.015 美元/GB·月估，未核对最新价</div>
+      </div>
+    </div>
+    <div class="col shadow">
+      <p class="muted" style="font-size:14px"><b style="color:var(--ink)">备份只备 raw。</b> raw 是唯一不能重建的东西，而且内容寻址、只增不删，增量备份很省事；索引、向量、观测库都能从 raw 重建（ADR 0005 里 27,880 个分块的关键词索引 65 秒就重建完）。1 年最多情形下 raw 约 340 GB，一块移动硬盘或 R2 一个桶就放得下。</p>
+    </div>
+  </section>
+
+  <section id="levers" data-h="1" data-sc="min">
+    <div class="col shadow">
+      <div class="eyebrow">能省在哪</div>
+      <h2>三件事决定落在哪一头</h2>
+    </div>
+    <div class="finds">
+      <div class="find"><b class="n">15 GB → 0.16 GB</b><p>LanceDB 定期清掉旧版本，现在就能腾出 15 GB；不清的话，每次写入都留一份清单，增长比数据本身快。</p><p class="muted">这是索引维护，不碰 raw。要不要做、多久做一次，需要团队定。</p></div>
+      <div class="find"><b class="n">160 GB / 年</b><p>气象厅全留是最大的单项，三年近 500 GB。可以提高上限，也可以只留需要的电文种类。</p><p class="muted">现在 5 GiB 的上限几天内就会碰到，碰到后这个来源就停了，这件事要先定。</p></div>
+      <div class="find"><b class="n">× 0.2 – 0.5</b><p>开文件系统压缩。XML、JSON、HTML 通常压到原来的 1/3 到 1/5；PDF、GIS、已压缩的下载包几乎压不动。</p><p class="muted">最少情形只按 × 0.5 算，偏保守。</p></div>
+    </div>
+    <div class="col shadow">
+      <h3 style="margin-top:44px">风险</h3>
+    </div>
+    <div class="risks">
+      <div><span>远景来源最不确定</span><span>130 个案例的其余来源估了 0 到 300 GB，国际组织 0 到 150 GB，都没实测。接进来时按真实下载量重估。</span></div>
+      <div><span>换向量模型或维度</span><span>向量要整库重建，重建期间新旧两份同时在盘上。三成余量就是留给这种时候的。</span></div>
+      <div><span>大文件来源</span><span>GIS、普查这类下载包单个就是 GB 级，一个来源可能顶掉一整期的估算。接入前先看来源说明里的文件大小。</span></div>
+      <div><span>NAS 和 R2 还在协商</span><span>如果最后状态放 R2，NAS 只做本地工作副本，需求按 raw 加索引算，比这里的数小。</span></div>
+    </div>
+    <div class="notes">
+      <div><b>实测的：</b>现有 21 GB 的构成、气象厅存量和日增量、各来源上限、ADR 0005 的分块去重数据。</div>
+      <div><b>估的：</b>各来源未来的 raw 大小、各层比例、压缩率、期限和进度的对应。</div>
+      <div><b>模型：</b>nas_model.py，最少与最多各一套参数，逐期限求和；数字都是十进制。</div>
+    </div>
+  </section>
+
+  <footer>DATUMOJ · NAS 容量预估 · 依据 docs/adr/0002、0005，docs/plans/0.3-maple.md，sources/*.yaml 与本机实测 · 2026-10-25</footer>
+</div>
+</main>
+
+<script>
+// 模型输出（nas_model.json），十进制 GB
+var D = {
+  min: [{raw:12.2,disk:6.1,index:1.5,obs:0.2,gen:0.2,misc:0.3,total:8.3,usable:11.9},{raw:17.5,disk:8.8,index:2.1,obs:0.4,gen:0.4,misc:0.5,total:12.1,usable:17.3},{raw:27.3,disk:13.7,index:3.3,obs:0.8,gen:0.6,misc:1,total:19.3,usable:27.6},{raw:78.3,disk:39.1,index:9.4,obs:3.0,gen:1.9,misc:3,total:56.4,usable:80.6}],
+  max: [{raw:75.7,disk:75.7,index:30.3,obs:5.2,gen:42.0,misc:1,total:154.3,usable:220.4},{raw:160.8,disk:160.8,index:64.3,obs:14.5,gen:85.3,misc:2,total:326.9,usable:467.1},{raw:343.9,disk:343.9,index:137.6,obs:36.2,gen:180.3,misc:4,total:702.0,usable:1002.9},{raw:1189.1,disk:1189.1,index:475.6,obs:157.5,gen:639.6,misc:12,total:2473.9,usable:3534.1}],
+  src: [["气象厅防灾 XML",[5,5,5,5],[43.7,83.3,163.9,485.1]],["e-Gov 数据目录",[1.2,1.5,2,4],[3,5,10,20]],["省厅与自治体网页",[0.6,0.8,1.2,3],[2,4,8,20]],["e-Gov 法令",[0.3,0.5,0.8,1.5],[1.5,2.5,5,10]],["BODIK",[1,1.5,2,4],[4,7,10,20]],["e-Stat 与统计看板",[0.1,0.2,0.3,0.8],[0.5,1,2,4]],["MAPLE 日本新来源",[3,5,7,12],[15,35,60,120]],["MAPLE 欧美来源",[1,2,4,8],[6,15,30,60]],["WISTERIA 国际组织",[0,1,3,10],[0,8,40,150]],["远景其余来源",[0,0,2,30],[0,0,15,300]]]
+};
+var HZ = [
+  {name:'3 个月', when:'到 2027 年 1 月 · MAPLE 完成'},
+  {name:'半年', when:'到 2027 年 4 月 · WISTERIA 试点'},
+  {name:'1 年', when:'到 2027 年 10 月 · 国际来源扩开'},
+  {name:'远景', when:'约 3 年 · 130 个案例的来源'}
+];
+var NOW_GB = 21;
+function fmt(gb) {
+  if (gb >= 1000) return (gb / 1000).toFixed(gb >= 10000 ? 0 : 2) + ' TB';
+  if (gb >= 100) return Math.round(gb) + ' GB';
+  if (gb >= 10) return gb.toFixed(1).replace(/\.0$/, '') + ' GB';
+  return gb.toFixed(1) + ' GB';
+}
+console.assert(fmt(1002.9) === '1.00 TB' && fmt(27.6) === '27.6 GB' && fmt(220.4) === '220 GB', 'fmt');
+
+var state = { h: 2, sc: 'max' };       // 面板里的选择
+function pushScene(h, sc) { window.__nasScene = { h: h, sc: sc }; if (window.__nasSet) window.__nasSet(h, sc); }
+
+// hero 四格
+document.getElementById('hzRow').innerHTML = HZ.map(function (z, i) {
+  return '<div><small>' + z.name + '</small><b>' + fmt(D.max[i].usable) + '</b><em>最少 ' + fmt(D.min[i].usable) + '</em></div>';
+}).join('');
+
+// 汇总表
+document.getElementById('tbody').innerHTML = HZ.map(function (z, i) {
+  return '<tr><td>' + z.name + '<small>' + z.when.split(' · ')[0] + '</small></td><td>' + fmt(D.min[i].total) + '</td><td class="u lo-c">' + fmt(D.min[i].usable) +
+    '</td><td>' + fmt(D.max[i].total) + '</td><td class="u hi-c">' + fmt(D.max[i].usable) + '</td></tr>';
+}).join('');
+
+// 对数范围图：1 GB … 10 TB
+(function () {
+  var L = function (gb) { return (Math.log10(gb) / 4 * 100).toFixed(2) + '%'; };
+  var ticks = [[1,'1 GB'],[10,'10 GB'],[100,'100 GB'],[1000,'1 TB'],[10000,'10 TB']];
+  var caps = [[2000,'2 TB 卷'],[4000,'4 TB 卷']];
+  var html = '<div class="raxis">' + ticks.map(function (t) { return '<div class="tk" style="left:' + L(t[0]) + '"><span>' + t[1] + '</span></div>'; }).join('') +
+    caps.map(function (c) { return '<div class="cap" style="left:' + L(c[0]) + '"><span>' + c[1] + '</span></div>'; }).join('') + '</div>';
+  html += HZ.map(function (z, i) {
+    var a = D.min[i].usable, b = D.max[i].usable;
+    return '<div class="rrow" data-i="' + i + '"><span>' + z.name + '</span><div class="rtrack">' +
+      '<div class="seg-r" style="left:' + L(a) + ';width:calc(' + L(b) + ' - ' + L(a) + ')"></div>' +
+      '<div class="dot" style="left:' + L(a) + ';background:var(--lo)"></div><div class="dot" style="left:' + L(b) + ';background:var(--hi)"></div>' +
+      '<div class="lab lo" style="right:calc(100% - ' + L(a) + ' + 12px)">' + fmt(a) + '</div>' +
+      '<div class="lab hi" style="left:calc(' + L(b) + ' + 12px)">' + fmt(b) + '</div></div></div>';
+  }).join('');
+  document.getElementById('range').innerHTML = html;
+})();
+
+var LAYERS = [['disk','raw（落盘后）','#3d9bff'],['index','索引与向量','#7fc4ff'],['obs','观测库','#48d4e8'],['gen','状态代次','#5b7dff'],['misc','日志等','#8299bd']];
+function renderPanel() {
+  var i = state.h, r = D[state.sc][i], o = D[state.sc === 'max' ? 'min' : 'max'][i];
+  document.querySelectorAll('#segH button').forEach(function (b) { b.setAttribute('aria-pressed', String(+b.dataset.h === i)); });
+  document.querySelectorAll('#segS button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.sc === state.sc)); });
+  document.querySelectorAll('.rrow').forEach(function (row) { row.classList.toggle('on', +row.dataset.i === i); });
+  document.getElementById('when').textContent = HZ[i].when;
+  var big = document.getElementById('bigV');
+  big.className = 'big ' + (state.sc === 'max' ? 'hi' : 'lo');
+  big.innerHTML = fmt(r.usable) + '<small>可用空间</small>';
+  document.getElementById('bigSub').textContent = '其中数据 ' + fmt(r.total) + '，余量 ' + fmt(r.usable - r.total) + '；另一种情形 ' + fmt(o.usable);
+  var parts = LAYERS.map(function (l) { return [l[1], r[l[0]], l[2]]; });
+  parts.push(['三成余量', r.usable - r.total, 'repeating-linear-gradient(135deg,#1c3357 0 4px,#0a1830 4px 8px)']);
+  document.getElementById('comp').innerHTML = parts.map(function (p) { return '<i style="flex-grow:' + p[1] + ';background:' + p[2] + '" title="' + p[0] + ' ' + fmt(p[1]) + '"></i>'; }).join('');
+  document.getElementById('legend').innerHTML = parts.map(function (p) { return '<div><i style="background:' + p[2] + '"></i><span>' + p[0] + '</span><span>' + fmt(p[1]) + '</span></div>'; }).join('');
+  var top = Math.max.apply(null, D.src.map(function (s) { return s[2][i]; }));
+  document.getElementById('src').innerHTML = D.src.map(function (s) {
+    var mn = s[1][i], mx = s[2][i];
+    return '<div><span>' + s[0] + '</span><span class="t"><i class="mx" style="width:' + (mx / top * 100) + '%"></i><i class="mn" style="width:' + (mn / top * 100) + '%"></i></span>' +
+      '<span class="v">' + (mx ? fmt(mx) : '—') + '<small>' + (mn ? fmt(mn) : '—') + '</small></span></div>';
+  }).join('');
+}
+document.getElementById('segH').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; state.h = +b.dataset.h; renderPanel(); pushScene(state.h, state.sc); });
+document.getElementById('segS').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; state.sc = b.dataset.sc; renderPanel(); pushScene(state.h, state.sc); });
+renderPanel();
+
+// 滚动到哪一节，画面就切到那一节的期限
+var secs = document.querySelectorAll('section[data-h]');
+function onScroll() {
+  var mid = innerHeight * 0.5, cur = secs[0];
+  secs.forEach(function (s) { if (s.getBoundingClientRect().top < mid) cur = s; });
+  var h = cur.dataset.h, sc = cur.dataset.sc;
+  if (h === 'ui') pushScene(state.h, state.sc); else pushScene(+h, sc);
+}
+addEventListener('scroll', onScroll, { passive: true });
+onScroll();
+window.__nasData = { D: D, HZ: HZ, NOW_GB: NOW_GB, fmt: fmt };
+</script>
+
+<script src="assets/scene.js"></script>

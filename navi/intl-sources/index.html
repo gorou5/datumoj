@@ -1,0 +1,1165 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>七源核验</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --paper: #0a101b;
+      --panel-rgb: 17, 28, 45;
+      --ink: #f0f5fb;
+      --muted: #b6c2d5;
+      --accent: #70e7c3;
+      --particle: #70e7c3;
+      --cloud-particle: #aeb8c5;
+      --fog-particle: #8290a4;
+      --line: rgba(173, 198, 221, .18);
+      --glow: rgba(33, 163, 127, .12);
+      --shadow: rgba(0, 0, 0, .28);
+    }
+    .theme-light {
+      color-scheme: light;
+      --paper: #f4f7fc;
+      --panel-rgb: 255, 255, 255;
+      --ink: #15243a;
+      --muted: #4b5b72;
+      --accent: #12624f;
+      --particle: #0a765f;
+      --cloud-particle: #637188;
+      --fog-particle: #6b7890;
+      --line: rgba(35, 57, 83, .18);
+      --glow: rgba(25, 119, 94, .08);
+      --shadow: rgba(30, 48, 71, .12);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: auto; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 72% 19%, var(--glow), transparent 39%),
+        var(--paper);
+      background-attachment: fixed;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Yu Gothic", "Microsoft YaHei", sans-serif;
+      line-height: 1.65;
+      text-rendering: optimizeLegibility;
+    }
+    #gl {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100svh;
+      pointer-events: none;
+      opacity: .88;
+    }
+    #gl[hidden] { display: none; }
+    .topline {
+      position: fixed;
+      inset: 0 0 auto;
+      z-index: 5;
+      height: 3px;
+      background: var(--line);
+    }
+    .topline-fill {
+      width: 100%;
+      height: 100%;
+      transform: scaleX(0);
+      transform-origin: left center;
+      background: var(--accent);
+      box-shadow: 0 0 16px var(--accent);
+    }
+    .masthead {
+      position: fixed;
+      top: 3px;
+      left: 0;
+      right: 0;
+      z-index: 4;
+      padding: 12px clamp(16px, 4vw, 48px);
+      background: rgba(var(--panel-rgb), .82);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(14px);
+    }
+    .masthead-inner {
+      max-width: 1320px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 750;
+      letter-spacing: .08em;
+    }
+    .brand-mark {
+      width: 26px;
+      height: 26px;
+      position: relative;
+      border: 1px solid var(--accent);
+      border-radius: 50%;
+      box-shadow: inset 0 0 12px var(--glow), 0 0 15px var(--glow);
+    }
+    .brand-mark::before, .brand-mark::after {
+      content: "";
+      position: absolute;
+      border: 1px solid var(--accent);
+      border-radius: 50%;
+      inset: 5px 1px;
+    }
+    .brand-mark::after { inset: 1px 8px; }
+    .current-chapter {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .08em;
+      text-align: right;
+    }
+    main, footer { position: relative; z-index: 1; }
+    .chapter {
+      min-height: 100vh;
+      min-height: 100svh;
+      padding: clamp(96px, 13vh, 150px) clamp(16px, 5vw, 72px) clamp(76px, 9vh, 112px);
+      display: flex;
+      align-items: center;
+    }
+    .chapter-inner {
+      width: min(100%, 1220px);
+      margin: 0 auto;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 18px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    .eyebrow::before {
+      content: "";
+      width: 26px;
+      height: 1px;
+      background: currentColor;
+      box-shadow: 0 0 9px currentColor;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1, h2 {
+      margin-bottom: 18px;
+      line-height: 1.12;
+      letter-spacing: -.045em;
+    }
+    h1 { font-size: clamp(42px, 7.8vw, 92px); }
+    h2 { font-size: clamp(32px, 5vw, 58px); }
+    h3 { margin-bottom: 0; font-size: 19px; line-height: 1.25; }
+    .subtitle { color: var(--muted); font-size: 14px; letter-spacing: .03em; }
+    .hero-grid, .split-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 390px), 1fr));
+      align-items: center;
+      gap: clamp(26px, 5vw, 72px);
+    }
+    .hero-title-line { display: block; }
+    .hero-title-line:last-child { color: var(--accent); }
+    .hero-conclusion {
+      max-width: 620px;
+      margin: 28px 0 0;
+      font-size: clamp(20px, 2.2vw, 27px);
+      font-weight: 680;
+      line-height: 1.42;
+    }
+    .hero-subline { max-width: 620px; color: var(--muted); margin: 12px 0 0; }
+    .legal-note {
+      display: inline-block;
+      margin: 20px 0 0;
+      padding: 9px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+      background: rgba(var(--panel-rgb), .94);
+      font-size: 12px;
+    }
+    .scroll-hint {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 34px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .08em;
+    }
+    .scroll-hint span {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      color: var(--accent);
+      font-size: 16px;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: rgba(var(--panel-rgb), .94);
+      box-shadow: 0 24px 80px var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+    .hero-panel {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(22px, 4vw, 38px);
+    }
+    .hero-panel::before {
+      content: "";
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      top: -122px;
+      right: -98px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      box-shadow: 0 0 0 26px rgba(112, 231, 195, .035), 0 0 0 52px rgba(112, 231, 195, .025);
+      pointer-events: none;
+    }
+    .panel-kicker, .row-label, .table-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .12em;
+    }
+    .hero-panel .panel-kicker { color: var(--accent); }
+    .hero-panel h2 {
+      max-width: 420px;
+      margin: 13px 0 24px;
+      font-size: clamp(25px, 3.5vw, 38px);
+      letter-spacing: -.035em;
+    }
+    .signal-list { display: grid; gap: 0; }
+    .signal-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 18px;
+      padding: 14px 0;
+      border-top: 1px solid var(--line);
+    }
+    .signal-row span { color: var(--muted); font-size: 13px; }
+    .signal-row strong {
+      color: var(--ink);
+      font-size: 14px;
+      text-align: right;
+    }
+    .signal-row strong.accent { color: var(--accent); }
+    .chapter-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 24px;
+      margin-bottom: 30px;
+    }
+    .chapter-heading h2 { margin-bottom: 0; }
+    .chapter-intro {
+      max-width: 570px;
+      margin: 14px 0 0;
+      color: var(--muted);
+    }
+    .source-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
+      gap: 14px;
+    }
+    .source-card {
+      min-width: 0;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(var(--panel-rgb), .94);
+      box-shadow: 0 14px 40px var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+    .source-head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 17px;
+      border-bottom: 1px solid var(--line);
+    }
+    .source-card h3 { overflow-wrap: anywhere; }
+    .status-chip {
+      flex: 0 0 auto;
+      max-width: 100%;
+      padding: 5px 9px;
+      border: 1px solid var(--line);
+      border-radius: 99px;
+      color: var(--ink);
+      background: rgba(var(--panel-rgb), .98);
+      font-size: 11px;
+      font-weight: 750;
+      line-height: 1.3;
+      text-align: center;
+    }
+    .status-chip.limit { border-color: rgba(229, 161, 118, .65); }
+    .status-chip.unread { border-color: rgba(186, 166, 234, .62); }
+    .status-chip.pending { border-color: rgba(112, 231, 195, .5); }
+    .source-facts { display: grid; gap: 14px; margin: 16px 0 0; }
+    .source-facts div { display: grid; gap: 4px; }
+    .source-facts dt {
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .05em;
+    }
+    .source-facts dd {
+      margin: 0;
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.62;
+      overflow-wrap: anywhere;
+    }
+    .layers {
+      display: grid;
+      gap: 12px;
+      max-width: 980px;
+      margin: 32px auto 0;
+    }
+    .layer {
+      display: grid;
+      grid-template-columns: minmax(100px, .32fr) minmax(0, 1fr);
+      gap: 18px;
+      align-items: center;
+      padding: 21px clamp(17px, 3vw, 30px);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(var(--panel-rgb), .94);
+      box-shadow: 0 12px 36px var(--shadow);
+    }
+    .layer:nth-child(2) { margin-left: clamp(0px, 5vw, 64px); }
+    .layer:nth-child(3) { margin-left: clamp(0px, 10vw, 128px); }
+    .layer h3 { color: var(--accent); font-size: 15px; }
+    .layer p { margin: 0; font-size: 14px; }
+    .gate-visual {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 330px;
+      padding: 25px;
+      overflow: hidden;
+    }
+    .gate-frame {
+      position: absolute;
+      inset: 11%;
+      border: 1px solid var(--accent);
+      opacity: .62;
+      box-shadow: inset 0 0 24px var(--glow), 0 0 25px var(--glow);
+    }
+    .gate-bar {
+      position: absolute;
+      left: 11%;
+      right: 11%;
+      top: 50%;
+      height: 2px;
+      background: var(--accent);
+      box-shadow: 0 0 18px var(--accent);
+    }
+    .gate-label {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      place-items: center;
+      gap: 8px;
+      padding: 22px 28px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(var(--panel-rgb), .97);
+      text-align: center;
+    }
+    .gate-label strong { font-size: 25px; color: var(--accent); }
+    .gate-label span { color: var(--muted); font-size: 12px; }
+    .fact-stack { display: grid; gap: 14px; }
+    .fact-block {
+      padding: 21px 23px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(var(--panel-rgb), .94);
+      box-shadow: 0 14px 38px var(--shadow);
+    }
+    .fact-block p { margin: 8px 0 0; }
+    .fact-block .panel-kicker { color: var(--accent); }
+    .unread-mark {
+      display: inline-block;
+      margin: 10px 0 0;
+      padding: 4px 9px;
+      border: 1px solid var(--line);
+      border-radius: 100px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .cloud-layout {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 370px), 1fr));
+      gap: clamp(24px, 5vw, 70px);
+      align-items: center;
+    }
+    .cloud-slots {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(24px, 1fr));
+      gap: clamp(5px, 1.4vw, 15px);
+      align-items: center;
+      padding: 24px 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(var(--panel-rgb), .94);
+    }
+    .cloud-slot {
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+    }
+    .cloud-slot::before {
+      content: "";
+      width: min(100%, 46px);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: var(--cloud-particle);
+      box-shadow: 0 0 18px rgba(141, 156, 176, .22);
+    }
+    .cloud-slot.empty::before {
+      background: transparent;
+      border: 1px dashed var(--muted);
+      box-shadow: none;
+    }
+    .cloud-status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-top: 20px;
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(var(--panel-rgb), .94);
+    }
+    .cloud-status code {
+      color: var(--muted);
+      font: 12px ui-monospace, SFMono-Regular, Consolas, monospace;
+      overflow-wrap: anywhere;
+    }
+    .cloud-status strong { color: var(--accent); font-size: 23px; }
+    .decision-wrap {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(var(--panel-rgb), .95);
+      box-shadow: 0 18px 48px var(--shadow);
+    }
+    .decision-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    .decision-table th, .decision-table td {
+      padding: 16px clamp(12px, 2.5vw, 25px);
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+    .decision-table tr:last-child td { border-bottom: 0; }
+    .decision-table th {
+      color: var(--accent);
+      background: rgba(var(--panel-rgb), .98);
+      font-size: 11px;
+      letter-spacing: .1em;
+    }
+    .decision-table th:first-child, .decision-table td:first-child { width: 34%; }
+    .decision-table td { font-size: 14px; }
+    .evidence-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+      gap: 14px;
+      margin-top: 26px;
+    }
+    .evidence-card {
+      min-height: 176px;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(var(--panel-rgb), .94);
+      box-shadow: 0 14px 38px var(--shadow);
+    }
+    .evidence-card .panel-kicker { color: var(--accent); }
+    .evidence-card p { margin: 11px 0 0; }
+    .evidence-metric {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-top: 11px;
+      color: var(--accent);
+      font-size: clamp(27px, 4vw, 40px);
+      font-weight: 780;
+      letter-spacing: -.04em;
+      line-height: 1.1;
+    }
+    .evidence-metric small { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0; }
+    .evidence-note { color: var(--muted); font-size: 13px; }
+    footer {
+      padding: 32px clamp(16px, 5vw, 72px) 42px;
+      border-top: 1px solid var(--line);
+      background: rgba(var(--panel-rgb), .88);
+      backdrop-filter: blur(14px);
+    }
+    .footer-inner {
+      max-width: 1220px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px 24px;
+    }
+    .footer-inner p { margin: 0; color: var(--muted); font-size: 12px; }
+    .footer-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 5px 11px;
+      border: 1px solid var(--line);
+      border-radius: 99px;
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .08em;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gl" aria-hidden="true"></canvas>
+  <div class="topline" aria-hidden="true"><div class="topline-fill" id="progress"></div></div>
+  <header class="masthead">
+    <div class="masthead-inner">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span>七源 · 许可核验</span></div>
+      <div class="current-chapter" id="chapter-indicator">离线参考</div>
+    </div>
+  </header>
+  <main>
+    <section class="chapter" data-scene="hero" data-title="许可核验">
+      <div class="chapter-inner hero-grid">
+        <div>
+          <p class="eyebrow">离线参考 · 资料观察</p>
+          <h1><span class="hero-title-line">七个国际来源</span><span class="hero-title-line">的许可核验</span></h1>
+          <p class="subtitle">截至 2026-10-24 · 读取官方页面的日期</p>
+          <p class="hero-conclusion">没有一个来源可以直接宣布「能自动采集」</p>
+          <p class="hero-subline">1 个有明文限制，2 个关键条款页没读到，其余需要逐数据集确认。</p>
+          <p class="legal-note">离线参考资料，不是法律意见；只记录提供方页面写了什么。</p>
+          <div class="scroll-hint"><span aria-hidden="true">↓</span><span>向下滚动，查看核验记录</span></div>
+        </div>
+        <aside class="panel hero-panel">
+          <p class="panel-kicker">结论边界</p>
+          <h2>页面有记录，许可仍需逐项确认。</h2>
+          <div class="signal-list">
+            <div class="signal-row"><span>明确限制</span><strong>有明文限制</strong></div>
+            <div class="signal-row"><span>关键条款页</span><strong>没读到</strong></div>
+            <div class="signal-row"><span>云端模型处理</span><strong class="accent">否</strong></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="chapter" data-scene="seven" data-title="七个来源一览">
+      <div class="chapter-inner">
+        <div class="chapter-heading">
+          <div>
+            <p class="eyebrow">来源索引 · 页面记录</p>
+            <h2>七个来源一览</h2>
+            <p class="chapter-intro">每张卡片并列呈现页面写了什么、当前卡点，以及由谁补充确认。</p>
+          </div>
+        </div>
+        <div class="source-grid">
+          <article class="source-card">
+            <div class="source-head"><h3>UN COMTRADE</h3><span class="status-chip limit">有明文限制</span></div>
+            <dl class="source-facts">
+              <div><dt>页面写了什么</dt><dd>许可协议第 5 节将自动浏览、下载、再分发和商业利用列为禁项，除非取得联合国书面许可。</dd></div>
+              <div><dt>卡在哪</dt><dd>API 与免费、高级访问的说明没保存。</dd></div>
+              <div><dt>谁来确认</dt><dd>项目负责人决定如何向提供方确认。</dd></div>
+            </dl>
+          </article>
+          <article class="source-card">
+            <div class="source-head"><h3>IMF</h3><span class="status-chip unread">条款页没读到</span></div>
+            <dl class="source-facts">
+              <div><dt>页面写了什么</dt><dd>API 页只写 SDMX 接口形式，没有许可条款。</dd></div>
+              <div><dt>卡在哪</dt><dd>版权与条款页被拒绝访问；没读到，未绕过。</dd></div>
+              <div><dt>谁来确认</dt><dd>人在自己的浏览器手工保存该页后补做。</dd></div>
+            </dl>
+          </article>
+          <article class="source-card">
+            <div class="source-head"><h3>ILO / ILOSTAT</h3><span class="status-chip unread">条款页没读到</span></div>
+            <dl class="source-facts">
+              <div><dt>页面写了什么</dt><dd>2023-05-03 起数据集适用 CC BY 4.0，有日期与微数据例外。</dd></div>
+              <div><dt>卡在哪</dt><dd>ILOSTAT 专属条款页遇验证；没读到，未绕过。</dd></div>
+              <div><dt>谁来确认</dt><dd>人在自己的浏览器手工保存后补做。</dd></div>
+            </dl>
+          </article>
+          <article class="source-card">
+            <div class="source-head"><h3>OECD</h3><span class="status-chip pending">待确认</span></div>
+            <dl class="source-facts">
+              <div><dt>页面写了什么</dt><dd>数据可用于任何目的，包括商业（除另有限制）；保留限制 IP、调整查询量的权利。</dd></div>
+              <div><dt>卡在哪</dt><dd>具体数据集的元数据与第三方权利；没有数值配额。</dd></div>
+              <div><dt>谁来确认</dt><dd>选定数据集后逐个核对。</dd></div>
+            </dl>
+          </article>
+          <article class="source-card">
+            <div class="source-head"><h3>WTO</h3><span class="status-chip pending">待确认</span></div>
+            <dl class="source-facts">
+              <div><dt>页面写了什么</dt><dd>一般版权页：非商业转载需署名并告知；商业使用须书面许可；接口需免费申请访问密钥。</dd></div>
+              <div><dt>卡在哪</dt><dd>一般版权页与统计数据接口的关系不明。</dd></div>
+              <div><dt>谁来确认</dt><dd>待确认适用范围。</dd></div>
+            </dl>
+          </article>
+          <article class="source-card">
+            <div class="source-head"><h3>Eurostat</h3><span class="status-chip pending">待确认</span></div>
+            <dl class="source-facts">
+              <div><dt>页面写了什么</dt><dd>署名后可商业、非商业复用；列出若干商业用途例外。</dd></div>
+              <div><dt>卡在哪</dt><dd>欧盟委员会法律声明与详细接口指南没保存；密钥与速率未写明。</dd></div>
+              <div><dt>谁来确认</dt><dd>负责人定采集范围；法务看例外。</dd></div>
+            </dl>
+          </article>
+          <article class="source-card">
+            <div class="source-head"><h3>World Bank WDI</h3><span class="status-chip pending">待确认</span></div>
+            <dl class="source-facts">
+              <div><dt>页面写了什么</dt><dd>数据集条款为 CC BY 4.0（除非另有标示）；无需 API 密钥。</dd></div>
+              <div><dt>卡在哪</dt><dd>各指标的第三方例外在目录元数据里，未保存。</dd></div>
+              <div><dt>谁来确认</dt><dd>负责人绑定指标范围；法务看第三方系列。</dd></div>
+            </dl>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter" data-scene="layers" data-title="条款分层">
+      <div class="chapter-inner">
+        <p class="eyebrow">条款分层 · 复用边界</p>
+        <h2>通用文字之下，<br>还有数据集与目录例外。</h2>
+        <p class="chapter-intro">保存页面的通用说明不能替代对具体数据集和指标的核对。</p>
+        <div class="layers">
+          <article class="layer"><h3>通用条款</h3><p>WTO 一般版权页区分非商业转载与商业使用；接口需要免费申请访问密钥。</p></article>
+          <article class="layer"><h3>数据集条款</h3><p>OECD 数据可用于任何目的，包括商业，但具体数据集仍有元数据与第三方权利要核对。</p></article>
+          <article class="layer"><h3>目录例外</h3><p>World Bank WDI 为 CC BY 4.0，除非另有标示；各指标的第三方例外在目录元数据里。</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter" data-scene="barrier" data-title="明确限制">
+      <div class="chapter-inner">
+        <div class="chapter-heading">
+          <div>
+            <p class="eyebrow">明确限制 · 仍待确认</p>
+            <h2>UN COMTRADE</h2>
+            <p class="chapter-intro">许可协议第 5 节把自动浏览、下载、再分发与商业利用列为未经联合国书面许可即禁止。</p>
+          </div>
+        </div>
+        <div class="split-grid">
+          <div class="panel gate-visual" aria-hidden="true">
+            <div class="gate-frame"></div>
+            <div class="gate-bar"></div>
+            <div class="gate-label"><span>许可协议 · 第 5 节</span><strong>待确认</strong></div>
+          </div>
+          <div class="fact-stack">
+            <article class="fact-block">
+              <p class="panel-kicker">项目影响</p>
+              <p>贸易镜像案例（#003）和 V03 用到 COMTRADE；能否自动化运行，取决于第 5 节的确认结果。</p>
+            </article>
+            <article class="fact-block">
+              <p class="panel-kicker">当前记录</p>
+              <p>现在只能说「待确认」。API 与免费、高级访问的说明没保存。</p>
+              <span class="unread-mark">待确认</span>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter" data-scene="fog" data-title="条款页没读到">
+      <div class="chapter-inner">
+        <p class="eyebrow">未读页面 · 条件未知</p>
+        <h2>缺页仍是缺页，<br>没有被绕过。</h2>
+        <p class="chapter-intro">IMF 与 ILOSTAT 的关键条款页没读到；补读之前，不把复用条件当作已知。</p>
+        <div class="split-grid" style="margin-top:28px">
+          <article class="fact-block">
+            <p class="panel-kicker">IMF</p>
+            <p>API 页只写 SDMX 接口形式，没有许可条款。版权与条款页被拒绝访问；没读到，也未绕过。</p>
+            <span class="unread-mark">条款页没读到</span>
+          </article>
+          <article class="fact-block">
+            <p class="panel-kicker">ILOSTAT</p>
+            <p>专属条款页遇验证；没读到，也未绕过。已保存页面提到数据集自 2023-05-03 起适用 CC BY 4.0，有日期与微数据例外；完整条件仍未知。</p>
+            <span class="unread-mark">条款页没读到</span>
+          </article>
+        </div>
+        <p class="legal-note">由人在自己的浏览器手工保存相应页面后补做。</p>
+      </div>
+    </section>
+
+    <section class="chapter" data-scene="cloud" data-title="云端模型处理">
+      <div class="chapter-inner cloud-layout">
+        <div>
+          <p class="eyebrow">沉默不作许可</p>
+          <h2>云端模型处理</h2>
+          <p class="hero-conclusion">七个来源保存的页面都没有提到能否交给云端模型处理。</p>
+          <p class="hero-subline">不从沉默推断许可；状态保持缺省「否」。</p>
+          <div class="cloud-status"><code>cloud_model_ok</code><strong>否</strong></div>
+        </div>
+        <div class="cloud-slots" aria-hidden="true">
+          <span class="cloud-slot"></span><span class="cloud-slot"></span><span class="cloud-slot"></span>
+          <span class="cloud-slot empty"></span><span class="cloud-slot"></span><span class="cloud-slot"></span><span class="cloud-slot"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter" data-scene="ask" data-title="需要谁决定什么">
+      <div class="chapter-inner">
+        <p class="eyebrow">后续事项 · 由对应角色确认</p>
+        <h2>需要谁决定什么</h2>
+        <p class="chapter-intro">按记录中的四项事项，补齐人工确认与后续安排。</p>
+        <div class="decision-wrap">
+          <table class="decision-table">
+            <thead><tr><th>事项</th><th>建议</th></tr></thead>
+            <tbody>
+              <tr><td>COMTRADE 第 5 节要不要向提供方确认</td><td>在把它当自动来源之前必须确认。</td></tr>
+              <tr><td>IMF、ILOSTAT 两个条款页由谁手工保存</td><td>在自己的浏览器保存后放进快照目录，再补做其余核验。</td></tr>
+              <tr><td>七个来源合并呈现还是按来源拆分</td><td>已合成一组便于对照；维护者若更愿拆，可按来源目录拆。</td></tr>
+              <tr><td>推送时机</td><td>前一项在审内容合并后再推送；描述已备好。</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="chapter" data-scene="proof" data-title="复核证据">
+      <div class="chapter-inner">
+        <p class="eyebrow">可复核记录 · 机械结果</p>
+        <h2>复核证据</h2>
+        <p class="chapter-intro">引文、独立复核、敏感信息扫描与本批材料范围均有记录。</p>
+        <div class="evidence-grid">
+          <article class="evidence-card">
+            <p class="panel-kicker">引文逐字核对</p>
+            <p>每条引文都能在保存页面中原样找到。</p>
+            <p class="evidence-note">单条不超过 30 词，每来源不超过 8 条。</p>
+          </article>
+          <article class="evidence-card">
+            <p class="panel-kicker">独立复核</p>
+            <div class="evidence-metric">48/48 <small>五个国际来源</small></div>
+            <div class="evidence-metric">160/160 <small>Eurostat 与 WDI</small></div>
+            <p class="evidence-note">各有 1 条措辞类 P2，已改；P0/P1 均为 0。</p>
+          </article>
+          <article class="evidence-card">
+            <p class="panel-kicker">敏感信息扫描</p>
+            <div class="evidence-metric">0 <small>命中</small></div>
+          </article>
+          <article class="evidence-card">
+            <p class="panel-kicker">本批材料</p>
+            <p>只含文档，不含代码与响应样本。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer>
+    <div class="footer-inner">
+      <p>离线参考资料，不是法律意见；只记录提供方页面写了什么。</p>
+      <span class="footer-badge">演示样例</span>
+      <p>截至 2026-10-24</p>
+    </div>
+  </footer>
+
+  <script>
+  (function () {
+    "use strict";
+    const root = document.documentElement;
+    const canvas = document.getElementById("gl");
+    let ctx = null;
+    try { ctx = canvas && canvas.getContext ? canvas.getContext("2d", { alpha: true }) : null; } catch (_) {}
+    if (!ctx) {
+      if (canvas) canvas.hidden = true;
+      return;
+    }
+
+    const sections = Array.from(document.querySelectorAll("section[data-scene]"));
+    const sceneNames = sections.map(function (section) { return section.dataset.scene; });
+    const progressBar = document.getElementById("progress");
+    const chapterLabel = document.getElementById("chapter-indicator");
+    const reducedQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const lightQuery = window.matchMedia("(prefers-color-scheme: light)");
+    let reduced = reducedQuery.matches;
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+    let count = 0;
+    let scenePoints = {};
+    let currentX = new Float32Array(0);
+    let currentY = new Float32Array(0);
+    let phase = new Float32Array(0);
+    let burstX = new Float32Array(0);
+    let burstY = new Float32Array(0);
+    let frame = 0;
+    let lastTime = 0;
+    let resizeTimer = 0;
+    let activeIndex = 0;
+    let pointer = { x: -9999, y: -9999, active: false };
+    let colors = {};
+
+    function rngFor(seed) {
+      let state = seed >>> 0;
+      return function () {
+        state += 0x6D2B79F5;
+        let t = state;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function gaussian(random) {
+      const a = Math.max(0.000001, random());
+      return Math.sqrt(-2 * Math.log(a)) * Math.cos(6.28318530718 * random());
+    }
+    function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+    function makePoints(amount, seed, pointAt) {
+      const random = rngFor(seed);
+      const out = new Float32Array(amount * 3);
+      for (let i = 0; i < amount; i += 1) {
+        const point = pointAt(i, amount, random);
+        out[i * 3] = clamp(point[0], -1, 1);
+        out[i * 3 + 1] = clamp(point[1], -1, 1);
+        out[i * 3 + 2] = clamp(point[2] || 0, -1, 1);
+      }
+      return out;
+    }
+    function genHero(amount) {
+      return makePoints(amount, 71, function (i, n) {
+        const y = 1 - 2 * (i + 0.5) / n;
+        const radius = Math.sqrt(Math.max(0, 1 - y * y));
+        const angle = i * 2.3999632297;
+        return [Math.cos(angle) * radius, y, Math.sin(angle) * radius];
+      });
+    }
+    function genSeven(amount) {
+      return makePoints(amount, 117, function (i, n, random) {
+        const slot = i % 7;
+        const angle = slot * Math.PI * 2 / 7 - Math.PI / 2;
+        const cx = Math.cos(angle) * 0.62;
+        const cy = Math.sin(angle) * 0.62;
+        return [cx + gaussian(random) * 0.075, cy + gaussian(random) * 0.075, 0];
+      });
+    }
+    function genLayers(amount) {
+      return makePoints(amount, 221, function (i, n, random) {
+        const band = i % 7;
+        return [(random() * 1.76) - 0.88, -0.78 + band * 0.26 + (random() - 0.5) * 0.035, 0];
+      });
+    }
+    function genBarrier(amount) {
+      return makePoints(amount, 349, function (i, n, random) {
+        const scaled = i * 5 / n;
+        const part = Math.min(4, Math.floor(scaled));
+        const t = scaled - part;
+        let x = 0;
+        let y = 0;
+        if (part === 0) { x = -0.82 + 1.64 * t; y = -0.72; }
+        if (part === 1) { x = 0.82; y = -0.72 + 1.44 * t; }
+        if (part === 2) { x = 0.82 - 1.64 * t; y = 0.72; }
+        if (part === 3) { x = -0.82; y = 0.72 - 1.44 * t; }
+        if (part === 4) { x = -0.82 + 1.64 * t; y = 0; }
+        return [x + (random() - 0.5) * 0.018, y + (random() - 0.5) * 0.018, 0];
+      });
+    }
+    function genFog(amount) {
+      return makePoints(amount, 443, function (i, n, random) {
+        return [gaussian(random) * 0.34, gaussian(random) * 0.32, 0];
+      });
+    }
+    function genCloud(amount) {
+      return makePoints(amount, 557, function (i, n, random) {
+        const slot = i % 7;
+        const cx = -0.84 + slot * 0.28;
+        if (slot === 3) {
+          const angle = random() * Math.PI * 2;
+          return [cx + Math.cos(angle) * 0.095, Math.sin(angle) * 0.095, 0];
+        }
+        return [cx + gaussian(random) * 0.045, gaussian(random) * 0.045, 0];
+      });
+    }
+    function genAsk(amount) {
+      const centers = [[-0.48, -0.43], [0.48, -0.43], [-0.48, 0.43], [0.48, 0.43]];
+      return makePoints(amount, 661, function (i, n, random) {
+        const center = centers[i % 4];
+        return [center[0] + gaussian(random) * 0.12, center[1] + gaussian(random) * 0.12, 0];
+      });
+    }
+    function genProof(amount) {
+      return makePoints(amount, 773, function (i, n, random) {
+        const columns = Math.ceil(Math.sqrt(n * 1.4));
+        const rows = Math.ceil(n / columns);
+        const col = i % columns;
+        const row = Math.floor(i / columns);
+        const x = -0.92 + col * 1.84 / Math.max(1, columns - 1);
+        const y = -0.82 + row * 1.64 / Math.max(1, rows - 1);
+        return [x + (random() - 0.5) * 0.012, y + (random() - 0.5) * 0.012, 0];
+      });
+    }
+    const generators = {
+      hero: genHero,
+      seven: genSeven,
+      layers: genLayers,
+      barrier: genBarrier,
+      fog: genFog,
+      cloud: genCloud,
+      ask: genAsk,
+      proof: genProof
+    };
+
+    function hexToRgb(hex) {
+      const value = hex.replace("#", "");
+      return [parseInt(value.slice(0, 2), 16), parseInt(value.slice(2, 4), 16), parseInt(value.slice(4, 6), 16)];
+    }
+    function readColors() {
+      const style = getComputedStyle(root);
+      ["--particle", "--cloud-particle", "--fog-particle"].forEach(function (name) {
+        colors[name] = hexToRgb(style.getPropertyValue(name).trim());
+      });
+    }
+    function mixColor(a, b, mix) {
+      return [
+        Math.round(a[0] + (b[0] - a[0]) * mix),
+        Math.round(a[1] + (b[1] - a[1]) * mix),
+        Math.round(a[2] + (b[2] - a[2]) * mix)
+      ];
+    }
+    function sceneColor(name) {
+      if (name === "cloud") return colors["--cloud-particle"];
+      if (name === "fog") return colors["--fog-particle"];
+      return colors["--particle"];
+    }
+    function alphaFor(name) {
+      if (name === "fog") return 0.26;
+      if (name === "cloud") return 0.68;
+      return 0.76;
+    }
+    function isSphere(name) { return name === "hero"; }
+    function fitCanvas() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      canvas.style.width = width + "px";
+      canvas.style.height = height + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const compact = width < 768 || (navigator.hardwareConcurrency || 8) <= 4;
+      const nextCount = compact ? 2500 : 5000;
+      if (nextCount !== count) {
+        count = nextCount;
+        scenePoints = {};
+        Object.keys(generators).forEach(function (name) { scenePoints[name] = generators[name](count); });
+        currentX = new Float32Array(count);
+        currentY = new Float32Array(count);
+        phase = new Float32Array(count);
+        burstX = new Float32Array(count);
+        burstY = new Float32Array(count);
+        const random = rngFor(991);
+        for (let i = 0; i < count; i += 1) {
+          phase[i] = random() * Math.PI * 2;
+          const angle = random() * Math.PI * 2;
+          burstX[i] = Math.cos(angle) * random();
+          burstY[i] = Math.sin(angle) * random();
+          currentX[i] = width * 0.5;
+          currentY[i] = height * 0.5;
+        }
+      }
+      readColors();
+      if (reduced) drawStatic(activeIndex);
+    }
+    function smoothstep(value) {
+      const t = clamp((value - 0.18) / 0.64, 0, 1);
+      return t * t * (3 - 2 * t);
+    }
+    function scrollSegment() {
+      let index = 0;
+      const y = window.scrollY;
+      for (let i = 1; i < sections.length; i += 1) {
+        if (y >= sections[i].offsetTop) index = i;
+        else break;
+      }
+      if (index >= sections.length - 1) return [index, index, 0];
+      const start = sections[index].offsetTop;
+      const end = sections[index + 1].offsetTop;
+      const ratio = clamp((y - start) / Math.max(1, end - start), 0, 1);
+      return [index, index + 1, smoothstep(ratio)];
+    }
+    function updateProgress() {
+      const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+      const amount = clamp(window.scrollY / maxScroll, 0, 1);
+      progressBar.style.transform = "scaleX(" + amount + ")";
+      const found = scrollSegment();
+      activeIndex = found[0];
+      if (chapterLabel && sections[activeIndex]) chapterLabel.textContent = sections[activeIndex].dataset.title || "";
+    }
+    function pointAt(name, pointSet, index, time) {
+      const x = pointSet[index * 3];
+      const y = pointSet[index * 3 + 1];
+      const z = pointSet[index * 3 + 2];
+      if (!isSphere(name)) return [x, y, z];
+      const angle = time * 0.11;
+      const cosine = Math.cos(angle);
+      const sine = Math.sin(angle);
+      return [x * cosine - z * sine, y, x * sine + z * cosine];
+    }
+    function drawPair(indexA, indexB, mix, dt, time, staticMode) {
+      const nameA = sceneNames[indexA] || "proof";
+      const nameB = sceneNames[indexB] || nameA;
+      const pointsA = scenePoints[nameA];
+      const pointsB = scenePoints[nameB];
+      if (!pointsA || !pointsB) return;
+      const color = mixColor(sceneColor(nameA), sceneColor(nameB), mix);
+      const alpha = alphaFor(nameA) + (alphaFor(nameB) - alphaFor(nameA)) * mix;
+      const ease = staticMode ? 1 : 1 - Math.exp(-5.5 * Math.max(0, dt));
+      const scatter = staticMode ? 0 : Math.sin(mix * Math.PI) * 0.12;
+      const scale = Math.min(width, height) * 0.38;
+      ctx.clearRect(0, 0, width, height);
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = "rgb(" + color[0] + "," + color[1] + "," + color[2] + ")";
+      ctx.globalAlpha = alpha;
+      for (let i = 0; i < count; i += 1) {
+        const a = pointAt(nameA, pointsA, i, time);
+        const b = pointAt(nameB, pointsB, i, time);
+        let nx = a[0] + (b[0] - a[0]) * mix + burstX[i] * scatter;
+        let ny = a[1] + (b[1] - a[1]) * mix + burstY[i] * scatter;
+        nx += staticMode ? 0 : Math.sin(time * 0.38 + phase[i]) * 0.002;
+        ny += staticMode ? 0 : Math.cos(time * 0.32 + phase[i]) * 0.002;
+        let px = width * 0.5 + nx * scale;
+        let py = height * 0.5 + ny * scale;
+        if (!staticMode && pointer.active) {
+          const dx = px - pointer.x;
+          const dy = py - pointer.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance > 0 && distance < 120) {
+            const force = Math.pow((120 - distance) / 120, 2) * 22;
+            px += dx / distance * force;
+            py += dy / distance * force;
+          }
+        }
+        if (!staticMode) {
+          currentX[i] += (px - currentX[i]) * ease;
+          currentY[i] += (py - currentY[i]) * ease;
+          px = currentX[i];
+          py = currentY[i];
+        }
+        const size = 1.1 + ((phase[i] % 1) * 1.05);
+        ctx.fillRect(px, py, size, size);
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+    }
+    function drawStatic(index) {
+      const safeIndex = clamp(index, 0, sections.length - 1);
+      activeIndex = safeIndex;
+      if (chapterLabel && sections[safeIndex]) chapterLabel.textContent = sections[safeIndex].dataset.title || "";
+      drawPair(safeIndex, safeIndex, 0, 0, 0, true);
+    }
+    function loop(now) {
+      frame = 0;
+      if (document.hidden || reduced) return;
+      const dt = lastTime ? Math.min(0.05, (now - lastTime) / 1000) : 1 / 60;
+      lastTime = now;
+      updateProgress();
+      const segment = scrollSegment();
+      drawPair(segment[0], segment[1], segment[2], dt, now / 1000, false);
+      frame = requestAnimationFrame(loop);
+    }
+    function startLoop() {
+      if (!reduced && !document.hidden && !frame) {
+        lastTime = 0;
+        frame = requestAnimationFrame(loop);
+      }
+    }
+    function observeSections() {
+      if (!("IntersectionObserver" in window)) return;
+      const observer = new IntersectionObserver(function (entries) {
+        if (!reduced) return;
+        let best = null;
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting && (!best || entry.intersectionRatio > best.intersectionRatio)) best = entry;
+        });
+        if (best) {
+          const index = sections.indexOf(best.target);
+          if (index >= 0 && index !== activeIndex) drawStatic(index);
+        }
+      }, { threshold: [0.12, 0.35, 0.6] });
+      sections.forEach(function (section) { observer.observe(section); });
+    }
+    function applyTheme() {
+      root.classList.toggle("theme-light", !!lightQuery.matches);
+      readColors();
+      if (reduced) drawStatic(activeIndex);
+    }
+    function onReducedChange(event) {
+      reduced = !!event.matches;
+      if (reduced) {
+        if (frame) cancelAnimationFrame(frame);
+        frame = 0;
+        drawStatic(scrollSegment()[0]);
+      } else {
+        startLoop();
+      }
+    }
+    function onResize() {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(function () {
+        fitCanvas();
+        updateProgress();
+        if (!reduced) startLoop();
+      }, 140);
+    }
+    root.classList.toggle("theme-light", !!lightQuery.matches);
+    fitCanvas();
+    updateProgress();
+    observeSections();
+    if (typeof lightQuery.addEventListener === "function") lightQuery.addEventListener("change", applyTheme);
+    else if (typeof lightQuery.addListener === "function") lightQuery.addListener(applyTheme);
+    if (typeof reducedQuery.addEventListener === "function") reducedQuery.addEventListener("change", onReducedChange);
+    else if (typeof reducedQuery.addListener === "function") reducedQuery.addListener(onReducedChange);
+    window.addEventListener("resize", onResize, { passive: true });
+    window.addEventListener("scroll", updateProgress, { passive: true });
+    window.addEventListener("pointermove", function (event) {
+      if (reduced) return;
+      pointer.x = event.clientX;
+      pointer.y = event.clientY;
+      pointer.active = true;
+    }, { passive: true });
+    window.addEventListener("pointerleave", function () { pointer.active = false; }, { passive: true });
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) {
+        if (frame) cancelAnimationFrame(frame);
+        frame = 0;
+      } else {
+        if (reduced) drawStatic(scrollSegment()[0]);
+        else startLoop();
+      }
+    });
+    if (reduced) drawStatic(0);
+    else startLoop();
+  }());
+  </script>
+</body>
+</html>
