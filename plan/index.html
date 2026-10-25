@@ -278,7 +278,7 @@
   <li><b>H6</b> M3 与 IVY 版本验收：MCP 注册、现场 10 问、人工抽查 20 条引用支持率（目标 ≥ 0.95）、打 tag v0.1.0-ivy</li>
 </ul>
 
-<h2 id="tachibana">0.2 TACHIBANA 计划<span class="sub">草案 v0.1（2026-10-20）· 把资料库扩到采购公告和政策网页，并让它每天自动增量更新、每周告诉人有什么变化</span></h2>
+<h2 id="tachibana">0.2 TACHIBANA 计划<span class="sub">历史草案 v0.1（2026-10-20；当前范围与进度以上方版本与里程碑为准，数据来自 plan/milestones.json）· 把资料库扩到采购公告和政策网页，并让它每天自动增量更新、每周告诉人有什么变化</span></h2>
 <h3>完成标准</h3>
 <ul>
   <li><b>KKJ 采购公告入库</b>：按日期增量采集；附件 PDF 按页切块、能引用到页码；担当者个人信息入库前脱敏</li>
@@ -361,8 +361,9 @@
   function link(text, href) { var a = el("a", null, text); a.href = href; return a; }
   function badge(cls, text) { return el("span", "badge" + (cls ? " " + cls : ""), text); }
   function render(d) {
-    var vs = document.getElementById("versions");
-    vs.textContent = "";
+    // 先校验、在临时节点里渲染完，再替换；数据不全时抛错，静态回退内容保持原样
+    if (!d || !Array.isArray(d.versions) || !Array.isArray(d.milestones)) throw new Error("bad milestones.json");
+    var vs = document.createDocumentFragment();
     d.versions.forEach(function (v) {
       var c = el("div", "vcard " + (CARD[v.version] || "future"));
       c.appendChild(el("div", "ver", v.version));
@@ -375,8 +376,7 @@
       c.appendChild(p);
       vs.appendChild(c);
     });
-    var ms = document.getElementById("milestones");
-    ms.textContent = "";
+    var ms = document.createDocumentFragment();
     d.versions.forEach(function (v) {
       var items = d.milestones.filter(function (m) { return m.version === v.version; });
       if (!items.length) return;
@@ -403,6 +403,8 @@
       });
       ms.appendChild(tl);
     });
+    document.getElementById("versions").replaceChildren(vs);
+    document.getElementById("milestones").replaceChildren(ms);
     document.getElementById("ms-updated").textContent = "版本与里程碑更新于 " + d.updated + "（来自 plan/milestones.json；只有 PR 合并进 main 才记为完成）";
     // 渲染改变了页面高度，带锚点打开时重新定位
     var target = location.hash && document.getElementById(location.hash.slice(1));
