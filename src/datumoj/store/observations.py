@@ -41,7 +41,7 @@ from datumoj.core.contracts import (
     TableSummary,
     TooManyRows,
 )
-from datumoj.core.models import Observation, SourceId, Text
+from datumoj.core.models import Observation, SnapshotOrder, SourceId, Text
 
 SCALE = 10
 """value 列存成 DECIMAL(38, 10)：所有文件同一类型，视图合并时不会被隐式转换截断。"""
@@ -73,6 +73,7 @@ _WORD_TOKENS = (duckdb.token_type.identifier, duckdb.token_type.keyword)
 _source_id = TypeAdapter(SourceId)
 _text = TypeAdapter(Text)
 _monotonic = time.monotonic
+_ORDER_KEY = b"datumoj.snapshot_order"
 
 
 class DuckDBObservationStore:
@@ -96,7 +97,25 @@ class DuckDBObservationStore:
         _text.validate_python(table_key)
         return self._parquet / source_id / f"{sha256(table_key.encode()).hexdigest()[:32]}.parquet"
 
-    def write_table(self, source_id: str, table_key: str, observations: Sequence[Observation]) -> None:
+    def table_order(self, source_id: str, table_key: str) -> SnapshotOrder | None:
+        path = self.path_for(source_id, table_key)
+        try:
+            metadata = pq.read_metadata(path).metadata or {}
+        except FileNotFoundError:
+            return None
+        value = metadata.get(_ORDER_KEY)
+        return SnapshotOrder.model_validate_json(value) if value is not None else None
+
+    def write_table(
+        self, source_id: str, table_key: str, observations: Sequence[Observation], order: SnapshotOrder | None = None,
+    ) -> bool:
+        # 同一实例上的比较与替换串行；跨进程写入沿用管线的 local_write 边界。
+        with self._describe_lock:
+            return self._write_table(source_id, table_key, observations, order)
+
+    def _write_table(
+        self, source_id: str, table_key: str, observations: Sequence[Observation], order: SnapshotOrder | None,
+    ) -> bool:
         path = self.path_for(source_id, table_key)
         ids: set[str] = set()
         for o in observations:
@@ -107,11 +126,17 @@ class DuckDBObservationStore:
             ids.add(o.obs_id)
             if o.value is not None and not _fits(o.value):
                 raise ValueError(f"观测值 {o.obs_id} 的 value={o.value} 超出 DECIMAL(38, {SCALE})，无法无损保存")
-        if not observations:
+        if order is not None:
+            current = self.table_order(source_id, table_key)
+            if current is not None and order < current:
+                return False
+        if not observations and order is None:
             path.unlink(missing_ok=True)
             self._invalidate_describe()
-            return
+            return True
         table = pa.Table.from_pylist([_row(o) for o in observations], schema=_SCHEMA)
+        if order is not None:
+            table = table.replace_schema_metadata({_ORDER_KEY: order.model_dump_json().encode()})
         path.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".", suffix=".tmp")
         os.close(fd)
@@ -122,6 +147,7 @@ class DuckDBObservationStore:
         except BaseException:
             Path(tmp).unlink(missing_ok=True)
             raise
+        return True
 
     # ---------- 读 ----------
 

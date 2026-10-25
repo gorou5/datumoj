@@ -915,10 +915,19 @@ class ObservationCatalog(_Model):
 class ObservationStore(Protocol):
     """统计观测值库。实现：DATUMOJ-IVY-303（DuckDB + Parquet）。"""
 
-    def write_table(self, source_id: str, table_key: str, observations: Sequence[Observation]) -> None:
+    def write_table(
+        self, source_id: str, table_key: str, observations: Sequence[Observation], order: SnapshotOrder | None = None,
+    ) -> bool:
         """整体替换 (source_id, table_key) 这张表；空列表 = 删掉这张表。
         观测值的 source_id / table_key 必须和参数一致、obs_id 不重复，否则 ValueError。
+        order 早于表水位时返回 False；相等、更新或尚无水位时替换并返回 True。
+        数据和水位原子生效；有序删表保留水位，防止旧数据复活。
+        不传 order 时无条件替换并清除水位，兼容旧调用方。
         """
+        ...
+
+    def table_order(self, source_id: str, table_key: str) -> SnapshotOrder | None:
+        """读取持久化的表级水位；表不存在或升级前未记录水位时返回 None。"""
         ...
 
     def query_readonly(self, sql: str, max_rows: int = 1000, timeout_s: float = 10) -> QueryResult:

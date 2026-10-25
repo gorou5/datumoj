@@ -1431,6 +1431,54 @@ class ObservationStoreSuite:
         r = filled.query_readonly("SELECT table_key, count(*) AS n FROM observations GROUP BY table_key ORDER BY table_key")
         assert r.rows == [("t1", 3), ("t2", 1)]
 
+    def test_table_order_allows_equal_and_newer_but_rejects_older(self, store):
+        older = SnapshotOrder(fetched_at=T0, seq=99)
+        newer = SnapshotOrder(fetched_at=T0 + H, seq=1)
+        tie = SnapshotOrder(fetched_at=T0 + H, seq=2)
+        assert store.table_order("jp-stat", "t1") is None
+        assert store.write_table("jp-stat", "t1", _obs_table(), order=newer) is True
+        assert store.write_table("jp-stat", "t1", [make_observation("old", "1")], order=older) is False
+        assert store.query_readonly("SELECT count(*) FROM observations").rows == [(3,)]
+        assert store.table_order("jp-stat", "t1") == newer
+        assert store.write_table("jp-stat", "t1", [make_observation("equal", "2")], order=newer) is True
+        assert store.query_readonly("SELECT obs_id FROM observations").rows == [("equal",)]
+        assert store.write_table("jp-stat", "t1", [make_observation("tie", "3")], order=tie) is True
+        assert store.table_order("jp-stat", "t1") == tie
+
+    def test_ordered_delete_keeps_watermark_and_blocks_resurrection(self, store):
+        older = SnapshotOrder(fetched_at=T0, seq=1)
+        newer = SnapshotOrder(fetched_at=T0, seq=2)
+        assert store.write_table("jp-stat", "t1", _obs_table(), order=newer)
+        assert not store.write_table("jp-stat", "t1", [], order=older)
+        assert store.query_readonly("SELECT count(*) FROM observations").rows == [(3,)]
+        assert store.write_table("jp-stat", "t1", [], order=newer)
+        assert store.table_order("jp-stat", "t1") == newer
+        assert store.describe().tables == []
+        assert not store.write_table("jp-stat", "t1", _obs_table(), order=older)
+        assert store.query_readonly("SELECT obs_id FROM observations").rows == []
+        assert store.write_table("jp-stat", "t1", _obs_table(), order=newer)
+
+    def test_legacy_writes_are_unconditional_and_clear_order(self, store):
+        assert store.write_table("jp-stat", "t1", _obs_table()) is True
+        assert store.table_order("jp-stat", "t1") is None
+        order = SnapshotOrder(fetched_at=T0, seq=1)
+        assert store.write_table("jp-stat", "t1", _obs_table(), order=order)
+        assert store.write_table("jp-stat", "t1", [make_observation("legacy", "1")]) is True
+        assert store.table_order("jp-stat", "t1") is None
+        assert store.write_table("jp-stat", "t1", [], order=order)
+        assert store.write_table("jp-stat", "t1", []) is True
+        assert store.table_order("jp-stat", "t1") is None
+
+    @pytest.mark.parametrize("source_id,table_key", [("jp-stat", "t2"), ("jp-other", "t1")])
+    def test_orders_are_isolated_by_source_and_table(self, store, source_id, table_key):
+        newer = SnapshotOrder(fetched_at=T0 + H, seq=2)
+        older = SnapshotOrder(fetched_at=T0, seq=1)
+        store.write_table("jp-stat", "t1", _obs_table(), order=newer)
+        obs = make_observation("other", "1", source_id=source_id, dataset_key=f"{source_id}:ds", table_key=table_key)
+        assert store.write_table(source_id, table_key, [obs], order=older)
+        assert store.table_order(source_id, table_key) == older
+        assert store.table_order("jp-stat", "t1") == newer
+
     def test_write_validation(self, store):
         with pytest.raises(ValueError):
             store.write_table("jp-stat", "t2", _obs_table())  # table_key 不符

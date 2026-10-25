@@ -933,8 +933,14 @@ class FakeObservationStore:
 
     def __init__(self) -> None:
         self._tables: dict[tuple[str, str], list[Observation]] = {}
+        self._orders: dict[tuple[str, str], SnapshotOrder] = {}
 
-    def write_table(self, source_id: str, table_key: str, observations: Sequence[Observation]) -> None:
+    def table_order(self, source_id: str, table_key: str) -> SnapshotOrder | None:
+        return self._orders.get((source_id, table_key))
+
+    def write_table(
+        self, source_id: str, table_key: str, observations: Sequence[Observation], order: SnapshotOrder | None = None,
+    ) -> bool:
         ids: set[str] = set()
         for o in observations:
             if o.source_id != source_id or o.table_key != table_key:
@@ -942,10 +948,19 @@ class FakeObservationStore:
             if o.obs_id in ids:
                 raise ValueError(f"obs_id 重复：{o.obs_id}")
             ids.add(o.obs_id)
+        key = (source_id, table_key)
+        current = self.table_order(source_id, table_key)
+        if order is not None and current is not None and order < current:
+            return False
         if observations:
-            self._tables[(source_id, table_key)] = list(observations)
+            self._tables[key] = list(observations)
         else:
-            self._tables.pop((source_id, table_key), None)
+            self._tables.pop(key, None)
+        if order is None:
+            self._orders.pop(key, None)
+        else:
+            self._orders[key] = order
+        return True
 
     def _all(self) -> list[Observation]:
         return [o for key in sorted(self._tables) for o in self._tables[key]]

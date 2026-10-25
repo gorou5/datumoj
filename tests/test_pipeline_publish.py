@@ -144,6 +144,11 @@ def test_faults_and_next_run_recovery(deps, monkeypatch, point):
             assert deps.manifest.publish_state("new") is PublishState.published
             assert_current(deps, new, "modern", "ancient")
 
+    # 方案 A 允许发布失败后，解析成功的新观测值仍然可查。
+    expected_obs = old if point == "observations" else new
+    assert deps.observations.table_order("jp-test", "t1") == deps.manifest.snapshot_order(expected_obs.snapshot_id)
+    assert deps.observations.query_readonly("SELECT obs_id FROM observations").rows == [(expected_obs.snapshot_id,)]
+
     # 用新 deps 实例确认恢复只依靠 manifest 与持久化的 vector missing。
     restarted = replace(deps, vector_state={"missing": {}, "last_error": None})
     summary = parse_pending(restarted)

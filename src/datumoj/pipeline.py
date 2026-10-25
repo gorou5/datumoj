@@ -408,7 +408,7 @@ def _dispatch(deps: PipelineDeps, result: ParseResult, snap: Snapshot) -> dict[s
     for o in result.observations:
         tables[(o.source_id, o.table_key)].append(o)
     for (src, table), obs in tables.items():
-        deps.observations.write_table(src, table, obs)
+        _write_observation_table(deps, src, table, obs, snap)
     by_doc = defaultdict(list)
     for c in result.chunks:
         by_doc[c.doc_key].append(c)
@@ -434,6 +434,54 @@ def _dispatch(deps: PipelineDeps, result: ParseResult, snap: Snapshot) -> dict[s
             except Exception:
                 _LOG.warning("文档变化检测失败：%s", doc.doc_key, exc_info=True)
     return events
+
+
+def _write_observation_table(
+    deps: PipelineDeps, source_id: str, table_key: str, observations: list[Observation], snap: Snapshot,
+) -> None:
+    order = deps.manifest.snapshot_order(snap.snapshot_id)
+    if order is None:
+        raise ValueError(f"没有快照顺序：{snap.snapshot_id}")
+    if deps.observations.table_order(source_id, table_key) is None:
+        # 只通过查询契约读升级前的行，不依赖 Parquet 实现或另建迁移文件。
+        source = source_id.replace("'", "''")
+        key = table_key.replace("'", "''")
+        where = f"source_id = '{source}' AND table_key = '{key}'"
+        current: list[Observation] = []
+        lookup_failed = False
+        try:
+            count = deps.observations.query_readonly(f"SELECT count(*) FROM observations WHERE {where}").rows[0][0]
+            if count:
+                current = deps.observations.query_readonly(
+                    f"SELECT source_id, table_key, obs_id FROM observations WHERE {where}", max_rows=count,
+                ).provenance
+                lookup_failed = len(current) != count
+        except Exception:
+            lookup_failed = True
+            _LOG.warning("读取旧观测值表失败；按 manifest 顺序保护写入：%s/%s", source_id, table_key, exc_info=True)
+        if current or lookup_failed:
+            current_orders = []
+            for sha in {o.snapshot_sha256 for o in current}:
+                for candidate in deps.manifest.snapshots_by_sha256(sha):
+                    if candidate.source_id != source_id:
+                        continue
+                    candidate_order = deps.manifest.snapshot_order(candidate.snapshot_id)
+                    if candidate_order is not None:
+                        current_orders.append(candidate_order)
+            if current_orders and not lookup_failed:
+                # 先为原表补水位；旧重试被挡下时也要持久化迁移结果。
+                deps.observations.write_table(source_id, table_key, current, order=max(current_orders))
+            else:
+                known_orders = [order]
+                for candidate in deps.manifest.snapshots_for(snap.source_id):
+                    if candidate.resource_url == snap.resource_url:
+                        candidate_order = deps.manifest.snapshot_order(candidate.snapshot_id)
+                        if candidate_order is not None:
+                            known_orders.append(candidate_order)
+                if order < max(known_orders):
+                    _LOG.warning("观测值表快照缺少 manifest 记录，为避免回退跳过写入：%s/%s", source_id, table_key)
+                    return
+    deps.observations.write_table(source_id, table_key, observations, order=order)
 
 
 def _publish_document(
