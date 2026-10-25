@@ -27,3 +27,11 @@ Datumoj 全部对外产出的导航汇总（给人看的页面都从这里进）
 
 - `inbox/`：协作者把近况文件放这里（格式不限，md/html 优先，协议见 inbox/README.md）。
 - 每日任务处理后把文件移入 `inbox/archive/` 归档，并在动态中注明来源。
+
+## 面包屑（边缘注入）
+
+- 子页面均为成品文件（离线页/演示页），不逐个改文件；面包屑由
+  `crumbs-worker/` 的 Worker 用 HTMLRewriter 在 Cloudflare 边缘注入
+  （路由 /nas*、/report*、/intl-sources*），关掉 Worker 即消失。
+- NAS 页无 <head>/<body> 标签（合法 HTML5），锚点用 <html> prepend；
+  其余页面用 head 追加样式 + body 前置导航。
