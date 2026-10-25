@@ -12,5 +12,5 @@ Datumoj 全部对外产出的导航汇总（给人看的页面都从这里进）
 生产部署须带 `--branch main`；自定义域名 navi.datumoj.com。
 
 注意：`/report/` 与 `/nas/` 是离线版页面，引用各自目录下的
-`assets/`（fonts.css、scene.js、three.js）——2026-10-25 上传时未随附，
-补齐 assets/ 后交互场景即完整。
+`assets/`（fonts.css、scene.js、fonts/）——2026-10-25 已随 zip 补齐，
+交互场景完整。
