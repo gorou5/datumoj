@@ -141,6 +141,16 @@ def _state_call(action: Callable[[], Any]) -> None:
         raise typer.Exit(1) from None
 
 
+@cloud_app.command("check")
+def cloud_check() -> None:
+    """实际验证 S3 条件写入；不取得租约或发布代次。"""
+    from datumoj.cloud import check
+
+    result = check()
+    typer.echo(_json(result))
+    raise typer.Exit(result["exit_status"])
+
+
 @cloud_app.command("run")
 def cloud_run(
     work_dir: Path | None = typer.Option(None, "--work-dir", help="空的工作目录；默认使用临时目录"),

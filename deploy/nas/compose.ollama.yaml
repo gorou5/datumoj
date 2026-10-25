@@ -1,0 +1,7 @@
+# Add this file and --profile ollama only when running NAS embeddings.
+services:
+  datumoj:
+    network_mode: "service:ollama"
+    depends_on:
+      - ollama
+    command: ["cloud", "run"]

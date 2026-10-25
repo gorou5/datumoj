@@ -123,6 +123,37 @@ def released(world):
     assert remote(world).get("write-lease.json") is None
 
 
+def test_cloud_check_only_probes_and_does_not_acquire_lease(world):
+    response = CliRunner().invoke(cli.app, ["cloud", "check"])
+    result = json.loads(response.output)
+    assert response.exit_code == 0
+    assert result["storage_probe"] == {"supported": True, "check": "complete"}
+    assert not world.tokens and not world.components
+    assert remote(world).list() == []
+
+
+def test_failed_probe_stops_before_lease_or_state_write(world, monkeypatch):
+    from datumoj.core.state_s3 import S3StateObjectStore
+
+    original = S3StateObjectStore.put_if_match
+
+    def ignores_match(self, key, data, etag):
+        return self._put(key, data)
+
+    monkeypatch.setattr(S3StateObjectStore, "put_if_match", ignores_match)
+    result, root = invoke(world)
+    assert result["exit_status"] == 1
+    assert result["reason"] == "storage_conditional_unsupported"
+    assert result["phase"] == "storage_probe"
+    assert result["storage_probe"]["check"] == "put_if_match_wrong_etag"
+    assert not world.tokens and not world.components and not root.exists()
+    assert remote(world).list() == []
+    # Demonstrate the same configuration can run after fixing storage semantics.
+    monkeypatch.setattr(S3StateObjectStore, "put_if_match", original)
+    result, _ = invoke(world)
+    assert result["status"] == "completed"
+
+
 def rows(root):
     return [json.loads(line) for line in (root / "runs.jsonl").read_text().splitlines()]
 

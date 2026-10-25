@@ -23,6 +23,7 @@ from datumoj.core.monitor import _ledger_first_attempts, evaluate_cloud_alerts
 from datumoj.core.models import PublishState
 from datumoj.core.schedule import Scheduler, utcnow, workspace_lock, write_control
 from datumoj.core.state import StateManager, local_write
+from datumoj.core.state_s3 import probe_conditional_writes
 from datumoj.index.vector import maintain_vectors
 from datumoj.pipeline import ParseSummary, _recover_staged
 
@@ -143,6 +144,21 @@ def publish_previous_week_report(store, deps, now: datetime, generation=None) ->
     return object_key
 
 
+def check() -> dict:
+    """Check storage without opening local data stores or acquiring a lease."""
+    with _quiet(), tempfile.TemporaryDirectory(prefix="datumoj-check-") as directory:
+        try:
+            manager = wiring.build_state(Path(directory))
+        except Exception:
+            return {"status": "failed", "exit_status": 1,
+                    "reason": "configuration_failed", "phase": "configuration"}
+        probe = probe_conditional_writes(manager.store)
+        return {"status": "completed" if probe["supported"] else "failed",
+                "exit_status": 0 if probe["supported"] else 1,
+                "reason": None if probe["supported"] else "storage_conditional_unsupported",
+                "phase": "storage_probe", "storage_probe": probe}
+
+
 def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: float = 40) -> dict:
     result = {"status": "failed", "exit_status": 1, "generation": None,
               "sources": [], "due": 0, "new": 0, "unchanged": 0, "parsed": 0,
@@ -163,6 +179,11 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
                 phase = "work_directory"
                 raise ValueError("workspace_not_empty")
             manager = wiring.build_state(root)
+            phase = "storage_probe"
+            probe = probe_conditional_writes(manager.store)
+            if not probe["supported"]:
+                result.update(reason="storage_conditional_unsupported", phase=phase, storage_probe=probe)
+                return result
             leases = LeaseManager(manager.store)
             phase = "lease_acquire"
             try:
