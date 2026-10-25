@@ -6,8 +6,11 @@
 import json
 import re
 from collections import Counter, defaultdict
+from pathlib import Path
 
-DATA = json.load(open('datasets.json'))
+# 按脚本所在目录找数据，从仓库根目录运行也能复跑。
+with open(Path(__file__).with_name('datasets.json'), encoding='utf-8') as f:
+    DATA = json.load(f)
 print(f'TOTAL: {len(DATA)}')
 
 # ---------- basics ----------
