@@ -1,5 +1,5 @@
 // HTML rendering for tel.datumoj.com. No inline client JS; search is a plain GET form.
-import { formatNumber, splitNumber, anatomySegments, neighbors } from './number.js';
+import { formatNumber, splitNumber, anatomySegments } from './number.js';
 
 export function esc(s) {
   return String(s ?? '')
@@ -45,7 +45,7 @@ th{width:11rem;color:#555;font-weight:600}
 .searchbox button{font-size:1.05rem;padding:.6rem 1.1rem;border-radius:8px;border:1px solid #0b57d0;background:#0b57d0;color:#fff;cursor:pointer}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.4rem .8rem}
 .hero-kicker{color:#71808d;font-size:.95rem;margin:0 0 .5rem}
-.hero-num{display:flex;align-items:stretch;justify-content:center;gap:.35rem}
+.hero-num{display:flex;align-items:stretch;justify-content:center;gap:.35rem;flex-wrap:wrap}
 .segbtn{border:2px solid transparent;border-radius:14px;padding:.5rem .9rem .35rem;cursor:pointer;font:inherit;background:#eef1f4;text-align:center}
 .segbtn .segdigits{display:block;font-size:clamp(1.9rem,8.5vw,3.6rem);font-weight:700;letter-spacing:.04em;line-height:1.15;color:#33424f}
 .segbtn .segcap{display:block;font-size:.72rem;color:#71808d;margin-top:.15rem}
@@ -69,6 +69,13 @@ th{width:11rem;color:#555;font-weight:600}
 .bigsearch input{flex:1;font-size:1.15rem;padding:.85rem 1.3rem;border:1px solid #cfc9ba;border-radius:999px;box-shadow:0 2px 12px rgba(70,60,30,.10);background:#fff;color:#1a1a1a}
 .bigsearch button{font-size:1.05rem;padding:.85rem 1.6rem;border-radius:999px;border:1px solid #5b84a6;background:#5b84a6;color:#fff;cursor:pointer}
 .home-links{margin-top:16px;font-size:.88rem;color:#8a94a0}
+@media (max-width:560px){
+.segbtn{padding:.38rem .5rem .28rem;border-radius:10px}
+.segbtn .segdigits{font-size:clamp(1.2rem,5.8vw,1.6rem);letter-spacing:0}
+.segbtn .segcap{font-size:.62rem}
+.hero-hyphen{font-size:1rem}
+.hero-num{gap:.2rem}
+}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 footer{border-top:1px solid #ddd;margin-top:2rem;padding:1rem;font-size:.85rem;color:#777}
 ul.tight{margin:.3rem 0;padding-left:1.2rem}
@@ -421,13 +428,6 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
     sections += `<div class="card"><h2>利用者からの報告</h2><p>この番号について ${f.reportCount} 件の報告が寄せられています。</p><ul class="tight">${items}</ul>
 <p class="meta">報告は利用者の投稿を審査のうえ集計したもので、事実認定ではありません。</p></div>`;
   }
-  // Neighbors (SEO watch: internal-link density around target numbers)
-  const nb = neighbors(f.digits, 5);
-  const nbLinks = [...nb.prev.reverse(), ...nb.next]
-    .map((n) => `<a href="/${n}">${esc(formatNumber(n, f))}</a>`)
-    .join(' ／ ');
-  sections += `<div class="card"><h2>近い番号</h2><p>${nbLinks}</p></div>`;
-
   // FAQ: visible Q&A generated from this number's facts, mirrored into
   // FAQPage structured data below (the two must stay in sync).
   const who = f.block.carrierName
@@ -752,4 +752,15 @@ export function notFoundPage(query) {
 ${searchForm(query || '')}
 <p class="meta">入力形式：市外局番から始まる国内番号（例：03-XXXX-XXXX、090-XXXX-XXXX）。国際番号（+81…）も入力できます。</p>`;
   return layout({ title: '見つかりませんでした｜tel.datumoj.com', robots: 'noindex', body });
+}
+
+export function unavailablePage() {
+  return layout({
+    title: '一時的に利用できません｜tel.datumoj.com',
+    robots: 'noindex',
+    body: `<h1>一時的に利用できません</h1>
+<p>現在、データベースへのアクセスが集中しているため、このページを表示できません。しばらくしてから再度お試しください。</p>
+<p class="meta">電話番号データベース tel.datumoj.com は総務省の指定データをもとに構成されています。時間をおいてアクセスすると表示できます。</p>
+<p><a href="/">トップページへ</a></p>`,
+  });
 }

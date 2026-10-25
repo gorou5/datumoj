@@ -7,10 +7,10 @@ import { bumpView, listComments, addComment, commentProblem, COMMENT_MESSAGES, h
 import {
   composeNumber, analyzeFallback, listPrefectures, listAreaCodes, getAreaHub,
   listLineTypes, getLineTypeHub, listTpSources, allAreaCodes,
-  listGovAgencies, listGovNumbers, govNumbersByAgency,
+  listGovAgencies, listGovNumbers, govNumbersByAgency, findAreaCode,
 } from './lib/compose.js';
 import {
-  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES,
+  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES, unavailablePage,
 } from './lib/render.js';
 
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
@@ -27,16 +27,15 @@ function html(body, status = 200, cache = CACHE_HUB) {
 // homepage hero never dead-ends on placeholders.
 async function drawRandomHero(db) {
   try {
-    const types = ['fixed', 'mobile', 'ip050', 'free0120', 'free0800', 'navi0570', 'm2m020'];
+    // Draw from the small hero_candidate sample table (migration 0006):
+    // ORDER BY RANDOM() over ~30k designated blocks scanned the whole table
+    // on every homepage render.
     for (let attempt = 0; attempt < 6; attempt++) {
-      const lt = types[Math.floor(Math.random() * types.length)];
       const brow = await db
-        .prepare(
-          "SELECT prefix FROM number_block_allocation WHERE line_type = ? AND carrier_id IS NOT NULL AND status = 'designated' AND length(prefix) >= 6 ORDER BY RANDOM() LIMIT 1"
-        )
-        .bind(lt)
+        .prepare('SELECT prefix, line_type FROM hero_candidate ORDER BY RANDOM() LIMIT 1')
         .first();
       if (!brow) continue;
+      const lt = brow.line_type;
       const ltRow = await db.prepare('SELECT digits FROM line_type WHERE code = ?').bind(lt).first();
       let digits = brow.prefix;
       while (digits.length < ltRow.digits) digits += Math.floor(Math.random() * 10);
@@ -84,13 +83,7 @@ async function getPopularNumbers(db, limit = 6) {
       const lineType = lineTypeOf(x.number);
       let areaCode = null;
       if (lineType === 'fixed') {
-        const ac = await db
-          .prepare(
-            "SELECT area_code FROM area_code WHERE ? LIKE area_code || '%' ORDER BY length(area_code) DESC LIMIT 1"
-          )
-          .bind(x.number)
-          .first();
-        areaCode = ac ? ac.area_code : null;
+        areaCode = await findAreaCode(db, x.number);
       }
       out.push({
         digits: x.number,
@@ -272,7 +265,13 @@ export default {
       }
       return html(notFoundPage(path), 404);
     } catch (e) {
-      return new Response('Internal error', { status: 500 });
+      // D1 unavailable (e.g. daily free-tier quota) or a compose failure:
+      // serve an honest, styled 503 instead of a bare "Internal error", and
+      // keep crawlers from caching it.
+      return new Response(unavailablePage(), {
+        status: 503,
+        headers: { ...HTML, 'cache-control': 'no-store', 'retry-after': '3600' },
+      });
     }
   },
 };
