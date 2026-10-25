@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DATUMOJ 计划总览</title>
+<style>
+  :root{
+    --ink:#1c1f23; --muted:#5c6470; --line:#e3e1da; --bg:#faf9f6; --card:#fff;
+    --ivy:#3d7a44; --tach:#cf7226; --future:#8a919c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    line-height:1.65;font-size:15px}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px 80px}
+  header{padding:56px 0 28px;border-bottom:2px solid var(--ink)}
+  h1{font-size:34px;margin:0 0 8px;letter-spacing:.02em}
+  .tagline{font-size:17px;color:var(--ink);margin:0 0 10px}
+  .meta{color:var(--muted);font-size:13px}
+  nav{position:sticky;top:0;background:var(--bg);padding:12px 0;border-bottom:1px solid var(--line);z-index:5}
+  nav a{color:var(--muted);text-decoration:none;margin-right:18px;font-size:14px}
+  nav a:hover{color:var(--ink)}
+  h2{font-size:23px;margin:52px 0 6px;padding-top:10px;scroll-margin-top:64px}
+  @media (max-width:600px){h2{scroll-margin-top:120px}}
+  h2 .sub{display:block;font-size:13px;color:var(--muted);font-weight:400;margin-top:2px}
+  h3{font-size:17px;margin:26px 0 8px}
+  p{margin:8px 0}
+  .muted{color:var(--muted)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:18px 0}
+  .vcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px}
+  .vcard .ver{font-size:13px;color:var(--muted)}
+  .vcard .name{font-size:21px;font-weight:700;margin:2px 0}
+  .vcard.ivy{border-top:4px solid var(--ivy)} .vcard.tach{border-top:4px solid var(--tach)} .vcard.future{border-top:4px solid var(--future)}
+  .badge{display:inline-block;font-size:12px;padding:1px 9px;border-radius:20px;border:1px solid var(--line);color:var(--muted)}
+  .badge.done{background:var(--ivy);border-color:var(--ivy);color:#fff}
+  .badge.doing{background:var(--tach);border-color:var(--tach);color:#fff}
+  table{border-collapse:collapse;width:100%;margin:10px 0 18px;background:var(--card)}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top;font-size:14px}
+  th{background:#f2f0ea;font-weight:600}
+  table.tasks td.tid{white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--muted);width:86px}
+  table.tasks td.done{white-space:nowrap;color:var(--ivy);width:110px;font-size:13px}
+  .line-title{margin:24px 0 4px}
+  .line-desc{font-size:13px;color:var(--muted);font-weight:400;margin-left:10px}
+  .timeline{margin:16px 0;border-left:2px solid var(--line);padding-left:22px}
+  .tl-item{position:relative;margin:0 0 18px}
+  .tl-item:before{content:"";position:absolute;left:-29px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--ivy)}
+  .tl-item .t{font-weight:700}
+  .tl-item .d{color:var(--muted);font-size:14px}
+  pre.arch{background:#20242a;color:#d7dce2;border-radius:10px;padding:18px;overflow-x:auto;font-size:12.5px;line-height:1.55}
+  ul{margin:6px 0 12px;padding-left:22px} li{margin:3px 0}
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .box h3{margin-top:0}
+  footer{margin-top:64px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+  a{color:var(--ivy)}
+  .num{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>DATUMOJ 计划总览</h1>
+  <p class="tagline">把日本政府（其次是欧美）的公开数据先抓下来、存成带出处的本地资料库，再让 AI 在这个资料库上做检索、问答和分析。每个结论都要能追溯到某一次抓取的原始文件。</p>
+  <p class="meta">内容来源：<a href="https://github.com/gorou5/datumoj">gorou5/datumoj</a> 仓库 docs/（总计划 PLAN.md 第 3 版 · 2026-10-20、任务拆分 TASKS.md、0.2 计划）｜本页生成于 2026-10-22</p>
+</header>
+<nav>
+  <a href="#roadmap">版本路线图</a><a href="#master">总计划</a><a href="#ivy">IVY 任务</a><a href="#tachibana">TACHIBANA</a><a href="#quality">质量与风险</a>
+</nav>
+<div style="background:#fff;border:1px solid #e3e1da;border-left:4px solid #3d7a44;border-radius:10px;padding:14px 18px;margin:18px 0"><b>附：数据源目录</b> —— orbisdata.org 收录的 471 个官方数据资源地址，已按 50 个预设数据分析场景组织，支持关键字逐步筛选：<a href="orbis/">orbisdata 资源目录 · 按数据场景分类 →</a></div>
+<div style="background:#fff;border:1px solid #e3e1da;border-left:4px solid #cf7226;border-radius:10px;padding:14px 18px;margin:18px 0"><b>新：100 个多源数据融合分析案例</b> —— 每个案例至少引用 3 个官方数据源，把统计、贸易、遥感、金融等数据拼起来做知识发现，专为 aha moment 而写：<a href="cases/">100 个多源数据融合分析案例 →</a></div>
+<div style="background:#fff;border:1px solid #e3e1da;border-left:4px solid #b3382e;border-radius:10px;padding:14px 18px;margin:18px 0"><b>新：30 个单源数据失真验证案例</b> —— 假设一个国家的某项数据可能作假，再用 3 个以上独立数据源交叉打假（镜像法／实物量锚点／卫星复核／统计指纹）；13 例有公开实证记录，17 例是假设设计：<a href="verify/">30 个单源数据失真验证案例 →</a></div>
+<div style="background:#fff;border:1px solid #e3e1da;border-left:4px solid #3d7a44;border-radius:10px;padding:14px 18px;margin:18px 0"><b>新：Hugging Face「government」数据集全量调查</b> —— 把 HF 上 389 个 government 关键词数据集全部盘点一遍：谁在做、都是什么、热度在哪，以及有没有人已经做过 datumoj 想做的事（结论：注册表与垂直登记库两个方向都是空白）：<a href="hf-gov/">389 个数据集全量调查报告 →</a></div>
+
+
+<h2 id="roadmap">版本路线图<span class="sub">每个版本取一个家纹作代号；任务编号 DATUMOJ-&lt;代号&gt;-&lt;序号&gt;，号段按开发线分</span></h2>
+<div class="cards">
+  <div class="vcard ivy">
+    <div class="ver">0.1 · 当前已完成</div>
+    <div class="name">IVY（蔦）</div>
+    <p>契约 → 法令链路 → 目录与统计 → AI 分析入口（第一阶段）。48 个任务全部执行并留有结果记录，里程碑 M1 / M2 / M3 与版本 tag 均已发布。</p>
+    <p><span class="badge done">✓ 已完成</span> <span class="badge">tag: v0.1.0-ivy</span></p>
+  </div>
+  <div class="vcard tach">
+    <div class="ver">0.2 · 下一版本</div>
+    <div class="name">TACHIBANA（橘）</div>
+    <p>日本扩面与持续运营：KKJ 采购公告与 PDF、省厅和自治体政策网页、BODIK、定时增量、抓取监控、每周变化报告。计划已定稿（草案 v0.1），任务待 IVY 契约二与执行器接口稳定后拆分。</p>
+    <p><span class="badge doing">计划阶段</span> <span class="badge">计划: docs/plans/0.2-tachibana.md</span></p>
+  </div>
+  <div class="vcard future">
+    <div class="ver">0.3 · 远景</div>
+    <div class="name">待定（候选：楓 Maple）</div>
+    <p>欧美扩面：data.europa.eu、Eurostat、英德法荷门户、Federal Register 等。IVY、TACHIBANA 完成后再细拆。</p>
+    <p><span class="badge">方向已定</span></p>
+  </div>
+</div>
+
+<h3>IVY 里程碑（检查点）</h3>
+<div class="timeline">
+  <div class="tl-item"><span class="t">M0 契约与地基</span> <span class="badge">集成任务 IVY-105</span><div class="d">契约审查通过；make test 全部通过；用回放样本完整走一遍“计划→抓取→存 raw→写 manifest”，失败和超上限都有记录。</div></div>
+  <div class="tl-item"><span class="t">M1 法令链路</span> <span class="badge done">✓ tag v0.1.0-ivy-m1</span><div class="d">真实抓取 200 部法令，重复抓取不重复下载；datumoj search 能返回条文和出处；法令题 Recall@10 ≥ 0.85。验收记录：docs/acceptance/v0.1.0-ivy-m1.md</div></div>
+  <div class="tl-item"><span class="t">M2 目录与统计</span> <span class="badge done">✓ tag v0.1.0-ivy-m2</span><div class="d">能搜到 e-Gov 目录的数据集；datumoj sql 查都道府县人口并附出处；JMA 开始每小时轮询。</div></div>
+  <div class="tl-item"><span class="t">M3 AI 分析入口</span> <span class="badge done">✓ tag v0.1.0-ivy-m3</span><div class="d">在 Claude 里通过 MCP 提问，得到带出处的回答；评测 60 题全部达标。</div></div>
+  <div class="tl-item"><span class="t">IVY 完成</span> <span class="badge done">✓ tag v0.1.0-ivy</span><div class="d">H6 验收（现场问答 + 人工抽查引用支持率）后发布。验收记录：docs/acceptance/v0.1.0-ivy.md。第一阶段完成。</div></div>
+</div>
+
+<h2 id="master">总计划<span class="sub">docs/PLAN.md 第 3 版：契约先行、7 条开发线并行</span></h2>
+
+<h3>为什么换路线（相对旧项目）</h3>
+<table>
+  <tr><th style="width:38%">旧路线的问题</th><th>新路线怎么解决</th></tr>
+  <tr><td>每次提问实时调用接口，受超时、配额和站点故障影响，两次问结果可能不一样</td><td>抓取和问答分开。问答只读本地快照，结果可复现，并注明数据截止时间</td></tr>
+  <tr><td>只能回答接好的“命名路径”，目录里能找到的资源不等于能读到内容</td><td>目录元数据和资源正文批量抓下并解析入库，能查的范围由入库内容决定</td></tr>
+  <tr><td>意图匹配靠规则，换一种说法就容易配错</td><td>用检索（RAG）先找到相关数据集、条文和公告，再让模型基于检索结果作答</td></tr>
+  <tr><td>很难做跨来源、跨时间的分析</td><td>所有来源进同一个库，统一地区代码、时间和出处，可以一起分析</td></tr>
+</table>
+<p class="muted">保留旧项目验证过的原则：不编数据；“目录查到”“正文已读到”“数值已核对”分开记录；保留原始失败记录、口径、单位和空值；用户指定来源时不能偷偷换来源；来源内容一律当数据处理，不执行其中任何指令。</p>
+
+<h3>最终形态</h3>
+<p>一个可持续更新的本地“政府数据资料库” + AI 分析入口。用户用日语、中文或英语提问，系统能：找到相关数据集、统计表、法令条文、公告和报告；对统计数据用 SQL 做确定性计算（不让模型估数）；对文本资料检索后归纳；回答附出处（来源、URL、抓取时间、快照哈希、定位信息）；定期输出“变化分析”。</p>
+
+<div class="cols">
+  <div class="box"><h3>不做</h3><ul>
+    <li>不做实时查询：问答只读本地库，一律标注数据截止时间</li>
+    <li>不做全站镜像：每个来源有明确的抓取范围白名单</li>
+    <li>不对数值做 RAG：统计数字只能通过 SQL 得到</li>
+    <li>第一阶段不做网页前端、不公开部署、不收费</li>
+    <li>不判断个案的法律问题、补贴资格、诊断或投资收益</li>
+    <li>不采集个人信息：公告里的担当者姓名、电话等入库前脱敏</li>
+    <li>旧项目的 20 国范围先收缩：中俄土印暂不做，欧美放 0.3</li>
+  </ul></div>
+  <div class="box"><h3>抓取守则</h3><ul>
+    <li>每来源单独限速（默认 1 请求/秒），User-Agent 写明项目名与联系方式，遵守 robots.txt</li>
+    <li>用条件请求（ETag / If-Modified-Since）避免重复下载；失败指数退避且记入 manifest</li>
+    <li>每个资源都记录许可，回答时附署名；核对完之前一律 internal_only</li>
+    <li>单个来源设容量上限，超出就停下报告，不无边界抓取</li>
+  </ul></div>
+</div>
+
+<h3>总体架构</h3>
+<div style="background:#fff;border:1px solid #e3e1da;border-radius:10px;padding:10px;margin:12px 0"><img src="assets/architecture.svg" alt="DATUMOJ 总体架构图" style="width:100%;height:auto;display:block"></div>
+<p class="muted">核心数据模型：Source ─&lt; Dataset ─&lt; Resource ─&lt; Snapshot ─&lt; Document ─&lt; Chunk；Snapshot ─&lt; Table ─&lt; Observation。Citation = source_id + resource_url + snapshot_sha256 + fetched_at + locator。派生数据都能从 raw 重新生成，只备份 raw 和 manifest。</p>
+
+<h3>来源范围（第一批，完整清单由 sources/*.yaml 维护）</h3>
+<table>
+  <tr><th>优先级</th><th>ID</th><th>来源</th><th>抓取方式</th><th>轨道</th></tr>
+  <tr><td>P0</td><td>jp-egov-law</td><td>e-Gov 法令 API v2</td><td>全量法令列表 + 每部现行版 XML，增量逐部比对修订</td><td>文档</td></tr>
+  <tr><td>P0</td><td>jp-egov-data</td><td>e-Gov 数据门户（CKAN）</td><td>全量目录元数据，增量用活动接口，资源按白名单下载</td><td>目录 + 两轨</td></tr>
+  <tr><td>P0</td><td>jp-stat-dashboard</td><td>统计 Dashboard API</td><td>指标目录 + 精选指标全地区时间序列</td><td>结构化</td></tr>
+  <tr><td>P1</td><td>jp-estat-files</td><td>e-Stat 统计表文件（CSV / XLSX）</td><td>精选表清单按 statInfId 下载</td><td>结构化</td></tr>
+  <tr><td>P1</td><td>jp-jma</td><td>气象厅 XML（Atom feed）</td><td>轮询长期 feed（每小时，只保留约 7 天）</td><td>文档 + 结构化</td></tr>
+  <tr><td>P1</td><td>jp-kkj</td><td>官公需情报门户 KKJ</td><td>按发注日分日期段采集 + 关联 PDF（→ 0.2 TACHIBANA）</td><td>文档</td></tr>
+  <tr><td>P1</td><td>jp-gov-web</td><td>省厅和自治体政策网页（定向）</td><td>种子 URL 清单，限定深度与域名（→ 0.2）</td><td>文档</td></tr>
+  <tr><td>P1</td><td>jp-bodik</td><td>BODIK ODCS（CKAN）</td><td>复用 CKAN 采集器 + DataStore（→ 0.2）</td><td>目录 + 两轨</td></tr>
+  <tr><td>P2</td><td>jp-estat-api</td><td>e-Stat API v3</td><td>需 appId，先核实可用再排任务</td><td>结构化</td></tr>
+  <tr><td>P2</td><td>jp-ksj / jp-census / jp-mhlw / jp-abr</td><td>国土数值信息、经济普查、医疗开放数据、ABR 地址</td><td>命名文件下载</td><td>结构化</td></tr>
+</table>
+<p class="muted">欧美（0.3）：data.europa.eu、Eurostat SDMX、data.gov.uk、GovData、data.gouv.fr、data.overheid.nl、Federal Register、GovInfo / Data.gov、世界银行 WDI。优先顺序：EU 整体 → 美国 Federal Register → 英德法荷门户 → 需 Key 的来源。</p>
+
+<h3>七条开发线（+ 契约）</h3>
+<table>
+  <tr><th>线</th><th>内容</th><th>拥有的目录</th></tr>
+  <tr><td>契约</td><td>数据模型、接口协议、假实现、日文文本工具</td><td>core/models.py、core/contracts.py、testing/、text/</td></tr>
+  <tr><td>A 抓取基础</td><td>raw 存储、manifest、HTTP、注册表、执行器</td><td>core/ 其余文件</td></tr>
+  <tr><td>B 文档线</td><td>法令、JMA（0.2 起加 KKJ、PDF、网页）</td><td>crawlers/、parsers/ 对应文件</td></tr>
+  <tr><td>C 统计线</td><td>表格、地区码、观测值库、Dashboard、e-Stat</td><td>tabular/、reference/、store/observations.py</td></tr>
+  <tr><td>D 目录线</td><td>CKAN、目录存储与检索</td><td>crawlers/ckan.py、store/catalog.py</td></tr>
+  <tr><td>E 检索线</td><td>FTS、向量、混合检索、缺口状态</td><td>index/、store/chunks.py</td></tr>
+  <tr><td>F 入口线</td><td>流水线、CLI、工具层、MCP</td><td>pipeline.py、cli.py、analysis/、mcp_server.py</td></tr>
+  <tr><td>G 评测线</td><td>评测框架、题库、回答规则 skill</td><td>eval/、skills/</td></tr>
+</table>
+<p class="muted">并行原则：契约先行，各线只依赖契约不 import 别人的实现；假实现解耦（真实实现与假实现过同一套合格测试）；插件自动发现，不改共享登记文件；调度器并发上限 3，每任务预留 2GB 内存；验收全部离线（pytest + fixture）。</p>
+
+<h2 id="collab">协作模式：Human × Agent<span class="sub">人定方向与契约、守验收关；Agent 按七条线并行实现、自证合规；系统门禁让每一步留痕</span></h2>
+<div style="background:#fff;border:1px solid #e3e1da;border-radius:10px;padding:10px;margin:12px 0"><img src="assets/swimlane.svg" alt="Human 与 Agent 协作泳道图" style="width:100%;height:auto;display:block"></div>
+<p class="muted">泳道图按项目的实际流程绘制：契约定版 → 并行实现 → 交叉审查（异家族审）→ 检查点真实验收 → 打 tag 发布。SVG 原图：<a href="assets/architecture.svg">总体架构图</a> · <a href="assets/swimlane.svg">协作泳道图</a></p>
+<h2 id="ivy">0.1 IVY 任务清单<span class="sub">共 48 个任务（原计划 32 个，执行中追加修复与运营任务 16 个），全部已执行并在仓库 results/ 留有记录</span></h2>
+<h3 class="line-title">契约<span class="line-desc">数据模型、接口协议、假实现、日文文本工具 · 3 个任务</span></h3>
+<table class="tasks"><tbody>
+<tr><td class="tid">IVY-001</td><td>契约一：数据模型、locator、工具输出格式</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-002</td><td>契约二：接口协议、插件自动发现、假实现与契约测试</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-003</td><td>日文文本工具：解码、归一化、和历、数字注记</td><td class="done">✓ 结果已记录</td></tr>
+</tbody></table>
+<h3 class="line-title">A 抓取基础<span class="line-desc">raw 存储、manifest、HTTP、注册表、执行器 · 7 个任务</span></h3>
+<table class="tasks"><tbody>
+<tr><td class="tid">IVY-101</td><td>raw 存储：按内容寻址</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-102</td><td>manifest：抓取记录库（SQLite）</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-103</td><td>礼貌 HTTP 客户端：限速、条件请求、重试、上限、回放</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-104</td><td>来源注册表 schema 与校验</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-105</td><td>采集执行器：计划→抓取→落库→记录，带上限</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-106</td><td>修复：单个文件超过单文件上限时只记失败、继续抓取，不再停掉整次采集</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-107</td><td>抓取开关与调度：control.json、schedule tick/status/enable/disable、运行锁、launchd 安装</td><td class="done">✓ 结果已记录</td></tr>
+</tbody></table>
+<h3 class="line-title">B 文档线<span class="line-desc">法令、JMA 采集与解析 · 5 个任务</span></h3>
+<table class="tasks"><tbody>
+<tr><td class="tid">IVY-201</td><td>e-Gov 法令采集器</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-202</td><td>法令 XML 解析器：按条切分，带层级和 locator</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-203</td><td>JMA 长期 feed 采集器与解析器</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-204</td><td>修复：法令解析器只处理现行版全文快照，列表和修订历史跳过</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-205</td><td>修复：没有“条”、正文直接是“项”的法令也能解析</td><td class="done">✓ 结果已记录</td></tr>
+</tbody></table>
+<h3 class="line-title">C 统计线<span class="line-desc">表格、地区码、观测值库、Dashboard、e-Stat · 6 个任务</span></h3>
+<table class="tasks"><tbody>
+<tr><td class="tid">IVY-301</td><td>表格读取：CSV / XLSX / ZIP，cp932，表头与注记</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-302</td><td>地区码表：全国地方公共団体コード</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-303</td><td>观测值库：DuckDB + Parquet，只读 SQL 与出处回溯</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-304</td><td>统计 Dashboard 采集器、分批规划与观测值转换</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-305</td><td>e-Stat 统计表文件采集器与两类版式转换</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-306</td><td>修复观测值库只读查询的日文字面量错误（字节偏移误当字符下标）</td><td class="done">✓ 结果已记录</td></tr>
+</tbody></table>
+<h3 class="line-title">D 目录线<span class="line-desc">CKAN、目录存储与检索 · 3 个任务</span></h3>
+<table class="tasks"><tbody>
+<tr><td class="tid">IVY-401</td><td>通用 CKAN 采集器（e-Gov データポータル）</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-402</td><td>目录解析、目录存储与目录检索</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-403</td><td>修复：CKAN 增量只以完整走完的全量为基准，上次没走完就退回全量</td><td class="done">✓ 结果已记录</td></tr>
+</tbody></table>
+<h3 class="line-title">E 检索线<span class="line-desc">FTS、向量、混合检索、缺口状态 · 5 个任务</span></h3>
+<table class="tasks"><tbody>
+<tr><td class="tid">IVY-501</td><td>chunk 存储与 FTS5 trigram 关键词索引</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-502</td><td>向量索引：嵌入接口与 LanceDB</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-503</td><td>混合检索（RRF、多查询）与四种缺口状态</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-504</td><td>修复：关键词检索按词拆分，不再把整条查询当一个短语</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-505</td><td>修复：只有低相似度向量结果时判为零命中</td><td class="done">✓ 结果已记录</td></tr>
+</tbody></table>
+<h3 class="line-title">F 入口线<span class="line-desc">流水线、CLI、工具层、MCP、管理页面 · 9 个任务</span></h3>
+<table class="tasks"><tbody>
+<tr><td class="tid">IVY-601</td><td>解析与索引流水线（增量，基于插件发现）</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-602</td><td>命令行：crawl / parse / index / search / sql / status</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-603</td><td>分析工具层：search / catalog / sql / chunk / cite / version / coverage</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-604</td><td>MCP 服务器（stdio）</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-605</td><td>修复：解析失败的快照下次要重试，不再当作已处理</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-607</td><td>修复：向量嵌入失败不能让解析失败；可用环境变量关闭向量</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-608</td><td>修复：MCP 服务器的工具调用固定在同一个线程，SQLite 不再跨线程报错</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-609</td><td>修复：已成功下载的目录资源要标为“已抓取正文”</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-610</td><td>抓取管理页面：datumoj admin（仅本机），总开关、各来源开关、状态与立即运行</td><td class="done">✓ 结果已记录</td></tr>
+</tbody></table>
+<h3 class="line-title">G 评测线<span class="line-desc">评测框架、题库、回答规则 · 7 个任务</span></h3>
+<table class="tasks"><tbody>
+<tr><td class="tid">IVY-701</td><td>评测框架：题库格式、全部指标、门槛</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-702</td><td>法令评测题 20 道</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-703</td><td>目录与统计评测题 20 道</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-704</td><td>缺口、时间、跨语言、注入评测题 + 回答规则 skill</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-705</td><td>修复：统计题 tokyo-ict 的 SQL 补上经营组织维度</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-706</td><td>修复：数值出现率同时认 SQL 结果的出处行</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-707</td><td>修复：评测框架按题型取证（目录题认目录检索、数值题取 SQL 出处、时间题认施行日）</td><td class="done">✓ 结果已记录</td></tr>
+</tbody></table>
+<h3 class="line-title">集成<span class="line-desc">版本检查点集成与验收 · 3 个任务</span></h3>
+<table class="tasks"><tbody>
+<tr><td class="tid">IVY-901</td><td>检查点 M1 集成：法令链路端到端，法令题达标</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-902</td><td>检查点 M2 集成：目录、统计、JMA 接入，统计题达标</td><td class="done">✓ 结果已记录</td></tr>
+<tr><td class="tid">IVY-903</td><td>检查点 M3 集成：工具层接真实实现、MCP、60 题全部门槛（IVY 完成线）</td><td class="done">✓ 结果已记录</td></tr>
+</tbody></table>
+
+<h3>主对话步骤（H，人来做）</h3>
+<ul>
+  <li><b>H0</b> 骨架与依赖：pyproject、依赖一次锁定、Makefile、空包目录，uv lock 后离线可装</li>
+  <li><b>H1</b> 录制测试样本：各线负责人按来源录制真实响应小样本进 tests/fixtures/（公开仓库只提交许可允许再分发的样本，个人信息先脱敏）</li>
+  <li><b>H2</b> 契约审查与 M0 检查点：全体审契约；A 线完成后回放走通全链路</li>
+  <li><b>H3</b> M1 验收：真实抓取 200 部法令、现场检索、验收记录、打 tag</li>
+  <li><b>H4</b> M2 验收：目录/Dashboard/e-Stat 真实抓取，SQL 查人口核对数值，JMA 定时轮询开始</li>
+  <li><b>H5</b> 嵌入模型选型：Ollama + bge-m3 与纯关键词对比 Recall@10，结论写 ADR-0001</li>
+  <li><b>H6</b> M3 与 IVY 版本验收：MCP 注册、现场 10 问、人工抽查 20 条引用支持率（目标 ≥ 0.95）、打 tag v0.1.0-ivy</li>
+</ul>
+
+<h2 id="tachibana">0.2 TACHIBANA 计划<span class="sub">草案 v0.1（2026-10-20）· 把资料库扩到采购公告和政策网页，并让它每天自动增量更新、每周告诉人有什么变化</span></h2>
+<h3>完成标准</h3>
+<ul>
+  <li><b>KKJ 采购公告入库</b>：按日期增量采集；附件 PDF 按页切块、能引用到页码；担当者个人信息入库前脱敏</li>
+  <li><b>政策网页入库</b>：种子清单内页面及链接 PDF 按节切块；SPA 外壳和空页面能识别，不当作成功</li>
+  <li><b>BODIK 入库</b>：复用 CKAN 采集器 + DataStore 读取</li>
+  <li><b>定时增量</b>：按来源频率自动运行，休眠唤醒补跑，防重入锁；失败率异常时 datumoj status 提醒</li>
+  <li><b>每周变化报告</b>：data/reports/ 生成 Markdown，按来源列新增/修改/删除/失败，每条带出处</li>
+  <li><b>评测</b>：新增 KKJ、政策网页、变化、脱敏四类题 25 题以上，与 IVY 的 60 题一起全部达标</li>
+  <li><b>真实问答验收</b>：能回答“大阪市 AI 创业支援策”“近期大阪有哪些 IT 采购”——旧项目答不出的两个问题，回答带出处</li>
+</ul>
+<h3>先行的契约修订（由人审查）</h3>
+<ul>
+  <li><b>ChangeEvent</b>：变化事件（新增/修改/删除/抓取失败/解析失败），能引用到快照</li>
+  <li><b>Redaction</b>：脱敏记录（类别、locator、占位符），原文不入库</li>
+  <li><b>Document.kind</b>：law / notice / html_page / pdf / dataset / bulletin，检索可按类型过滤</li>
+  <li><b>快照父子关系</b>：公告或网页 → 附件 PDF</li>
+</ul>
+<h3>任务草稿（约 18 个，接口稳定后再写成任务文件）</h3>
+<table>
+  <tr><th>号</th><th>线</th><th>内容</th><th>依赖（IVY）</th><th>审查</th></tr>
+  <tr><td>001</td><td>契约</td><td>契约修订：ChangeEvent、Redaction、Document.kind、快照父子关系</td><td>002</td><td>human</td></tr>
+  <tr><td>101</td><td>A</td><td>定时：schedule 命令（launchd / cron）、防重入锁、运行记录</td><td>105</td><td>other_family</td></tr>
+  <tr><td>102</td><td>A</td><td>抓取监控与 status 提醒</td><td>101</td><td>other_family</td></tr>
+  <tr><td>201</td><td>B</td><td>PDF 解析器（按页切块、needs_ocr、加密和损坏处理）</td><td>002、003</td><td>other_family</td></tr>
+  <tr><td>202</td><td>B</td><td>HTML 正文抽取与分节切块、日期抽取、SPA 外壳识别</td><td>002、003</td><td>other_family</td></tr>
+  <tr><td>203</td><td>B</td><td>KKJ 采集器（日期分段、满 1000 条自动二分、附件任务）</td><td>105</td><td>other_family</td></tr>
+  <tr><td>204</td><td>B</td><td>KKJ 公告解析与脱敏</td><td>001、003</td><td>human</td></tr>
+  <tr><td>205</td><td>B</td><td>政策网页定向采集器（种子、深度、域名、robots、URL 规范化）</td><td>105</td><td>other_family</td></tr>
+  <tr><td>401</td><td>D</td><td>BODIK：CKAN 复用 + DataStore 读取</td><td>401</td><td>other_family</td></tr>
+  <tr><td>601</td><td>F</td><td>变化检测（ChangeEvent 生成）</td><td>001、601</td><td>other_family</td></tr>
+  <tr><td>602</td><td>F</td><td>每周变化报告与 report 命令</td><td>601</td><td>other_family</td></tr>
+  <tr><td>603</td><td>F</td><td>工具层与 MCP：list_changes、search_notices</td><td>001、603/604</td><td>other_family</td></tr>
+  <tr><td>701</td><td>G</td><td>评测题：KKJ 10、政策网页 10、变化 5、脱敏与注入 3</td><td>701</td><td>human</td></tr>
+  <tr><td>702</td><td>G</td><td>回答规则更新：采购和政策问答（不判断资格和中标）</td><td>704</td><td>human</td></tr>
+  <tr><td>901</td><td>集成</td><td>检查点 m1：KKJ + PDF 端到端</td><td>201、203、204</td><td>human</td></tr>
+  <tr><td>902</td><td>集成</td><td>检查点 m2：政策网页 + BODIK</td><td>202、205、401</td><td>human</td></tr>
+  <tr><td>903</td><td>集成</td><td>检查点 m3：定时 + 变化报告 + 全部评测门槛（TACHIBANA 完成）</td><td>全部</td><td>human</td></tr>
+</table>
+<p class="muted">不做：OCR（扫描件只标记 needs_ocr）、登录后页面、全站爬取、投标资格等个案判断、主动推送。主对话步骤 H0–H4：审契约修订与锁依赖 → 录样本（KKJ、政策网页、BODIK）→ 种子清单定稿并逐站核对规约 → 装定时任务试运行一周 → TACHIBANA 验收并打 tag。</p>
+
+<h2 id="quality">质量门槛与风险<span class="sub">指标自 M3 起作为合并门槛（离线评测，固定小语料快照）</span></h2>
+<table>
+  <tr><th>指标</th><th>门槛</th></tr>
+  <tr><td>检索 Recall@10</td><td>≥ 0.85</td></tr>
+  <tr><td>数值题精确匹配（数值必须来自 SQL）</td><td>100%</td></tr>
+  <tr><td>引用可还原率（前 3 条能用 cite 还原到快照原文）</td><td>≥ 0.95</td></tr>
+  <tr><td>数值出现率（期望值原样出现在引用原文或数据行）</td><td>100%</td></tr>
+  <tr><td>缺口题正确拒答率</td><td>100%</td></tr>
+  <tr><td>引用支持率（人工抽查，不作机器门槛）</td><td>≥ 0.95</td></tr>
+</table>
+<h3>主要风险与应对</h3>
+<table>
+  <tr><th style="width:30%">风险</th><th>应对</th></tr>
+  <tr><td>e-Stat 等来源体量巨大</td><td>目录全量、数值只抓精选清单；单来源设容量上限</td></tr>
+  <tr><td>站点改版或接口变更</td><td>每采集器有 fixture 契约测试；真实抓取失败记入 manifest 并告警</td></tr>
+  <tr><td>日文检索效果差</td><td>trigram 关键词兜底 + 多语言向量；用评测集量化选型</td></tr>
+  <tr><td>统计口径混用得出错误结论</td><td>Observation 必带单位、口径、调查名；不同调查数据不直接相加或算增长率</td></tr>
+  <tr><td>JMA、KKJ 只保留短期数据</td><td>采集器尽早上线持续轮询；中断缺口在变化报告中注明</td></tr>
+  <tr><td>来源文本藏有提示注入</td><td>工具只读；检索结果标注为数据；评测集放注入样本</td></tr>
+  <tr><td>PDF 是扫描件</td><td>第一阶段标记 needs_ocr 跳过并统计，OCR 留待以后</td></tr>
+</table>
+
+<footer>
+  <p>本页为仓库计划文档的汇总视图，权威版本以仓库内 <a href="https://github.com/gorou5/datumoj/blob/main/docs/PLAN.md">docs/PLAN.md</a>、<a href="https://github.com/gorou5/datumoj/blob/main/docs/TASKS.md">docs/TASKS.md</a>、<a href="https://github.com/gorou5/datumoj/blob/main/docs/plans/0.2-tachibana.md">docs/plans/0.2-tachibana.md</a> 为准。</p>
+  <p>DATUMOJ · 连接官方公开数据，不囤数据 · 2026-10-22</p>
+</footer>
+</div>
+</body>
+</html>
