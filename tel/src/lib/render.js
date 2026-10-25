@@ -373,6 +373,7 @@ export function numberPage(facts) {
   const rows = [];
   rows.push(`<tr><th>電話番号</th><td>${esc(formatted)}（${esc(f.digits)}）</td></tr>`);
   rows.push(`<tr><th>調べられた回数</th><td><span id="viewCount">${typeof f.viewCount === 'number' ? esc(String(f.viewCount)) + ' 回' : '集計中…'}</span></td></tr>`);
+  rows.push(`<tr><th>番号の種類</th><td>${esc(f.lineTypeName)}</td></tr>`);
   if (f.prefecture) rows.push(`<tr><th>都道府県</th><td>${esc(f.prefecture)}</td></tr>`);
   if (f.mas && f.mas.length === 1) {
     rows.push(`<tr><th>単位料金区域（MA）</th><td>${esc(f.mas[0].charge_area_name)}MA（番号区画コード ${esc(f.mas[0].zone_code)}）</td></tr>`);
@@ -412,10 +413,10 @@ export function numberPage(facts) {
 <p class="meta">出典：${x.evidence_url || x.source_url ? extLink(x.evidence_url || x.source_url, '元の公表ページ', ' rel="nofollow noopener"') : '公表資料'}／最終確認：${esc(x.last_verified || '-')}</p></div>`
       )
       .join('');
-    sections += `${items}
+    sections += `<h2>第三者機関による標識</h2>${items}
 <p class="meta">注意：発信者番号は偽装されることがあります。この標識は「この番号表示が使われた」という記録であり、番号の契約者本人による行為とは限りません。</p>`;
   } else {
-    sections += `<div class="card">
+    sections += `<div class="card"><h2>第三者機関による標識</h2>
 <p>現在、この番号に対する第三者機関の標識は登録されていません。<span class="meta">※標識が無いことは、その番号が安全であることを意味しません。不審な電話については警察相談専用電話「#9110」へご相談ください。</span></p></div>`;
   }
   // Business
