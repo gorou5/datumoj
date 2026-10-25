@@ -21,7 +21,8 @@
   nav{position:sticky;top:0;background:var(--bg);padding:12px 0;border-bottom:1px solid var(--line);z-index:5}
   nav a{color:var(--muted);text-decoration:none;margin-right:18px;font-size:14px}
   nav a:hover{color:var(--ink)}
-  h2{font-size:23px;margin:52px 0 6px;padding-top:10px}
+  h2{font-size:23px;margin:52px 0 6px;padding-top:10px;scroll-margin-top:64px}
+  @media (max-width:600px){h2{scroll-margin-top:120px}}
   h2 .sub{display:block;font-size:13px;color:var(--muted);font-weight:400;margin-top:2px}
   h3{font-size:17px;margin:26px 0 8px}
   p{margin:8px 0}
@@ -67,7 +68,10 @@
 <nav>
   <a href="#roadmap">版本路线图</a><a href="#master">总计划</a><a href="#ivy">IVY 任务</a><a href="#tachibana">TACHIBANA</a><a href="#quality">质量与风险</a>
 </nav>
-<div style="background:#fff;border:1px solid #e3e1da;border-left:4px solid #3d7a44;border-radius:10px;padding:14px 18px;margin:18px 0"><b>附：数据源目录</b> —— orbisdata.org 收录的 471 个官方数据资源地址，已按数据场景分类（国家统计 / 开放门户 / 区域组织 / 发展金融 / 联合国专题 / 专业平台）：<a href="orbis/">orbisdata 资源目录 · 按数据场景分类 →</a></div>
+<div style="background:#fff;border:1px solid #e3e1da;border-left:4px solid #3d7a44;border-radius:10px;padding:14px 18px;margin:18px 0"><b>附：数据源目录</b> —— orbisdata.org 收录的 471 个官方数据资源地址，已按 50 个预设数据分析场景组织，支持关键字逐步筛选：<a href="orbis/">orbisdata 资源目录 · 按数据场景分类 →</a></div>
+<div style="background:#fff;border:1px solid #e3e1da;border-left:4px solid #cf7226;border-radius:10px;padding:14px 18px;margin:18px 0"><b>新：100 个多源数据融合分析案例</b> —— 每个案例至少引用 3 个官方数据源，把统计、贸易、遥感、金融等数据拼起来做知识发现，专为 aha moment 而写：<a href="cases/">100 个多源数据融合分析案例 →</a></div>
+<div style="background:#fff;border:1px solid #e3e1da;border-left:4px solid #b3382e;border-radius:10px;padding:14px 18px;margin:18px 0"><b>新：30 个单源数据失真验证案例</b> —— 假设一个国家的某项数据可能作假，再用 3 个以上独立数据源交叉打假（镜像法／实物量锚点／卫星复核／统计指纹）；13 例有公开实证记录，17 例是假设设计：<a href="verify/">30 个单源数据失真验证案例 →</a></div>
+<div style="background:#fff;border:1px solid #e3e1da;border-left:4px solid #3d7a44;border-radius:10px;padding:14px 18px;margin:18px 0"><b>新：Hugging Face「government」数据集全量调查</b> —— 把 HF 上 389 个 government 关键词数据集全部盘点一遍：谁在做、都是什么、热度在哪，以及有没有人已经做过 datumoj 想做的事（结论：注册表与垂直登记库两个方向都是空白）：<a href="hf-gov/">389 个数据集全量调查报告 →</a></div>
 
 
 <!-- 下面“版本路线图”和“里程碑”两节由 milestones.json 渲染；静态内容只在读取失败时显示。 -->
@@ -139,25 +143,7 @@
 </div>
 
 <h3>总体架构</h3>
-<pre class="arch">            ┌──────── sources/*.yaml 来源注册表（范围、许可、频率、抓取策略）────────┐
-            ▼                                                                        │
- ① 抓取 crawl ──► ② 原始库 raw（按内容哈希存放，不可变，manifest 记录每次抓取）       │
-                          │                                                          │
-                          ▼                                                          │
-                 ③ 解析 parse（按格式分流）                                          │
-             ┌────────────┴─────────────┐                                            │
-             ▼                          ▼                                            │
-   ④a 结构化轨道                ④b 文档轨道                                          │
-   表格/统计 → Parquet+DuckDB   法令/公告/PDF/HTML → 文本块 chunks（带定位信息）        │
-             │                          │                                            │
-             │                          ▼                                            │
-             │                 ⑤ 索引：关键词（日文 n-gram）+ 向量，混合检索          │
-             └────────────┬─────────────┘                                            │
-                          ▼                                                          │
-         ⑥ 分析层：工具化的 AI（search_docs / search_catalog / query_sql / cite）      │
-              入口：MCP 服务器（主）+ CLI；批量报告（变化分析）                         │
-                          ▼                                                          │
-         ⑦ 评测：离线问答集，衡量检索召回、出处正确、数值精确 ◄──────────────────────┘</pre>
+<div style="background:#fff;border:1px solid #e3e1da;border-radius:10px;padding:10px;margin:12px 0"><img src="assets/architecture.svg" alt="DATUMOJ 总体架构图" style="width:100%;height:auto;display:block"></div>
 <p class="muted">核心数据模型：Source ─&lt; Dataset ─&lt; Resource ─&lt; Snapshot ─&lt; Document ─&lt; Chunk；Snapshot ─&lt; Table ─&lt; Observation。Citation = source_id + resource_url + snapshot_sha256 + fetched_at + locator。派生数据都能从 raw 重新生成，只备份 raw 和 manifest。</p>
 
 <h3>来源范围（第一批，完整清单由 sources/*.yaml 维护）</h3>
@@ -190,6 +176,9 @@
 </table>
 <p class="muted">并行原则：契约先行，各线只依赖契约不 import 别人的实现；假实现解耦（真实实现与假实现过同一套合格测试）；插件自动发现，不改共享登记文件；调度器并发上限 3，每任务预留 2GB 内存；验收全部离线（pytest + fixture）。</p>
 
+<h2 id="collab">协作模式：Human × Agent<span class="sub">人定方向与契约、守验收关；Agent 按七条线并行实现、自证合规；系统门禁让每一步留痕</span></h2>
+<div style="background:#fff;border:1px solid #e3e1da;border-radius:10px;padding:10px;margin:12px 0"><img src="assets/swimlane.svg" alt="Human 与 Agent 协作泳道图" style="width:100%;height:auto;display:block"></div>
+<p class="muted">泳道图按项目的实际流程绘制：契约定版 → 并行实现 → 交叉审查（异家族审）→ 检查点真实验收 → 打 tag 发布。SVG 原图：<a href="assets/architecture.svg">总体架构图</a> · <a href="assets/swimlane.svg">协作泳道图</a></p>
 <h2 id="ivy">0.1 IVY 任务清单<span class="sub">共 48 个任务（原计划 32 个，执行中追加修复与运营任务 16 个），全部已执行并在仓库 results/ 留有记录</span></h2>
 <h3 class="line-title">契约<span class="line-desc">数据模型、接口协议、假实现、日文文本工具 · 3 个任务</span></h3>
 <table class="tasks"><tbody>

@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 690" font-family="-apple-system,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif">
+<rect width="1180" height="690" fill="#faf9f6"/>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5c6470"/></marker></defs>
+<text x="36" y="46" text-anchor="start" font-size="26" font-weight="700" fill="#1c1f23" >Human × Agent 协作泳道</text>
+<text x="36" y="72" text-anchor="start" font-size="13.5" font-weight="400" fill="#5c6470" >人定方向与契约、守验收关；Agent 按线并行实现、自证合规；系统门禁让每一步都留痕、可回滚</text>
+<rect x="142.0" y="92" width="190.0" height="30" rx="8" fill="#1c1f23"/>
+<text x="237.0" y="112" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff" >1 · 契约定版</text>
+<rect x="348.0" y="92" width="190.0" height="30" rx="8" fill="#1c1f23"/>
+<text x="443.0" y="112" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff" >2 · 并行实现</text>
+<rect x="554.0" y="92" width="190.0" height="30" rx="8" fill="#1c1f23"/>
+<text x="649.0" y="112" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff" >3 · 交叉审查</text>
+<rect x="760.0" y="92" width="190.0" height="30" rx="8" fill="#1c1f23"/>
+<text x="855.0" y="112" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff" >4 · 检查点验收</text>
+<rect x="966.0" y="92" width="190.0" height="30" rx="8" fill="#1c1f23"/>
+<text x="1061.0" y="112" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff" >5 · 发布与运行</text>
+<rect x="24" y="134" width="104" height="138" rx="10" fill="#3d7a44"/>
+<text x="76.0" y="197.0" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff" >人 Human</text>
+<text x="76.0" y="219.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#ffffff" >定方向 · 审契约 · 守验收</text>
+<rect x="136" y="134" width="1026" height="138" rx="10" fill="none" stroke="#d8d5cc" stroke-width="1.2"/>
+<rect x="142.0" y="150" width="190.0" height="106" rx="10" fill="#ffffff" stroke="#3d7a44" stroke-width="1.6"/>
+<rect x="142.0" y="150" width="190.0" height="5" rx="2.5" fill="#3d7a44"/>
+<text x="237.0" y="180" text-anchor="middle" font-size="15" font-weight="700" fill="#1c1f23">立项定版</text>
+<text x="237.0" y="199" text-anchor="middle" font-size="11.5" fill="#5c6470">一句话目标</text>
+<text x="237.0" y="218" text-anchor="middle" font-size="11.5" fill="#5c6470">不做清单 · 来源范围</text>
+<line x1="333.0" y1="203.0" x2="347.0" y2="203.0" stroke="#5c6470" stroke-width="1.8" marker-end="url(#arr)"/>
+<rect x="348.0" y="150" width="190.0" height="106" rx="10" fill="#ffffff" stroke="#3d7a44" stroke-width="1.6"/>
+<rect x="348.0" y="150" width="190.0" height="5" rx="2.5" fill="#3d7a44"/>
+<text x="443.0" y="180" text-anchor="middle" font-size="15" font-weight="700" fill="#1c1f23">审定契约（H2）</text>
+<text x="443.0" y="199" text-anchor="middle" font-size="11.5" fill="#5c6470">录制真实样本（H1）</text>
+<text x="443.0" y="218" text-anchor="middle" font-size="11.5" fill="#5c6470">敏感任务人审</text>
+<line x1="539.0" y1="203.0" x2="553.0" y2="203.0" stroke="#5c6470" stroke-width="1.8" marker-end="url(#arr)"/>
+<rect x="554.0" y="150" width="190.0" height="106" rx="10" fill="#ffffff" stroke="#3d7a44" stroke-width="1.6"/>
+<rect x="554.0" y="150" width="190.0" height="5" rx="2.5" fill="#3d7a44"/>
+<text x="649.0" y="180" text-anchor="middle" font-size="15" font-weight="700" fill="#1c1f23">审敏感产出</text>
+<text x="649.0" y="199" text-anchor="middle" font-size="11.5" fill="#5c6470">脱敏规则 · 评测题</text>
+<text x="649.0" y="218" text-anchor="middle" font-size="11.5" fill="#5c6470">回答规则 skill</text>
+<line x1="745.0" y1="203.0" x2="759.0" y2="203.0" stroke="#5c6470" stroke-width="1.8" marker-end="url(#arr)"/>
+<rect x="760.0" y="150" width="190.0" height="106" rx="10" fill="#ffffff" stroke="#3d7a44" stroke-width="1.6"/>
+<rect x="760.0" y="150" width="190.0" height="5" rx="2.5" fill="#3d7a44"/>
+<text x="855.0" y="180" text-anchor="middle" font-size="15" font-weight="700" fill="#1c1f23">真实验收</text>
+<text x="855.0" y="199" text-anchor="middle" font-size="11.5" fill="#5c6470">抓 200 部法令（H3）</text>
+<text x="855.0" y="218" text-anchor="middle" font-size="11.5" fill="#5c6470">现场 10 问 · 抽查引用</text>
+<line x1="951.0" y1="203.0" x2="965.0" y2="203.0" stroke="#5c6470" stroke-width="1.8" marker-end="url(#arr)"/>
+<rect x="966.0" y="150" width="190.0" height="106" rx="10" fill="#ffffff" stroke="#3d7a44" stroke-width="1.6"/>
+<rect x="966.0" y="150" width="190.0" height="5" rx="2.5" fill="#3d7a44"/>
+<text x="1061.0" y="180" text-anchor="middle" font-size="15" font-weight="700" fill="#1c1f23">打 tag 发布</text>
+<text x="1061.0" y="199" text-anchor="middle" font-size="11.5" fill="#5c6470">v0.1.0-ivy</text>
+<text x="1061.0" y="218" text-anchor="middle" font-size="11.5" fill="#5c6470">定 0.2 契约修订</text>
+<rect x="24" y="290" width="104" height="168" rx="10" fill="#cf7226"/>
+<text x="76.0" y="368.0" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff" >Agent 执行</text>
+<text x="76.0" y="390.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#ffffff" >多家族 · 七线并行</text>
+<rect x="136" y="290" width="1026" height="168" rx="10" fill="none" stroke="#d8d5cc" stroke-width="1.2"/>
+<rect x="142.0" y="306" width="190.0" height="136" rx="10" fill="#ffffff" stroke="#cf7226" stroke-width="1.6"/>
+<rect x="142.0" y="306" width="190.0" height="5" rx="2.5" fill="#cf7226"/>
+<text x="237.0" y="336" text-anchor="middle" font-size="15" font-weight="700" fill="#1c1f23">起草契约</text>
+<text x="237.0" y="355" text-anchor="middle" font-size="11.5" fill="#5c6470">数据模型 + 接口协议</text>
+<text x="237.0" y="374" text-anchor="middle" font-size="11.5" fill="#5c6470">假实现 + 契约测试</text>
+<line x1="333.0" y1="374.0" x2="347.0" y2="374.0" stroke="#5c6470" stroke-width="1.8" marker-end="url(#arr)"/>
+<rect x="348.0" y="306" width="190.0" height="136" rx="10" fill="#ffffff" stroke="#cf7226" stroke-width="1.6"/>
+<rect x="348.0" y="306" width="190.0" height="5" rx="2.5" fill="#cf7226"/>
+<text x="443.0" y="336" text-anchor="middle" font-size="15" font-weight="700" fill="#1c1f23">按线领任务</text>
+<text x="443.0" y="355" text-anchor="middle" font-size="11.5" fill="#5c6470">A–G 并行实现</text>
+<text x="443.0" y="374" text-anchor="middle" font-size="11.5" fill="#5c6470">只依赖契约与假实现</text>
+<line x1="539.0" y1="374.0" x2="553.0" y2="374.0" stroke="#5c6470" stroke-width="1.8" marker-end="url(#arr)"/>
+<rect x="554.0" y="306" width="190.0" height="136" rx="10" fill="#ffffff" stroke="#cf7226" stroke-width="1.6"/>
+<rect x="554.0" y="306" width="190.0" height="5" rx="2.5" fill="#cf7226"/>
+<text x="649.0" y="336" text-anchor="middle" font-size="15" font-weight="700" fill="#1c1f23">交叉审查</text>
+<text x="649.0" y="355" text-anchor="middle" font-size="11.5" fill="#5c6470">异家族审（other_family）</text>
+<text x="649.0" y="374" text-anchor="middle" font-size="11.5" fill="#5c6470">按意见修复并复审</text>
+<line x1="745.0" y1="374.0" x2="759.0" y2="374.0" stroke="#5c6470" stroke-width="1.8" marker-end="url(#arr)"/>
+<rect x="760.0" y="306" width="190.0" height="136" rx="10" fill="#ffffff" stroke="#cf7226" stroke-width="1.6"/>
+<rect x="760.0" y="306" width="190.0" height="5" rx="2.5" fill="#cf7226"/>
+<text x="855.0" y="336" text-anchor="middle" font-size="15" font-weight="700" fill="#1c1f23">提交执行记录</text>
+<text x="855.0" y="355" text-anchor="middle" font-size="11.5" fill="#5c6470">results/ 留痕</text>
+<text x="855.0" y="374" text-anchor="middle" font-size="11.5" fill="#5c6470">配合验收现场修复</text>
+<line x1="951.0" y1="374.0" x2="965.0" y2="374.0" stroke="#5c6470" stroke-width="1.8" marker-end="url(#arr)"/>
+<rect x="966.0" y="306" width="190.0" height="136" rx="10" fill="#ffffff" stroke="#cf7226" stroke-width="1.6"/>
+<rect x="966.0" y="306" width="190.0" height="5" rx="2.5" fill="#cf7226"/>
+<text x="1061.0" y="336" text-anchor="middle" font-size="15" font-weight="700" fill="#1c1f23">持续运行</text>
+<text x="1061.0" y="355" text-anchor="middle" font-size="11.5" fill="#5c6470">定时增量抓取</text>
+<text x="1061.0" y="374" text-anchor="middle" font-size="11.5" fill="#5c6470">每周变化报告（0.2）</text>
+<rect x="24" y="476" width="104" height="138" rx="10" fill="#2f6db3"/>
+<text x="76.0" y="539.0" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff" >系统门禁</text>
+<text x="76.0" y="561.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#ffffff" >仓库 · 自动校验</text>
+<rect x="136" y="476" width="1026" height="138" rx="10" fill="none" stroke="#d8d5cc" stroke-width="1.2"/>
+<rect x="142.0" y="492" width="190.0" height="106" rx="10" fill="#ffffff" stroke="#2f6db3" stroke-width="1.6"/>
+<rect x="142.0" y="492" width="190.0" height="5" rx="2.5" fill="#2f6db3"/>
+<text x="237.0" y="522" text-anchor="middle" font-size="15" font-weight="700" fill="#1c1f23">契约基线入库</text>
+<text x="237.0" y="541" text-anchor="middle" font-size="11.5" fill="#5c6470">schemas/ + 校验脚本</text>
+<text x="237.0" y="560" text-anchor="middle" font-size="11.5" fill="#5c6470">版本受控</text>
+<line x1="333.0" y1="545.0" x2="347.0" y2="545.0" stroke="#5c6470" stroke-width="1.8" marker-end="url(#arr)"/>
+<rect x="348.0" y="492" width="190.0" height="106" rx="10" fill="#ffffff" stroke="#2f6db3" stroke-width="1.6"/>
+<rect x="348.0" y="492" width="190.0" height="5" rx="2.5" fill="#2f6db3"/>
+<text x="443.0" y="522" text-anchor="middle" font-size="15" font-weight="700" fill="#1c1f23">契约测试把关</text>
+<text x="443.0" y="541" text-anchor="middle" font-size="11.5" fill="#5c6470">make test 离线全绿</text>
+<text x="443.0" y="560" text-anchor="middle" font-size="11.5" fill="#5c6470">fixture 回放样本</text>
+<line x1="539.0" y1="545.0" x2="553.0" y2="545.0" stroke="#5c6470" stroke-width="1.8" marker-end="url(#arr)"/>
+<rect x="554.0" y="492" width="190.0" height="106" rx="10" fill="#ffffff" stroke="#2f6db3" stroke-width="1.6"/>
+<rect x="554.0" y="492" width="190.0" height="5" rx="2.5" fill="#2f6db3"/>
+<text x="649.0" y="522" text-anchor="middle" font-size="15" font-weight="700" fill="#1c1f23">审查留痕</text>
+<text x="649.0" y="541" text-anchor="middle" font-size="11.5" fill="#5c6470">任务状态 · 审查记录</text>
+<text x="649.0" y="560" text-anchor="middle" font-size="11.5" fill="#5c6470">不合格不流转</text>
+<line x1="745.0" y1="545.0" x2="759.0" y2="545.0" stroke="#5c6470" stroke-width="1.8" marker-end="url(#arr)"/>
+<rect x="760.0" y="492" width="190.0" height="106" rx="10" fill="#ffffff" stroke="#2f6db3" stroke-width="1.6"/>
+<rect x="760.0" y="492" width="190.0" height="5" rx="2.5" fill="#2f6db3"/>
+<text x="855.0" y="522" text-anchor="middle" font-size="15" font-weight="700" fill="#1c1f23">评测门槛</text>
+<text x="855.0" y="541" text-anchor="middle" font-size="11.5" fill="#5c6470">Recall@10 ≥ 0.85</text>
+<text x="855.0" y="560" text-anchor="middle" font-size="11.5" fill="#5c6470">数值 100% · 引用 ≥ 0.95</text>
+<line x1="951.0" y1="545.0" x2="965.0" y2="545.0" stroke="#5c6470" stroke-width="1.8" marker-end="url(#arr)"/>
+<rect x="966.0" y="492" width="190.0" height="106" rx="10" fill="#ffffff" stroke="#2f6db3" stroke-width="1.6"/>
+<rect x="966.0" y="492" width="190.0" height="5" rx="2.5" fill="#2f6db3"/>
+<text x="1061.0" y="522" text-anchor="middle" font-size="15" font-weight="700" fill="#1c1f23">版本与调度</text>
+<text x="1061.0" y="541" text-anchor="middle" font-size="11.5" fill="#5c6470">里程碑 tag</text>
+<text x="1061.0" y="560" text-anchor="middle" font-size="11.5" fill="#5c6470">schedule · status 提醒</text>
+<line x1="237.0" y1="272" x2="237.0" y2="290" stroke="#3d7a44" stroke-width="1.8" marker-end="url(#arr)"/>
+<text x="247.0" y="285.0" text-anchor="start" font-size="11" font-weight="400" fill="#3d7a44" >契约基线交付 ↓</text>
+<line x1="443.0" y1="476" x2="443.0" y2="458" stroke="#2f6db3" stroke-width="1.8" marker-end="url(#arr)"/>
+<text x="453.0" y="471.0" text-anchor="start" font-size="11" font-weight="400" fill="#2f6db3" >↑ 测试红/绿反馈</text>
+<line x1="649.0" y1="290" x2="649.0" y2="272" stroke="#cf7226" stroke-width="1.8" marker-end="url(#arr)"/>
+<text x="659.0" y="285.0" text-anchor="start" font-size="11" font-weight="400" fill="#cf7226" >送审 ↑</text>
+<line x1="855.0" y1="290" x2="855.0" y2="272" stroke="#b3382e" stroke-width="1.8" marker-end="url(#arr)"/>
+<text x="865.0" y="285.0" text-anchor="start" font-size="11" font-weight="400" fill="#b3382e" >交付验收 / 意见回流 ↕</text>
+<line x1="1061.0" y1="290" x2="1061.0" y2="272" stroke="#cf7226" stroke-width="1.8" marker-end="url(#arr)"/>
+<text x="1051.0" y="285.0" text-anchor="end" font-size="11" font-weight="400" fill="#cf7226" >呈报发布 ↑</text>
+<text x="36" y="672" text-anchor="start" font-size="12.5" font-weight="400" fill="#5c6470" >分工铁律：契约先行，各线只依赖契约不依赖实现；敏感任务（脱敏、评测题、回答规则）必须人审；不可逆与对外发布只由人执行。</text>
+</svg>

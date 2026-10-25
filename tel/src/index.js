@@ -2,14 +2,15 @@
 // Pages are composed at request time from sharded range tables in D1
 // (see DESIGN.md / migrations/0001_init.sql). Hub pages are indexable;
 // number pages are tiered (Tier 1 index / Tier 2 noindex / Tier 3 = 404).
-import { normalize } from './lib/number.js';
+import { normalize, splitNumber } from './lib/number.js';
+import { bumpView, listComments, addComment, commentProblem, COMMENT_MESSAGES, hashIp } from './lib/social.js';
 import {
   composeNumber, analyzeFallback, listPrefectures, listAreaCodes, getAreaHub,
   listLineTypes, getLineTypeHub, listTpSources, allAreaCodes,
   listGovAgencies, listGovNumbers, govNumbersByAgency,
 } from './lib/compose.js';
 import {
-  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage,
+  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES,
 } from './lib/render.js';
 
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
@@ -20,18 +21,115 @@ function html(body, status = 200, cache = CACHE_HUB) {
   return new Response(body, { status, headers: { ...HTML, 'cache-control': cache } });
 }
 
+// Draw one random really-designated number and build its hero payload.
+// Never throws: returns null when D1 is unavailable (e.g. free-tier daily
+// quota exhausted), so callers can fall back to FALLBACK_HEROES and the
+// homepage hero never dead-ends on placeholders.
+async function drawRandomHero(db) {
+  try {
+    const types = ['fixed', 'mobile', 'ip050', 'free0120', 'free0800', 'navi0570', 'm2m020'];
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const lt = types[Math.floor(Math.random() * types.length)];
+      const brow = await db
+        .prepare(
+          "SELECT prefix FROM number_block_allocation WHERE line_type = ? AND carrier_id IS NOT NULL AND status = 'designated' AND length(prefix) >= 6 ORDER BY RANDOM() LIMIT 1"
+        )
+        .bind(lt)
+        .first();
+      if (!brow) continue;
+      const ltRow = await db.prepare('SELECT digits FROM line_type WHERE code = ?').bind(lt).first();
+      let digits = brow.prefix;
+      while (digits.length < ltRow.digits) digits += Math.floor(Math.random() * 10);
+      const facts = await composeNumber(db, digits);
+      if (facts) return randomHero(facts);
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function pickFallbackHero() {
+  return FALLBACK_HEROES[Math.floor(Math.random() * FALLBACK_HEROES.length)];
+}
+
+// Prefix-only line-type detection for the homepage "popular numbers" box.
+// Same numbering-plan rules as splitNumber() in lib/number.js; non-fixed
+// types need no D1 lookup at all.
+function lineTypeOf(digits) {
+  if (digits.startsWith('020')) return 'm2m020';
+  if (digits.startsWith('050')) return 'ip050';
+  if (digits.startsWith('0120')) return 'free0120';
+  if (digits.startsWith('0800')) return 'free0800';
+  if (digits.startsWith('0570')) return 'navi0570';
+  if (/^0[789]0/.test(digits)) return 'mobile';
+  return 'fixed';
+}
+
+// Most-looked-up numbers from the site's own view counter (number_view).
+// Never throws: returns null when D1 is unavailable or no real lookups exist
+// yet, in which case the homepage simply omits the box.
+async function getPopularNumbers(db, limit = 6) {
+  try {
+    const r = await db
+      .prepare('SELECT number, views FROM number_view ORDER BY views DESC, number ASC LIMIT ?')
+      .bind(limit)
+      .all();
+    const rows = (r.results || []).filter(
+      (x) => x.views > 0 && typeof x.number === 'string' && /^\d{10,14}$/.test(x.number)
+    );
+    if (!rows.length) return null;
+    const out = [];
+    for (const x of rows) {
+      const lineType = lineTypeOf(x.number);
+      let areaCode = null;
+      if (lineType === 'fixed') {
+        const ac = await db
+          .prepare(
+            "SELECT area_code FROM area_code WHERE ? LIKE area_code || '%' ORDER BY length(area_code) DESC LIMIT 1"
+          )
+          .bind(x.number)
+          .first();
+        areaCode = ac ? ac.area_code : null;
+      }
+      out.push({
+        digits: x.number,
+        formatted: splitNumber(x.number, { lineType, areaCode }).join('-'),
+        views: x.views,
+      });
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const path = decodeURIComponent(url.pathname);
+    let path;
+    try {
+      path = decodeURIComponent(url.pathname);
+    } catch {
+      path = url.pathname; // malformed %-encoding: route on the raw path (404s)
+    }
     const db = env.DB;
 
     try {
       if (path === '/') {
-        return html(homePage());
+        // Server-render the hero with a real drawn number (short edge cache
+        // so the example rotates); fall back to verified static heroes when
+        // D1 is unavailable instead of shipping XXXX placeholders.
+        // The "popular numbers" box rides the same edge-cache window and is
+        // omitted while D1 is down or before any real lookups exist.
+        const [hero, popular] = await Promise.all([drawRandomHero(db), getPopularNumbers(db)]);
+        return html(homePage(hero || pickFallbackHero(), FALLBACK_HEROES, popular), 200, 'public, max-age=0, s-maxage=300');
       }
       if (path === '/about') {
         return html(aboutPage(await listTpSources(db)));
+      }
+      if (path === '/history') {
+        return html(historyPage());
       }
       if (path === '/gov') {
         const [agencies, numbers] = await Promise.all([listGovAgencies(db), govNumbersByAgency(db)]);
@@ -56,11 +154,16 @@ export default {
         const urls = [
           'https://tel.datumoj.com/',
           'https://tel.datumoj.com/about',
+          'https://tel.datumoj.com/history',
           'https://tel.datumoj.com/gov',
           ...types.map((t) => `https://tel.datumoj.com/type/${t.code}`),
           ...prefs.map((p) => `https://tel.datumoj.com/pref/${encodeURIComponent(p)}`),
           ...areas.map((a) => `https://tel.datumoj.com/area/${a.area_code}`),
           ...govNumbers.map((n) => `https://tel.datumoj.com/${n}`),
+          // Numbers tracked by the SEO watch (tel/seo/SEO_LOG.md):
+          // indexable designated-block pages surfaced for discovery.
+          'https://tel.datumoj.com/08007779633',
+          'https://tel.datumoj.com/0120923499',
         ];
         const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
           .map((u) => `<url><loc>${u}</loc></url>`)
@@ -82,6 +185,74 @@ export default {
         const hub = await getLineTypeHub(db, m[1]);
         if (!hub) return html(notFoundPage(m[1]), 404);
         return html(typePage(hub));
+      }
+      if (path === '/random.json') {
+        // Homepage hero: draw a real designated block at random (type first,
+        // so all line types rotate), fill it out with random subscriber
+        // digits, and return the fullest explanation compose can give.
+        // Degrades to a verified static hero (still 200) when D1 is down.
+        const payload = (await drawRandomHero(db)) || pickFallbackHero();
+        return new Response(JSON.stringify(payload), {
+          headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+        });
+      }
+      if ((m = path.match(/^\/view\/(\d{10,14})$/)) && request.method === 'POST') {
+        // Lookup counter: fired by the page's own script on every real
+        // browser view (including arrivals from search engines). A browser
+        // POST always carries Origin; if it names another site, this is a
+        // cross-site drive-by trying to inflate the counter — do not count
+        // it. Requests without Origin (curl, the ops cleanup job) count.
+        const origin = request.headers.get('Origin');
+        if (origin && origin !== 'https://tel.datumoj.com') {
+          return new Response(JSON.stringify({ views: 0 }), {
+            status: 403,
+            headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+          });
+        }
+        const facts = await composeNumber(db, m[1]);
+        if (!facts) return new Response('{}', { status: 404, headers: { 'cache-control': 'no-store' } });
+        let views = 0;
+        try {
+          views = await bumpView(db, m[1]);
+        } catch {
+          // Write path unavailable (e.g. daily write quota): still show the
+          // last known count instead of failing the beacon.
+          const row = await db.prepare('SELECT views FROM number_view WHERE number = ?').bind(m[1]).first();
+          views = row ? row.views : 0;
+        }
+        return new Response(JSON.stringify({ views }), {
+          headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+        });
+      }
+      if (path === '/comments.json') {
+        const n = url.searchParams.get('n') || '';
+        const comments = /^\d{10,14}$/.test(n) ? await listComments(db, n) : [];
+        return new Response(JSON.stringify({ comments }), {
+          headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+        });
+      }
+      if (path === '/comment' && request.method === 'POST') {
+        const json = (obj, status = 200) =>
+          new Response(JSON.stringify(obj), {
+            status,
+            headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+          });
+        let payload = null;
+        try {
+          payload = await request.json();
+        } catch {
+          payload = null;
+        }
+        const n = payload && payload.number;
+        if (!n || !/^\d{10,14}$/.test(n)) return json({ error: 'bad_number' }, 400);
+        const facts = await composeNumber(db, n);
+        if (!facts) return json({ error: 'bad_number' }, 404);
+        const problem = commentProblem(payload.body);
+        if (problem) return json({ error: problem, message: COMMENT_MESSAGES[problem] }, 400);
+        const ipHash = await hashIp(request.headers.get('CF-Connecting-IP'), env.IP_HASH_SECRET);
+        const rateProblem = await addComment(db, n, payload.body, ipHash);
+        if (rateProblem) return json({ error: rateProblem, message: COMMENT_MESSAGES[rateProblem] }, 429);
+        return json({ ok: true, comments: await listComments(db, n) });
       }
       if ((m = path.match(/^\/(\d{10,14})$/))) {
         const facts = await composeNumber(db, m[1]);
