@@ -76,6 +76,11 @@ th{width:11rem;color:#555;font-weight:600}
 .hero-hyphen{font-size:1rem}
 .hero-num{gap:.2rem}
 }
+.flagbadges{display:flex;flex-wrap:wrap;gap:.4rem;margin:.2rem 0 .6rem}
+.fbadge{display:inline-block;padding:.28rem .6rem;border-radius:999px;font-size:.82rem;font-weight:600;border:1px solid}
+.fb-A{background:#fdecea;color:#8e1414;border-color:#e3a49f}
+.fb-B{background:#fff6e0;color:#7a5200;border-color:#e0cd8f}
+.fb-C{background:#eef1f4;color:#44515c;border-color:#c3ccd4}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 footer{border-top:1px solid #ddd;margin-top:2rem;padding:1rem;font-size:.85rem;color:#777}
 ul.tight{margin:.3rem 0;padding-left:1.2rem}
@@ -367,7 +372,7 @@ export function numberPage(facts) {
 
   const rows = [];
   rows.push(`<tr><th>電話番号</th><td>${esc(formatted)}（${esc(f.digits)}）</td></tr>`);
-  rows.push(`<tr><th>調べられた回数</th><td><span id="viewCount">集計中…</span></td></tr>`);
+  rows.push(`<tr><th>調べられた回数</th><td><span id="viewCount">${typeof f.viewCount === 'number' ? esc(String(f.viewCount)) + ' 回' : '集計中…'}</span></td></tr>`);
   rows.push(`<tr><th>番号の種類</th><td>${esc(f.lineTypeName)}</td></tr>`);
   if (f.prefecture) rows.push(`<tr><th>都道府県</th><td>${esc(f.prefecture)}</td></tr>`);
   if (f.mas && f.mas.length === 1) {
@@ -452,7 +457,6 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
       a: 'すぐに折り返さず、まず番号の情報を確認してください。不在着信だけでは通話料は発生しません。金銭の振り込みや個人情報を求められた場合は応じず一度切り、消費生活の相談は消費者ホットライン「188」、事件性がある場合は警察相談専用電話「#9110」へご相談ください。',
     },
   ];
-  sections += `<div class="card"><h2>よくある質問</h2>${faq.map((x) => `<h3>${esc(x.q)}</h3><p>${esc(x.a)}</p>`).join('')}</div>`;
   // Anonymous comments (owner rules: <=10 chars, no hostile language —
   // enforced server-side in lib/social.js). Loaded by script because the
   // page HTML itself is edge-cached.
@@ -461,6 +465,9 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
 <ul class="tight" id="cmtList"><li class="meta">読み込み中…</li></ul>
 <form id="cmtForm" autocomplete="off"><input type="text" id="cmtInput" maxlength="10" placeholder="10文字以内で感想を" aria-label="匿名コメント"> <button type="submit">投稿</button></form>
 <p class="meta" id="cmtMsg"></p></div>`;
+  // Owner rule (2026-10-25): FAQ is the last section of the page.
+  sections += `<div class="card"><h2>よくある質問</h2>${faq.map((x) => `<h3>${esc(x.q)}</h3><p>${esc(x.a)}</p>`).join('')}</div>`;
+
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -488,6 +495,7 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
 <p class="crumbs">${crumbHtml}</p>
 <h1 class="sr-only">${esc(formatted)} の電話番号情報</h1>
 <div class="hero-num" role="group" aria-label="電話番号の各部分">${segHtml}</div>
+${f.tpFlags && f.tpFlags.length ? `<div class="flagbadges" role="group" aria-label="第三者機関による標識">${f.tpFlags.map((x) => `<span class="fbadge fb-${esc(x.source_tier || 'C')}">第三者標識 ${esc(x.source_tier || '')}級｜${esc(x.publisher)}（${esc(x.source_name)}）${x.label ? '：' + esc(x.label) : ''}</span>`).join('')}</div>` : ''}
 <div class="seg-explain" id="segExplain" data-seg="${hero.defaultSeg}" aria-live="polite"><h2 id="segTitle">${esc(hero.segments[hero.defaultSeg].title)}</h2><p id="segText">${esc(hero.segments[hero.defaultSeg].explain)}</p></div>
 <script>(function(){var SEGS=${heroJson};var btns=document.querySelectorAll('.segbtn');var t=document.getElementById('segTitle'),x=document.getElementById('segText'),c=document.getElementById('segExplain');function sel(i){for(var j=0;j<btns.length;j++){btns[j].classList.toggle('is-active',j===i);btns[j].setAttribute('aria-pressed',j===i?'true':'false');}t.textContent=SEGS[i].title;x.textContent=SEGS[i].explain;c.setAttribute('data-seg',String(i));}for(var k=0;k<btns.length;k++){(function(k){btns[k].addEventListener('click',function(){sel(k);});})(k);}})();</script>
 <script>(function(){
