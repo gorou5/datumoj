@@ -20,12 +20,12 @@ def test_environment_and_explicit_directory(tmp_path):
     env = {
         "DATUMOJ_DATA_DIR": str(tmp_path / "env"), "DATUMOJ_RAW_BACKEND": "s3",
         "DATUMOJ_S3_BUCKET": "raw-bucket", "R2_ENDPOINT": "https://example.invalid",
-        "DATUMOJ_S3_ENDPOINT": "https://fallback.invalid", "DATUMOJ_S3_PREFIX": "project",
+        "DATUMOJ_S3_ENDPOINT": "https://example.invalid", "DATUMOJ_S3_PREFIX": "project",
         "DATUMOJ_S3_REGION": "us-east-1",
     }
     config = load_storage_config(env)
     assert config.data_dir == tmp_path / "env"
-    assert config.s3_endpoint == env["R2_ENDPOINT"]
+    assert config.s3_endpoint == env["DATUMOJ_S3_ENDPOINT"]
     assert config.s3_bucket == "raw-bucket" and config.s3_prefix == "project"
     assert config.s3_region == "us-east-1" and config.raw_backend == "s3"
     assert load_storage_config(env, tmp_path / "explicit").data_dir == tmp_path / "explicit"
@@ -33,11 +33,11 @@ def test_environment_and_explicit_directory(tmp_path):
     assert load_storage_config(env).s3_endpoint == env["DATUMOJ_S3_ENDPOINT"]
 
 
-@pytest.mark.parametrize("missing", ["DATUMOJ_S3_BUCKET", "R2_ENDPOINT"])
+@pytest.mark.parametrize("missing", ["DATUMOJ_S3_BUCKET", "DATUMOJ_S3_ENDPOINT"])
 def test_missing_s3_settings(missing):
     env = {
         "DATUMOJ_RAW_BACKEND": "s3", "DATUMOJ_S3_BUCKET": "bucket",
-        "R2_ENDPOINT": "https://example.invalid",
+        "DATUMOJ_S3_ENDPOINT": "https://example.invalid",
     }
     del env[missing]
     with pytest.raises(ValueError, match=missing):
@@ -56,6 +56,51 @@ def test_config_contains_no_credentials():
     with pytest.raises(ValueError) as error:
         StorageConfig(R2_SECRET_ACCESS_KEY="synthetic-secret")
     assert "synthetic-secret" not in str(error.value)
+
+
+def test_generic_and_legacy_s3_variables_resolve_and_conflicts_hide_values():
+    from datumoj.core.storage import load_s3_credentials
+
+    generic = {
+        "DATUMOJ_S3_ENDPOINT": "https://generic.example.invalid",
+        "DATUMOJ_S3_ACCESS_KEY_ID": "synthetic-id",
+        "DATUMOJ_S3_SECRET_ACCESS_KEY": "synthetic-secret",
+    }
+    config = load_storage_config(generic)
+    assert config.s3_endpoint == generic["DATUMOJ_S3_ENDPOINT"]
+    assert load_s3_credentials(generic) == ("synthetic-id", "synthetic-secret")
+
+    legacy = {
+        "R2_ENDPOINT": "https://legacy.example.invalid",
+        "R2_ACCESS_KEY_ID": "synthetic-id",
+        "R2_SECRET_ACCESS_KEY": "synthetic-secret",
+    }
+    assert load_storage_config(legacy).s3_endpoint == legacy["R2_ENDPOINT"]
+    assert load_s3_credentials(legacy) == ("synthetic-id", "synthetic-secret")
+
+    same_values = {
+        **generic,
+        "R2_ENDPOINT": generic["DATUMOJ_S3_ENDPOINT"],
+        "R2_ACCESS_KEY_ID": generic["DATUMOJ_S3_ACCESS_KEY_ID"],
+        "R2_SECRET_ACCESS_KEY": generic["DATUMOJ_S3_SECRET_ACCESS_KEY"],
+    }
+    assert load_storage_config(same_values).s3_endpoint == generic["DATUMOJ_S3_ENDPOINT"]
+    assert load_s3_credentials(same_values) == ("synthetic-id", "synthetic-secret")
+
+    conflicts = [
+        {"DATUMOJ_S3_ENDPOINT": "https://new.example.invalid", "R2_ENDPOINT": "https://old.example.invalid"},
+        {"DATUMOJ_S3_ACCESS_KEY_ID": "new-id", "R2_ACCESS_KEY_ID": "old-id"},
+        {"DATUMOJ_S3_SECRET_ACCESS_KEY": "new-secret", "R2_SECRET_ACCESS_KEY": "old-secret"},
+    ]
+    for env in conflicts:
+        with pytest.raises(ValueError) as error:
+            if "DATUMOJ_S3_ENDPOINT" in env:
+                load_storage_config(env)
+            else:
+                load_s3_credentials(env)
+        output = str(error.value)
+        assert "DATUMOJ_S3_" in output and "R2_" in output
+        assert not any(value in output for value in env.values())
 
 
 @pytest.mark.parametrize("endpoint", [

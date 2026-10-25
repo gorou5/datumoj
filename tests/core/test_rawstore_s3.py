@@ -119,9 +119,13 @@ class TestS3RawStore(RawStoreSuite):
             assert source.read() == b"read only"
 
 
-@pytest.mark.parametrize("missing", ["R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"])
-def test_missing_credentials(config, monkeypatch, missing):
-    monkeypatch.delenv(missing)
+@pytest.mark.parametrize(("missing", "legacy"), [
+    ("DATUMOJ_S3_ACCESS_KEY_ID", "R2_ACCESS_KEY_ID"),
+    ("DATUMOJ_S3_SECRET_ACCESS_KEY", "R2_SECRET_ACCESS_KEY"),
+])
+def test_missing_credentials(config, monkeypatch, missing, legacy):
+    monkeypatch.delenv(missing, raising=False)
+    monkeypatch.delenv(legacy, raising=False)
     with pytest.raises(ValueError, match=f"缺少 {missing}"):
         S3RawStore(config)
 

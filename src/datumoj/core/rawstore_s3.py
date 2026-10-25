@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import io
-import os
 import re
 import tempfile
 from typing import IO
@@ -15,7 +14,7 @@ from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
 from datumoj.core.contracts import ContractError, CorruptedBlob, NotFoundError
-from datumoj.core.storage import StorageConfig
+from datumoj.core.storage import StorageConfig, load_s3_credentials
 
 _CHUNK_SIZE = 1 << 20
 _SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
@@ -24,23 +23,21 @@ _SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 class S3RawStore:
     """Spool writes/verified reads to disk; never expose SDK error payloads or keys.
 
-    Only R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY are used for authentication.
+    Generic DATUMOJ_S3 credentials are preferred, with R2_* aliases supported.
     The bucket must already exist; this adapter never provisions resources.
     """
 
     def __init__(self, config: StorageConfig):
         if config.raw_backend != "s3":
             raise ValueError("S3RawStore 需要 raw_backend=s3")
-        for name in ("R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"):
-            if not os.environ.get(name):
-                raise ValueError(f"缺少 {name}")
+        access_key, secret_key = load_s3_credentials()
         self._bucket = config.s3_bucket
         self._prefix = config.s3_prefix.strip("/")
         try:
             self._client = boto3.client(
                 "s3", endpoint_url=config.s3_endpoint, region_name=config.s3_region,
-                aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
-                aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
                 config=Config(
                     signature_version="s3v4", s3={"addressing_style": "path"},
                     connect_timeout=10, read_timeout=60, retries={"max_attempts": 2},
