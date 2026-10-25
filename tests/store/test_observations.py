@@ -6,9 +6,10 @@ import duckdb
 import pytest
 
 from datumoj.core.contracts import QueryError, QueryRejected, QueryTimeout
+from datumoj.core.models import SnapshotOrder
 from datumoj.store.observations import DuckDBObservationStore
 from datumoj.testing.contract_suites import ObservationStoreSuite
-from datumoj.testing.samples import make_observation
+from datumoj.testing.samples import T0, make_observation
 
 
 class TestDuckDBObservationStore(ObservationStoreSuite):
@@ -269,3 +270,55 @@ def test_describe_several_tables(tmp_path):
     assert (t1.table_key, t2.table_key) == ("t1", "t2")
     assert (t2.surveys, t2.indicators, t2.area_count, t2.rows) == (["労働力調査"], ["失業者数", "就業者数"], 0, 2)
     assert (t2.time_start, t2.time_end) == (date(2021, 1, 1), date(2021, 1, 31))
+
+
+@pytest.mark.parametrize("empty", [False, True])
+def test_table_and_watermark_share_atomic_replace(tmp_path, monkeypatch, empty):
+    import pyarrow.parquet as pq
+
+    import datumoj.store.observations as module
+
+    store = DuckDBObservationStore(tmp_path / "obs")
+    older = SnapshotOrder(fetched_at=T0, seq=1)
+    newer = SnapshotOrder(fetched_at=T0, seq=2)
+    store.write_table("jp-stat", "t1", [make_observation("old", "1")], order=older)
+    assert store.describe().tables[0].rows == 1
+    path = store.path_for("jp-stat", "t1")
+    original = path.read_bytes()
+
+    def fail_replace(src, dst):
+        assert dst == path
+        pending = pq.read_table(src)
+        assert pending.num_rows == (0 if empty else 1)
+        assert SnapshotOrder.model_validate_json(pending.schema.metadata[b"datumoj.snapshot_order"]) == newer
+        assert path.read_bytes() == original
+        assert store.table_order("jp-stat", "t1") == older
+        raise OSError("synthetic replace failure")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(module.os, "replace", fail_replace)
+        with pytest.raises(OSError, match="synthetic"):
+            store.write_table("jp-stat", "t1", [] if empty else [make_observation("new", "2")], order=newer)
+    assert path.read_bytes() == original
+    assert store.table_order("jp-stat", "t1") == older
+    assert list(path.parent.iterdir()) == [path]
+    assert store.write_table("jp-stat", "t1", [] if empty else [make_observation("new", "2")], order=newer)
+    reopened = DuckDBObservationStore(tmp_path / "obs")
+    assert reopened.table_order("jp-stat", "t1") == newer
+    assert reopened.query_readonly("SELECT obs_id FROM observations").rows == ([] if empty else [("new",)])
+    assert bool(store.describe().tables) == (not empty)
+    assert not reopened.write_table("jp-stat", "t1", [make_observation("old", "1")], order=older)
+
+
+def test_corrupt_watermark_does_not_silently_overwrite(tmp_path):
+    import pyarrow.parquet as pq
+
+    store = DuckDBObservationStore(tmp_path / "obs")
+    store.write_table("jp-stat", "t1", [make_observation("old", "1")])
+    path = store.path_for("jp-stat", "t1")
+    table = pq.read_table(path).replace_schema_metadata({b"datumoj.snapshot_order": b"invalid"})
+    pq.write_table(table, path)
+    original = path.read_bytes()
+    with pytest.raises(ValueError):
+        store.write_table("jp-stat", "t1", [], order=SnapshotOrder(fetched_at=T0, seq=1))
+    assert path.read_bytes() == original
