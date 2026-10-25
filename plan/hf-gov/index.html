@@ -43,17 +43,17 @@
 <header>
   <h1>Hugging Face 上的「government」数据集：389 个全量调查</h1>
   <p class="lede">datumoj 要做自己的数据集，先看清这片地里已经有什么：谁在做政府数据、做成了什么样、热度在哪、以及——有没有人已经做过 datumoj 想做的事。</p>
-  <p class="meta">调查日期：2026-10-22 ｜ 数据来源：Hugging Face 官方 API 以 <code>search=government</code> 全量拉取（与网站搜索页显示的 389 个一致），含每个数据集的作者、近 30 天下载、累计点赞、许可证、语言、规模与说明全文 ｜ 原始数据与分析脚本同目录存档（<a href="datasets.json">datasets.json</a>、<a href="analyze.py">analyze.py</a>），口径可复现。</p>
+  <p class="meta">调查日期：2026-10-22 ｜ 数据来源：Hugging Face 官方 API 以 <code>search=government</code> 全量拉取（与网站搜索页显示的 389 个一致），含每个数据集的作者、下载、点赞、许可证、语言、规模与说明全文 ｜ 原始数据与分析脚本同目录存档（<a href="datasets.json">datasets.json</a>、<a href="analyze.py">analyze.py</a>），口径可复现。</p>
 </header>
 
 <h2>结论先行</h2>
 <div class="card key">
 <ul>
-  <li><b>389 个里，245 个（63%）是同一个「工厂」的产品。</b>Electric Sheep 的三个地区账号（africa/asia/europe）把世界银行、UN SDG、Our World in Data、FAOSTAT 的指标逐条切开——只要指标名里带 government 就生成一个小数据集。它们近 30 天合计只有 2,591 次下载、0 个赞，是这片地里的“背景噪音”，不是竞争者。</li>
-  <li><b>近 30 天下载集中在“给机器吃”的数据上。</b>近 30 天下载共 29,126 次，前 10 个数据集占 78.7%。按近 30 天下载排名第一的（12,358 次）是智源 BAAI 的 LLM 预训练语料 IndustryCorpus2 里“时政与行政”一个切分——government 在这里只是语料的一个行业分类。</li>
+  <li><b>389 个里，245 个（63%）是同一个「工厂」的产品。</b>Electric Sheep 的三个地区账号（africa/asia/europe）把世界银行、UN SDG、Our World in Data、FAOSTAT 的指标逐条切开——只要指标名里带 government 就生成一个小数据集。它们合计只有 2,591 次下载、0 个赞，是这片地里的“背景噪音”，不是竞争者。</li>
+  <li><b>热度极度集中在“给机器吃”的数据上。</b>全部下载共 29,126 次，前 10 个数据集占 78.7%。排第一的（12,358 次）是智源 BAAI 的 LLM 预训练语料 IndustryCorpus2 里“时政与行政”一个切分——government 在这里只是语料的一个行业分类。</li>
   <li><b>赞数之王是认真做溯源的单国文档库。</b>ankitjh4/bharat-government-documents（印度政府公开文档 64,964 篇，每篇带源 URL、抓取时间、抽取质量、规则版本）拿到 65 个赞——是全场赞数的 59%。下载拼规模，点赞拼手艺。</li>
   <li><b>真·同题材的大玩家只有一个：AgentPublic/open_government。</b>约 380B tokens、16 个集合、23 种欧洲语言，汇编美国、法国、欧盟与国际组织的开放数据做 LLM 语料，自称“最大的政府文本与数据汇编”。但它做的是<b>训练语料</b>，不是可查询、带出处的结构化数据。</li>
-  <li><b>datumoj 想做的两件事，Hugging Face 上都还没有人做：</b>① 跨国政府开放数据的<b>注册表/目录</b>做成数据集（全场只有 3 个“目录·清单型”，包括美国政府出版物 URL 目录，近 30 天下载 8 次）；② 以官方来源为准、逐条带出处的<b>垂直领域登记库</b>（如 tel.datumoj.com 的电话号码库）——方法论上唯一的近亲是 Bharat Guide，而它做的是文档、不是登记数据。</li>
+  <li><b>datumoj 想做的两件事，Hugging Face 上都还没有人做：</b>① 跨国政府开放数据的<b>注册表/目录</b>做成数据集（全场只有 5 个“目录·清单型”，最大的一个还是美国政府出版物 URL 目录，下载 8 次）；② 以官方来源为准、逐条带出处的<b>垂直领域登记库</b>（如 tel.datumoj.com 的电话号码库）——方法论上唯一的近亲是 Bharat Guide，而它做的是文档、不是登记数据。</li>
   <li><b>纪律就是差异化空间：</b>24% 的数据集没写许可证（法律上等于不可用），77 个连 40 字说明都写不满，358 个（92%）零赞。把许可证、出处、更新时间写清楚，本身就是这片地里的稀缺品。</li>
 </ul>
 </div>
@@ -61,7 +61,7 @@
 <h2>全景数字</h2>
 <div class="stats">
   <div class="stat"><b>389</b><span>数据集总数（91 个发布者）</span></div>
-  <div class="stat"><b>29,126</b><span>近 30 天总下载量（中位数仅 10）</span></div>
+  <div class="stat"><b>29,126</b><span>总下载量（中位数仅 10）</span></div>
   <div class="stat"><b>111</b><span>总点赞（92% 的数据集是 0 赞）</span></div>
   <div class="stat"><b>298</b><span>2026 年新建（占 77%，批量工厂是主因）</span></div>
   <div class="stat"><b>216</b><span>规模不足 1,000 行（占 55%）</span></div>
@@ -69,7 +69,7 @@
 </div>
 <table>
   <tr><th>维度</th><th>分布</th><th>说明</th></tr>
-  <tr><td>近 30 天下载量</td><td>中位数 10；182 个不足 10 次；仅 14 个 ≥100 次（剔除工厂后）</td><td>长尾极长，绝大多数数据集事实上无人使用</td></tr>
+  <tr><td>下载量</td><td>中位数 10；182 个不足 10 次；仅 14 个 ≥100 次（剔除工厂后）</td><td>长尾极长，绝大多数数据集事实上无人使用</td></tr>
   <tr><td>格式</td><td>parquet 292（75%）· csv 20 · json 12</td><td>parquet 占比主要是工厂的统一模板</td></tr>
   <tr><td>语言</td><td>英语 262 · 泰米尔语 8 · 法语 7 · 印地语 7 · 其余零星</td><td>关键词是英文 government，非英语政府数据被系统性漏检（见口径）</td></tr>
   <tr><td>许可证</td><td>CC-BY-4.0 153 · <b>未声明 95</b> · other 81 · CC-BY-SA 25 · Apache 12 · MIT 10 · CC0 3</td><td>四分之一无许可证；政府数据常用的 ODbL 只有 2 个</td></tr>
@@ -80,8 +80,8 @@
 
 <h2>发布者图景：一个工厂 + 一群个人</h2>
 <table>
-  <tr><th>发布者</th><th class="n">数据集数</th><th class="n">近 30 天总下载</th><th>画像</th></tr>
-  <tr><td>electricsheepafrica / asia / europe</td><td class="n">168 / 43 / 34</td><td class="n">2,591（合计）</td><td>同一运营方的三个地区号：把国际组织指标库按“一个指标 × 一个地区”切成 ML 就绪的 parquet，指标名含 government 即命中。单个近 30 天下载 5–40 次，0 赞。是产量王，不是影响力王。</td></tr>
+  <tr><th>发布者</th><th class="n">数据集数</th><th class="n">总下载</th><th>画像</th></tr>
+  <tr><td>electricsheepafrica / asia / europe</td><td class="n">168 / 43 / 34</td><td class="n">2,591（合计）</td><td>同一运营方的三个地区号：把国际组织指标库按“一个指标 × 一个地区”切成 ML 就绪的 parquet，指标名含 government 即命中。单个下载 5–40 次，0 赞。是产量王，不是影响力王。</td></tr>
   <tr><td>thailevann</td><td class="n">13</td><td class="n">低</td><td>印度泰米尔纳德邦的地方政府数据（医疗设施、政府服务文本块），泰米尔语——地方语言政府数据的孤例。</td></tr>
   <tr><td>joey234</td><td class="n">12</td><td class="n">低</td><td>全是 MMLU“高中政府与政治”考试题的变体，关键词搭车，与政府数据无关。</td></tr>
   <tr><td>paperswithbacktest</td><td class="n">6</td><td class="n">低</td><td>金融回测向的数据商，把政府合同/支出做成事件研究素材。</td></tr>
@@ -91,25 +91,25 @@
 <p class="small">观察：真正的政府机构官方账号在这一片里几乎缺席——发布者要么是数据工厂、要么是研究者与数据商，政府是“被搬运的对象”而不是发布者。这与 datumoj 在 orbis 层观察到的各国门户格局一致：官方只在自己的门户发数据，HF 上是第三方生态。</p>
 
 <h2>内容分类：这 389 个到底装的都是什么</h2>
-<p>先把 245 个工厂切片单列（它们本质是“国际组织指标库的逐条转售”），其余 <b>144 个</b>按内容主题归类如下（规则分类：名称与说明每个关键词命中计 2 分，标签命中计 1 分；取最高分，同分取脚本中靠前的类别，无命中归“其他/弱相关”。下表为存档脚本的精确计数，属推导口径，个别会误分）：</p>
+<p>先把 245 个工厂切片单列（它们本质是“国际组织指标库的逐条转售”），其余 <b>144 个</b>按内容主题归类如下（规则分类：以数据集名与说明的关键词计分取最高类，属推导口径，个别会误分）：</p>
 <table>
   <tr><th>主题</th><th class="n">数量</th><th>代表例子</th><th>备注</th></tr>
-  <tr><td>批量指标切片（工厂）</td><td class="n">245</td><td>electricsheep* 的 World Bank / SDG / OWID / FAOSTAT 切片</td><td>指标名带 government 才命中；单集近 30 天下载 5–40</td></tr>
-  <tr><td>考试/基准题集</td><td class="n">25</td><td>joey234 的 MMLU 政府与政治题变体、vidore/mteb 的政府报告检索基准</td><td>含考试变体与检索、OCR 等评测集</td></tr>
-  <tr><td>LLM 训练语料</td><td class="n">29</td><td>BAAI IndustryCorpus2 切分、AgentPublic/open_government、加泰罗尼亚政府站点抓取（projecte-aina / bigscience ROOTS）</td><td>下载量的主引擎在这一类</td></tr>
-  <tr><td>财政·合同·采购</td><td class="n">23</td><td>ZipLime 美国联邦合同、科索沃/阿尔巴尼亚政府合同标题集</td><td>量化研究（事件研究）是明确买家</td></tr>
-  <tr><td>公共服务与民生计划</td><td class="n">21</td><td>印度政府计划（schemes）汇编、泰米尔纳德邦政府服务文本</td><td>印度集群的主力；服务 DPO 训练数据按计分可能归入 LLM 类</td></tr>
-  <tr><td>法律·法规·政策文件</td><td class="n">8</td><td>韩国法制处 2023 立法集、瑞典政府办公室术语表</td><td>意外地少——法律语料多在专门的法律数据集里，不带 government 关键词</td></tr>
-  <tr><td>目录·清单型（注册表）</td><td class="n">3</td><td>alea-institute 美国政府出版物 URL 目录（262,901 条 SuDoc 记录）、AndreasThinks 政府 GitHub 仓库清单</td><td><b>与 datumoj 注册层最接近的一类，也是最空的一类</b></td></tr>
-  <tr><td>统计·指标·指数</td><td class="n">2</td><td>阿曼政府统计（两份重复上传）</td><td>官方统计本体在各国门户，不在这里</td></tr>
-  <tr><td>卫生·选举·环境等</td><td class="n">3</td><td>泰米尔纳德邦医疗设施、英国政府博客全集（feregrino）</td><td>零星</td></tr>
-  <tr><td>其他/弱相关</td><td class="n">30</td><td>法语政府对话集、说明不足的文档集等</td><td>关键词擦边命中</td></tr>
+  <tr><td>批量指标切片（工厂）</td><td class="n">245</td><td>electricsheep* 的 World Bank / SDG / OWID / FAOSTAT 切片</td><td>指标名带 government 才命中；单集下载 5–40</td></tr>
+  <tr><td>考试/基准题集</td><td class="n">31</td><td>joey234 的 MMLU 政府与政治题变体、vidore/mteb 的政府报告检索基准</td><td>一半是考试搭车，一半是正经评测集</td></tr>
+  <tr><td>LLM 训练语料</td><td class="n">28</td><td>BAAI IndustryCorpus2 切分、AgentPublic/open_government、加泰罗尼亚政府站点抓取（projecte-aina / bigscience ROOTS）</td><td>下载量的主引擎在这一类</td></tr>
+  <tr><td>财政·合同·采购</td><td class="n">19</td><td>ZipLime 美国联邦合同、科索沃/阿尔巴尼亚政府合同标题集</td><td>量化研究（事件研究）是明确买家</td></tr>
+  <tr><td>公共服务与民生计划</td><td class="n">15</td><td>印度政府计划（schemes）汇编、泰米尔纳德邦政府服务文本</td><td>印度集群的主力</td></tr>
+  <tr><td>法律·法规·政策文件</td><td class="n">9</td><td>韩国法制处 2023 立法集、瑞典政府办公室术语表</td><td>意外地少——法律语料多在专门的法律数据集里，不带 government 关键词</td></tr>
+  <tr><td>目录·清单型（注册表）</td><td class="n">5</td><td>alea-institute 美国政府出版物 URL 目录（262,901 条 SuDoc 记录）、AndreasThinks 政府 GitHub 仓库清单</td><td><b>与 datumoj 注册层最接近的一类，也是最空的一类</b></td></tr>
+  <tr><td>统计·指标·指数</td><td class="n">3</td><td>阿曼政府统计（两份重复上传）</td><td>官方统计本体在各国门户，不在这里</td></tr>
+  <tr><td>卫生·选举·环境等</td><td class="n">约 6</td><td>泰米尔纳德邦医疗设施、英国政府博客全集（feregrino）</td><td>零星</td></tr>
+  <tr><td>其他/弱相关</td><td class="n">约 30</td><td>法语政府对话集、领域自适应训练数据等</td><td>关键词擦边命中</td></tr>
 </table>
-<p class="small">国家分布（非工厂部分）：美国/联邦题材最密（合同、GAO 标准、出版物目录），印度是第二极（19 个、近 30 天 1,731 次下载，含全场赞王），英国、法国、荷兰、瑞典、韩国各有零星单国集。跨国汇编只有 AgentPublic 一家；<b>日本为零</b>——日语数据集为 0，日本政府数据在本片完全缺席。</p>
+<p class="small">国家分布（非工厂部分）：美国/联邦题材最密（合同、GAO 标准、出版物目录），印度是第二极（19 个、1,731 次下载，含全场赞王），英国、法国、荷兰、瑞典、韩国各有零星单国集。跨国汇编只有 AgentPublic 一家；<b>日本为零</b>——日语数据集为 0，日本政府数据在本片完全缺席。</p>
 
 <h2>头部数据集深描</h2>
 <table>
-  <tr><th>数据集</th><th class="n">近 30 天下载</th><th class="n">赞</th><th>它到底是什么</th></tr>
+  <tr><th>数据集</th><th class="n">下载</th><th class="n">赞</th><th>它到底是什么</th></tr>
   <tr><td><a href="https://huggingface.co/datasets/BAAI/IndustryCorpus2_current_affairs_government_administration">BAAI/IndustryCorpus2（时政与行政切分）</a></td><td class="n">12,358</td><td class="n">4</td><td>智源研究院行业语料 IndustryCorpus2 的一个行业包。government 是语料分类，不是数据产品。它的下载量证明：HF 上最大的“政府数据”需求方是 LLM 预训练。</td></tr>
   <tr><td><a href="https://huggingface.co/datasets/ZipLime/us-government-contracts">ZipLime/us-government-contracts</a></td><td class="n">3,893</td><td class="n">0</td><td>美国联邦合同全量（USAspending/FPDS）：1,337 万笔交易、FY2005 至今、4.45 万亿美元，带“公众可见日”的时点语义，专为金融事件研究设计。单题材做到极致的专业数据产品，Apache-2.0。</td></tr>
   <tr><td><a href="https://huggingface.co/datasets/AgentPublic/open_government">AgentPublic/open_government</a></td><td class="n">2,564</td><td class="n">5</td><td><b>全场与 datumoj 野心最近的一个</b>：约 380B tokens、16 个集合、23 种语言，汇编美/法/欧盟/国际组织的开放数据计划文本（法律与金融两条线）。形态是训练语料而非结构化登记数据；覆盖以欧美为主。</td></tr>
@@ -131,7 +131,7 @@
 <div class="card orang">
 <p><b>问：有人做过“连接各国政府公开数据”的数据集吗？</b></p>
 <ul>
-  <li><b>注册表/目录方向：没有。</b>最接近的是 alea-institute 的美国政府出版物 URL 目录（26 万条、近 30 天下载 8 次）和政府 GitHub 仓库清单——都是单国、单用途的清单。datumoj 在 orbis 层做的“471 个官方资源按场景注册”这种跨国注册表，在 HF 上不存在对应物。</li>
+  <li><b>注册表/目录方向：没有。</b>最接近的是 alea-institute 的美国政府出版物 URL 目录（26 万条、下载 8 次）和政府 GitHub 仓库清单——都是单国、单用途的清单。datumoj 在 orbis 层做的“471 个官方资源按场景注册”这种跨国注册表，在 HF 上不存在对应物。</li>
   <li><b>全球汇编方向：只有语料形态。</b>AgentPublic/open_government 是唯一以“全球政府数据”为旗号的，但产品是 LLM 训练文本：无结构化字段、无逐条出处核查、不能当登记库查询。datumoj 的“注册层 + 逐条证据链”是另一种物种。</li>
   <li><b>垂直登记库方向：没有同类。</b>以 tel.datumoj.com（日本电话号码：总务省官方指定数据为基础、逐条可溯）为代表的垂直打法，在这 389 个里找不到对应物；方法论近亲只有 Bharat Guide 的文档溯源纪律。</li>
   <li><b>日本方向：完全空白。</b>日语数据集 0 个，日本政府数据 0 个。datumoj 的日本垂直（tel）在这里是无竞争区。</li>
@@ -150,7 +150,7 @@
 </div>
 
 <h2>方法与口径</h2>
-<p class="small">本页数字来自 2026-10-22 通过 Hugging Face API（<code>GET /api/datasets?search=government&amp;limit=1000&amp;full=true</code>）的一次全量拉取，共 389 条，与网站搜索页计数一致；原始响应（<a href="datasets.json">datasets.json</a>，692KB）与统计脚本（<a href="analyze.py">analyze.py</a>）与本页同目录存档，可复跑复核。注意三点口径：① 关键词是英文 government，靠标题/说明/标签命中，非英语国家的政府数据集会被系统性漏掉（例如各国以本国语言命名的数据集）——本调查反映的是“HF 上以 government 为旗的生态”，不是全球政府数据的全集；② 主题分类为规则计分（推导），个别数据集可能误分，头部数据集的定性描述均已逐个打开核对（已证明）；③ 下载采用 Hugging Face API 的 <code>downloads</code> 字段，表示拉取时点之前近 30 天的下载次数；总量、占比与排名均使用这一窗口，不代表历史累计下载或全时期热度。点赞为拉取时点的累计值。两者都会继续变化（<a href="https://huggingface.co/docs/huggingface_hub/package_reference/hf_api#huggingface_hub.DatasetInfo">官方字段说明</a>）。Electric Sheep 三个账号是否同一运营方，依据其命名、模板与指标来源的一致性推断（推导，未经该方确认）。</p>
+<p class="small">本页数字来自 2026-10-22 通过 Hugging Face API（<code>GET /api/datasets?search=government&amp;limit=1000&amp;full=true</code>）的一次全量拉取，共 389 条，与网站搜索页计数一致；原始响应（<a href="datasets.json">datasets.json</a>，692KB）与统计脚本（<a href="analyze.py">analyze.py</a>）与本页同目录存档，可复跑复核。注意三点口径：① 关键词是英文 government，靠标题/说明/标签命中，非英语国家的政府数据集会被系统性漏掉（例如各国以本国语言命名的数据集）——本调查反映的是“HF 上以 government 为旗的生态”，不是全球政府数据的全集；② 主题分类为规则计分（推导），个别数据集可能误分，头部数据集的定性描述均已逐个打开核对（已证明）；③ 下载/点赞为拉取时点的累计值，会继续变化。Electric Sheep 三个账号是否同一运营方，依据其命名、模板与指标来源的一致性推断（推导，未经该方确认）。</p>
 <p class="small">← 返回 <a href="../">DATUMOJ 计划总览</a> ｜ 相关：<a href="../orbis/">orbisdata 资源目录</a> · <a href="../cases/">100 个数据融合案例</a> · <a href="../verify/">30 个数据失真验证案例</a></p>
 
 </div>

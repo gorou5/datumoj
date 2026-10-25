@@ -63,17 +63,18 @@ for d in DATA:
 print('FORMATS:', fmts.most_common(10))
 
 # ---------- thematic classification ----------
-FACTORY_AUTHORS = {'electricsheepafrica', 'electricsheepasia', 'electricsheepeurope'}
-FACTORY_CATEGORY = '批量指标切片（工厂）'
 CATS = [
-    ('考试/基准题集', ['mmlu', 'mmmlu', 'benchmark', 'beir', 'mteb', 'bias-detection', 'natural instructions', 'exam', 'syntheticdocqa', 'high_school_government_and_politics', 'high-school-government-and-politics']),
-    ('LLM 训练语料', ['corpus', 'crawling', 'pretrain', 'llm', 'training', 'open-government', 'open_government', 'parallel', 'dpo', 'embedding', 'doc-corpus', 'tokens', 'text-generation']),
-    ('财政·合同·采购', ['contract', 'procurement', 'rfp', 'rfq', 'tender', 'budget', 'spending', 'expenditure', 'taxation', 'fiscal', 'treasury', 'securities', 'auction']),
-    ('公共服务与民生计划', ['scheme', 'government_services', 'benefit', 'permit', 'transport', 'education', 'school', 'housing', 'social security']),
-    ('法律·法规·政策文件', ['law', 'legal', 'legislation', 'ordinance', 'regulation', 'statute', 'judicial', 'directive', 'treaty', 'government-standards', 'auditing-standards', 'government-offices', 'government_offices']),
-    ('目录·清单型（注册表）', ['catalog', 'registry', 'directory', 'government-github-repos', 'publications-urls']),
-    ('统计·指标·指数', ['statistics', 'statistical', 'census', 'demograph', 'population', 'indicator', 'statistical index']),
-    ('卫生·选举·环境等', ['health', 'covid', 'disease', 'hospital', 'medical', 'climate', 'environment', 'emission', 'weather', 'election', 'news', 'blogs']),
+    ('门户镜像与数据目录', ['data.gouv', 'data.gov', 'open data', 'opendata', 'catalog', 'portal', 'mirror', 'dataset directory', 'data portal', 'ckan', 'socrata']),
+    ('法律·法规·判例', ['law', 'legal', 'legislation', 'court', 'constitution', 'regulation', 'statute', 'judicial', 'crime act', 'directive', 'treaty', 'bill text']),
+    ('议会·选举·政治', ['parliament', 'congress', 'election', 'senate', 'hansard', 'politic', 'vote', 'legislat', 'deput', 'assembly']),
+    ('财政·预算·税务·采购', ['budget', 'spending', 'expenditure', 'procurement', 'tax', 'fiscal', 'treasury', 'contract award', 'public finance']),
+    ('人口·统计·普查', ['census', 'demograph', 'population', 'statistics', 'statistical', 'survey data']),
+    ('公共卫生·医疗', ['health', 'covid', 'disease', 'hospital', 'medical', 'nhs', 'mortality', 'epidemi']),
+    ('环境·气候·地理空间', ['climate', 'environment', 'emission', 'weather', 'geospatial', 'geo ', 'land use', 'pollution', 'energy']),
+    ('政府文档语料（LLM/文本）', ['corpus', 'gazette', 'official document', 'government document', 'web crawl', 'pdf', 'documents', 'text collection', 'pretraining', 'llm']),
+    ('公共服务·行政事务', ['service', 'benefit', 'permit', 'form', 'transport', 'education', 'school', 'housing', 'social security']),
+    ('执法·安全·投诉', ['police', 'crime', 'complaint', 'robocall', 'fraud', 'enforcement', 'prison', 'firearm']),
+    ('演讲·新闻·公报', ['speech', 'press release', 'news', 'announcement', 'statement', 'transcript']),
 ]
 def classify(d):
     text = (d['id'] + ' ' + (d.get('description') or '')).lower()
@@ -87,16 +88,7 @@ def classify(d):
 
 cat_of = {}
 cat_members = defaultdict(list)
-factory = [d for d in DATA if d['author'] in FACTORY_AUTHORS]
-non_factory = [d for d in DATA if d['author'] not in FACTORY_AUTHORS]
-cat_members[FACTORY_CATEGORY] = factory
-cat_of.update((d['id'], FACTORY_CATEGORY) for d in factory)
-print(f'\nFACTORY: {len(factory)}; NON-FACTORY: {len(non_factory)}')
-print('CLASSIFICATION RULES: id + description: 2 points/keyword; tags: 1 point/keyword; first category wins ties; no match: 其他/弱相关')
-print(f'  {FACTORY_CATEGORY}: author in {sorted(FACTORY_AUTHORS)} (excluded before keyword scoring)')
-for name, kws in CATS:
-    print(f'  {name}: {kws}')
-for d in non_factory:
+for d in DATA:
     c = classify(d)
     cat_of[d['id']] = c
     cat_members[c].append(d)
@@ -104,9 +96,6 @@ print('\nCATEGORIES:')
 for c, members in sorted(cat_members.items(), key=lambda kv: -len(kv[1])):
     top = sorted(members, key=lambda d: -(d.get('downloads') or 0))[:3]
     print(f'  {c}: {len(members)}  (downloads sum {sum(d.get("downloads") or 0 for d in members)})  e.g. ' + ', '.join(f"{d['id']}({d.get('downloads') or 0})" for d in top))
-print('\nNON-FACTORY CATEGORY MEMBERS:')
-for d in non_factory:
-    print(f"  {d['id']}: {cat_of[d['id']]}")
 
 # ---------- top by downloads / likes ----------
 print('\nTOP 15 BY DOWNLOADS:')
