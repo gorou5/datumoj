@@ -41,6 +41,7 @@
   .src{display:inline-block;border:1px solid var(--line);border-radius:16px;padding:1px 10px;margin:0 5px 5px 0;
     font-size:12.5px;color:var(--ivy);text-decoration:none;background:#fcfcf9}
   .src:hover{border-color:var(--ivy)}
+  .pending{font-size:12.5px;color:#8a5a00;background:#fdf6e3;border:1px dashed #e0c48a;border-radius:8px;padding:6px 10px;margin:0 0 10px}
   .method{color:var(--muted);font-size:13.5px;margin:0 0 10px}
   .signal{background:var(--aha);border-radius:8px;padding:9px 12px;margin:0;font-size:14px}
   .signal .lab{color:var(--red)}
@@ -79,10 +80,10 @@
   <p class="method"><span class="lab">验证方法</span>省级加总与全国数的差额做时间序列；再以各省夜光增速为独立标尺，看哪省官方增速与灯光背离最大。</p>
   <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：差额长期为正且与考核周期同步，背离大的省份事后被下修。洗清：差额收敛至抽样误差范围且与夜光一致。</p>
 </article>
-<article class="case" data-text="多国（威权体制样本）官方 gdp 增速体制激励使统计系统倾向高报增长：luis martinez 的研究假设威权国家的 gdp 增速被系统性高估。夜光弹性法：用民主国家标定「灯光-gdp」关系，再预测各国「应然 gdp」，与官方值比残差并按体制类型分组。坐实：同一体制组残差系统性偏正（官方高于灯光预测约三成）。这正是已发表研究的实证结果——单源自报的总量，必须用天上的眼睛复核。总量注水">
+<article class="case" data-text="多国（威权体制样本）官方 gdp 增速体制激励使统计系统倾向高报增长：luis martinez（2022）用夜光检验发现威权国家公布的 gdp 增速被系统性高估，方法来自 henderson 等人（2012）。夜光弹性法：用民主国家标定「灯光-gdp」关系，再预测各国「应然 gdp」，与官方值比残差并按体制类型分组。坐实：同一体制组残差系统性偏正（官方高于灯光预测约三成）。这正是已发表研究的实证结果——单源自报的总量，必须用天上的眼睛复核。总量注水">
   <div class="chead"><span class="no">V02</span><span class="tag real">历史实证</span></div>
   <h3>多国（威权体制样本） · 官方 GDP 增速</h3>
-  <p class="hyp"><span class="lab">作假假设</span>体制激励使统计系统倾向高报增长：<a href="https://doi.org/10.1086/720458" target="_blank" rel="noopener">Luis Martinez 的研究</a>假设威权国家的 GDP 增速被系统性高估。</p>
+  <p class="hyp"><span class="lab">作假假设</span>体制激励使统计系统倾向高报增长：<a href="https://doi.org/10.1086/720458" target="_blank" rel="noopener">Luis Martinez（2022，<i>Journal of Political Economy</i>）</a>用夜光检验发现，威权国家公布的 GDP 增速被系统性高估；所用的夜光-GDP 弹性方法来自 Henderson 等人（2012）。</p>
   <div class="srcs"><span class="lab">验证数据源（≥3 个独立来源）</span><a class="src" href="https://datatopics.worldbank.org/world-development-indicators" target="_blank" rel="noopener">World Development Indicators</a><a class="src" href="https://earth.esa.int/eogateway/catalog" target="_blank" rel="noopener">ESA Earth Observation</a><a class="src" href="https://data.un.org" target="_blank" rel="noopener">United Nations Statistics Division (UNSD) UNdata</a></div>
   <p class="method"><span class="lab">验证方法</span>夜光弹性法：用民主国家标定「灯光-GDP」关系，再预测各国「应然 GDP」，与官方值比残差并按体制类型分组。</p>
   <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：同一体制组残差系统性偏正（官方高于灯光预测约三成）。这正是已发表研究的实证结果——单源自报的总量，必须用天上的眼睛复核。</p>
@@ -284,6 +285,7 @@
   <h3>美国（亚特兰大） · 公立学校统考成绩</h3>
   <p class="hyp"><span class="lab">作假假设</span>为达成问责指标，亚特兰大学区大规模涂改学生答题卡，2011 年调查确认，数十名教育者涉案。</p>
   <div class="srcs"><span class="lab">具体调查记录（尚未满足 ≥3 个独立验证来源）</span><a class="src" href="https://archive.org/details/215260-georgia-investigation" target="_blank" rel="noopener">2011 年佐治亚州 APS 作弊调查报告（存档）</a><a class="src" href="https://archive.org/details/630082-atlanta-schools-indictment-announcement" target="_blank" rel="noopener">2013 年 APS 案起诉公告（存档）</a><p class="meta">两份文件来自同一案件的调查与起诉流程，存档镜像不增加独立来源数。学生级答题卡、擦改日志与后续成绩尚未取得公开可复核版本，获取条件需向持有机构确认；这些原始记录不计入“≥3 个独立来源”，本页不能据此复跑擦改率检验。</p></div>
+  <p class="pending">⚠️ 原始验证记录待补齐：当前具体记录尚不足以完成本案例的交叉验证，不能认定达到「≥3 个独立来源」；后续制作时重新审核。</p>
   <p class="method"><span class="lab">验证方法</span>擦改痕迹统计：各考场答题卡擦改率与成绩跃升幅度对照，异常耦合的考场再与后续年级的成績回落交叉验证。</p>
   <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：涉案者被起诉定罪。aha：作弊留下的不是成绩异常，而是统计指纹——擦改率与跃升幅度的相关性，比成绩本身更诚实。</p>
 </article>
@@ -338,6 +340,7 @@
   <h3>美国（纽约） · CompStat 案件降格</h3>
   <p class="hyp"><span class="lab">作假假设</span>绩效考核压力下，假设部分警区把重罪案件降格记录以压低犯罪率，统计改善部分来自账本而非街头。</p>
   <div class="srcs"><span class="lab">具体数据记录（尚未满足 ≥3 个独立验证来源）</span><a class="src" href="https://data.cityofnewyork.us/d/qgea-i56i" target="_blank" rel="noopener">NYPD Complaint Data Historic（qgea-i56i）</a><a class="src" href="https://data.cityofnewyork.us/d/jb7j-dtam" target="_blank" rel="noopener">NYC 死因统计（jb7j-dtam，含凶杀分类）</a><p class="meta">警方投诉记录为待核验对象；卫生部门死因统计可作死亡端锚点，不能替代非致命伤害的急诊记录。满足本案口径的急诊伤害明细与验尸官个案记录尚未取得公开可复核版本，获取条件需向持有机构确认，不计入“≥3 个独立来源”；目前不足以完成所述交叉验证。</p></div>
+  <p class="pending">⚠️ 原始验证记录待补齐：当前具体记录尚不足以完成本案例的交叉验证，不能认定达到「≥3 个独立来源」；后续制作时重新审核。</p>
   <p class="method"><span class="lab">验证方法</span>警方数据与医院急诊、验尸官记录的暴力伤害数据对照，检验两类数据在考核强化后的背离程度。</p>
   <p class="signal"><span class="lab">⚖️ 判定信号</span>坐实：街头暴力锚点平稳而账面重罪骤降。医院不看考核表：身体留下的记录，是犯罪统计最难篡改的镜像。</p>
 </article>
