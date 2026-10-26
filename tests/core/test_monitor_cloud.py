@@ -55,6 +55,42 @@ def test_cloud_alerts_use_one_source_cycle_and_two_cycles_for_generation_stall()
     assert [alert.rule for alert in no_sources_stall] == ["cloud_stalled"]
 
 
+def test_weekly_cloud_alert_starts_only_after_seven_days_without_success():
+    weekly = make_spec("jp-weekly", schedule="weekly")
+    created_at = T0 - timedelta(hours=1)
+    on_time = evaluate_cloud_alerts(
+        [weekly], {weekly.id}, {weekly.id: _success("weekly-ok", T0 - timedelta(days=7))},
+        created_at, T0,
+    )
+    assert on_time == []
+
+    overdue = evaluate_cloud_alerts(
+        [weekly], {weekly.id}, {weekly.id: _success("weekly-ok", T0 - timedelta(days=7, seconds=1))},
+        created_at, T0,
+    )
+    assert [alert.rule for alert in overdue] == ["cloud_run_missing"]
+    assert overdue[0].details["expected_after_seconds"] == 7 * 24 * 60 * 60
+
+
+def test_existing_cloud_schedule_intervals_are_unchanged():
+    for schedule, interval in (
+        ("hourly", timedelta(hours=1)),
+        ("daily", timedelta(days=1)),
+        ("monthly", timedelta(days=30)),
+    ):
+        spec = make_spec(f"jp-{schedule}", schedule=schedule)
+        created_at = T0 - timedelta(minutes=30)
+        on_time = evaluate_cloud_alerts(
+            [spec], {spec.id}, {spec.id: _success("ok", T0 - interval)}, created_at, T0,
+        )
+        assert on_time == []
+        overdue = evaluate_cloud_alerts(
+            [spec], {spec.id}, {spec.id: _success("ok", T0 - interval - timedelta(seconds=1))},
+            created_at, T0,
+        )
+        assert [alert.rule for alert in overdue] == ["cloud_run_missing"]
+
+
 def test_pulled_status_includes_generation_writer_successes_and_alerts(tmp_path):
     spec = make_spec("jp-test", schedule="hourly")
     created_at = T0 - timedelta(hours=3)

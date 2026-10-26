@@ -67,6 +67,19 @@ def test_due_switches_and_existing_frequency_rules(tmp_path):
     assert scheduler.due() == []
 
 
+def test_weekly_source_is_due_on_first_run_and_again_after_seven_days(tmp_path):
+    scheduler, calls, clock = setup(tmp_path, ("weekly",))
+    enable(scheduler)
+
+    assert scheduler.due() == ["jp-due0"]
+    assert scheduler.tick()[0]["exit_status"] == 0
+    assert calls == ["jp-due0"]
+    clock[0] += timedelta(days=7) - timedelta(seconds=1)
+    assert scheduler.due() == []
+    clock[0] += timedelta(seconds=1)
+    assert scheduler.due() == ["jp-due0"]
+
+
 def test_due_uses_legacy_failed_interrupted_history_and_warnings(tmp_path):
     scheduler, _, clock = setup(tmp_path, ("hourly", "hourly", "hourly"))
     enable(scheduler)

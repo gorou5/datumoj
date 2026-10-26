@@ -19,10 +19,13 @@ from datumoj.testing.fakes import FakeManifest, FakeRawStore, FakeRegistry
 from datumoj.testing.samples import T0, make_spec
 
 
-def _admin(tmp_path, *, names=None, execute=None, token="test-token"):
+def _admin(tmp_path, *, names=None, schedules=None, execute=None, token="test-token"):
     names = names or {"jp-one": "测试来源一", "jp-two": "测试来源二"}
     specs = [
-        make_spec(source_id, schedule="hourly" if index == 0 else "manual").model_copy(update={"name": name})
+        make_spec(
+            source_id,
+            schedule=(schedules or {}).get(source_id, "hourly" if index == 0 else "manual"),
+        ).model_copy(update={"name": name})
         for index, (source_id, name) in enumerate(names.items())
     ]
     deps = SimpleNamespace(registry=FakeRegistry(specs), manifest=FakeManifest(), raw=FakeRawStore(tmp_path))
@@ -71,6 +74,18 @@ def test_page_lists_sources_status_and_post_forms(tmp_path):
     assert response.text.count(">立即运行</button>") == 2
     assert 'method="post"' in response.text
     assert _csrf(response.text) == "test-token"
+
+
+def test_page_labels_weekly_schedule(tmp_path):
+    app, _, _, _ = _admin(
+        tmp_path, names={"jp-weekly": "每周来源"}, schedules={"jp-weekly": "weekly"},
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/")
+
+    assert response.status_code == 200
+    assert "每周来源" in response.text and "每周" in response.text
 
 
 def test_switch_posts_update_control_and_get_does_not(tmp_path):

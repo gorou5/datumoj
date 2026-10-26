@@ -98,11 +98,12 @@ def _rate(stats: dict, status: ParseStatus) -> tuple[int, int]:
     return int(failed), int(total)
 
 
-_SCHEDULE_INTERVALS = {
-    "hourly": timedelta(hours=1),
-    "daily": timedelta(days=1),
-    "monthly": timedelta(days=30),
-}
+def _schedule_interval(schedule: str | None) -> timedelta | None:
+    # Lazy import avoids the schedule -> monitor dependency cycle.
+    from datumoj.core.schedule import SCHEDULES
+
+    entry = SCHEDULES.get(schedule or "")
+    return entry[0] if entry else None
 
 
 def _aware_datetime(value: object) -> datetime | None:
@@ -180,13 +181,13 @@ def evaluate_cloud_alerts(
         raise ValueError("云端代次和当前时间必须带时区")
 
     specs = list(sources)
-    scheduled = [
-        spec for spec in specs
-        if spec.id in enabled_sources and (spec.schedule or "") in _SCHEDULE_INTERVALS
-    ]
+    scheduled = []
+    for spec in specs:
+        interval = _schedule_interval(spec.schedule)
+        if spec.id in enabled_sources and interval is not None:
+            scheduled.append((spec, interval))
     alerts: list[Alert] = []
-    for spec in scheduled:
-        interval = _SCHEDULE_INTERVALS[spec.schedule or ""]
+    for spec, interval in scheduled:
         run = last_successful_runs.get(spec.id)
         anchor = _aware_datetime(run.get("finished_at")) if run is not None else None
         first_attempt = _aware_datetime(first_attempts.get(spec.id)) if first_attempts else None
@@ -405,7 +406,7 @@ def evaluate_alerts(
         for run in successful_runs
         if (timestamp := (_run_time(run, "ended_at") or _run_time(run, "started_at"))) is not None
     ]
-    interval = _SCHEDULE_INTERVALS.get(spec.schedule or "")
+    interval = _schedule_interval(spec.schedule)
     if enabled and interval is not None:
         anchor = successful_times[-1] if successful_times else (
             _run_time(ordered_runs[0], "started_at") if ordered_runs else None

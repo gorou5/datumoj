@@ -27,8 +27,8 @@ def _e(value: object) -> str:
 
 
 def _schedule_label(value: str | None) -> str:
-    labels = {"hourly": "每小时", "daily": "每天", "monthly": "每 30 天", "manual": "手动"}
-    return labels.get(value or "", value or "未设置")
+    entry = schedule.SCHEDULES.get(value or "")
+    return entry[1] if entry else value or "未设置"
 
 
 def _raw_bytes(deps: object, source_id: str) -> int:
