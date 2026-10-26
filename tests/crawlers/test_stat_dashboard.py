@@ -10,15 +10,15 @@ from urllib.parse import parse_qs, parse_qsl, urlencode, urlsplit, urlunsplit
 
 import pytest
 
-from datumoj.core.contracts import CrawlContext, ParseError, discover_crawlers, discover_parsers
-from datumoj.core.models import TimeGranularity
-from datumoj.core.registry import load_registry
-from datumoj.crawlers.stat_dashboard import StatDashboardCrawler, plan_batches
-from datumoj.parsers.stat_dashboard import StatDashboardParser
-from datumoj.reference.areas import lookup
-from datumoj.testing.contract_suites import CrawlerSuite, ParserSuite
-from datumoj.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore, FakeResponse, drive_crawler
-from datumoj.testing.samples import T0, ParseSample, make_snapshot
+from datumoj.rikolto.core.contracts import CrawlContext, ParseError, discover_crawlers, discover_parsers
+from datumoj.rikolto.core.models import TimeGranularity
+from datumoj.rikolto.core.registry import load_registry
+from datumoj.rikolto.crawlers.stat_dashboard import StatDashboardCrawler, plan_batches
+from datumoj.rikolto.parsers.stat_dashboard import StatDashboardParser
+from datumoj.rikolto.reference.areas import lookup
+from datumoj.rikolto.testing.contract_suites import CrawlerSuite, ParserSuite
+from datumoj.rikolto.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore, FakeResponse, drive_crawler
+from datumoj.rikolto.testing.samples import T0, ParseSample, make_snapshot
 
 ROOT = Path(__file__).parents[2]
 FIXTURES = ROOT / "tests" / "fixtures" / "stat_dashboard"

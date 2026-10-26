@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from datumoj.core.contracts import CrawlContext, FetchTask, SourceSpec
-from datumoj.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
-from datumoj.crawlers.gov_web import GovWebCrawler
-from datumoj.testing.fakes import FakeManifest, FakeRawStore
-from datumoj.testing.samples import T0, make_spec
+from datumoj.rikolto.core.contracts import CrawlContext, FetchTask, SourceSpec
+from datumoj.rikolto.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
+from datumoj.rikolto.crawlers.gov_web import GovWebCrawler
+from datumoj.rikolto.testing.fakes import FakeManifest, FakeRawStore
+from datumoj.rikolto.testing.samples import T0, make_spec
 
 ROOT = Path(__file__).resolve().parents[2]
 OSAKA_PAGE = "https://www.city.osaka.lg.jp/keizaisenryaku/page/0000681796.html"

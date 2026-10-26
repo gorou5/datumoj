@@ -4,11 +4,11 @@ import json
 
 import pytest
 
-from datumoj import wiring
-from datumoj.core.state import StateError, StateManager, local_write
-from datumoj.index.vector import LanceVectorIndex
-from datumoj.testing.fakes import FakeEmbedder, FakeParser, FakeRegistry, FakeStateObjectStore
-from datumoj.testing.samples import make_snapshot, make_spec
+from datumoj.rikolto import wiring
+from datumoj.rikolto.core.state import StateError, StateManager, local_write
+from datumoj.rikolto.index.vector import LanceVectorIndex
+from datumoj.rikolto.testing.fakes import FakeEmbedder, FakeParser, FakeRegistry, FakeStateObjectStore
+from datumoj.rikolto.testing.samples import make_snapshot, make_spec
 
 
 class CountingStore(FakeStateObjectStore):
@@ -152,12 +152,12 @@ def test_pending_coverage_restores_and_resumes_with_fresh_budget(corpus, tmp_pat
 
 def test_push_maintains_inside_same_local_write_boundary(corpus, monkeypatch):
     root, _, manager, _, _ = corpus
-    from datumoj.core import state
+    from datumoj.rikolto.core import state
     original = state.maintain_vectors
     calls = []
 
     def maintain(path):
-        from datumoj.core.schedule import _locked
+        from datumoj.rikolto.core.schedule import _locked
         with _locked(root / "state.lock", blocking=False) as acquired:
             assert acquired is None
         calls.append(True)
@@ -173,7 +173,7 @@ def test_push_maintains_inside_same_local_write_boundary(corpus, monkeypatch):
 
 def test_push_maintenance_failure_preserves_published_state(corpus, monkeypatch, caplog, tmp_path):
     _, _, manager, _, _ = corpus
-    from datumoj.core import state
+    from datumoj.rikolto.core import state
 
     def fail(path):
         raise OSError("private synthetic path")

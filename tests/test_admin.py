@@ -11,12 +11,12 @@ from types import SimpleNamespace
 from starlette.testclient import TestClient
 from typer.testing import CliRunner
 
-from datumoj import cli
-from datumoj.admin import create_app
-from datumoj.core.models import FetchOutcome, Snapshot
-from datumoj.core.schedule import Scheduler, read_control, set_enabled
-from datumoj.testing.fakes import FakeManifest, FakeRawStore, FakeRegistry
-from datumoj.testing.samples import T0, make_spec
+from datumoj.rikolto import cli
+from datumoj.rikolto.admin import create_app
+from datumoj.rikolto.core.models import FetchOutcome, Snapshot
+from datumoj.rikolto.core.schedule import Scheduler, read_control, set_enabled
+from datumoj.rikolto.testing.fakes import FakeManifest, FakeRawStore, FakeRegistry
+from datumoj.rikolto.testing.samples import T0, make_spec
 
 
 def _admin(tmp_path, *, names=None, schedules=None, execute=None, token="test-token"):

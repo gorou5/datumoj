@@ -6,14 +6,14 @@ from pathlib import Path
 
 import yaml
 
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.models import FetchOutcome, Snapshot
-from datumoj.eval import load_questions
-from datumoj.parsers.estat_tables import EstatTableParser, TableEntry
-from datumoj.parsers.html_page import HtmlPageParser
-from datumoj.parsers.pdf import PdfParser
-from datumoj.store.catalog import SqliteCatalogStore
-from datumoj.testing.fakes import (
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.models import FetchOutcome, Snapshot
+from datumoj.rikolto.eval import load_questions
+from datumoj.rikolto.parsers.estat_tables import EstatTableParser, TableEntry
+from datumoj.rikolto.parsers.html_page import HtmlPageParser
+from datumoj.rikolto.parsers.pdf import PdfParser
+from datumoj.rikolto.store.catalog import SqliteCatalogStore
+from datumoj.rikolto.testing.fakes import (
     FakeChunkStore,
     FakeManifest,
     FakeObservationStore,
@@ -21,7 +21,7 @@ from datumoj.testing.fakes import (
     FakeRegistry,
     FakeRetriever,
 )
-from datumoj.testing.samples import make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import make_snapshot, make_spec
 
 
 ROOT = Path(__file__).parents[2]

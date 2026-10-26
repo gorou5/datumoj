@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from datumoj.text import (
+from datumoj.rikolto.text import (
     WarekiDate,
     WarekiYear,
     article_number,

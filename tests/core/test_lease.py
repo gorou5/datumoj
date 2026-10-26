@@ -10,15 +10,15 @@ import pytest
 from moto import mock_aws
 from typer.testing import CliRunner
 
-from datumoj import cli
-from datumoj.core.lease import LEASE_KEY, LeaseError, LeaseManager
-from datumoj.core.manifest import SqliteManifest
-from datumoj.core.state import StateError, StateManager
-from datumoj.core.state_s3 import S3StateObjectStore
-from datumoj.core.storage import StorageConfig
-from datumoj.testing.contract_suites import StateObjectStoreSuite
-from datumoj.testing.fakes import FakeStateObjectStore
-from datumoj.testing.samples import T0
+from datumoj.rikolto import cli
+from datumoj.rikolto.core.lease import LEASE_KEY, LeaseError, LeaseManager
+from datumoj.rikolto.core.manifest import SqliteManifest
+from datumoj.rikolto.core.state import StateError, StateManager
+from datumoj.rikolto.core.state_s3 import S3StateObjectStore
+from datumoj.rikolto.core.storage import StorageConfig
+from datumoj.rikolto.testing.contract_suites import StateObjectStoreSuite
+from datumoj.rikolto.testing.fakes import FakeStateObjectStore
+from datumoj.rikolto.testing.samples import T0
 
 
 SECRETS = ["synthetic-lease-id", "synthetic-lease-secret", "https://s3.amazonaws.com", "synthetic-lease-bucket"]
@@ -298,7 +298,7 @@ def test_cli_errors_hide_untrusted_details(monkeypatch, caplog):
 
 @pytest.mark.parametrize("lose", [False, True])
 def test_heartbeat_renews_and_stops_without_sleep(leases, monkeypatch, lose):
-    import datumoj.core.lease as module
+    import datumoj.rikolto.core.lease as module
 
     manager, clock = leases
     lease = manager.acquire("local/one")

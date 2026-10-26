@@ -1,5 +1,5 @@
-from datumoj.parsers.html_page import HtmlPageParser
-from datumoj.testing.samples import make_snapshot
+from datumoj.rikolto.parsers.html_page import HtmlPageParser
+from datumoj.rikolto.testing.samples import make_snapshot
 
 
 def test_removing_page_chrome_keeps_following_body_text():

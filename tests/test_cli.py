@@ -4,10 +4,10 @@ import json
 
 from typer.testing import CliRunner
 
-from datumoj import cli, wiring
-from datumoj.core.runner import CrawlDeps, run_crawl
-from datumoj.pipeline import PipelineDeps, parse_pending, reindex
-from datumoj.testing.fakes import (
+from datumoj.rikolto import cli, wiring
+from datumoj.rikolto.core.runner import CrawlDeps, run_crawl
+from datumoj.rikolto.pipeline import PipelineDeps, parse_pending, reindex
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChunkStore,
     FakeCrawler,
@@ -21,7 +21,7 @@ from datumoj.testing.fakes import (
     FakeRetriever,
     FakeResponse,
 )
-from datumoj.testing.samples import T0, make_spec
+from datumoj.rikolto.testing.samples import T0, make_spec
 
 
 URL = "https://example.go.jp/a.txt"

@@ -2,10 +2,10 @@ import sqlite3
 
 import pytest
 
-from datumoj.index.fts import SqliteKeywordIndex
-from datumoj.store.chunks import SqliteChunkStore
-from datumoj.testing.contract_suites import ChunkStoreSuite, KeywordIndexSuite
-from datumoj.testing.samples import make_chunk
+from datumoj.rikolto.index.fts import SqliteKeywordIndex
+from datumoj.rikolto.store.chunks import SqliteChunkStore
+from datumoj.rikolto.testing.contract_suites import ChunkStoreSuite, KeywordIndexSuite
+from datumoj.rikolto.testing.samples import make_chunk
 
 SHA = "ab" * 32
 
@@ -37,7 +37,7 @@ class TestSqliteChunkStore(ChunkStoreSuite):
         s.close()
 
     def test_persists_across_reopen(self, tmp_path):
-        from datumoj.testing.contract_suites import _doc_v
+        from datumoj.rikolto.testing.contract_suites import _doc_v
 
         path = tmp_path / "c.db"
         doc, chunks = _doc_v("cd" * 32, ["永続化"])

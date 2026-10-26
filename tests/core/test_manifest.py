@@ -3,11 +3,11 @@ import threading
 
 import pytest
 
-from datumoj.core.contracts import NO_PARSER, ParseRecord, ParseStatus, SchemaVersionError
-from datumoj.core.manifest import SCHEMA_VERSION, SqliteManifest
-from datumoj.core.models import FetchOutcome, PublishState
-from datumoj.testing.contract_suites import ManifestSuite
-from datumoj.testing.samples import T0, make_snapshot, sha
+from datumoj.rikolto.core.contracts import NO_PARSER, ParseRecord, ParseStatus, SchemaVersionError
+from datumoj.rikolto.core.manifest import SCHEMA_VERSION, SqliteManifest
+from datumoj.rikolto.core.models import FetchOutcome, PublishState
+from datumoj.rikolto.testing.contract_suites import ManifestSuite
+from datumoj.rikolto.testing.samples import T0, make_snapshot, sha
 
 URL = "https://example.go.jp/a"
 
@@ -152,7 +152,7 @@ def test_parse_outputs_and_writer_persist_across_connections(tmp_path):
 
 def _v2_manifest(path):
     snap = make_snapshot(snapshot_id="v2-snapshot")
-    from datumoj.core.models import parse_context_fingerprint
+    from datumoj.rikolto.core.models import parse_context_fingerprint
     fp = parse_context_fingerprint(snap, {"role": "body"})
     with sqlite3.connect(path) as db:
         db.executescript("""

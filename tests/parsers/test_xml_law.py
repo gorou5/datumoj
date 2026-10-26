@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from datumoj.core.contracts import ParseError
-from datumoj.parsers.xml_law import MAX_XML_BYTES, LawXMLParser
-from datumoj.testing.contract_suites import ParserSuite
-from datumoj.testing.samples import ParseSample, make_snapshot
+from datumoj.rikolto.core.contracts import ParseError
+from datumoj.rikolto.parsers.xml_law import MAX_XML_BYTES, LawXMLParser
+from datumoj.rikolto.testing.contract_suites import ParserSuite
+from datumoj.rikolto.testing.samples import ParseSample, make_snapshot
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "egov_law"
 

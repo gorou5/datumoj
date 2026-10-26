@@ -1,6 +1,6 @@
-from datumoj.core.models import ObservationRef
-from datumoj.store.observations import DuckDBObservationStore
-from datumoj.testing.samples import make_observation
+from datumoj.rikolto.core.models import ObservationRef
+from datumoj.rikolto.store.observations import DuckDBObservationStore
+from datumoj.rikolto.testing.samples import make_observation
 
 
 def _store_with_collision(tmp_path):

@@ -8,8 +8,8 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
-from datumoj import cli
-from datumoj.core.registry_export import export_registry
+from datumoj.rikolto import cli
+from datumoj.rikolto.core.registry_export import export_registry
 
 
 ROOT = Path(__file__).resolve().parents[2]

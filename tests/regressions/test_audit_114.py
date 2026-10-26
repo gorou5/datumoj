@@ -6,19 +6,19 @@ from decimal import Decimal
 import pyarrow.parquet as pq
 import pytest
 
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.contracts import ParseError
-from datumoj.core.manifest import SqliteManifest
-from datumoj.core.models import PublishState
-from datumoj.core.state import StateManager
-from datumoj.pipeline import PipelineDeps, parse_pending
-from datumoj.store.chunks import SqliteChunkStore
-from datumoj.store.observations import DuckDBObservationStore
-from datumoj.testing.fakes import (
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.contracts import ParseError
+from datumoj.rikolto.core.manifest import SqliteManifest
+from datumoj.rikolto.core.models import PublishState
+from datumoj.rikolto.core.state import StateManager
+from datumoj.rikolto.pipeline import PipelineDeps, parse_pending
+from datumoj.rikolto.store.chunks import SqliteChunkStore
+from datumoj.rikolto.store.observations import DuckDBObservationStore
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore, FakeKeywordIndex, FakeParser, FakeRawStore, FakeRegistry,
     FakeRetriever, FakeStateObjectStore,
 )
-from datumoj.testing.samples import T0, make_observation, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_observation, make_snapshot, make_spec
 
 SOURCE = "jp-test"
 TABLE = "version.txt"

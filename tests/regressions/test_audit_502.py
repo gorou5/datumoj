@@ -2,11 +2,11 @@
 
 from datetime import date, timedelta
 
-from datumoj.core.models import GapState
-from datumoj.index.fts import SqliteKeywordIndex
-from datumoj.index.hybrid import HybridRetriever
-from datumoj.testing.fakes import FakeChunkStore, FakeManifest, FakeRegistry
-from datumoj.testing.samples import T0, make_chunk, make_document, make_snapshot, make_spec
+from datumoj.rikolto.core.models import GapState
+from datumoj.rikolto.index.fts import SqliteKeywordIndex
+from datumoj.rikolto.index.hybrid import HybridRetriever
+from datumoj.rikolto.testing.fakes import FakeChunkStore, FakeManifest, FakeRegistry
+from datumoj.rikolto.testing.samples import T0, make_chunk, make_document, make_snapshot, make_spec
 
 
 def test_date_filter_finds_a_document_beyond_unfiltered_top_k():

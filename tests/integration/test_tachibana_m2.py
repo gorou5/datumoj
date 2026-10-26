@@ -24,18 +24,18 @@ import pytest
 from moto.server import ThreadedMotoServer
 from typer.testing import CliRunner
 
-from datumoj import cli, wiring
-from datumoj.core.models import parse_context_fingerprint
-from datumoj.core.contracts import ParseRecord, ParseResult, ParseStatus
-from datumoj.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
-from datumoj.core.models import Citation, GapState, SourceText
-from datumoj.core.rawstore import FileRawStore
-from datumoj.core.rawstore_s3 import S3RawStore
-from datumoj.core.registry import RegistryImpl, load_registry
-from datumoj.core.runner import CrawlDeps
-from datumoj.eval import check_gate, evaluate, load_questions, write_reports
-from datumoj.testing.contract_suites import ParserSuite
-from datumoj.testing.samples import ParseSample, make_snapshot
+from datumoj.rikolto import cli, wiring
+from datumoj.rikolto.core.models import parse_context_fingerprint
+from datumoj.rikolto.core.contracts import ParseRecord, ParseResult, ParseStatus
+from datumoj.rikolto.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
+from datumoj.rikolto.core.models import Citation, GapState, SourceText
+from datumoj.rikolto.core.rawstore import FileRawStore
+from datumoj.rikolto.core.rawstore_s3 import S3RawStore
+from datumoj.rikolto.core.registry import RegistryImpl, load_registry
+from datumoj.rikolto.core.runner import CrawlDeps
+from datumoj.rikolto.eval import check_gate, evaluate, load_questions, write_reports
+from datumoj.rikolto.testing.contract_suites import ParserSuite
+from datumoj.rikolto.testing.samples import ParseSample, make_snapshot
 from tests.integration.test_full_eval import AnnouncementParser, _ivy_questions, _seed
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -393,7 +393,7 @@ def test_s3_law_chain_matches_local_raw(tmp_path, monkeypatch, evidence):
         for backend, store_type in (("local", FileRawStore), ("s3", S3RawStore)):
             # Replay the same observation ids so complete citation output can be compared.
             snapshot_ids = iter(range(1, len(routes) + 1))
-            monkeypatch.setattr("datumoj.core.runner.uuid4", lambda: UUID(int=next(snapshot_ids)))
+            monkeypatch.setattr("datumoj.rikolto.core.runner.uuid4", lambda: UUID(int=next(snapshot_ids)))
             monkeypatch.setenv("DATUMOJ_RAW_BACKEND", backend)
             deps = wiring.build(tmp_path / backend)
             try:

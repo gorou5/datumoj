@@ -10,13 +10,13 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
-from datumoj import cli, wiring
-from datumoj.core.rawstore import FileRawStore
-from datumoj.diagnose import evidence, replay
-from datumoj.parsers.pdf import PdfParser
-from datumoj.store.observations import DuckDBObservationStore
-from datumoj.testing.fakes import FakeEmbedder, FakeParser, FakeRegistry, FakeVectorIndex
-from datumoj.testing.samples import T0, make_observation, make_snapshot, make_spec
+from datumoj.rikolto import cli, wiring
+from datumoj.rikolto.core.rawstore import FileRawStore
+from datumoj.rikolto.diagnose import evidence, replay
+from datumoj.rikolto.parsers.pdf import PdfParser
+from datumoj.rikolto.store.observations import DuckDBObservationStore
+from datumoj.rikolto.testing.fakes import FakeEmbedder, FakeParser, FakeRegistry, FakeVectorIndex
+from datumoj.rikolto.testing.samples import T0, make_observation, make_snapshot, make_spec
 from tests.test_diagnose import derived, fingerprint, legacy, record
 
 PDF = Path(__file__).parents[1] / "fixtures/gov_web/html/synthetic/site/policy/startup/guide.pdf"
@@ -139,7 +139,7 @@ def test_legacy_diagnose_and_replay(tmp_path, local_wiring):
     with sqlite3.connect(source / "manifest.sqlite") as db, sqlite3.connect(target / "manifest.sqlite") as other:
         assert db.execute("SELECT * FROM snapshots ORDER BY seq").fetchall() == other.execute(
             "SELECT * FROM snapshots ORDER BY seq").fetchall()
-    from datumoj.store.chunks import SqliteChunkStore
+    from datumoj.rikolto.store.chunks import SqliteChunkStore
     store = SqliteChunkStore(target / "chunks.sqlite")
     try:
         assert store.get_document("jp-test:cycle.txt").snapshot_sha256 == last_a.sha256

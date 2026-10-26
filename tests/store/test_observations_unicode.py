@@ -1,8 +1,8 @@
 import pytest
 
-from datumoj.core.contracts import QueryRejected
-from datumoj.store.observations import DuckDBObservationStore
-from datumoj.testing.samples import make_observation
+from datumoj.rikolto.core.contracts import QueryRejected
+from datumoj.rikolto.store.observations import DuckDBObservationStore
+from datumoj.rikolto.testing.samples import make_observation
 
 
 @pytest.fixture

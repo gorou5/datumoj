@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from datumoj.core.contracts import CatalogFilter, ContentState, ParseError
-from datumoj.parsers.ckan_meta import CkanMetaParser
-from datumoj.store.catalog import SqliteCatalogStore
-from datumoj.testing.contract_suites import CatalogStoreSuite, ParserSuite
-from datumoj.testing.samples import ParseSample, make_dataset, make_resource, make_snapshot
+from datumoj.rikolto.core.contracts import CatalogFilter, ContentState, ParseError
+from datumoj.rikolto.parsers.ckan_meta import CkanMetaParser
+from datumoj.rikolto.store.catalog import SqliteCatalogStore
+from datumoj.rikolto.testing.contract_suites import CatalogStoreSuite, ParserSuite
+from datumoj.rikolto.testing.samples import ParseSample, make_dataset, make_resource, make_snapshot
 
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "ckan_egov"

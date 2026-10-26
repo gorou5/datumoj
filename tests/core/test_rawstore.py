@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from datumoj.core.rawstore import FileRawStore
-from datumoj.testing.contract_suites import RawStoreSuite
+from datumoj.rikolto.core.rawstore import FileRawStore
+from datumoj.rikolto.testing.contract_suites import RawStoreSuite
 
 
 class TestFileRawStore(RawStoreSuite):

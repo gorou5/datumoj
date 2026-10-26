@@ -8,17 +8,17 @@ from unittest.mock import Mock
 
 import pytest
 
-from datumoj.core.contracts import ParseError, ParseStatus
-from datumoj.core.manifest import SqliteManifest
-from datumoj.core.models import ChangeKind, PublishState, parse_context_fingerprint
-from datumoj.index.fts import SqliteKeywordIndex
-from datumoj.pipeline import PipelineDeps, parse_pending, reindex
-from datumoj.store.chunks import SqliteChunkStore
-from datumoj.testing.fakes import (
+from datumoj.rikolto.core.contracts import ParseError, ParseStatus
+from datumoj.rikolto.core.manifest import SqliteManifest
+from datumoj.rikolto.core.models import ChangeKind, PublishState, parse_context_fingerprint
+from datumoj.rikolto.index.fts import SqliteKeywordIndex
+from datumoj.rikolto.pipeline import PipelineDeps, parse_pending, reindex
+from datumoj.rikolto.store.chunks import SqliteChunkStore
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore, FakeChangeLog, FakeChunkStore, FakeEmbedder, FakeKeywordIndex,
     FakeManifest, FakeObservationStore, FakeParser, FakeRawStore, FakeRegistry, FakeVectorIndex,
 )
-from datumoj.testing.samples import T0, make_observation, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_observation, make_snapshot, make_spec
 
 KEY = "jp-test:version.txt"
 

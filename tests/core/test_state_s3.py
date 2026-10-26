@@ -9,10 +9,10 @@ import pytest
 from botocore.exceptions import ClientError, EndpointConnectionError
 from moto import mock_aws
 
-from datumoj.core.contracts import ContractError
-from datumoj.core.state_s3 import S3StateObjectStore, probe_conditional_writes
-from datumoj.core.storage import StorageConfig
-from datumoj.testing.contract_suites import StateObjectStoreSuite
+from datumoj.rikolto.core.contracts import ContractError
+from datumoj.rikolto.core.state_s3 import S3StateObjectStore, probe_conditional_writes
+from datumoj.rikolto.core.storage import StorageConfig
+from datumoj.rikolto.testing.contract_suites import StateObjectStoreSuite
 
 
 @pytest.fixture

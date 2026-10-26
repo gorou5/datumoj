@@ -1,7 +1,7 @@
 import pytest
 
-from datumoj.index.fts import SqliteKeywordIndex
-from datumoj.testing.samples import make_chunk
+from datumoj.rikolto.index.fts import SqliteKeywordIndex
+from datumoj.rikolto.testing.samples import make_chunk
 
 SHA = "ab" * 32
 

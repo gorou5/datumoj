@@ -6,12 +6,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from datumoj.core.contracts import ParseRecord, ParseStatus
-from datumoj.core.models import FetchOutcome
-from datumoj.core.monitor import evaluate_alerts
-from datumoj.core.schedule import Scheduler, set_enabled
-from datumoj.testing.fakes import FakeManifest
-from datumoj.testing.samples import T0, make_snapshot, make_spec
+from datumoj.rikolto.core.contracts import ParseRecord, ParseStatus
+from datumoj.rikolto.core.models import FetchOutcome
+from datumoj.rikolto.core.monitor import evaluate_alerts
+from datumoj.rikolto.core.schedule import Scheduler, set_enabled
+from datumoj.rikolto.testing.fakes import FakeManifest
+from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 
 
 def _run(source_id: str, at, *, success: bool) -> dict:

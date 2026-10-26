@@ -4,10 +4,10 @@ from datetime import date, timedelta
 
 import pytest
 
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.contracts import QueryError, QueryResult
-from datumoj.store.observations import DuckDBObservationStore
-from datumoj.testing.fakes import (
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.contracts import QueryError, QueryResult
+from datumoj.rikolto.store.observations import DuckDBObservationStore
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChunkStore,
     FakeManifest,
@@ -15,7 +15,7 @@ from datumoj.testing.fakes import (
     FakeRegistry,
     FakeRetriever,
 )
-from datumoj.testing.samples import T0, make_observation, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_observation, make_snapshot, make_spec
 
 
 @pytest.fixture

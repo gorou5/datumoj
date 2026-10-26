@@ -7,9 +7,9 @@ import pytest
 from moto import mock_aws
 from typer.testing import CliRunner
 
-from datumoj import cli, cloud
-from datumoj.core.state_s3 import S3StateObjectStore, probe_conditional_writes
-from datumoj.core.storage import StorageConfig
+from datumoj.rikolto import cli, cloud
+from datumoj.rikolto.core.state_s3 import S3StateObjectStore, probe_conditional_writes
+from datumoj.rikolto.core.storage import StorageConfig
 
 
 @pytest.fixture

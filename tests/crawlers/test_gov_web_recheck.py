@@ -6,11 +6,11 @@ from urllib.parse import urlsplit
 
 import pytest
 
-from datumoj.core.contracts import CrawlContext, FetchResult
-from datumoj.core.models import FetchOutcome
-from datumoj.crawlers.gov_web import GovWebCrawler
-from datumoj.testing.fakes import FakeManifest, FakeRawStore
-from datumoj.testing.samples import T0, make_snapshot, make_spec
+from datumoj.rikolto.core.contracts import CrawlContext, FetchResult
+from datumoj.rikolto.core.models import FetchOutcome
+from datumoj.rikolto.crawlers.gov_web import GovWebCrawler
+from datumoj.rikolto.testing.fakes import FakeManifest, FakeRawStore
+from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 
 BASE = "http://gov-web.test"
 SEED = BASE + "/policy/startup/index.html"

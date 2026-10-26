@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from datumoj.core.contracts import CrawlContext
-from datumoj.core.models import FetchOutcome
-from datumoj.crawlers.ckan import CkanCrawler
-from datumoj.testing.contract_suites import CrawlerSuite
-from datumoj.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore, FakeResponse, drive_crawler
-from datumoj.testing.samples import T0, make_spec
+from datumoj.rikolto.core.contracts import CrawlContext
+from datumoj.rikolto.core.models import FetchOutcome
+from datumoj.rikolto.crawlers.ckan import CkanCrawler
+from datumoj.rikolto.testing.contract_suites import CrawlerSuite
+from datumoj.rikolto.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore, FakeResponse, drive_crawler
+from datumoj.rikolto.testing.samples import T0, make_spec
 
 FIXTURES = Path(__file__).parents[2] / "tests" / "fixtures" / "ckan_egov"
 API = "https://data.e-gov.go.jp/data/api/action"

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-SKILL = Path(__file__).parents[1] / "skills" / "datumoj" / "SKILL.md"
+SKILL = Path(__file__).parents[1] / "skills" / "rikolto" / "SKILL.md"
 
 
 def test_skill_covers_new_evidence_rules_and_preserves_ivy_rules():

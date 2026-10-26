@@ -8,11 +8,11 @@ import pytest
 from jsonschema import Draft202012Validator, FormatChecker
 from pydantic import ValidationError
 
-from datumoj.core.contracts import ContractError, PreconditionFailed
-from datumoj.core.models import StateGeneration, StoreCopy, WriteLease
-from datumoj.testing.contract_suites import StateObjectStoreSuite
-from datumoj.testing.fakes import FakeStateObjectStore
-from datumoj.testing.samples import T0, sha
+from datumoj.rikolto.core.contracts import ContractError, PreconditionFailed
+from datumoj.rikolto.core.models import StateGeneration, StoreCopy, WriteLease
+from datumoj.rikolto.testing.contract_suites import StateObjectStoreSuite
+from datumoj.rikolto.testing.fakes import FakeStateObjectStore
+from datumoj.rikolto.testing.samples import T0, sha
 
 
 class TestFakeStateObjectStore(StateObjectStoreSuite):

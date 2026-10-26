@@ -8,15 +8,15 @@ import pytest
 import yaml
 from werkzeug.wrappers import Response
 
-from datumoj.core.contracts import CrawlContext, FetchResult, SourceSpec, discover_crawlers
-from datumoj.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
-from datumoj.core.models import FetchOutcome, parent_ref
-from datumoj.core.runner import CrawlDeps, run_crawl
-from datumoj.core.schedule import read_control
-from datumoj.crawlers.gov_web import GovWebCrawler, normalize_url
-from datumoj.testing.contract_suites import CrawlerSuite
-from datumoj.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore
-from datumoj.testing.samples import T0, make_spec, sha
+from datumoj.rikolto.core.contracts import CrawlContext, FetchResult, SourceSpec, discover_crawlers
+from datumoj.rikolto.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
+from datumoj.rikolto.core.models import FetchOutcome, parent_ref
+from datumoj.rikolto.core.runner import CrawlDeps, run_crawl
+from datumoj.rikolto.core.schedule import read_control
+from datumoj.rikolto.crawlers.gov_web import GovWebCrawler, normalize_url
+from datumoj.rikolto.testing.contract_suites import CrawlerSuite
+from datumoj.rikolto.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore
+from datumoj.rikolto.testing.samples import T0, make_spec, sha
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "tests/fixtures/gov_web"

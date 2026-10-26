@@ -6,11 +6,11 @@ from decimal import Decimal
 import pytest
 import yaml
 
-from datumoj.core.models import GapState
-from datumoj.eval import check_gate, evaluate, load_questions, write_reports
-from datumoj.testing.contract_suites import retrieval_corpus
-from datumoj.testing.fakes import FakeChunkStore, FakeManifest, FakeObservationStore, FakeRegistry, FakeRetriever
-from datumoj.testing.samples import make_chunk, make_document, make_observation, make_snapshot, make_spec
+from datumoj.rikolto.core.models import GapState
+from datumoj.rikolto.eval import check_gate, evaluate, load_questions, write_reports
+from datumoj.rikolto.testing.contract_suites import retrieval_corpus
+from datumoj.rikolto.testing.fakes import FakeChunkStore, FakeManifest, FakeObservationStore, FakeRegistry, FakeRetriever
+from datumoj.rikolto.testing.samples import make_chunk, make_document, make_observation, make_snapshot, make_spec
 
 
 def _fixture():
@@ -230,7 +230,7 @@ def test_first_three_citations_are_resolved_and_failures_are_listed():
 
 
 def load_questions_from_data(data):
-    from datumoj.eval import Question
+    from datumoj.rikolto.eval import Question
 
     return Question.model_validate(data)
 
@@ -282,7 +282,7 @@ def test_default_gate_rejects_missing_metrics_and_bad_thresholds():
 
 
 def test_numeric_occurrence_normalizes_separators_and_not_substrings():
-    from datumoj.eval.framework import _has_number
+    from datumoj.rikolto.eval.framework import _has_number
 
     assert _has_number("東京都の値は １４,０４７,５９４ 人", Decimal("14047594"))
     assert not _has_number("値は 1,234 です", Decimal("234"))

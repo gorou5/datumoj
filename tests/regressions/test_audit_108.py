@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datumoj.core.schedule import Scheduler
-from datumoj.testing.samples import T0, make_spec
+from datumoj.rikolto.core.schedule import Scheduler
+from datumoj.rikolto.testing.samples import T0, make_spec
 
 
 def test_status_survives_a_truncated_final_ledger_line(tmp_path):

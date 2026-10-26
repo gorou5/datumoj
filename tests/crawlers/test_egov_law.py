@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from datumoj.core.contracts import CrawlContext
-from datumoj.core.models import FetchOutcome
-from datumoj.crawlers.egov_law import EgovLawCrawler, extract_law_xml, pending_amendments
-from datumoj.testing.contract_suites import CrawlerSuite
-from datumoj.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore, FakeResponse, drive_crawler
-from datumoj.testing.samples import T0, make_spec
+from datumoj.rikolto.core.contracts import CrawlContext
+from datumoj.rikolto.core.models import FetchOutcome
+from datumoj.rikolto.crawlers.egov_law import EgovLawCrawler, extract_law_xml, pending_amendments
+from datumoj.rikolto.testing.contract_suites import CrawlerSuite
+from datumoj.rikolto.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore, FakeResponse, drive_crawler
+from datumoj.rikolto.testing.samples import T0, make_spec
 
 H = timedelta(hours=1)
 

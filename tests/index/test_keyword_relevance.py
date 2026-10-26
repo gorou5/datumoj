@@ -1,12 +1,12 @@
 import pytest
 
-from datumoj.core.contracts import IndexResult, ScoredChunk
-from datumoj.core.models import GapState
-from datumoj.index.fts import SqliteKeywordIndex
-from datumoj.index.hybrid import HybridRetriever
-from datumoj.testing.contract_suites import KeywordIndexSuite
-from datumoj.testing.fakes import FakeChunkStore, FakeEmbedder, FakeManifest, FakeRegistry
-from datumoj.testing.samples import make_chunk, make_document, make_snapshot, make_spec
+from datumoj.rikolto.core.contracts import IndexResult, ScoredChunk
+from datumoj.rikolto.core.models import GapState
+from datumoj.rikolto.index.fts import SqliteKeywordIndex
+from datumoj.rikolto.index.hybrid import HybridRetriever
+from datumoj.rikolto.testing.contract_suites import KeywordIndexSuite
+from datumoj.rikolto.testing.fakes import FakeChunkStore, FakeEmbedder, FakeManifest, FakeRegistry
+from datumoj.rikolto.testing.samples import make_chunk, make_document, make_snapshot, make_spec
 
 SHA = "ab" * 32
 

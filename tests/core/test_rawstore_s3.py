@@ -10,10 +10,10 @@ import pytest
 from botocore.stub import Stubber
 from moto.server import ThreadedMotoServer
 
-from datumoj.core.contracts import ContractError, CorruptedBlob
-from datumoj.core.rawstore_s3 import S3RawStore
-from datumoj.core.storage import StorageConfig
-from datumoj.testing.contract_suites import RawStoreSuite
+from datumoj.rikolto.core.contracts import ContractError, CorruptedBlob
+from datumoj.rikolto.core.rawstore_s3 import S3RawStore
+from datumoj.rikolto.core.storage import StorageConfig
+from datumoj.rikolto.testing.contract_suites import RawStoreSuite
 
 
 @pytest.fixture(scope="module")
@@ -161,7 +161,7 @@ def test_wrong_credentials_do_not_leak(config, monkeypatch, caplog, operation):
 
 
 def test_wiring_selects_s3_keeps_other_paths_local(config, tmp_path, monkeypatch):
-    from datumoj import wiring
+    from datumoj.rikolto import wiring
 
     monkeypatch.setenv("DATUMOJ_RAW_BACKEND", "s3")
     monkeypatch.setenv("R2_ENDPOINT", config.s3_endpoint)
