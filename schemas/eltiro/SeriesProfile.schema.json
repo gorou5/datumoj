@@ -1,0 +1,302 @@
+{
+  "$defs": {
+    "ConceptId": {
+      "additionalProperties": false,
+      "properties": {
+        "scheme": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Scheme",
+          "type": "string"
+        },
+        "code": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scheme",
+        "code"
+      ],
+      "title": "ConceptId",
+      "type": "object"
+    },
+    "Scale": {
+      "additionalProperties": false,
+      "description": "None means unconfirmed, never an implicit multiplier of one.",
+      "properties": {
+        "multiplier": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Multiplier"
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence"
+        }
+      },
+      "title": "Scale",
+      "type": "object"
+    },
+    "SeriesIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "maxLength": 128,
+          "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "table_key": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Table Key",
+          "type": "string"
+        },
+        "indicator": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Indicator",
+          "type": "string"
+        },
+        "indicator_code": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Indicator Code"
+        },
+        "fixed_dimensions": {
+          "additionalProperties": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxProperties": 256,
+          "propertyNames": {
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "title": "Fixed Dimensions",
+          "type": "object"
+        }
+      },
+      "required": [
+        "source_id",
+        "table_key",
+        "indicator"
+      ],
+      "title": "SeriesIdentity",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "series": {
+      "$ref": "#/$defs/SeriesIdentity"
+    },
+    "concept_ids": {
+      "items": {
+        "$ref": "#/$defs/ConceptId"
+      },
+      "maxItems": 256,
+      "title": "Concept Ids",
+      "type": "array"
+    },
+    "names": {
+      "maxProperties": 32,
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z]{2,3}(?:-[A-Za-z0-9]{1,8})*$": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "propertyNames": {
+        "maxLength": 35
+      },
+      "title": "Names",
+      "type": "object"
+    },
+    "descriptions": {
+      "maxProperties": 32,
+      "patternProperties": {
+        "^[a-z]{2,3}(?:-[A-Za-z0-9]{1,8})*$": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "propertyNames": {
+        "maxLength": 35
+      },
+      "title": "Descriptions",
+      "type": "object"
+    },
+    "methodology": {
+      "anyOf": [
+        {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Methodology"
+    },
+    "survey": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Survey"
+    },
+    "unit": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Unit"
+    },
+    "scale": {
+      "$ref": "#/$defs/Scale"
+    },
+    "areas": {
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 256,
+      "title": "Areas",
+      "type": "array"
+    },
+    "time_start": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Time Start"
+    },
+    "time_end": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Time End"
+    },
+    "frequency": {
+      "enum": [
+        "annual",
+        "quarterly",
+        "monthly",
+        "weekly",
+        "daily",
+        "irregular"
+      ],
+      "title": "Frequency",
+      "type": "string"
+    },
+    "availability": {
+      "enum": [
+        "observations",
+        "catalog_only",
+        "document_only"
+      ],
+      "title": "Availability",
+      "type": "string"
+    },
+    "generation": {
+      "minimum": 1,
+      "title": "Generation",
+      "type": "integer"
+    },
+    "model_generated_fields": {
+      "items": {
+        "enum": [
+          "concept_ids",
+          "names",
+          "descriptions",
+          "methodology",
+          "survey",
+          "unit",
+          "scale",
+          "areas",
+          "time_start",
+          "time_end",
+          "frequency"
+        ],
+        "type": "string"
+      },
+      "maxItems": 11,
+      "title": "Model Generated Fields",
+      "type": "array"
+    }
+  },
+  "required": [
+    "series",
+    "names",
+    "frequency",
+    "availability",
+    "generation"
+  ],
+  "title": "SeriesProfile",
+  "type": "object"
+}

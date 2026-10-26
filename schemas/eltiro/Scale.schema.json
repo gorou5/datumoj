@@ -1,0 +1,35 @@
+{
+  "additionalProperties": false,
+  "description": "None means unconfirmed, never an implicit multiplier of one.",
+  "properties": {
+    "multiplier": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Multiplier"
+    },
+    "evidence": {
+      "anyOf": [
+        {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evidence"
+    }
+  },
+  "title": "Scale",
+  "type": "object"
+}

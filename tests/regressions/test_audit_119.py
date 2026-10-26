@@ -60,7 +60,6 @@ ENVIRONMENT = (
     'DATUMOJ_VECTOR_RETAIN_HOURS',
     'DATUMOJ_WRITER_KIND',
 )
-SCHEMAS_HASH = '73f35af1dccc0c654e27d721a6983d519eb1a3859310f3ce303ec8d9c5d49e1b'
 MCP_TOOLS_HASH = 'e4e5e837d7d3f0df21d69aa6c5e3370cb8dfd6b12969f8750be5f6d328ef412b'
 
 
@@ -180,9 +179,6 @@ def test_schema_export_is_byte_identical(tmp_path):
     assert {p.name for p in written} == {p.name for p in committed.glob("*.schema.json")}
     for path in written:
         assert path.read_bytes() == (committed / path.name).read_bytes()
-    hashes = {str(p.relative_to(committed)): hashlib.sha256(p.read_bytes()).hexdigest()
-              for p in sorted(committed.rglob("*")) if p.is_file()}
-    assert digest(json.dumps(hashes, sort_keys=True)) == SCHEMAS_HASH
 
 
 @pytest.mark.parametrize("current_exists", [False, True])

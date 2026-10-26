@@ -1,0 +1,102 @@
+{
+  "$defs": {
+    "Examples": {
+      "additionalProperties": false,
+      "properties": {
+        "positive": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 256,
+          "title": "Positive",
+          "type": "array"
+        },
+        "negative": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 256,
+          "title": "Negative",
+          "type": "array"
+        }
+      },
+      "title": "Examples",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Key",
+      "type": "string"
+    },
+    "concept": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "title": "Concept",
+      "type": "string"
+    },
+    "unit": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Unit"
+    },
+    "preferred_sources": {
+      "items": {
+        "maxLength": 128,
+        "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+        "type": "string"
+      },
+      "maxItems": 256,
+      "title": "Preferred Sources",
+      "type": "array"
+    },
+    "min_sources": {
+      "default": 1,
+      "maximum": 256,
+      "minimum": 1,
+      "title": "Min Sources",
+      "type": "integer"
+    },
+    "keep_separate_by": {
+      "items": {
+        "enum": [
+          "source",
+          "release",
+          "survey",
+          "unit",
+          "methodology"
+        ],
+        "type": "string"
+      },
+      "maxItems": 5,
+      "title": "Keep Separate By",
+      "type": "array"
+    },
+    "examples": {
+      "$ref": "#/$defs/Examples"
+    }
+  },
+  "required": [
+    "key",
+    "concept"
+  ],
+  "title": "Indicator",
+  "type": "object"
+}

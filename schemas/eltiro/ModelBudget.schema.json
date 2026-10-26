@@ -1,0 +1,30 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "max_tier": {
+      "default": "none",
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Max Tier",
+      "type": "string"
+    },
+    "allow_cloud": {
+      "default": false,
+      "title": "Allow Cloud",
+      "type": "boolean"
+    },
+    "max_calls_per_run": {
+      "default": 0,
+      "maximum": 1000,
+      "minimum": 0,
+      "title": "Max Calls Per Run",
+      "type": "integer"
+    }
+  },
+  "title": "ModelBudget",
+  "type": "object"
+}

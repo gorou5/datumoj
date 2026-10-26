@@ -1,0 +1,31 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "input": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Input",
+      "type": "string"
+    },
+    "op": {
+      "const": "revision_diff",
+      "title": "Op",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "input",
+    "op"
+  ],
+  "title": "RevisionDiff",
+  "type": "object"
+}

@@ -89,6 +89,14 @@ class Redistribution(StrEnum):
     unverified = "unverified"
 
 
+class Outflow(StrEnum):
+    """Output permission; absent permissions must be treated as no_outflow."""
+
+    raw_ok = "raw_ok"
+    derived_only = "derived_only"
+    no_outflow = "no_outflow"
+
+
 class TimeBasis(StrEnum):
     """出处的时间口径。来源不公布数据日期时用 no_data_date，绝不拿抓取日顶替。"""
 
@@ -921,6 +929,7 @@ SCHEMA_TYPES: dict[str, Any] = {
     "FailureClass": FailureClass,
     "UsageScope": UsageScope,
     "Redistribution": Redistribution,
+    "Outflow": Outflow,
     "TimeBasis": TimeBasis,
     "TimeGranularity": TimeGranularity,
     "GapState": GapState,

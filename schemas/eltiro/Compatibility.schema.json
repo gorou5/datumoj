@@ -1,0 +1,38 @@
+{
+  "additionalProperties": false,
+  "description": "Unknown is unsafe for automatic binding; no positive assumptions.",
+  "properties": {
+    "methodology": {
+      "default": "unknown",
+      "enum": [
+        "same",
+        "different",
+        "unknown"
+      ],
+      "title": "Methodology",
+      "type": "string"
+    },
+    "unit": {
+      "default": "unknown",
+      "enum": [
+        "same",
+        "different",
+        "unknown"
+      ],
+      "title": "Unit",
+      "type": "string"
+    },
+    "survey": {
+      "default": "unknown",
+      "enum": [
+        "same",
+        "different",
+        "unknown"
+      ],
+      "title": "Survey",
+      "type": "string"
+    }
+  },
+  "title": "Compatibility",
+  "type": "object"
+}

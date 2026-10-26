@@ -1,0 +1,30 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "trigger": {
+      "default": "manual",
+      "enum": [
+        "manual",
+        "on_new_generation"
+      ],
+      "title": "Trigger",
+      "type": "string"
+    },
+    "notify_on": {
+      "items": {
+        "enum": [
+          "binding_stale",
+          "definition_changed",
+          "new_candidate",
+          "gap_filled"
+        ],
+        "type": "string"
+      },
+      "maxItems": 4,
+      "title": "Notify On",
+      "type": "array"
+    }
+  },
+  "title": "RunSpec",
+  "type": "object"
+}
