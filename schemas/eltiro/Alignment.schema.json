@@ -1,0 +1,27 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "keys": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[a-z][a-z0-9_]*$",
+        "type": "string"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "title": "Keys",
+      "type": "array"
+    },
+    "require_same_unit": {
+      "default": true,
+      "title": "Require Same Unit",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "keys"
+  ],
+  "title": "Alignment",
+  "type": "object"
+}

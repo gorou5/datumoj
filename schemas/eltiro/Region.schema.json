@@ -1,0 +1,23 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "scheme": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Scheme",
+      "type": "string"
+    },
+    "code": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Code",
+      "type": "string"
+    }
+  },
+  "required": [
+    "scheme",
+    "code"
+  ],
+  "title": "Region",
+  "type": "object"
+}

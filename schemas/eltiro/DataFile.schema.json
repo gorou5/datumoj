@@ -1,0 +1,22 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "maxLength": 256,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*\\.(?:parquet|csv)$",
+      "title": "Name",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "sha256"
+  ],
+  "title": "DataFile",
+  "type": "object"
+}

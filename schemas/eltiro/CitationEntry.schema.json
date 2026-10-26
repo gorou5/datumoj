@@ -1,0 +1,553 @@
+{
+  "$defs": {
+    "Diff": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "left": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Left",
+          "type": "string"
+        },
+        "right": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Right",
+          "type": "string"
+        },
+        "op": {
+          "const": "diff",
+          "title": "Op",
+          "type": "string"
+        },
+        "sign": {
+          "default": "minus",
+          "enum": [
+            "minus",
+            "plus"
+          ],
+          "title": "Sign",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "left",
+        "right",
+        "op"
+      ],
+      "title": "Diff",
+      "type": "object"
+    },
+    "DiffLag": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "input": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Input",
+          "type": "string"
+        },
+        "op": {
+          "const": "diff_lag",
+          "title": "Op",
+          "type": "string"
+        },
+        "lag": {
+          "maximum": 120,
+          "minimum": 1,
+          "title": "Lag",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "input",
+        "op",
+        "lag"
+      ],
+      "title": "DiffLag",
+      "type": "object"
+    },
+    "GrowthRate": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "input": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Input",
+          "type": "string"
+        },
+        "op": {
+          "const": "growth_rate",
+          "title": "Op",
+          "type": "string"
+        },
+        "lag": {
+          "default": 1,
+          "maximum": 120,
+          "minimum": 1,
+          "title": "Lag",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "input",
+        "op"
+      ],
+      "title": "GrowthRate",
+      "type": "object"
+    },
+    "InputObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "maxLength": 128,
+          "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "table_key": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Table Key",
+          "type": "string"
+        },
+        "obs_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Obs Id",
+          "type": "string"
+        },
+        "snapshot_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Snapshot Sha256",
+          "type": "string"
+        },
+        "release_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Release Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "table_key",
+        "obs_id",
+        "snapshot_sha256",
+        "release_id"
+      ],
+      "title": "InputObservation",
+      "type": "object"
+    },
+    "LeadLagCorr": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "left": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Left",
+          "type": "string"
+        },
+        "right": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Right",
+          "type": "string"
+        },
+        "op": {
+          "const": "lead_lag_corr",
+          "title": "Op",
+          "type": "string"
+        },
+        "lag": {
+          "maximum": 120,
+          "minimum": -120,
+          "title": "Lag",
+          "type": "integer"
+        },
+        "window": {
+          "maximum": 1200,
+          "minimum": 2,
+          "title": "Window",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "left",
+        "right",
+        "op",
+        "lag",
+        "window"
+      ],
+      "title": "LeadLagCorr",
+      "type": "object"
+    },
+    "MirrorDiff": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "left": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Left",
+          "type": "string"
+        },
+        "right": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Right",
+          "type": "string"
+        },
+        "op": {
+          "const": "mirror_diff",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "left",
+        "right",
+        "op"
+      ],
+      "title": "MirrorDiff",
+      "type": "object"
+    },
+    "MovingAverage": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "input": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Input",
+          "type": "string"
+        },
+        "op": {
+          "const": "moving_average",
+          "title": "Op",
+          "type": "string"
+        },
+        "window": {
+          "maximum": 1200,
+          "minimum": 2,
+          "title": "Window",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "input",
+        "op",
+        "window"
+      ],
+      "title": "MovingAverage",
+      "type": "object"
+    },
+    "Ratio": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "left": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Left",
+          "type": "string"
+        },
+        "right": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Right",
+          "type": "string"
+        },
+        "op": {
+          "const": "ratio",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "left",
+        "right",
+        "op"
+      ],
+      "title": "Ratio",
+      "type": "object"
+    },
+    "Rescale": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "input": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Input",
+          "type": "string"
+        },
+        "op": {
+          "const": "rescale",
+          "title": "Op",
+          "type": "string"
+        },
+        "target_scale": {
+          "exclusiveMinimum": 0,
+          "title": "Target Scale",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "input",
+        "op",
+        "target_scale"
+      ],
+      "title": "Rescale",
+      "type": "object"
+    },
+    "Residual": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "left": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Left",
+          "type": "string"
+        },
+        "right": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Right",
+          "type": "string"
+        },
+        "op": {
+          "const": "residual",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "left",
+        "right",
+        "op"
+      ],
+      "title": "Residual",
+      "type": "object"
+    },
+    "RevisionDiff": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "input": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Input",
+          "type": "string"
+        },
+        "op": {
+          "const": "revision_diff",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "input",
+        "op"
+      ],
+      "title": "RevisionDiff",
+      "type": "object"
+    },
+    "SourceSpread": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "input": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Input",
+          "type": "string"
+        },
+        "op": {
+          "const": "source_spread",
+          "title": "Op",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "input",
+        "op"
+      ],
+      "title": "SourceSpread",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "inputs": {
+      "items": {
+        "$ref": "#/$defs/InputObservation"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "title": "Inputs",
+      "type": "array"
+    },
+    "operation_chain": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "diff": "#/$defs/Diff",
+            "diff_lag": "#/$defs/DiffLag",
+            "growth_rate": "#/$defs/GrowthRate",
+            "lead_lag_corr": "#/$defs/LeadLagCorr",
+            "mirror_diff": "#/$defs/MirrorDiff",
+            "moving_average": "#/$defs/MovingAverage",
+            "ratio": "#/$defs/Ratio",
+            "rescale": "#/$defs/Rescale",
+            "residual": "#/$defs/Residual",
+            "revision_diff": "#/$defs/RevisionDiff",
+            "source_spread": "#/$defs/SourceSpread"
+          },
+          "propertyName": "op"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/Rescale"
+          },
+          {
+            "$ref": "#/$defs/Diff"
+          },
+          {
+            "$ref": "#/$defs/DiffLag"
+          },
+          {
+            "$ref": "#/$defs/Ratio"
+          },
+          {
+            "$ref": "#/$defs/GrowthRate"
+          },
+          {
+            "$ref": "#/$defs/SourceSpread"
+          },
+          {
+            "$ref": "#/$defs/RevisionDiff"
+          },
+          {
+            "$ref": "#/$defs/MirrorDiff"
+          },
+          {
+            "$ref": "#/$defs/Residual"
+          },
+          {
+            "$ref": "#/$defs/MovingAverage"
+          },
+          {
+            "$ref": "#/$defs/LeadLagCorr"
+          }
+        ]
+      },
+      "maxItems": 128,
+      "title": "Operation Chain",
+      "type": "array"
+    }
+  },
+  "required": [
+    "inputs"
+  ],
+  "title": "CitationEntry",
+  "type": "object"
+}

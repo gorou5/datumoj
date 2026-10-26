@@ -1,0 +1,36 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "fields": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[a-z][a-z0-9_]*$",
+        "type": "string"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "title": "Fields",
+      "type": "array"
+    },
+    "format": {
+      "items": {
+        "enum": [
+          "parquet",
+          "csv"
+        ],
+        "type": "string"
+      },
+      "maxItems": 2,
+      "minItems": 1,
+      "title": "Format",
+      "type": "array"
+    }
+  },
+  "required": [
+    "fields",
+    "format"
+  ],
+  "title": "OutputSpec",
+  "type": "object"
+}

@@ -1,0 +1,10 @@
+{
+  "description": "Output permission; absent permissions must be treated as no_outflow.",
+  "enum": [
+    "raw_ok",
+    "derived_only",
+    "no_outflow"
+  ],
+  "title": "Outflow",
+  "type": "string"
+}

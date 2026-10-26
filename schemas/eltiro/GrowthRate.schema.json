@@ -1,0 +1,38 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "input": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Input",
+      "type": "string"
+    },
+    "op": {
+      "const": "growth_rate",
+      "title": "Op",
+      "type": "string"
+    },
+    "lag": {
+      "default": 1,
+      "maximum": 120,
+      "minimum": 1,
+      "title": "Lag",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "id",
+    "input",
+    "op"
+  ],
+  "title": "GrowthRate",
+  "type": "object"
+}

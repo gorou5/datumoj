@@ -1,0 +1,27 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "positive": {
+      "items": {
+        "maxLength": 4096,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 256,
+      "title": "Positive",
+      "type": "array"
+    },
+    "negative": {
+      "items": {
+        "maxLength": 4096,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 256,
+      "title": "Negative",
+      "type": "array"
+    }
+  },
+  "title": "Examples",
+  "type": "object"
+}

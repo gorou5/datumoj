@@ -1,0 +1,36 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "from": {
+      "maxLength": 10,
+      "pattern": "^[0-9]{4}(?:-[0-9]{2}(?:-[0-9]{2})?)?$",
+      "title": "From",
+      "type": "string"
+    },
+    "to": {
+      "maxLength": 10,
+      "pattern": "^[0-9]{4}(?:-[0-9]{2}(?:-[0-9]{2})?)?$",
+      "title": "To",
+      "type": "string"
+    },
+    "frequency": {
+      "enum": [
+        "annual",
+        "quarterly",
+        "monthly",
+        "weekly",
+        "daily",
+        "irregular"
+      ],
+      "title": "Frequency",
+      "type": "string"
+    }
+  },
+  "required": [
+    "from",
+    "to",
+    "frequency"
+  ],
+  "title": "DemandPeriod",
+  "type": "object"
+}
