@@ -105,7 +105,7 @@ def test_atomic_control_replace_preserves_original_on_failure(tmp_path, monkeypa
 
 
 @pytest.mark.parametrize("value,delta", [("hourly", timedelta(hours=1)), ("daily", timedelta(days=1)),
-                                        ("monthly", timedelta(days=30))])
+                                        ("weekly", timedelta(days=7)), ("monthly", timedelta(days=30))])
 def test_next_due_uses_start(value, delta):
     assert next_due(value, T0, T0) == T0 + delta
     assert next_due(value, None, T0) == T0
@@ -119,7 +119,7 @@ def test_manual_never_due(value):
 
 def test_unknown_schedule_is_explicit_error():
     with pytest.raises(ValueError, match="不支持"):
-        next_due("weekly", None, T0)
+        next_due("yearly", None, T0)
 
 
 def test_tick_due_and_run_now_bypasses_due_with_append_only_records(tmp_path):

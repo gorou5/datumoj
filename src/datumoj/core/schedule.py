@@ -33,6 +33,15 @@ except ImportError:
 _WINDOWS_LOCK_OFFSET = 1 << 20
 _WORKSPACE_LOCKS = local()
 
+# Each entry is (interval, display label); manual schedules have no interval.
+SCHEDULES: dict[str, tuple[timedelta | None, str]] = {
+    "hourly": (timedelta(hours=1), "每小时"),
+    "daily": (timedelta(days=1), "每天"),
+    "weekly": (timedelta(days=7), "每周"),
+    "monthly": (timedelta(days=30), "每 30 天"),
+    "manual": (None, "手动"),
+}
+
 
 class ReadOnlyReplicaError(ValueError):
     """A pulled generation cannot be used as a local write workspace."""
@@ -192,12 +201,15 @@ def set_enabled(
 
 def next_due(schedule: str | None, last_start: datetime | None, now: datetime) -> datetime | None:
     """首轮立即到期；monthly 固定 30 天；manual/空永不到期。"""
-    if schedule in (None, "", "manual"):
+    if schedule in (None, ""):
         return None
-    intervals = {"hourly": timedelta(hours=1), "daily": timedelta(days=1), "monthly": timedelta(days=30)}
-    if schedule not in intervals:
-        raise ValueError(f"不支持的调度：{schedule!r}")
-    return last_start + intervals[schedule] if last_start is not None else now
+    try:
+        interval = SCHEDULES[schedule][0]
+    except KeyError:
+        raise ValueError(f"不支持的调度：{schedule!r}") from None
+    if interval is None:
+        return None
+    return last_start + interval if last_start is not None else now
 
 
 class Scheduler:

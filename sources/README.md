@@ -12,7 +12,7 @@
 | `allowed_hosts` | HTTP 请求允许访问的主机名白名单。 |
 | `rate_per_sec` | 每秒请求数，必须大于 0；默认值为 1。 |
 | `max_total_bytes`、`max_files` | 单来源累计字节数和文件数上限，必须大于 0。 |
-| `schedule` | 调度说明；不适用时可留空。 |
+| `schedule` | 可用值：`hourly`（每小时）、`daily`（每天）、`weekly`（每 7 天）、`monthly`（每 30 天）、`manual`（不自动运行）；可留空（永不到期）。 |
 | `scope` | 非空对象，列出该采集器允许请求的数据范围或端点。 |
 | `needs_key` | 无需凭据时留空；需要时只写 `env:UPPERCASE_NAME`，不写 Key 值。 |
 | `retention_note` | 来源对保留期限的说明；未知时留空。 |
