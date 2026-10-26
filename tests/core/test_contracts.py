@@ -30,9 +30,6 @@ from datumoj.rikolto.core.contracts import (
 )
 from datumoj.rikolto.core.models import FetchOutcome, GapState, LicenseInfo, Redistribution, TimeBasis, UsageScope
 from datumoj.rikolto.testing.contract_suites import (
-    _kw_corpus,
-    _obs_table,
-    retrieval_corpus,
     CatalogStoreSuite,
     ChunkStoreSuite,
     CrawlerSuite,
@@ -40,12 +37,16 @@ from datumoj.rikolto.testing.contract_suites import (
     HttpFetcherSuite,
     KeywordIndexSuite,
     ManifestSuite,
+    ObservationReleaseSuite,
     ObservationStoreSuite,
     ParserSuite,
     RawStoreSuite,
     RegistrySuite,
     RetrieverSuite,
     VectorIndexSuite,
+    _kw_corpus,
+    _obs_table,
+    retrieval_corpus,
 )
 from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
@@ -665,3 +666,17 @@ class TestDiscoverParsers:
         pkg = make_pkg({"law": PARSER_JSON.replace(old, new)})
         with pytest.raises(PluginError, match="LawJson"):
             discover_parsers(pkg)
+
+
+class TestFakeObservationReleases(ObservationReleaseSuite):
+    @pytest.fixture
+    def store(self):
+        return FakeObservationStore()
+
+    @pytest.fixture
+    def publish(self):
+        return lambda store, manifest: store.publish_generation(manifest)
+
+    @pytest.fixture
+    def discard(self):
+        return lambda store, generation: store.discard_generation(generation)

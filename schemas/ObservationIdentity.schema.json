@@ -1,0 +1,47 @@
+{
+  "additionalProperties": false,
+  "description": "ObservationRef + 原始快照 + 可空来源发布标识；禁止仅按 obs_id 关联或去重。",
+  "properties": {
+    "source_id": {
+      "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+      "title": "Source Id",
+      "type": "string"
+    },
+    "table_key": {
+      "minLength": 1,
+      "title": "Table Key",
+      "type": "string"
+    },
+    "obs_id": {
+      "minLength": 1,
+      "title": "Obs Id",
+      "type": "string"
+    },
+    "snapshot_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Snapshot Sha256",
+      "type": "string"
+    },
+    "release_id": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Release Id"
+    }
+  },
+  "required": [
+    "source_id",
+    "table_key",
+    "obs_id",
+    "snapshot_sha256"
+  ],
+  "title": "ObservationIdentity",
+  "type": "object"
+}
