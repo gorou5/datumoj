@@ -585,20 +585,27 @@ class ChangeEvent(_Model):
 
 
 class LicenseInfo(_Model):
-    """许可。核对之前一律 unverified / internal_only；可再分发必须先确认 redistribution=allowed。"""
+    """许可。缺省禁止数据流出及云端模型处理；旧字段必须与 raw_ok 保持一致。"""
 
     name: str | None = None
     url: str | None = None
     attribution: str | None = None
     usage_scope: UsageScope = UsageScope.internal_only
     redistribution: Redistribution = Redistribution.unverified
+    outflow: Outflow = Outflow.no_outflow
+    cloud_model_ok: bool = Field(default=False, strict=True)
     verified_at: date | None = None
     notes: str | None = None
 
     @model_validator(mode="after")
-    def _scope_needs_allowed(self) -> LicenseInfo:
+    def _permissions_match_legacy_fields(self) -> LicenseInfo:
         if self.usage_scope is UsageScope.redistributable and self.redistribution is not Redistribution.allowed:
-            raise ValueError(f"redistribution={self.redistribution.value} 时 usage_scope 只能是 internal_only")
+            raise ValueError("usage_scope 与 redistribution 冲突：redistributable 要求 redistribution=allowed")
+        legacy_raw_ok = (
+            self.usage_scope is UsageScope.redistributable and self.redistribution is Redistribution.allowed
+        )
+        if (self.outflow is Outflow.raw_ok) != legacy_raw_ok:
+            raise ValueError("outflow 与 usage_scope / redistribution 冲突：raw_ok 必须且只能对应 redistributable + allowed")
         return self
 
 

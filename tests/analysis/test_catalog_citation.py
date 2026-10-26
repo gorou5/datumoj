@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from pathlib import Path
 
 from datumoj.rikolto.analysis.tools import AnalysisTools
@@ -29,8 +30,9 @@ def _tools(tmp_path):
     chunks = FakeChunkStore()
     observations = FakeObservationStore()
     license = LicenseInfo(
-        name="CC BY 4.0", attribution="出典：e-Gov", usage_scope=UsageScope.redistributable,
-        redistribution=Redistribution.allowed,
+        name="CC BY 4.0", url="https://example.go.jp/license", attribution="出典：e-Gov",
+        usage_scope=UsageScope.redistributable, redistribution=Redistribution.allowed, outflow="raw_ok",
+        verified_at=date(2026, 10, 20), notes="テスト用の検証根拠",
     )
     registry = FakeRegistry([
         make_spec(SOURCE_ID, kind="ckan", license=license),

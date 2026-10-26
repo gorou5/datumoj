@@ -33,8 +33,9 @@ def env(tmp_path):
     raw, manifest, chunks = FakeRawStore(tmp_path), FakeManifest(), FakeChunkStore()
     catalog, observations, change_log = FakeCatalogStore(), FakeObservationStore(), FakeChangeLog()
     license_info = LicenseInfo(
-        name="CC BY 4.0", attribution="テスト省", usage_scope=UsageScope.redistributable,
-        redistribution=Redistribution.allowed,
+        name="CC BY 4.0", url="https://example.go.jp/license", attribution="テスト省",
+        usage_scope=UsageScope.redistributable, redistribution=Redistribution.allowed, outflow="raw_ok",
+        verified_at=date(2026, 10, 20), notes="テスト用の検証根拠",
     )
     registry = FakeRegistry([make_spec("jp-test", kind="fake", license=license_info)])
     snapshots = {}

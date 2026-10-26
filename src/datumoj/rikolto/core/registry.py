@@ -10,7 +10,7 @@ import yaml
 from pydantic import ValidationError
 
 from datumoj.rikolto.core.contracts import Registry, RegistryError, SourceSpec
-from datumoj.rikolto.core.models import Redistribution
+from datumoj.rikolto.core.models import Outflow, Redistribution
 
 
 class RegistryImpl:
@@ -73,6 +73,24 @@ def _validate_file(path: Path) -> SourceSpec:
         ]
         if missing:
             raise RegistryError(f"{path}: {', '.join(missing)}: 放开再分发前必须完成许可核对")
+
+    license_info = spec.license
+    if license_info.outflow is not Outflow.no_outflow or license_info.cloud_model_ok:
+        missing = [
+            name for name, value in (
+                ("license.name", license_info.name),
+                ("license.url", license_info.url),
+                ("license.verified_at", license_info.verified_at),
+                ("license.notes", license_info.notes),
+            )
+            if not value or (isinstance(value, str) and not value.strip())
+        ]
+        if license_info.outflow is Outflow.raw_ok and not license_info.attribution:
+            missing.append("license.attribution")
+        if missing:
+            raise RegistryError(
+                f"{path}: {', '.join(missing)}: 放宽 outflow / cloud_model_ok 前必须填写许可依据"
+            )
     return spec
 
 

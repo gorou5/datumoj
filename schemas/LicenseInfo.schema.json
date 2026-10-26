@@ -1,5 +1,15 @@
 {
   "$defs": {
+    "Outflow": {
+      "description": "Output permission; absent permissions must be treated as no_outflow.",
+      "enum": [
+        "raw_ok",
+        "derived_only",
+        "no_outflow"
+      ],
+      "title": "Outflow",
+      "type": "string"
+    },
     "Redistribution": {
       "enum": [
         "allowed",
@@ -19,7 +29,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "许可。核对之前一律 unverified / internal_only；可再分发必须先确认 redistribution=allowed。",
+  "description": "许可。缺省禁止数据流出及云端模型处理；旧字段必须与 raw_ok 保持一致。",
   "properties": {
     "name": {
       "anyOf": [
@@ -64,6 +74,15 @@
     "redistribution": {
       "$ref": "#/$defs/Redistribution",
       "default": "unverified"
+    },
+    "outflow": {
+      "$ref": "#/$defs/Outflow",
+      "default": "no_outflow"
+    },
+    "cloud_model_ok": {
+      "default": false,
+      "title": "Cloud Model Ok",
+      "type": "boolean"
     },
     "verified_at": {
       "anyOf": [

@@ -15,6 +15,8 @@ license:
   attribution: 出典：総務省統計局「統計ダッシュボード」
   usage_scope: internal_only
   redistribution: unverified
+  outflow: no_outflow
+  cloud_model_ok: false
   verified_at: null
   notes: 利用条件尚未逐项核对；核对前仅内部使用
 scope:
