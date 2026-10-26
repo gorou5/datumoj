@@ -20,6 +20,7 @@ from datumoj.rikolto.core.models import (
     Hit,
     LicenseInfo,
     Observation,
+    Outflow,
     Period,
     Redistribution,
     Resource,
@@ -299,6 +300,8 @@ def test_license_defaults_internal_only_unverified():
     lic = LicenseInfo()
     assert lic.usage_scope is UsageScope.internal_only
     assert lic.redistribution is Redistribution.unverified
+    assert lic.outflow is Outflow.no_outflow
+    assert lic.cloud_model_ok is False
 
 
 @pytest.mark.parametrize("redistribution", [Redistribution.unverified, Redistribution.forbidden])
@@ -314,11 +317,33 @@ def test_license_allowed_can_be_redistributable():
         attribution="出典：BODIK",
         usage_scope=UsageScope.redistributable,
         redistribution=Redistribution.allowed,
+        outflow=Outflow.raw_ok,
         verified_at=date(2026, 10, 20),
     )
     assert lic.usage_scope is UsageScope.redistributable
+    assert lic.outflow is Outflow.raw_ok
     # allowed 也可以选择只内部用
     LicenseInfo(usage_scope=UsageScope.internal_only, redistribution=Redistribution.allowed)
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"usage_scope": "internal_only", "redistribution": "allowed", "outflow": "raw_ok"},
+        {"usage_scope": "internal_only", "redistribution": "unverified", "outflow": "raw_ok"},
+        {"usage_scope": "redistributable", "redistribution": "allowed", "outflow": "no_outflow"},
+        {"usage_scope": "redistributable", "redistribution": "allowed", "outflow": "derived_only"},
+    ],
+)
+def test_license_rejects_new_and_legacy_permission_conflicts(values):
+    with pytest.raises(ValidationError, match=r"usage_scope|redistribution|outflow"):
+        LicenseInfo(**values)
+
+
+def test_license_cloud_model_permission_requires_strict_boolean():
+    with pytest.raises(ValidationError):
+        LicenseInfo(cloud_model_ok=1)
+    LicenseInfo(outflow=Outflow.derived_only)
 
 
 def test_source_and_ids():

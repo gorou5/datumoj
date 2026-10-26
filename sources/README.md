@@ -16,9 +16,11 @@
 | `scope` | 非空对象，列出该采集器允许请求的数据范围或端点。 |
 | `needs_key` | 无需凭据时留空；需要时只写 `env:UPPERCASE_NAME`，不写 Key 值。 |
 | `retention_note` | 来源对保留期限的说明；未知时留空。 |
-| `license` | `LicenseInfo` 对象，含许可 `name` / `url`、`attribution`、`usage_scope`、`redistribution`、`verified_at` 和 `notes`。 |
+| `license` | `LicenseInfo` 对象，含许可 `name` / `url`、`attribution`、`usage_scope`、`redistribution`、`outflow`、`cloud_model_ok`、`verified_at` 和 `notes`。 |
 
-`license.usage_scope` 默认 `internal_only`，`license.redistribution` 默认 `unverified`。只有逐项核实许可后才能填 `allowed`；此时必须同时填写许可名称、官方许可 URL、署名文本和 `verified_at` 日期。未确认可再分发时，使用范围只能是 `internal_only`。`verified_at` / `notes` 分别对应任务字段 `license_verified_at` / `license_notes`，两者放在嵌套的 `license` 对象中以遵循契约。
+`license.usage_scope` 默认 `internal_only`，`license.redistribution` 默认 `unverified`，`license.outflow` 默认 `no_outflow`，`license.cloud_model_ok` 默认 `false`（只接受 YAML 布尔值）。`outflow` 可取 `raw_ok`（允许原始数据流出）、`derived_only`（只允许派生数据流出）或 `no_outflow`（禁止流出）。`raw_ok` 当且仅当 `usage_scope: redistributable` 且 `redistribution: allowed`；不一致时模型校验会拒绝。迁移或新增来源时不得仅凭旧字段推断 `derived_only` 或 `cloud_model_ok: true`。
+
+只有逐项核实许可后才能填 `redistribution: allowed`；此时必须填写许可名称、官方许可 URL、署名文本和 `verified_at` 日期。将 `outflow` 放宽到 `raw_ok` / `derived_only`，或设 `cloud_model_ok: true`，还必须填写许可名称、官方许可 URL、`verified_at` 日期及 `notes` 中的核对依据；`raw_ok` 另须填写 `attribution`。`verified_at` / `notes` 分别对应任务字段 `license_verified_at` / `license_notes`，两者放在嵌套的 `license` 对象中以遵循契约。
 
 ## 许可核对方法
 
@@ -43,6 +45,8 @@ license:
   attribution: null
   usage_scope: internal_only
   redistribution: unverified
+  outflow: no_outflow
+  cloud_model_ok: false
   verified_at: null
   notes: 尚未逐项核对
 scope:

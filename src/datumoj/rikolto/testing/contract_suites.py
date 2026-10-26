@@ -216,7 +216,8 @@ class RegistrySuite:
     def specs(self) -> list[SourceSpec]:
         verified = LicenseInfo(
             name="CC BY 4.0", url="https://creativecommons.org/licenses/by/4.0/", attribution="出典：テスト省",
-            usage_scope=UsageScope.redistributable, redistribution=Redistribution.allowed, verified_at=date(2026, 10, 1),
+            usage_scope=UsageScope.redistributable, redistribution=Redistribution.allowed, outflow="raw_ok",
+            verified_at=date(2026, 10, 1), notes="テスト用の検証根拠",
         )
         return [
             make_spec("jp-b", kind="ckan", needs_key="env:JP_B_KEY", schedule="daily"),

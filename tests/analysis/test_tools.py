@@ -144,8 +144,9 @@ def _ingest(env_parts: dict[str, Any], source_id: str, url: str, text: str, meta
 @pytest.fixture
 def env(tmp_path) -> Env:
     open_license = LicenseInfo(
-        name="CC BY 4.0", attribution="出典：テスト省", usage_scope=UsageScope.redistributable,
-        redistribution=Redistribution.allowed,
+        name="CC BY 4.0", url="https://example.go.jp/license", attribution="出典：テスト省",
+        usage_scope=UsageScope.redistributable, redistribution=Redistribution.allowed, outflow="raw_ok",
+        verified_at=date(2026, 10, 20), notes="テスト用の検証根拠",
     )
     specs = [
         make_spec("jp-law", kind="law", license=LicenseInfo(name="公共データ利用規約", attribution="e-Gov 法令検索")),
