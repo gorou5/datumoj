@@ -1,0 +1,1537 @@
+{
+    "@graph": [
+        {
+            "@id": "http://publications.europa.eu/resource/authority/file-type/CSV",
+            "@type": "dct:MediaTypeOrExtent"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/file-type/RDF_XML",
+            "@type": "dct:MediaTypeOrExtent"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/file-type/HTML",
+            "@type": "dct:MediaTypeOrExtent"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/SLK",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/ITA",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/DAN",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/access-right/PUBLIC",
+            "@type": "dct:RightsStatement"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/GLE",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/corporate-body/ESTAT",
+            "@type": "foaf:Agent"
+        },
+        {
+            "@id": "http://www.iana.org/assignments/media-types/text/html",
+            "@type": "dct:MediaType"
+        },
+        {
+            "@id": "http://data.europa.eu/88u/blanknode#__N41d3e3a8b05947318e7c2b1fac55bdeb",
+            "@type": "vcard:Address",
+            "vcard:street-address": "20, rue de Reims, L-2417 Luxembourg"
+        },
+        {
+            "@id": "http://data.europa.eu/88u/distribution/2806243b-3a5a-49c0-95d1-2861c75c0f26",
+            "dct:title": [
+                {
+                    "@language": "lv-t-en-t0-mtec",
+                    "@value": "Kombinētā nomenklatūra, 2023. gads (KN 2023) SKOS_CORE sadalījums"
+                },
+                {
+                    "@language": "ga-t-en-t0-mtec",
+                    "@value": "Ainmníocht Chomhcheangailte, 2023 (AC 2023) Dáileadh SKOS_CORE"
+                },
+                {
+                    "@language": "en",
+                    "@value": "Combined Nomenclature, 2023 (CN 2023) SKOS_CORE distribution"
+                },
+                {
+                    "@language": "fr-t-en-t0-mtec",
+                    "@value": "Nomenclature combinée, 2023 (CN 2023) Répartition SKOS_CORE"
+                },
+                {
+                    "@language": "it-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinata, 2023 (NC 2023) Distribuzione SKOS_CORE"
+                },
+                {
+                    "@language": "de-t-en-t0-mtec",
+                    "@value": "Kombinierte Nomenklatur, 2023 (KN 2023) SKOS_CORE-Verteilung"
+                },
+                {
+                    "@language": "pl-t-en-t0-mtec",
+                    "@value": "Nomenklatura scalona, 2023 (CN 2023) Dystrybucja SKOS_CORE"
+                },
+                {
+                    "@language": "bg-t-en-t0-mtec",
+                    "@value": "Комбинирана номенклатура, 2023 г. (CN 2023) Разпределение на SKOS_CORE"
+                },
+                {
+                    "@language": "sl-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023 (KN 2023) Porazdelitev SKOS_CORE"
+                },
+                {
+                    "@language": "et-t-en-t0-mtec",
+                    "@value": "Kombineeritud nomenklatuur, 2023 (CN 2023) SKOS_CORE jaotus"
+                },
+                {
+                    "@language": "el-t-en-t0-mtec",
+                    "@value": "Συνδυασμένη ονοματολογία, 2023 (ΣΟ 2023) κατανομή SKOS_CORE"
+                },
+                {
+                    "@language": "mt-t-en-t0-mtec",
+                    "@value": "Nomenklatura Magħquda, 2023 (NM 2023) Distribuzzjoni SKOS_CORE"
+                },
+                {
+                    "@language": "uk-t-en-t0-mtec",
+                    "@value": "Комбінована номенклатура, 2023 (CN 2023) SKOS_CORE дистрибуція"
+                },
+                {
+                    "@language": "hu-t-en-t0-mtec",
+                    "@value": "Kombinált Nómenklatúra, 2023 (KN 2023) SKOS_CORE-eloszlás"
+                },
+                {
+                    "@language": "es-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023) Distribución SKOS_CORE"
+                },
+                {
+                    "@language": "lt-t-en-t0-mtec",
+                    "@value": "Kombinuotoji nomenklatūra, 2023 m. (KN 2023) SKOS_CORE pasiskirstymas"
+                },
+                {
+                    "@language": "ro-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinată, 2023 (NC 2023) Distribuția SKOS_CORE"
+                },
+                {
+                    "@language": "sk-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatúra, 2023 (KN 2023) Distribúcia SKOS_CORE"
+                },
+                {
+                    "@language": "nl-t-en-t0-mtec",
+                    "@value": "Gecombineerde nomenclatuur, 2023 (GN 2023) SKOS_CORE-verdeling"
+                },
+                {
+                    "@language": "hr-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023. (KN 2023.) Distribucija SKOS_CORE"
+                },
+                {
+                    "@language": "sv-t-en-t0-mtec",
+                    "@value": "Kombinerade nomenklaturen, 2023 (KN 2023) SKOS_CORE distribution"
+                },
+                {
+                    "@language": "da-t-en-t0-mtec",
+                    "@value": "Den kombinerede nomenklatur, 2023 (KN 2023) SKOS_CORE-distribution"
+                },
+                {
+                    "@language": "pt-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023) SKOS_CORE distribution"
+                },
+                {
+                    "@language": "fi-t-en-t0-mtec",
+                    "@value": "Yhdistetty nimikkeistö, 2023 (CN 2023) SKOS_CORE jakelu"
+                },
+                {
+                    "@language": "cs-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatura, 2023 (KN 2023) Distribuce SKOS_CORE"
+                }
+            ],
+            "dct:issued": {
+                "@value": "2025-05-21",
+                "@type": "http://www.w3.org/2001/XMLSchema#date"
+            },
+            "dct:description": [
+                {
+                    "@language": "pl-t-en-t0-mtec",
+                    "@value": "Nomenklatura scalona, 2023 (CN 2023) Dystrybucja SKOS_CORE"
+                },
+                {
+                    "@language": "lt-t-en-t0-mtec",
+                    "@value": "Kombinuotoji nomenklatūra, 2023 m. (KN 2023) SKOS_CORE pasiskirstymas"
+                },
+                {
+                    "@language": "uk-t-en-t0-mtec",
+                    "@value": "Комбінована номенклатура, 2023 (CN 2023) SKOS_CORE дистрибуція"
+                },
+                {
+                    "@language": "nl-t-en-t0-mtec",
+                    "@value": "Gecombineerde nomenclatuur, 2023 (GN 2023) SKOS_CORE-verdeling"
+                },
+                {
+                    "@language": "pt-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023) SKOS_CORE distribution"
+                },
+                {
+                    "@language": "en",
+                    "@value": "Combined Nomenclature, 2023 (CN 2023) SKOS_CORE distribution"
+                },
+                {
+                    "@language": "fi-t-en-t0-mtec",
+                    "@value": "Yhdistetty nimikkeistö, 2023 (CN 2023) SKOS_CORE jakelu"
+                },
+                {
+                    "@language": "el-t-en-t0-mtec",
+                    "@value": "Συνδυασμένη ονοματολογία, 2023 (ΣΟ 2023) κατανομή SKOS_CORE"
+                },
+                {
+                    "@language": "ro-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinată, 2023 (NC 2023) Distribuția SKOS_CORE"
+                },
+                {
+                    "@language": "it-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinata, 2023 (NC 2023) Distribuzione SKOS_CORE"
+                },
+                {
+                    "@language": "sl-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023 (KN 2023) Porazdelitev SKOS_CORE"
+                },
+                {
+                    "@language": "lv-t-en-t0-mtec",
+                    "@value": "Kombinētā nomenklatūra, 2023. gads (KN 2023) SKOS_CORE sadalījums"
+                },
+                {
+                    "@language": "da-t-en-t0-mtec",
+                    "@value": "Den kombinerede nomenklatur, 2023 (KN 2023) SKOS_CORE-distribution"
+                },
+                {
+                    "@language": "fr-t-en-t0-mtec",
+                    "@value": "Nomenclature combinée, 2023 (CN 2023) Répartition SKOS_CORE"
+                },
+                {
+                    "@language": "sv-t-en-t0-mtec",
+                    "@value": "Kombinerade nomenklaturen, 2023 (KN 2023) SKOS_CORE distribution"
+                },
+                {
+                    "@language": "sk-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatúra, 2023 (KN 2023) Distribúcia SKOS_CORE"
+                },
+                {
+                    "@language": "mt-t-en-t0-mtec",
+                    "@value": "Nomenklatura Magħquda, 2023 (NM 2023) Distribuzzjoni SKOS_CORE"
+                },
+                {
+                    "@language": "et-t-en-t0-mtec",
+                    "@value": "Kombineeritud nomenklatuur, 2023 (CN 2023) SKOS_CORE jaotus"
+                },
+                {
+                    "@language": "hu-t-en-t0-mtec",
+                    "@value": "Kombinált Nómenklatúra, 2023 (KN 2023) SKOS_CORE-eloszlás"
+                },
+                {
+                    "@language": "cs-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatura, 2023 (KN 2023) Distribuce SKOS_CORE"
+                },
+                {
+                    "@language": "de-t-en-t0-mtec",
+                    "@value": "Kombinierte Nomenklatur, 2023 (KN 2023) SKOS_CORE-Verteilung"
+                },
+                {
+                    "@language": "ga-t-en-t0-mtec",
+                    "@value": "Ainmníocht Chomhcheangailte, 2023 (AC 2023) Dáileadh SKOS_CORE"
+                },
+                {
+                    "@language": "hr-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023. (KN 2023.) Distribucija SKOS_CORE"
+                },
+                {
+                    "@language": "bg-t-en-t0-mtec",
+                    "@value": "Комбинирана номенклатура, 2023 г. (CN 2023) Разпределение на SKOS_CORE"
+                },
+                {
+                    "@language": "es-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023) Distribución SKOS_CORE"
+                }
+            ],
+            "dcat:mediaType": {
+                "@id": "http://www.iana.org/assignments/media-types/application/rdf+xml"
+            },
+            "dct:license": {
+                "@id": "http://publications.europa.eu/resource/authority/licence/COM_REUSE"
+            },
+            "dct:rights": {
+                "@id": "http://publications.europa.eu/resource/authority/access-right/PUBLIC"
+            },
+            "dcat:accessURL": {
+                "@id": "https://op.europa.eu/o/opportal-service/euvoc-download-handler?cellarURI=http%3A%2F%2Fpublications.europa.eu%2Fresource%2Fcellar%2F76354e75-7184-11ed-9887-01aa75ed71a1.0001.03%2FDOC_1&fileName=ESTAT-CN2023.rdf"
+            },
+            "adms:status": {
+                "@id": "http://purl.org/adms/status/Completed"
+            },
+            "dct:format": {
+                "@id": "http://publications.europa.eu/resource/authority/file-type/RDF_XML"
+            },
+            "@type": "dcat:Distribution",
+            "dct:type": {
+                "@id": "http://publications.europa.eu/resource/authority/distribution-type/DOWNLOADABLE_FILE"
+            },
+            "dcat:downloadURL": {
+                "@id": "https://op.europa.eu/o/opportal-service/euvoc-download-handler?cellarURI=http%3A%2F%2Fpublications.europa.eu%2Fresource%2Fcellar%2F76354e75-7184-11ed-9887-01aa75ed71a1.0001.03%2FDOC_1&fileName=ESTAT-CN2023.rdf"
+            },
+            "dct:identifier": "http://data.europa.eu/88u/distribution/c8cf5b5b-343b-4c42-b960-74e445219340"
+        },
+        {
+            "@id": "http://www.iana.org/assignments/media-types/application/rdf+xml",
+            "@type": "dct:MediaType"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/licence/COM_REUSE",
+            "@type": "dct:LicenseDocument"
+        },
+        {
+            "@id": "http://purl.org/adms/status/Completed",
+            "@type": "skos:Concept"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/EST",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/CES",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/ELL",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/POR",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/corporate-body/PUBL",
+            "@type": "foaf:Agent"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/FRA",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://www.iana.org/assignments/media-types/text/csv",
+            "@type": "dct:MediaType"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/LAV",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/FIN",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/HUN",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://data.europa.eu/88u/distribution/317e9cd4-dbb7-45d0-a079-010d119e3209",
+            "dct:title": [
+                {
+                    "@language": "sk-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatúra, 2023 (KN 2023) Distribúcia SKOS_AP_EU"
+                },
+                {
+                    "@language": "it-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinata, 2023 (NC 2023) Distribuzione SKOS_AP_EU"
+                },
+                {
+                    "@language": "pt-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023) SKOS_AP_EU distribution"
+                },
+                {
+                    "@language": "de-t-en-t0-mtec",
+                    "@value": "Kombinierte Nomenklatur, 2023 (KN 2023) SKOS_AP_EU Verteilung"
+                },
+                {
+                    "@language": "fi-t-en-t0-mtec",
+                    "@value": "Yhdistetty nimikkeistö, 2023 (CN 2023) SKOS_AP_EU-jakelu"
+                },
+                {
+                    "@language": "ro-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinată, 2023 (NC 2023) Distribuția SKOS_AP_EU"
+                },
+                {
+                    "@language": "el-t-en-t0-mtec",
+                    "@value": "Συνδυασμένη ονοματολογία, κατανομή 2023 (ΣΟ 2023) SKOS_AP_EU"
+                },
+                {
+                    "@language": "sv-t-en-t0-mtec",
+                    "@value": "Kombinerade nomenklaturen, 2023 (KN 2023) SKOS_AP_EU distribution"
+                },
+                {
+                    "@language": "uk-t-en-t0-mtec",
+                    "@value": "Комбінована номенклатура, 2023 (CN 2023) SKOS_AP_EU дистрибуція"
+                },
+                {
+                    "@language": "lv-t-en-t0-mtec",
+                    "@value": "Kombinētā nomenklatūra, 2023. gads (KN 2023) SKOS_AP_EU sadalījums"
+                },
+                {
+                    "@language": "ga-t-en-t0-mtec",
+                    "@value": "Ainmníocht Chomhcheangailte, 2023 (AC 2023) SKOS_AP_dáileadh an Aontais"
+                },
+                {
+                    "@language": "hr-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023. (KN 2023.) Distribucija SKOS_AP_EU"
+                },
+                {
+                    "@language": "pl-t-en-t0-mtec",
+                    "@value": "Nomenklatura scalona, 2023 (CN 2023) Dystrybucja SKOS_AP_EU"
+                },
+                {
+                    "@language": "lt-t-en-t0-mtec",
+                    "@value": "Kombinuotoji nomenklatūra, 2023 m. (KN 2023) SKOS_AP_EU distribution"
+                },
+                {
+                    "@language": "cs-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatura, 2023 (KN 2023) Rozdělení SKOS_AP_EU"
+                },
+                {
+                    "@language": "en",
+                    "@value": "Combined Nomenclature, 2023 (CN 2023) SKOS_AP_EU distribution"
+                },
+                {
+                    "@language": "sl-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023 (KN 2023) SKOS_AP_EU distribucija"
+                },
+                {
+                    "@language": "es-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023) Distribución SKOS_AP_EU"
+                },
+                {
+                    "@language": "mt-t-en-t0-mtec",
+                    "@value": "Nomenklatura Magħquda, 2023 (NM 2023) SKOS_AP_EU distribution"
+                },
+                {
+                    "@language": "et-t-en-t0-mtec",
+                    "@value": "Kombineeritud nomenklatuur, 2023 (CN 2023) SKOS_AP_EU jaotus"
+                },
+                {
+                    "@language": "fr-t-en-t0-mtec",
+                    "@value": "Nomenclature combinée, 2023 (CN 2023) SKOS_AP_EU distribution"
+                },
+                {
+                    "@language": "bg-t-en-t0-mtec",
+                    "@value": "Комбинирана номенклатура, 2023 г. (CN 2023) Разпределение на SKOS_AP_EU"
+                },
+                {
+                    "@language": "nl-t-en-t0-mtec",
+                    "@value": "Gecombineerde nomenclatuur, 2023 (GN 2023) SKOS_AP_EU-verdeling"
+                },
+                {
+                    "@language": "da-t-en-t0-mtec",
+                    "@value": "Den kombinerede nomenklatur, 2023 (KN 2023) SKOS_AP_EU distribution"
+                },
+                {
+                    "@language": "hu-t-en-t0-mtec",
+                    "@value": "Kombinált Nómenklatúra, 2023 (KN 2023) SKOS_AP_EU forgalmazás"
+                }
+            ],
+            "dct:description": [
+                {
+                    "@language": "hr-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023. (KN 2023.) Distribucija SKOS_AP_EU"
+                },
+                {
+                    "@language": "en",
+                    "@value": "Combined Nomenclature, 2023 (CN 2023) SKOS_AP_EU distribution"
+                },
+                {
+                    "@language": "sl-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023 (KN 2023) SKOS_AP_EU distribucija"
+                },
+                {
+                    "@language": "nl-t-en-t0-mtec",
+                    "@value": "Gecombineerde nomenclatuur, 2023 (GN 2023) SKOS_AP_EU-verdeling"
+                },
+                {
+                    "@language": "da-t-en-t0-mtec",
+                    "@value": "Den kombinerede nomenklatur, 2023 (KN 2023) SKOS_AP_EU distribution"
+                },
+                {
+                    "@language": "sk-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatúra, 2023 (KN 2023) Distribúcia SKOS_AP_EU"
+                },
+                {
+                    "@language": "ga-t-en-t0-mtec",
+                    "@value": "Ainmníocht Chomhcheangailte, 2023 (AC 2023) SKOS_AP_dáileadh an Aontais"
+                },
+                {
+                    "@language": "fi-t-en-t0-mtec",
+                    "@value": "Yhdistetty nimikkeistö, 2023 (CN 2023) SKOS_AP_EU-jakelu"
+                },
+                {
+                    "@language": "hu-t-en-t0-mtec",
+                    "@value": "Kombinált Nómenklatúra, 2023 (KN 2023) SKOS_AP_EU forgalmazás"
+                },
+                {
+                    "@language": "el-t-en-t0-mtec",
+                    "@value": "Συνδυασμένη ονοματολογία, κατανομή 2023 (ΣΟ 2023) SKOS_AP_EU"
+                },
+                {
+                    "@language": "uk-t-en-t0-mtec",
+                    "@value": "Комбінована номенклатура, 2023 (CN 2023) SKOS_AP_EU дистрибуція"
+                },
+                {
+                    "@language": "lv-t-en-t0-mtec",
+                    "@value": "Kombinētā nomenklatūra, 2023. gads (KN 2023) SKOS_AP_EU sadalījums"
+                },
+                {
+                    "@language": "it-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinata, 2023 (NC 2023) Distribuzione SKOS_AP_EU"
+                },
+                {
+                    "@language": "mt-t-en-t0-mtec",
+                    "@value": "Nomenklatura Magħquda, 2023 (NM 2023) SKOS_AP_EU distribution"
+                },
+                {
+                    "@language": "pt-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023) SKOS_AP_EU distribution"
+                },
+                {
+                    "@language": "et-t-en-t0-mtec",
+                    "@value": "Kombineeritud nomenklatuur, 2023 (CN 2023) SKOS_AP_EU jaotus"
+                },
+                {
+                    "@language": "bg-t-en-t0-mtec",
+                    "@value": "Комбинирана номенклатура, 2023 г. (CN 2023) Разпределение на SKOS_AP_EU"
+                },
+                {
+                    "@language": "fr-t-en-t0-mtec",
+                    "@value": "Nomenclature combinée, 2023 (CN 2023) SKOS_AP_EU distribution"
+                },
+                {
+                    "@language": "es-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023) Distribución SKOS_AP_EU"
+                },
+                {
+                    "@language": "de-t-en-t0-mtec",
+                    "@value": "Kombinierte Nomenklatur, 2023 (KN 2023) SKOS_AP_EU Verteilung"
+                },
+                {
+                    "@language": "sv-t-en-t0-mtec",
+                    "@value": "Kombinerade nomenklaturen, 2023 (KN 2023) SKOS_AP_EU distribution"
+                },
+                {
+                    "@language": "ro-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinată, 2023 (NC 2023) Distribuția SKOS_AP_EU"
+                },
+                {
+                    "@language": "cs-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatura, 2023 (KN 2023) Rozdělení SKOS_AP_EU"
+                },
+                {
+                    "@language": "lt-t-en-t0-mtec",
+                    "@value": "Kombinuotoji nomenklatūra, 2023 m. (KN 2023) SKOS_AP_EU distribution"
+                },
+                {
+                    "@language": "pl-t-en-t0-mtec",
+                    "@value": "Nomenklatura scalona, 2023 (CN 2023) Dystrybucja SKOS_AP_EU"
+                }
+            ],
+            "dcat:accessURL": {
+                "@id": "https://op.europa.eu/o/opportal-service/euvoc-download-handler?cellarURI=http%3A%2F%2Fpublications.europa.eu%2Fresource%2Fcellar%2F76354e75-7184-11ed-9887-01aa75ed71a1.0001.02%2FDOC_1&fileName=ESTAT-CN2023-skos-ap-eu.rdf"
+            },
+            "@type": "dcat:Distribution",
+            "dct:identifier": "http://data.europa.eu/88u/distribution/ac1d87df-be3d-4d47-94c7-92578dbdfc69",
+            "adms:status": {
+                "@id": "http://purl.org/adms/status/Completed"
+            },
+            "dct:type": {
+                "@id": "http://publications.europa.eu/resource/authority/distribution-type/DOWNLOADABLE_FILE"
+            },
+            "dct:license": {
+                "@id": "http://publications.europa.eu/resource/authority/licence/COM_REUSE"
+            },
+            "dct:issued": {
+                "@value": "2025-05-21",
+                "@type": "http://www.w3.org/2001/XMLSchema#date"
+            },
+            "dct:rights": {
+                "@id": "http://publications.europa.eu/resource/authority/access-right/PUBLIC"
+            },
+            "dcat:mediaType": {
+                "@id": "http://www.iana.org/assignments/media-types/application/rdf+xml"
+            },
+            "dcat:downloadURL": {
+                "@id": "https://op.europa.eu/o/opportal-service/euvoc-download-handler?cellarURI=http%3A%2F%2Fpublications.europa.eu%2Fresource%2Fcellar%2F76354e75-7184-11ed-9887-01aa75ed71a1.0001.02%2FDOC_1&fileName=ESTAT-CN2023-skos-ap-eu.rdf"
+            },
+            "dct:format": {
+                "@id": "http://publications.europa.eu/resource/authority/file-type/RDF_XML"
+            }
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/dataset-type/TAXONOMY",
+            "@type": "skos:Concept"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/SWE",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://data.europa.eu/88u/distribution/6196fbf5-e08d-4768-8d3a-9a414ae8631e",
+            "dct:description": [
+                {
+                    "@language": "fr-t-en-t0-mtec",
+                    "@value": "Nomenclature combinée, 2023 (NC 2023) Répartition des CSV"
+                },
+                {
+                    "@language": "it-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinata, 2023 (NC 2023) Distribuzione CSV"
+                },
+                {
+                    "@language": "es-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023) distribución de CSV"
+                },
+                {
+                    "@language": "nl-t-en-t0-mtec",
+                    "@value": "Gecombineerde nomenclatuur, CSV-verdeling 2023 (GN 2023)"
+                },
+                {
+                    "@language": "uk-t-en-t0-mtec",
+                    "@value": "Комбінована номенклатура, 2023 (CN 2023) CSV дистрибуція"
+                },
+                {
+                    "@language": "ro-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinată, 2023 (NC 2023) Distribuția CSV"
+                },
+                {
+                    "@language": "fi-t-en-t0-mtec",
+                    "@value": "Yhdistetty nimikkeistö, 2023 (CN 2023) CSV-jakelu"
+                },
+                {
+                    "@language": "mt-t-en-t0-mtec",
+                    "@value": "Nomenklatura Magħquda, 2023 (NM 2023) distribuzzjoni CSV"
+                },
+                {
+                    "@language": "ga-t-en-t0-mtec",
+                    "@value": "Ainmníocht Chomhcheangailte, 2023 (AC 2023) Dáileadh CSV"
+                },
+                {
+                    "@language": "de-t-en-t0-mtec",
+                    "@value": "Kombinierte Nomenklatur, 2023 (KN 2023) CSV-Verteilung"
+                },
+                {
+                    "@language": "cs-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatura, 2023 (KN 2023) Rozdělení CSV"
+                },
+                {
+                    "@language": "hu-t-en-t0-mtec",
+                    "@value": "Kombinált Nómenklatúra, 2023 (KN 2023) CSV-eloszlás"
+                },
+                {
+                    "@language": "en",
+                    "@value": "Combined Nomenclature, 2023 (CN 2023) CSV distribution"
+                },
+                {
+                    "@language": "hr-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023. (KN 2023.) distribucija CSV-a"
+                },
+                {
+                    "@language": "lv-t-en-t0-mtec",
+                    "@value": "Kombinētā nomenklatūra, 2023 (KN 2023) CSV sadalījums"
+                },
+                {
+                    "@language": "bg-t-en-t0-mtec",
+                    "@value": "Комбинирана номенклатура, 2023 г. (КН 2023) Разпределение на CSV"
+                },
+                {
+                    "@language": "pt-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023) Distribuição CSV"
+                },
+                {
+                    "@language": "sk-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatúra, 2023 (KN 2023) Distribúcia CSV"
+                },
+                {
+                    "@language": "sv-t-en-t0-mtec",
+                    "@value": "Kombinerade nomenklaturen, 2023 (KN 2023) CSV-distribution"
+                },
+                {
+                    "@language": "et-t-en-t0-mtec",
+                    "@value": "Kombineeritud nomenklatuur, 2023 (CN 2023) CSV jaotus"
+                },
+                {
+                    "@language": "lt-t-en-t0-mtec",
+                    "@value": "Kombinuotosios nomenklatūros 2023 m. (KN 2023) CSV pasiskirstymas"
+                },
+                {
+                    "@language": "pl-t-en-t0-mtec",
+                    "@value": "Nomenklatura scalona, rozkład CSV w 2023 r. (CN 2023)"
+                },
+                {
+                    "@language": "da-t-en-t0-mtec",
+                    "@value": "Den kombinerede nomenklatur, 2023 (KN 2023) CSV-distribution"
+                },
+                {
+                    "@language": "sl-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023 (KN 2023) porazdelitev CSV"
+                },
+                {
+                    "@language": "el-t-en-t0-mtec",
+                    "@value": "Συνδυασμένη ονοματολογία, κατανομή CSV 2023 (ΣΟ 2023)"
+                }
+            ],
+            "dct:title": [
+                {
+                    "@language": "cs-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatura, 2023 (KN 2023) Rozdělení CSV"
+                },
+                {
+                    "@language": "en",
+                    "@value": "Combined Nomenclature, 2023 (CN 2023) CSV distribution"
+                },
+                {
+                    "@language": "sk-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatúra, 2023 (KN 2023) Distribúcia CSV"
+                },
+                {
+                    "@language": "ga-t-en-t0-mtec",
+                    "@value": "Ainmníocht Chomhcheangailte, 2023 (AC 2023) Dáileadh CSV"
+                },
+                {
+                    "@language": "de-t-en-t0-mtec",
+                    "@value": "Kombinierte Nomenklatur, 2023 (KN 2023) CSV-Verteilung"
+                },
+                {
+                    "@language": "fr-t-en-t0-mtec",
+                    "@value": "Nomenclature combinée, 2023 (NC 2023) Répartition des CSV"
+                },
+                {
+                    "@language": "sv-t-en-t0-mtec",
+                    "@value": "Kombinerade nomenklaturen, 2023 (KN 2023) CSV-distribution"
+                },
+                {
+                    "@language": "bg-t-en-t0-mtec",
+                    "@value": "Комбинирана номенклатура, 2023 г. (КН 2023) Разпределение на CSV"
+                },
+                {
+                    "@language": "pt-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023) Distribuição CSV"
+                },
+                {
+                    "@language": "mt-t-en-t0-mtec",
+                    "@value": "Nomenklatura Magħquda, 2023 (NM 2023) distribuzzjoni CSV"
+                },
+                {
+                    "@language": "lv-t-en-t0-mtec",
+                    "@value": "Kombinētā nomenklatūra, 2023 (KN 2023) CSV sadalījums"
+                },
+                {
+                    "@language": "hu-t-en-t0-mtec",
+                    "@value": "Kombinált Nómenklatúra, 2023 (KN 2023) CSV-eloszlás"
+                },
+                {
+                    "@language": "da-t-en-t0-mtec",
+                    "@value": "Den kombinerede nomenklatur, 2023 (KN 2023) CSV-distribution"
+                },
+                {
+                    "@language": "el-t-en-t0-mtec",
+                    "@value": "Συνδυασμένη ονοματολογία, κατανομή CSV 2023 (ΣΟ 2023)"
+                },
+                {
+                    "@language": "hr-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023. (KN 2023.) distribucija CSV-a"
+                },
+                {
+                    "@language": "ro-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinată, 2023 (NC 2023) Distribuția CSV"
+                },
+                {
+                    "@language": "nl-t-en-t0-mtec",
+                    "@value": "Gecombineerde nomenclatuur, CSV-verdeling 2023 (GN 2023)"
+                },
+                {
+                    "@language": "et-t-en-t0-mtec",
+                    "@value": "Kombineeritud nomenklatuur, 2023 (CN 2023) CSV jaotus"
+                },
+                {
+                    "@language": "it-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinata, 2023 (NC 2023) Distribuzione CSV"
+                },
+                {
+                    "@language": "pl-t-en-t0-mtec",
+                    "@value": "Nomenklatura scalona, rozkład CSV w 2023 r. (CN 2023)"
+                },
+                {
+                    "@language": "fi-t-en-t0-mtec",
+                    "@value": "Yhdistetty nimikkeistö, 2023 (CN 2023) CSV-jakelu"
+                },
+                {
+                    "@language": "uk-t-en-t0-mtec",
+                    "@value": "Комбінована номенклатура, 2023 (CN 2023) CSV дистрибуція"
+                },
+                {
+                    "@language": "es-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023) distribución de CSV"
+                },
+                {
+                    "@language": "lt-t-en-t0-mtec",
+                    "@value": "Kombinuotosios nomenklatūros 2023 m. (KN 2023) CSV pasiskirstymas"
+                },
+                {
+                    "@language": "sl-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023 (KN 2023) porazdelitev CSV"
+                }
+            ],
+            "dct:license": {
+                "@id": "http://publications.europa.eu/resource/authority/licence/COM_REUSE"
+            },
+            "dct:rights": {
+                "@id": "http://publications.europa.eu/resource/authority/access-right/PUBLIC"
+            },
+            "adms:status": {
+                "@id": "http://purl.org/adms/status/Completed"
+            },
+            "dct:identifier": "http://data.europa.eu/88u/distribution/172a6cbf-9cad-45a5-b7be-98c5971633f0",
+            "dcat:accessURL": {
+                "@id": "https://op.europa.eu/o/opportal-service/euvoc-download-handler?cellarURI=&fileName=CN2023_Structure_LabelsAllLanguages.csv"
+            },
+            "dct:type": {
+                "@id": "http://publications.europa.eu/resource/authority/distribution-type/DOWNLOADABLE_FILE"
+            },
+            "dct:issued": {
+                "@value": "2025-05-21",
+                "@type": "http://www.w3.org/2001/XMLSchema#date"
+            },
+            "dct:format": {
+                "@id": "http://publications.europa.eu/resource/authority/file-type/CSV"
+            },
+            "dcat:downloadURL": {
+                "@id": "https://op.europa.eu/o/opportal-service/euvoc-download-handler?cellarURI=&fileName=CN2023_Structure_LabelsAllLanguages.csv"
+            },
+            "@type": "dcat:Distribution",
+            "dcat:mediaType": {
+                "@id": "http://www.iana.org/assignments/media-types/text/csv"
+            }
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/SLV",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/BUL",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "https://op.europa.eu/en/web/eu-vocabularies",
+            "@type": "foaf:Document",
+            "foaf:topic": {
+                "@id": "file:///usr/verticles/"
+            },
+            "http://schema.org/url": "https://op.europa.eu/en/web/eu-vocabularies"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/HRV",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/MLT",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/LIT",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/NLD",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/ENG",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/POL",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "https://op.europa.eu/en/web/eu-vocabularies/dataset/-/resource?uri=http://publications.europa.eu/resource/dataset/combined-nomenclature-2023",
+            "dct:format": {
+                "@id": "http://publications.europa.eu/resource/authority/file-type/HTML"
+            },
+            "dct:type": {
+                "@id": "http://publications.europa.eu/resource/authority/documentation-type/WEBPAGE_RELATED"
+            },
+            "http://schema.org/url": [
+                "https://op.europa.eu/en/web/eu-vocabularies/dataset/-/resource?uri=http://publications.europa.eu/resource/dataset/combined-nomenclature-2023",
+                {
+                    "@language": "en",
+                    "@value": "https://op.europa.eu/en/web/eu-vocabularies/dataset/-/resource?uri=http://publications.europa.eu/resource/dataset/combined-nomenclature-2023"
+                }
+            ],
+            "dct:title": [
+                {
+                    "@language": "en",
+                    "@value": "https://op.europa.eu/en/web/eu-vocabularies/dataset/-/resource?uri=http://publications.europa.eu/resource/dataset/combined-nomenclature-2023"
+                },
+                {
+                    "@language": "en",
+                    "@value": "Combined Nomenclature, 2023 (CN 2023) main page"
+                }
+            ],
+            "dcat:mediaType": {
+                "@id": "http://www.iana.org/assignments/media-types/text/html"
+            },
+            "foaf:topic": {
+                "@id": "http://data.europa.eu/88u/dataset/combined-nomenclature-2023"
+            },
+            "@type": "foaf:Document"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/documentation-type/WEBPAGE_RELATED",
+            "@type": "skos:Concept"
+        },
+        {
+            "@id": "http://data.europa.eu/88u/dataset/combined-nomenclature-2023",
+            "dct:language": [
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/POR"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/DAN"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/ENG"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/ELL"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/BUL"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/EST"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/SLK"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/LAV"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/GLE"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/LIT"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/MLT"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/DEU"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/FRA"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/SPA"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/NLD"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/CES"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/ITA"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/HRV"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/POL"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/SLV"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/HUN"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/RON"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/FIN"
+                },
+                {
+                    "@id": "http://publications.europa.eu/resource/authority/language/SWE"
+                }
+            ],
+            "dct:type": {
+                "@id": "http://publications.europa.eu/resource/authority/dataset-type/TAXONOMY"
+            },
+            "dcat:keyword": [
+                {
+                    "@language": "en",
+                    "@value": "group-multilingual-assets"
+                },
+                {
+                    "@language": "en",
+                    "@value": "authority data"
+                },
+                {
+                    "@language": "en",
+                    "@value": "controlled vocabulary"
+                },
+                {
+                    "@language": "en",
+                    "@value": "Combined Nomenclature"
+                },
+                {
+                    "@language": "en",
+                    "@value": "ESTAT Tables"
+                }
+            ],
+            "dct:description": [
+                {
+                    "@language": "hu-t-en-t0-mtec",
+                    "@value": "A 2023. évi Kombinált Nómenklatúra (KN 2023) az Európai Unión belül a külkereskedelmi statisztikák céljára használt áruosztályozás. Az Európai Bizottság Adóügyi és Vámuniós Főigazgatósága is használja vámcélokra. A besorolás a Harmonizált Rendszer (HR 2022) világszabványon alapul, amelyet szükség esetén a külkereskedelem, a mezőgazdasági szabályozás és a vámok céljából tovább oszt.\nJogalap: http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nA Bizottság (EU) 2022/1998 végrehajtási rendelete (2022. szeptember 20.) a vám- és a statisztikai nómenklatúráról, valamint a Közös Vámtarifáról szóló 2658/87/EGK tanácsi rendelet I. mellékletének módosításáról (HL L 282., 2022.10.31., 1. o.), https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:HL C_.2019.119.01.0001.01.HUG, HL C 119., 2019.3.29., 1–422. o. Az Eurostat honlapja:\nA nemzetközi árukereskedelem módszertana:\nosztályozások (https://ec.europa.eu/eurostat/web/international-trade-in-goods/metodology/classifications)"
+                },
+                {
+                    "@language": "sv-t-en-t0-mtec",
+                    "@value": "Kombinerade nomenklaturen 2023 (KN 2023) är den varuklassificering som används inom Europeiska unionen för utrikeshandelsstatistik. Den används också av Europeiska kommissionens generaldirektorat för skatter och tullar för tulländamål. Klassificeringen baseras på världsstandarden Harmoniserade systemet (HS 2022) som den delar upp där det är nödvändigt för utrikeshandel, jordbruksreglering och tullar. Rättslig grund http://data.europa.eu/eli/reg_impl/2022/1998/oj: Kommissionens genomförandeförordning (EU) 2022/1998 av den 20 september 2022 om ändring av bilaga I till rådets förordning (EEG) nr 2658/87 om tulltaxe- och statistiknomenklaturen och om Gemensamma tulltaxan, EUT L 282, 31.10.2022, s. 1. Förklarande anmärkningar https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ENG till Europeiska unionens kombinerade nomenklatur, EUT C 119, 29.3.2019, s. 1. Eurostats webbplats: Metod för internationell handel med varor: klassificeringar (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "fi-t-en-t0-mtec",
+                    "@value": "Yhdistetty nimikkeistö 2023 (CN 2023) on tavaraluokitus, jota käytetään Euroopan unionissa ulkomaankauppatilastoja varten. Sitä käyttää myös Euroopan komission verotuksen ja tulliliiton pääosasto tullitarkoituksiin. Luokitus perustuu maailmanlaajuiseen harmonoituun järjestelmään (HS 2022), joka jaetaan tarvittaessa osiin ulkomaankaupan, maatalouden sääntelyn ja tullien vuoksi.\nOikeusperusta http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nKomission täytäntöönpanoasetus (EU) 2022/1998, annettu 20 päivänä syyskuuta 2022, tariffi- ja tilastonimikkeistöstä ja yhteisestä tullitariffista annetun neuvoston asetuksen (ETY) N:o 2658/87 liitteen I muuttamisesta (EUVL L 282, 31.10.2022, s. 1–1093). Selittävät huomautukset https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ENG Euroopan unionin yhdistettyyn nimikkeistöön (EUVL C 119, 29.3.2019, s. 1–422) Eurostatin verkkosivusto:\nTavaroiden kansainvälisen kaupan menetelmät:\nluokitukset (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "it-t-en-t0-mtec",
+                    "@value": "La nomenclatura combinata 2023 (NC 2023) è la classificazione delle merci utilizzata nell'Unione europea ai fini delle statistiche del commercio estero. È utilizzato anche dalla direzione generale \"Fiscalità e unione doganale\" della Commissione europea ai fini dei dazi doganali. La classificazione si basa sullo standard mondiale del sistema armonizzato (SA 2022) che suddivide ove necessario ai fini del commercio estero, della regolamentazione agricola e dei dazi doganali.\nBase giuridica http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nRegolamento di esecuzione (UE) 2022/1998 della Commissione, del 20 settembre 2022, che modifica l'allegato I del regolamento (CEE) n. 2658/87 del Consiglio relativo alla nomenclatura tariffaria e statistica ed alla tariffa doganale comune (GU L 282 del 31.10.2022, pag. 1). Note esplicative https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ITG della nomenclatura combinata dell'Unione europea (GU C 119 del 29.3.2019, pag. 1).\nMetodologia degli scambi internazionali di merci:\nclassificazioni (https://ec.europa.eu/eurostat/web/international-trade-in-goods/metodologia/classificazioni)"
+                },
+                {
+                    "@language": "mt-t-en-t0-mtec",
+                    "@value": "In-Nomenklatura Magħquda 2023 (NM 2023) hija l-klassifikazzjoni tal-oġġetti użata fl-Unjoni Ewropea għall-finijiet tal-istatistika dwar il-kummerċ barrani. Jintuża wkoll mid-Direttorat Ġenerali \"Tassazzjoni u Unjoni Doganali\" tal-Kummissjoni Ewropea għall-finijiet tad-dazju doganali. Il-klassifikazzjoni hija bbażata fuq is-Sistema Armonizzata standard dinjija (SA 2022) li tissuddividi fejn meħtieġ għall-finijiet tal-kummerċ estern, ir-regolamentazzjoni agrikola u d-dazji doganali.\nIl-bażi ġuridika http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nIr-Regolament ta’ Implimentazzjoni tal-Kummissjoni (UE) 2022/1998 tal-20 ta’ Settembru 2022 li jemenda l-Anness I tar-Regolament tal-Kunsill (KEE) Nru 2658/87 dwar in-nomenklatura tat-tariffa u l-istatistika u dwar it-Tariffa Doganali Komuni ta’ Dwana, ĠU L 282, 31.10.2022, p. 1–1093 Noti ta’ spjegazzjoni https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.MTG għan-Nomenklatura Magħquda tal-Unjoni Ewropea, ĠU C 119, 29.3.2019, p. 1 -422 Is-sit web tal-Eurostat:\nMetodoloġija tal-kummerċ internazzjonali tal-merkanzija:\nklassifikazzjonijiet (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "sl-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura 2023 (KN 2023) je klasifikacija blaga, ki se v Evropski uniji uporablja za namene zunanjetrgovinske statistike. Uporablja ga tudi Generalni direktorat Evropske komisije za obdavčenje in carinsko unijo za namene carine. Uvrstitev temelji na svetovnem standardu harmoniziranega sistema (HS 2022), ki ga po potrebi nadalje razčleni za namene zunanje trgovine, kmetijskih predpisov in carin.\nPravna podlaga http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nIzvedbena uredba Komisije (EU) 2022/1998 z dne 20. septembra 2022 o spremembi Priloge I k Uredbi Sveta (EGS) št. 2658/87 o tarifni in statistični nomenklaturi ter skupni carinski tarifi (UL L 282, 31.10.2022, str. 1). Pojasnjevalne opombe https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ENG h kombinirani nomenklaturi Evropske unije (UL C 119, 29.3.2019, str. 1).\nMetodologija mednarodne blagovne menjave:\nklasifikacije (https://ec.europa.eu/eurostat/web/international-trade-in-goods/metodology/classifications)"
+                },
+                {
+                    "@language": "et-t-en-t0-mtec",
+                    "@value": "2023. aasta kombineeritud nomenklatuur (CN 2023) on kaupade klassifikaator, mida kasutatakse Euroopa Liidus väliskaubandusstatistikas. Seda kasutab ka Euroopa Komisjoni maksunduse ja tolliliidu peadirektoraat tollimaksudega seotud eesmärkidel. Klassifikatsioon põhineb ülemaailmsel harmoneeritud süsteemil (HS 2022), mis jagatakse vajaduse korral osadeks väliskaubanduse, põllumajanduse reguleerimise ja tollimaksude eesmärgil.\nÕiguslik alus http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nKomisjoni 20. septembri 2022. aasta rakendusmäärus (EL) 2022/1998, millega muudetakse tariifi- ja statistikanomenklatuuri ning ühist tollitariifistikku käsitleva nõukogu määruse (EMÜ) nr 2658/87 I lisa (ELT L 282, 31.10.2022, lk 1–1093). Euroopa Liidu kombineeritud nomenklatuuri selgitavad märkused https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:ELT C 119, 29.3.2019, lk 1–422.\nRahvusvahelise kaubavahetuse metoodika:\nklassifikaatorid (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "ga-t-en-t0-mtec",
+                    "@value": "Is í Ainmníocht Chomhcheangailte 2023 (AC 2023) an t-aicmiú earraí a úsáidtear laistigh den Aontas Eorpach chun críocha staidrimh maidir le trádáil eachtrach. Úsáideann Ard-Stiúrthóireacht “Cánachas agus Aontas Custaim” an Choimisiúin Eorpaigh é freisin chun críocha dleachta custaim. Tá an t-aicmiú bunaithe ar an gCóras Comhchuibhithe Domhanda (CC 2022) a fhoroinneann sé nuair is gá chun críocha trádála seachtraí, rialáil talmhaíochta agus dleachtanna custaim.\nBunús dlí http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nRialachán Cur Chun Feidhme (AE) 2022/1998 ón gCoimisiún an 20 Meán Fómhair 2022 lena leasaítear Iarscríbhinn I a ghabhann le Rialachán (CEE) Uimh. 2658/87 ón gComhairle maidir leis an ainmníocht taraife agus staidrimh agus leis an gComhtharaif Chustaim, IO L 282, 31.10.2022, lgh. 1–1093 Nótaí míniúcháin https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ENG a ghabhann le hAinmníocht Chomhcheangailte an Aontais Eorpaigh, IO C 119, 29.3.2019, lgh. 1-422 Suíomh gréasáin Eurostat:\nModheolaíocht maidir le trádáil idirnáisiúnta earraí:\naicmithe (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "hr-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura 2023. (KN 2023.) razvrstavanje je robe koje se upotrebljava u Europskoj uniji za potrebe statistike vanjske trgovine. Upotrebljava ga i Glavna uprava Europske komisije za oporezivanje i carinsku uniju u carinske svrhe. Razvrstavanje se temelji na Svjetskom normiranom Harmoniziranom sustavu (HS 2022) koji se prema potrebi dalje dijeli za potrebe vanjske trgovine, poljoprivrednih propisa i carina.\nPravna osnova http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nProvedbena uredba Komisije (EU) 2022/1998 оd 20. rujna 2022. o izmjeni Priloga I. Uredbi Vijeća (EEZ) br. 2658/87 o tarifnoj i statističkoj nomenklaturi i o Zajedničkoj carinskoj tarifi, SL L 282, 31.10.2022., str. 1.–1093. Napomene s objašnjenjem https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ENG za kombiniranu nomenklaturu Europske unije, SL C 119, 29.3.2019., str. 1.–422., internetske stranice Eurostata:\nMetodologija međunarodne trgovine robom:\nklasifikacije (https://ec.europa.eu/eurostat/web/international-trade-in-goods/metodologija/klasifikacije)"
+                },
+                {
+                    "@language": "lt-t-en-t0-mtec",
+                    "@value": "2023 m. Kombinuotoji nomenklatūra (toliau – 2023 m. KN) yra Europos Sąjungoje užsienio prekybos statistikos tikslais naudojamas prekių klasifikatorius. Ją taip pat naudoja Europos Komisijos Mokesčių ir muitų sąjungos generalinis direktoratas muitų tikslais. Klasifikacija grindžiama pasauline standartine Suderinta sistema (2022 m. SS), kuri, jei reikia, suskirstoma į dalis išorės prekybos, žemės ūkio reguliavimo ir muitų tikslais. Teisinis pagrindas http://data.europa.eu/eli/reg_impl/2022/1998/oj: 2022 m. rugsėjo 20 d. Komisijos įgyvendinimo reglamentas (ES) 2022/1998, kuriuo iš dalies keičiamas Tarybos reglamento (EEB) Nr. 2658/87 dėl tarifų ir statistinės nomenklatūros bei dėl Bendrojo muitų tarifo I priedas (OL L 282, 2022 10 31, p. 1–1093). Aiškinamosios pastabos https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ENG to the Combined Nomenclature of the European Union, OL C 119, 2019 3 29, p. 1–422, Eurostato svetainė: Tarptautinės prekybos prekėmis metodika: klasifikacija (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "sk-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatúra 2023 (KN 2023) je zatriedenie tovaru používané v rámci Európskej únie na účely štatistiky zahraničného obchodu. Na colné účely ho využíva aj Generálne riaditeľstvo Európskej komisie pre dane a colnú úniu. Zatriedenie je založené na svetovom štandarde harmonizovaného systému (HS 2022), ktorý sa v prípade potreby ďalej rozdeľuje na účely zahraničného obchodu, poľnohospodárskej regulácie a ciel.\nPrávny základ http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nVykonávacie nariadenie Komisie (EÚ) 2022/1998 z 20. septembra 2022, ktorým sa mení príloha I k nariadeniu Rady (EHS) č. 2658/87 o colnej a štatistickej nomenklatúre a o Spoločnom colnom sadzobníku (Ú. v. EÚ L 282, 31.10.2022, s. 1 – 1093) Vysvetlivky https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ENG ku kombinovanej nomenklatúre Európskej únie (Ú. v. EÚ C 119, 29.3.2019, s. 1 – 422), webové sídlo Eurostatu:\nMetodika medzinárodného obchodu s tovarom:\nklasifikácie (https://ec.europa.eu/eurostat/web/international-trade-in-goods/metodology/classifications)"
+                },
+                {
+                    "@language": "nl-t-en-t0-mtec",
+                    "@value": "De gecombineerde nomenclatuur 2023 (GN 2023) is de goederenclassificatie die binnen de Europese Unie wordt gebruikt voor de statistiek van de buitenlandse handel. Het wordt ook gebruikt door het directoraat-generaal \"Belastingen en douane-unie\" van de Europese Commissie voor douanedoeleinden. De indeling is gebaseerd op het wereldstandaard geharmoniseerd systeem (GS 2022) dat het indien nodig onderverdeelt met het oog op buitenlandse handel, landbouwregelgeving en douanerechten.\nRechtsgrondslag http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nUitvoeringsverordening (EU) 2022/1998 van de Commissie van 20 september 2022 tot wijziging van bijlage I bij Verordening (EEG) nr. 2658/87 van de Raad met betrekking tot de tarief- en statistieknomenclatuur en het gemeenschappelijk douanetarief (PB L 282 van 31.10.2022, blz. 1), toelichting https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:PB C_.2019.119.01.0001.01.ENG bij de gecombineerde nomenclatuur van de Europese Unie (PB C 119 van 29.3.2019, blz. 1).\nMethode voor de internationale handel in goederen:\nclassificaties (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "el-t-en-t0-mtec",
+                    "@value": "Η Συνδυασμένη Ονοματολογία 2023 (ΣΟ 2023) είναι η κατάταξη των εμπορευμάτων που χρησιμοποιείται εντός της Ευρωπαϊκής Ένωσης για τους σκοπούς των στατιστικών εξωτερικού εμπορίου. Χρησιμοποιείται επίσης από τη Γενική Διεύθυνση «Φορολογία και Τελωνειακή Ένωση» της Ευρωπαϊκής Επιτροπής για τελωνειακούς σκοπούς. Η κατάταξη βασίζεται στο παγκόσμιο τυποποιημένο εναρμονισμένο σύστημα (ΕΣ 2022), το οποίο υποδιαιρείται, όπου είναι αναγκαίο, για σκοπούς εξωτερικού εμπορίου, γεωργικής ρύθμισης και τελωνειακών δασμών. Νομική βάση http://data.europa.eu/eli/reg_impl/2022/1998/oj : Εκτελεστικός κανονισμός (ΕΕ) 2022/1998 της Επιτροπής, της 20ής Σεπτεμβρίου 2022, για την τροποποίηση του παραρτήματος I του κανονισμού (ΕΟΚ) αριθ. 2658/87 του Συμβουλίου για τη δασμολογική και στατιστική ονοματολογία και το κοινό δασμολόγιο, ΕΕ L 282 της 31.10.2022, σ. 1-1093 Επεξηγηματικές σημειώσεις https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ENG της Συνδυασμένης Ονοματολογίας της Ευρωπαϊκής Ένωσης, ΕΕ C 119 της 29.3.2019, σ. 1-422, δικτυακός τόπος της Eurostat: Μεθοδολογία του διεθνούς εμπορίου αγαθών: ταξινομήσεις (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "fr-t-en-t0-mtec",
+                    "@value": "La nomenclature combinée 2023 (NC 2023) est la classification des marchandises utilisée dans l’Union européenne aux fins des statistiques du commerce extérieur. Il est également utilisé par la direction générale «Fiscalité et union douanière» de la Commission européenne à des fins de droits de douane. Le classement est fondé sur la norme mondiale du système harmonisé (SH 2022), qu’il subdivise si nécessaire aux fins du commerce extérieur, de la réglementation agricole et des droits de douane.\nBase juridique http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nRèglement d’exécution (UE) 2022/1998 de la Commission du 20 septembre 2022 modifiant l’annexe I du règlement (CEE) no 2658/87 du Conseil relatif à la nomenclature tarifaire et statistique et au tarif douanier commun (JO L 282 du 31.10.2022, p. 1). Notes explicatives https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:JO C_.2019.119.01.0001.01.ENG de la nomenclature combinée de l’Union européenne (JO C 119 du 29.3.2019, p. 1).\nMéthodologie du commerce international de marchandises:\nclassifications (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "da-t-en-t0-mtec",
+                    "@value": "Den kombinerede nomenklatur 2023 (KN 2023) er den varenomenklatur, der anvendes i Den Europæiske Union i forbindelse med udenrigshandelsstatistikken. Den anvendes også af Europa-Kommissionens Generaldirektorat for Beskatning og Toldunion til toldformål. Klassificeringen er baseret på det globale harmoniserede system (HS 2022), som det underopdeler, hvor det er nødvendigt med henblik på udenrigshandel, landbrugsregulering og told.\nRetsgrundlag http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nKommissionens gennemførelsesforordning (EU) 2022/1998 af 20. september 2022 om ændring af bilag I til Rådets forordning (EØF) nr. 2658/87 om told- og statistiknomenklaturen og den fælles toldtarif (EUT L 282 af 31.10.2022, s. 1). Forklarende bemærkninger https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ENG til Den Europæiske Unions kombinerede nomenklatur (EUT C 119 af 29.3.2019, s. 1).\nMetoden for international handel med varer:\nklassifikationer (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "en",
+                    "@value": "<p>The Combined Nomenclature 2023 (CN 2023) is the goods classification used within the European Union for the purposes of foreign trade statistics. It is also used by Directorate General \"Taxation and Customs Union\" of the European Commission for customs duty purposes. The classification is based on the world standard Harmonized System (HS 2022) which it sub-divides where necessary for purposes of external trade, agricultural regulation and customs duties.</p>\n         <p>Legal basis <a href=\"http://data.europa.eu/eli/reg_impl/2022/1998/oj\">http://data.europa.eu/eli/reg_impl/2022/1998/oj</a> : Commission Implementing Regulation (EU) 2022/1998 of 20 September 2022 amending Annex I to Council Regulation (EEC) No 2658/87 on the tariff and statistical nomenclature and on the Common Customs Tariff, OJ L 282, 31.10.2022, p. 1–1093</p>\n         <p>Explanatory notes <a href=\"https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ENG\">https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ENG</a> to the Combined Nomenclature of the European Union, OJ C 119, 29.3.2019, p. 1 -422</p>\n         <p>Eurostat website: International trade in goods methodology: classifications (<a href=\"https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology#Goods\">https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology#Goods</a>)</p>"
+                },
+                {
+                    "@language": "cs-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatura 2023 (KN 2023) je klasifikace zboží používaná v Evropské unii pro účely statistiky zahraničního obchodu. Používá ji také Generální ředitelství pro daně a celní unii Evropské komise pro celní účely. Klasifikace vychází ze světového standardu harmonizovaného systému (HS 2022), který v případě potřeby dále dělí pro účely zahraničního obchodu, zemědělské regulace a cel.\nPrávní základ http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nProváděcí nařízení Komise (EU) 2022/1998 ze dne 20. září 2022, kterým se mění příloha I nařízení Rady (EHS) č. 2658/87 o celní a statistické nomenklatuře a o společném celním sazebníku, Úř. věst. L 282, 31.10.2022, s. 1–1093 Vysvětlivky https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:Úř. věst. C_.2019.119.01.0001.01.CSG ke kombinované nomenklatuře Evropské unie, Úř. věst. C 119, 29.3.2019, s. 1–422. Internetové stránky Eurostatu:\nMetodika mezinárodního obchodu se zbožím:\nklasifikace (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "de-t-en-t0-mtec",
+                    "@value": "Die Kombinierte Nomenklatur 2023 (KN 2023) ist die Warenklassifikation, die in der Europäischen Union für die Zwecke der Außenhandelsstatistik verwendet wird. Es wird auch von der Generaldirektion \"Steuern und Zollunion\" der Europäischen Kommission für Zollzwecke verwendet. Die Einreihung basiert auf dem Weltstandard Harmonisiertes System (HS 2022), den sie gegebenenfalls für die Zwecke des Außenhandels, der Agrarregulierung und der Zölle unterteilt.\nRechtsgrundlage http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nDurchführungsverordnung (EU) 2022/1998 der Kommission vom 20. September 2022 zur Änderung des Anhangs I der Verordnung (EWG) Nr. 2658/87 des Rates über die zolltarifliche und statistische Nomenklatur sowie den Gemeinsamen Zolltarif (ABl. L 282 vom 31.10.2022, S. 1) Erläuterungen https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ENG zur Kombinierten Nomenklatur der Europäischen Union (ABl. C 119 vom 29.3.2019, S. 1). Eurostat-Website:\nMethodik des internationalen Warenhandels:\nKlassifikationen (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "bg-t-en-t0-mtec",
+                    "@value": "Комбинираната номенклатура 2023 г. (КН 2023) е класирането на стоките, използвано в рамките на Европейския съюз за целите на статистиката за външната търговия. Той се използва и от Генерална дирекция „Данъчно облагане и митнически съюз“ на Европейската комисия за целите на митата. Класификацията се основава на Хармонизираната система на световния стандарт (ХС 2022), която тя подразделя, когато това е необходимо за целите на външната търговия, регулирането на селското стопанство и митата. Правно основание http://data.europa.eu/eli/reg_impl/2022/1998/oj : Регламент за изпълнение (ЕС) 2022/1998 на Комисията от 20 септември 2022 г. за изменение на приложение I към Регламент (ЕИО) № 2658/87 на Съвета относно тарифната и статистическа номенклатура и Общата митническа тарифа, ОВ L 282, 31.10.2022 г., стр. 1—1093 Обяснителни бележки https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ENG към Комбинираната номенклатура на Европейския съюз, ОВ C 119, 29.3.2019 г., стр. 1—422 на уебсайта на Евростат: Методология за международната търговия със стоки: класификации (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "pl-t-en-t0-mtec",
+                    "@value": "Nomenklatura scalona 2023 (CN 2023) to klasyfikacja towarów stosowana w Unii Europejskiej do celów statystyki handlu zagranicznego. Jest on również wykorzystywany przez Dyrekcję Generalną Komisji Europejskiej ds. Podatków i Unii Celnej do celów celnych. Klasyfikacja opiera się na światowym standardzie Zharmonizowanego Systemu (HS 2022), który w razie potrzeby dzieli na części do celów handlu zagranicznego, regulacji rolnictwa i ceł.\nPodstawa prawna http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nRozporządzenie wykonawcze Komisji (UE) 2022/1998 z dnia 20 września 2022 r. zmieniające załącznik I do rozporządzenia Rady (EWG) nr 2658/87 w sprawie nomenklatury taryfowej i statystycznej oraz w sprawie Wspólnej Taryfy Celnej, Dz.U. L 282 z 31.10.2022, s. 1–1093. Noty wyjaśniające https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ENG do Nomenklatury scalonej Unii Europejskiej, Dz.U. C 119 z 29.3.2019, s. 1–422. Strona internetowa Eurostatu:\nMetodologia międzynarodowego handlu towarami:\nklasyfikacje (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "lv-t-en-t0-mtec",
+                    "@value": "Kombinētā nomenklatūra 2023 (KN 2023) ir preču klasifikācija, ko Eiropas Savienībā izmanto ārējās tirdzniecības statistikas vajadzībām. To muitas nodokļu vajadzībām izmanto arī Eiropas Komisijas Nodokļu politikas un muitas savienības ģenerāldirektorāts. Klasifikācijas pamatā ir pasaules standarta Harmonizētā sistēma (HS 2022), ko tā vajadzības gadījumā sīkāk iedala ārējās tirdzniecības, lauksaimniecības regulējuma un muitas nodokļu vajadzībām.\nJuridiskais pamats http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nKomisijas Īstenošanas regula (ES) 2022/1998 (2022. gada 20. septembris), ar ko groza I pielikumu Padomes Regulai (EEK) Nr. 2658/87 par tarifu un statistikas nomenklatūru un kopējo muitas tarifu, OV L 282, 31.10.2022., 1.–1093. lpp. Paskaidrojumi https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_2019.119.01.0001.01.ENG Eiropas Savienības Kombinētajai nomenklatūrai, OV C 119, 29.3.2019., 1.–422. lpp. Eurostat tīmekļa vietne:\nStarptautiskās preču tirdzniecības metodika:\nklasifikācijas (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "uk-t-en-t0-mtec",
+                    "@value": "Комбінована номенклатура 2023 (CN 2023) — класифікація товарів, що використовується в Європейському Союзі для цілей зовнішньоторговельної статистики. Він також використовується Генеральним управлінням «Оподаткування та Митний союз» Європейської комісії для цілей митного збору. Класифікація базується на світовому стандарті Гармонізованої системи (HS 2022), яку вона суб-розділяє, де це необхідно для цілей зовнішньої торгівлі, регулювання сільського господарства та митних зборів. Правова база http://data.europa.eu/eli/reg_impl/2022/1998/oj : 20 вересня 2022/1998 від 20 вересня 2022 року про внесення змін до Додатка I до Регламенту Ради (ЄЕС) N 2658/87 щодо тарифної та статистичної номенклатури та до Єдиного митного тарифу, OJ L 282, 31.10.2022, с. 1 — 1093 Пояснення https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ENG до Об'єднаної номенклатури Європейського Союзу, OJ C 119, 29.3.2019, p. 1-422 веб-сайт Євростату: Методологія міжнародної торгівлі товарами: класифікація (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "es-t-en-t0-mtec",
+                    "@value": "La nomenclatura combinada 2023 (NC 2023) es la clasificación de mercancías utilizada en la Unión Europea a efectos de las estadísticas de comercio exterior. También es utilizado por la Dirección General de Fiscalidad y Unión Aduanera de la Comisión Europea a efectos de derechos de aduana. La clasificación se basa en la norma mundial Sistema Armonizado (SA 2022), que subdivide cuando es necesario a efectos de comercio exterior, reglamentación agrícola y derechos de aduana. Base jurídica http://data.europa.eu/eli/reg_impl/2022/1998/oj: Reglamento de Ejecución (UE) 2022/1998 de la Comisión, de 20 de septiembre de 2022, por el que se modifica el anexo I del Reglamento (CEE) n.o 2658/87 del Consejo, relativo a la nomenclatura arancelaria y estadística y al arancel aduanero común (DO L 282 de 31.10.2022, p. 1) Notas explicativas https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ENG a la nomenclatura combinada de la Unión Europea (DO C 119 de 29.3.2019, p. 1), sitio web de Eurostat: Metodología del comercio internacional de mercancías: clasificaciones (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "pt-t-en-t0-mtec",
+                    "@value": "A Nomenclatura Combinada 2023 (NC 2023) é a classificação de mercadorias utilizada na União Europeia para efeitos das estatísticas do comércio externo. É também utilizado pela Direção-Geral «Fiscalidade e União Aduaneira» da Comissão Europeia para efeitos de direitos aduaneiros. A classificação baseia-se na norma mundial Sistema Harmonizado (SH 2022), que subdivide sempre que necessário para efeitos de comércio externo, regulamentação agrícola e direitos aduaneiros.\nBase jurídica http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nRegulamento de Execução (UE) 2022/1998 da Comissão, de 20 de setembro de 2022, que altera o anexo I do Regulamento (CEE) n.o 2658/87 do Conselho relativo à nomenclatura pautal e estatística e à pauta aduaneira comum (JO L 282 de 31.10.2022, p. 1). Notas explicativas https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:JO.C_.2019.119.01.0001.01.ENG da Nomenclatura Combinada da União Europeia (JO C 119 de 29.3.2019, p. 1). Sítio Web do Eurostat:\nMetodologia do comércio internacional de mercadorias:\nclassificações (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                },
+                {
+                    "@language": "ro-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinată 2023 (NC 2023) este clasificarea mărfurilor utilizată în Uniunea Europeană în scopul statisticilor de comerț exterior. Acesta este utilizat, de asemenea, de Direcția Generală Impozitare și Uniune Vamală a Comisiei Europene în scopuri legate de taxele vamale. Clasificarea se bazează pe standardul mondial Sistemul armonizat (SA 2022), pe care îl subdivizează atunci când este necesar în scopul comerțului exterior, al reglementării agricole și al taxelor vamale.\nTemeiul juridic http://data.europa.eu/eli/reg_impl/2022/1998/oj:\nRegulamentul de punere în aplicare (UE) 2022/1998 al Comisiei din 20 septembrie 2022 de modificare a anexei I la Regulamentul (CEE) nr. 2658/87 al Consiliului privind Nomenclatura tarifară și statistică și Tariful vamal comun, JO L 282, 31.10.2022, p. 1-1093 Note explicative https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=uriserv:OJ.C_.2019.119.01.0001.01.ENG la Nomenclatura combinată a Uniunii Europene, JO C 119, 29.3.2019, p. 1-422 site-ul Eurostat:\nMetodologia comerțului internațional cu mărfuri:\nclasificări (https://ec.europa.eu/eurostat/web/international-trade-in-goods/methodology/classifications)"
+                }
+            ],
+            "foaf:page": {
+                "@id": "https://op.europa.eu/en/web/eu-vocabularies/dataset/-/resource?uri=http://publications.europa.eu/resource/dataset/combined-nomenclature-2023"
+            },
+            "dct:creator": {
+                "@id": "http://publications.europa.eu/resource/authority/corporate-body/ESTAT"
+            },
+            "dct:publisher": {
+                "@id": "http://publications.europa.eu/resource/authority/corporate-body/PUBL"
+            },
+            "dct:title": [
+                {
+                    "@language": "sv-t-en-t0-mtec",
+                    "@value": "Kombinerade nomenklaturen, 2023 (KN 2023)"
+                },
+                {
+                    "@language": "sk-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatúra, 2023 (KN 2023)"
+                },
+                {
+                    "@language": "lv-t-en-t0-mtec",
+                    "@value": "Kombinētā nomenklatūra, 2023. gads (KN 2023)"
+                },
+                {
+                    "@language": "en",
+                    "@value": "Combined Nomenclature, 2023 (CN 2023)"
+                },
+                {
+                    "@language": "el-t-en-t0-mtec",
+                    "@value": "Συνδυασμένη Ονοματολογία, 2023 (ΣΟ 2023)"
+                },
+                {
+                    "@language": "cs-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatura, 2023 (KN 2023)"
+                },
+                {
+                    "@language": "sl-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023 (KN 2023)"
+                },
+                {
+                    "@language": "uk-t-en-t0-mtec",
+                    "@value": "Комбінована номенклатура, 2023 (CN 2023)"
+                },
+                {
+                    "@language": "ro-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinată, 2023 (NC 2023)"
+                },
+                {
+                    "@language": "ga-t-en-t0-mtec",
+                    "@value": "Ainmníocht Chomhcheangailte, 2023 (AC 2023)"
+                },
+                {
+                    "@language": "mt-t-en-t0-mtec",
+                    "@value": "Nomenklatura Magħquda, 2023 (NM 2023)"
+                },
+                {
+                    "@language": "de-t-en-t0-mtec",
+                    "@value": "Kombinierte Nomenklatur, 2023 (KN 2023)"
+                },
+                {
+                    "@language": "es-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023)"
+                },
+                {
+                    "@language": "fi-t-en-t0-mtec",
+                    "@value": "Yhdistetty nimikkeistö, 2023 (CN 2023)"
+                },
+                {
+                    "@language": "hr-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023. (KN 2023.)"
+                },
+                {
+                    "@language": "nl-t-en-t0-mtec",
+                    "@value": "Gecombineerde nomenclatuur, 2023 (GN 2023)"
+                },
+                {
+                    "@language": "lt-t-en-t0-mtec",
+                    "@value": "Kombinuotoji nomenklatūra, 2023 m. (KN 2023)"
+                },
+                {
+                    "@language": "fr-t-en-t0-mtec",
+                    "@value": "Nomenclature combinée, 2023 (NC 2023)"
+                },
+                {
+                    "@language": "et-t-en-t0-mtec",
+                    "@value": "Kombineeritud nomenklatuur, 2023 (CN 2023)"
+                },
+                {
+                    "@language": "pt-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023)"
+                },
+                {
+                    "@language": "pl-t-en-t0-mtec",
+                    "@value": "Nomenklatura scalona, 2023 r. (CN 2023)"
+                },
+                {
+                    "@language": "it-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinata, 2023 (NC 2023)"
+                },
+                {
+                    "@language": "da-t-en-t0-mtec",
+                    "@value": "Den kombinerede nomenklatur, 2023 (KN 2023)"
+                },
+                {
+                    "@language": "bg-t-en-t0-mtec",
+                    "@value": "Комбинирана номенклатура, 2023 г. (КН 2023)"
+                },
+                {
+                    "@language": "hu-t-en-t0-mtec",
+                    "@value": "Kombinált Nómenklatúra, 2023 (KN 2023)"
+                }
+            ],
+            "dct:accrualPeriodicity": {
+                "@id": "http://publications.europa.eu/resource/authority/frequency/OTHER"
+            },
+            "dct:issued": {
+                "@value": "2023-01-16",
+                "@type": "http://www.w3.org/2001/XMLSchema#date"
+            },
+            "dct:accessRights": {
+                "@id": "http://publications.europa.eu/resource/authority/access-right/PUBLIC"
+            },
+            "dct:identifier": "combined-nomenclature-2023",
+            "dcat:landingPage": {
+                "@id": "https://op.europa.eu/en/web/eu-vocabularies/dataset/-/resource?uri=http://publications.europa.eu/resource/dataset/combined-nomenclature-2023"
+            },
+            "http://data.europa.eu/88u/ontology/dcatapop#debugInfo": "2026-02-09T15:35:22.115+01:00",
+            "owl:versionInfo": "2023",
+            "dcat:distribution": [
+                {
+                    "@id": "http://data.europa.eu/88u/distribution/2806243b-3a5a-49c0-95d1-2861c75c0f26"
+                },
+                {
+                    "@id": "http://data.europa.eu/88u/distribution/1b56fe76-bfa0-4a35-b47e-81386bd1c15a"
+                },
+                {
+                    "@id": "http://data.europa.eu/88u/distribution/317e9cd4-dbb7-45d0-a079-010d119e3209"
+                },
+                {
+                    "@id": "http://data.europa.eu/88u/distribution/6196fbf5-e08d-4768-8d3a-9a414ae8631e"
+                }
+            ],
+            "@type": "dcat:Dataset",
+            "dct:modified": {
+                "@value": "2025-05-21",
+                "@type": "http://www.w3.org/2001/XMLSchema#date"
+            },
+            "http://data.europa.eu/88u/ontology/dcatapop#datasetGroup": {
+                "@id": "file:///usr/verticles/multilingual-assets"
+            },
+            "dcat:contactPoint": {
+                "@id": "vcard:Kind/e62bf235-48f9-421d-9bd4-a41493276c54"
+            },
+            "dcat:theme": {
+                "@id": "http://publications.europa.eu/resource/authority/data-theme/GOVE"
+            }
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/data-theme/GOVE",
+            "@type": "skos:Concept"
+        },
+        {
+            "@id": "http://data.europa.eu/88u/distribution/1b56fe76-bfa0-4a35-b47e-81386bd1c15a",
+            "dct:title": [
+                {
+                    "@language": "sk-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatúra, 2023 (KN 2023) Distribúcia CSV"
+                },
+                {
+                    "@language": "bg-t-en-t0-mtec",
+                    "@value": "Комбинирана номенклатура, 2023 г. (КН 2023) Разпределение на CSV"
+                },
+                {
+                    "@language": "lv-t-en-t0-mtec",
+                    "@value": "Kombinētā nomenklatūra, 2023 (KN 2023) CSV sadalījums"
+                },
+                {
+                    "@language": "hr-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023. (KN 2023.) distribucija CSV-a"
+                },
+                {
+                    "@language": "et-t-en-t0-mtec",
+                    "@value": "Kombineeritud nomenklatuur, 2023 (CN 2023) CSV jaotus"
+                },
+                {
+                    "@language": "fr-t-en-t0-mtec",
+                    "@value": "Nomenclature combinée, 2023 (NC 2023) Répartition des CSV"
+                },
+                {
+                    "@language": "sv-t-en-t0-mtec",
+                    "@value": "Kombinerade nomenklaturen, 2023 (KN 2023) CSV-distribution"
+                },
+                {
+                    "@language": "nl-t-en-t0-mtec",
+                    "@value": "Gecombineerde nomenclatuur, CSV-verdeling 2023 (GN 2023)"
+                },
+                {
+                    "@language": "da-t-en-t0-mtec",
+                    "@value": "Den kombinerede nomenklatur, 2023 (KN 2023) CSV-distribution"
+                },
+                {
+                    "@language": "cs-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatura, 2023 (KN 2023) Rozdělení CSV"
+                },
+                {
+                    "@language": "it-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinata, 2023 (NC 2023) Distribuzione CSV"
+                },
+                {
+                    "@language": "pt-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023) Distribuição CSV"
+                },
+                {
+                    "@language": "mt-t-en-t0-mtec",
+                    "@value": "Nomenklatura Magħquda, 2023 (NM 2023) distribuzzjoni CSV"
+                },
+                {
+                    "@language": "sl-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023 (KN 2023) porazdelitev CSV"
+                },
+                {
+                    "@language": "ga-t-en-t0-mtec",
+                    "@value": "Ainmníocht Chomhcheangailte, 2023 (AC 2023) Dáileadh CSV"
+                },
+                {
+                    "@language": "fi-t-en-t0-mtec",
+                    "@value": "Yhdistetty nimikkeistö, 2023 (CN 2023) CSV-jakelu"
+                },
+                {
+                    "@language": "de-t-en-t0-mtec",
+                    "@value": "Kombinierte Nomenklatur, 2023 (KN 2023) CSV-Verteilung"
+                },
+                {
+                    "@language": "lt-t-en-t0-mtec",
+                    "@value": "Kombinuotosios nomenklatūros 2023 m. (KN 2023) CSV pasiskirstymas"
+                },
+                {
+                    "@language": "ro-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinată, 2023 (NC 2023) Distribuția CSV"
+                },
+                {
+                    "@language": "en",
+                    "@value": "Combined Nomenclature, 2023 (CN 2023) CSV distribution"
+                },
+                {
+                    "@language": "uk-t-en-t0-mtec",
+                    "@value": "Комбінована номенклатура, 2023 (CN 2023) CSV дистрибуція"
+                },
+                {
+                    "@language": "hu-t-en-t0-mtec",
+                    "@value": "Kombinált Nómenklatúra, 2023 (KN 2023) CSV-eloszlás"
+                },
+                {
+                    "@language": "pl-t-en-t0-mtec",
+                    "@value": "Nomenklatura scalona, rozkład CSV w 2023 r. (CN 2023)"
+                },
+                {
+                    "@language": "es-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023) distribución de CSV"
+                },
+                {
+                    "@language": "el-t-en-t0-mtec",
+                    "@value": "Συνδυασμένη ονοματολογία, κατανομή CSV 2023 (ΣΟ 2023)"
+                }
+            ],
+            "@type": "dcat:Distribution",
+            "dct:description": [
+                {
+                    "@language": "it-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinata, 2023 (NC 2023) Distribuzione CSV"
+                },
+                {
+                    "@language": "fr-t-en-t0-mtec",
+                    "@value": "Nomenclature combinée, 2023 (NC 2023) Répartition des CSV"
+                },
+                {
+                    "@language": "sl-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023 (KN 2023) porazdelitev CSV"
+                },
+                {
+                    "@language": "uk-t-en-t0-mtec",
+                    "@value": "Комбінована номенклатура, 2023 (CN 2023) CSV дистрибуція"
+                },
+                {
+                    "@language": "sv-t-en-t0-mtec",
+                    "@value": "Kombinerade nomenklaturen, 2023 (KN 2023) CSV-distribution"
+                },
+                {
+                    "@language": "pl-t-en-t0-mtec",
+                    "@value": "Nomenklatura scalona, rozkład CSV w 2023 r. (CN 2023)"
+                },
+                {
+                    "@language": "pt-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023) Distribuição CSV"
+                },
+                {
+                    "@language": "sk-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatúra, 2023 (KN 2023) Distribúcia CSV"
+                },
+                {
+                    "@language": "lt-t-en-t0-mtec",
+                    "@value": "Kombinuotosios nomenklatūros 2023 m. (KN 2023) CSV pasiskirstymas"
+                },
+                {
+                    "@language": "hr-t-en-t0-mtec",
+                    "@value": "Kombinirana nomenklatura, 2023. (KN 2023.) distribucija CSV-a"
+                },
+                {
+                    "@language": "ga-t-en-t0-mtec",
+                    "@value": "Ainmníocht Chomhcheangailte, 2023 (AC 2023) Dáileadh CSV"
+                },
+                {
+                    "@language": "es-t-en-t0-mtec",
+                    "@value": "Nomenclatura Combinada, 2023 (NC 2023) distribución de CSV"
+                },
+                {
+                    "@language": "de-t-en-t0-mtec",
+                    "@value": "Kombinierte Nomenklatur, 2023 (KN 2023) CSV-Verteilung"
+                },
+                {
+                    "@language": "da-t-en-t0-mtec",
+                    "@value": "Den kombinerede nomenklatur, 2023 (KN 2023) CSV-distribution"
+                },
+                {
+                    "@language": "fi-t-en-t0-mtec",
+                    "@value": "Yhdistetty nimikkeistö, 2023 (CN 2023) CSV-jakelu"
+                },
+                {
+                    "@language": "cs-t-en-t0-mtec",
+                    "@value": "Kombinovaná nomenklatura, 2023 (KN 2023) Rozdělení CSV"
+                },
+                {
+                    "@language": "en",
+                    "@value": "Combined Nomenclature, 2023 (CN 2023) CSV distribution"
+                },
+                {
+                    "@language": "ro-t-en-t0-mtec",
+                    "@value": "Nomenclatura combinată, 2023 (NC 2023) Distribuția CSV"
+                },
+                {
+                    "@language": "el-t-en-t0-mtec",
+                    "@value": "Συνδυασμένη ονοματολογία, κατανομή CSV 2023 (ΣΟ 2023)"
+                },
+                {
+                    "@language": "hu-t-en-t0-mtec",
+                    "@value": "Kombinált Nómenklatúra, 2023 (KN 2023) CSV-eloszlás"
+                },
+                {
+                    "@language": "mt-t-en-t0-mtec",
+                    "@value": "Nomenklatura Magħquda, 2023 (NM 2023) distribuzzjoni CSV"
+                },
+                {
+                    "@language": "bg-t-en-t0-mtec",
+                    "@value": "Комбинирана номенклатура, 2023 г. (КН 2023) Разпределение на CSV"
+                },
+                {
+                    "@language": "nl-t-en-t0-mtec",
+                    "@value": "Gecombineerde nomenclatuur, CSV-verdeling 2023 (GN 2023)"
+                },
+                {
+                    "@language": "lv-t-en-t0-mtec",
+                    "@value": "Kombinētā nomenklatūra, 2023 (KN 2023) CSV sadalījums"
+                },
+                {
+                    "@language": "et-t-en-t0-mtec",
+                    "@value": "Kombineeritud nomenklatuur, 2023 (CN 2023) CSV jaotus"
+                }
+            ],
+            "dct:identifier": "http://data.europa.eu/88u/distribution/53c3e0d8-787b-405f-98cb-415a7bc08cc9",
+            "dct:license": {
+                "@id": "http://publications.europa.eu/resource/authority/licence/COM_REUSE"
+            },
+            "dcat:downloadURL": {
+                "@id": "https://op.europa.eu/o/opportal-service/euvoc-download-handler?cellarURI=&fileName=CN2023_Self_Explanatory_Texts_EN_DE_FR.csv"
+            },
+            "dct:type": {
+                "@id": "http://publications.europa.eu/resource/authority/distribution-type/DOWNLOADABLE_FILE"
+            },
+            "dct:rights": {
+                "@id": "http://publications.europa.eu/resource/authority/access-right/PUBLIC"
+            },
+            "dct:issued": {
+                "@value": "2025-05-21",
+                "@type": "http://www.w3.org/2001/XMLSchema#date"
+            },
+            "dcat:accessURL": {
+                "@id": "https://op.europa.eu/o/opportal-service/euvoc-download-handler?cellarURI=&fileName=CN2023_Self_Explanatory_Texts_EN_DE_FR.csv"
+            },
+            "dcat:mediaType": {
+                "@id": "http://www.iana.org/assignments/media-types/text/csv"
+            },
+            "dct:format": {
+                "@id": "http://publications.europa.eu/resource/authority/file-type/CSV"
+            },
+            "adms:status": {
+                "@id": "http://purl.org/adms/status/Completed"
+            }
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/RON",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/DEU",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/language/SPA",
+            "@type": "dct:LinguisticSystem"
+        },
+        {
+            "@id": "vcard:Kind/e62bf235-48f9-421d-9bd4-a41493276c54",
+            "vcard:organisation-name": "Publications Office of the European Union",
+            "vcard:hasAddress": {
+                "@id": "http://data.europa.eu/88u/blanknode#__N41d3e3a8b05947318e7c2b1fac55bdeb"
+            },
+            "vcard:hasEmail": {
+                "@id": "mailto:op-info-helpdesk@publications.europa.eu"
+            },
+            "@type": "vcard:Kind",
+            "vcard:hasURL": {
+                "@id": "https://op.europa.eu/en/web/eu-vocabularies"
+            }
+        },
+        {
+            "@id": "http://publications.europa.eu/resource/authority/frequency/OTHER",
+            "@type": "dct:Frequency"
+        }
+    ],
+    "@context": {
+        "dct": "http://purl.org/dc/terms/",
+        "adms": "http://www.w3.org/ns/adms#",
+        "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+        "owl": "http://www.w3.org/2002/07/owl#",
+        "skos": "http://www.w3.org/2004/02/skos/core#",
+        "vcard": "http://www.w3.org/2006/vcard/ns#",
+        "dcat": "http://www.w3.org/ns/dcat#",
+        "foaf": "http://xmlns.com/foaf/0.1/"
+    }
+}
