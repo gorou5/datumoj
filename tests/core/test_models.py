@@ -427,8 +427,11 @@ def test_chunk_doc_key_format(bad):
 def test_observation_fields():
     expected = {"obs_id", "source_id", "dataset_key", "table_key", "survey", "indicator", "indicator_code",
                 "area_code", "area_label", "time_start", "time_end", "time_label", "granularity", "dims", "unit",
-                "value", "note", "snapshot_sha256", "locator", "fetched_at"}
+                "value", "note", "snapshot_sha256", "locator", "fetched_at", "release_id", "released_at"}
     assert set(Observation.model_fields) == expected
+    for name in ("release_id", "released_at"):
+        assert not Observation.model_fields[name].is_required()
+        assert Observation.model_fields[name].default is None
     o = make_observation()
     assert o.value == Decimal("14047594")
     assert isinstance(o.value, Decimal)
@@ -638,7 +641,8 @@ def test_export_schemas_matches_committed(tmp_path):
     names = {p.name for p in written}
     for model in ["Source", "Dataset", "Resource", "Snapshot", "FetchOutcome", "Document", "Chunk",
                   "Observation", "Citation", "UsageScope", "Redistribution", "TimeBasis", "Hit", "GapState",
-                  "Freshness", "ToolResult", "SourceText", "StateGeneration"]:
+                  "Freshness", "ToolResult", "SourceText", "StateGeneration", "ObservationIdentity",
+                  "GenerationToken", "ObservationRowEvidence"]:
         assert f"{model}.schema.json" in names
     committed = {p.name for p in SCHEMAS_DIR.glob("*.schema.json")}
     assert committed == names, "schemas/ 与模型不一致，请重新执行 export_schemas('schemas')"
@@ -663,3 +667,39 @@ def test_schema_content_reflects_constraints(tmp_path):
     assert cit["properties"]["locator"]["pattern"] == m.LOCATOR_PATTERN
     for name, model in [("Snapshot", Snapshot), ("Chunk", Chunk), ("Hit", Hit), ("Citation", Citation)]:
         assert set(load(name)["properties"]) == set(model.model_fields)
+
+
+@pytest.mark.parametrize("release_id", [None, '发布:;|="\\\n'])
+def test_observation_identity_inherits_reference_and_roundtrips(release_id):
+    identity = m.ObservationIdentity(source_id="jp-test", table_key='表:;|="\\\n', obs_id="same",
+                                     snapshot_sha256="ab" * 32, release_id=release_id)
+    assert isinstance(identity, m.ObservationRef)
+    assert m.ObservationIdentity.parse(str(identity)) == identity
+    assert m.ObservationIdentity.model_validate_json(identity.model_dump_json()) == identity
+    assert len(json.loads(str(identity))) == 5
+
+
+@pytest.mark.parametrize("text", ["{}", "[]", '["jp-test","t","o"]',
+                                  '["jp-test","t","o","bad",null]',
+                                  '["jp-test","t","o","' + "ab" * 32 + '",""]',
+                                  '["jp-test","t",1,"' + "ab" * 32 + '",null]'])
+def test_observation_identity_rejects_malformed_encoding(text):
+    with pytest.raises(ValueError):
+        m.ObservationIdentity.parse(text)
+
+
+@pytest.mark.parametrize("generation", [0, -1, True, "1", 1.0])
+def test_generation_token_rejects_non_strict_positive_generation(generation):
+    with pytest.raises(ValueError):
+        m.GenerationToken(generation=generation, manifest_sha256="ab" * 32)
+
+
+def test_generation_token_roundtrip_and_validation():
+    token = m.GenerationToken(generation=7, manifest_sha256="ab" * 32)
+    assert m.GenerationToken.parse(str(token)) == token
+    assert json.loads(str(token)) == ["rikolto-generation-v1", 7, "ab" * 32]
+    assert m.GenerationToken.model_validate_json(token.model_dump_json()) == token
+    for text in ["not-json", "{}", "[]", '["rikolto-generation-v2",7,"' + "ab" * 32 + '"]',
+                 '["rikolto-generation-v1",7,"BAD"]']:
+        with pytest.raises(ValueError):
+            m.GenerationToken.parse(text)

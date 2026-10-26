@@ -416,6 +416,50 @@ class ObservationRef(_Model):
         return cls(source_id=parts[0], table_key=parts[1], obs_id=parts[2])
 
 
+class ObservationIdentity(ObservationRef):
+    """ObservationRef + 原始快照 + 可空来源发布标识；禁止仅按 obs_id 关联或去重。"""
+
+    snapshot_sha256: Sha256
+    release_id: Text | None = None
+
+    def __str__(self) -> str:
+        return json.dumps(
+            [self.source_id, self.table_key, self.obs_id, self.snapshot_sha256, self.release_id],
+            ensure_ascii=False, separators=(",", ":"),
+        )
+
+    @classmethod
+    def parse(cls, text: str) -> ObservationIdentity:
+        parts = json.loads(text)
+        if not isinstance(parts, list) or len(parts) != 5:
+            raise ValueError("ObservationIdentity 必须是五个字段组成的 JSON 数组")
+        return cls(**dict(zip(cls.model_fields, parts, strict=True)))
+
+
+class GenerationToken(_Model):
+    """已发布 StateGeneration 编号及其实际清单字节的 SHA256；不是认证凭据。"""
+
+    generation: Annotated[int, Field(ge=1, strict=True)]
+    manifest_sha256: Sha256
+
+    def __str__(self) -> str:
+        return json.dumps(["rikolto-generation-v1", self.generation, self.manifest_sha256], separators=(",", ":"))
+
+    @classmethod
+    def parse(cls, text: str) -> GenerationToken:
+        parts = json.loads(text)
+        if not isinstance(parts, list) or len(parts) != 3 or parts[0] != "rikolto-generation-v1":
+            raise ValueError("GenerationToken 格式或版本无效")
+        return cls(generation=parts[1], manifest_sha256=parts[2])
+
+
+class ObservationRowEvidence(_Model):
+    """与 SQL 结果行位置对应；聚合或无法证明逐行关联时 identities 为空。"""
+
+    identities: list[ObservationIdentity] = Field(default_factory=list)
+    generation: Annotated[int, Field(ge=1, strict=True)]
+
+
 class PipelineStatus(_Model):
     """当前查询范围的管线计数；各状态计数可以重叠，不表示互斥分区。"""
 
@@ -723,6 +767,15 @@ class Observation(_Model):
     snapshot_sha256: Sha256
     locator: Locator
     fetched_at: AwareDatetime
+    release_id: Text | None = None
+    released_at: date | None = None
+
+    @property
+    def identity(self) -> ObservationIdentity:
+        return ObservationIdentity(
+            source_id=self.source_id, table_key=self.table_key, obs_id=self.obs_id,
+            snapshot_sha256=self.snapshot_sha256, release_id=self.release_id,
+        )
 
     @model_validator(mode="after")
     def _consistent(self) -> Observation:
@@ -936,6 +989,9 @@ SCHEMA_TYPES: dict[str, Any] = {
     "MatchedBy": MatchedBy,
     "SnapshotOrder": SnapshotOrder,
     "ObservationRef": ObservationRef,
+    "ObservationIdentity": ObservationIdentity,
+    "GenerationToken": GenerationToken,
+    "ObservationRowEvidence": ObservationRowEvidence,
     "PublishState": PublishState,
     "EvidenceState": EvidenceState,
     "PipelineStatus": PipelineStatus,

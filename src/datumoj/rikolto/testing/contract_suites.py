@@ -21,7 +21,7 @@ import math
 import re
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, timedelta, timezone
+from datetime import UTC, date, timedelta, timezone
 from decimal import Decimal
 from threading import Barrier
 from typing import Any
@@ -31,6 +31,7 @@ import pytest
 
 from datumoj.rikolto.core.contracts import (
     KIND_PATTERN,
+    AmbiguousRelease,
     CatalogFilter,
     CatalogStore,
     ChangeLog,
@@ -42,11 +43,14 @@ from datumoj.rikolto.core.contracts import (
     DuplicateError,
     Embedder,
     FetchTask,
+    GenerationUnavailable,
     HttpFetcher,
+    InvalidGenerationToken,
     KeywordIndex,
     Manifest,
     ModelMismatch,
     NotFoundError,
+    ObservationReleaseStore,
     ObservationStore,
     ParseError,
     Parser,
@@ -58,6 +62,8 @@ from datumoj.rikolto.core.contracts import (
     QueryRejected,
     RawStore,
     Registry,
+    ReleaseDateUnavailable,
+    ReleaseNotFound,
     Retriever,
     SourceSpec,
     StateObjectStore,
@@ -69,8 +75,10 @@ from datumoj.rikolto.core.contracts import (
 from datumoj.rikolto.core.models import (
     ChangeEvent,
     ChangeKind,
+    EvidenceState,
     FetchOutcome,
     GapState,
+    GenerationToken,
     LicenseInfo,
     ObservationRef,
     PublishState,
@@ -93,6 +101,7 @@ from datumoj.rikolto.testing.samples import (
     make_resource,
     make_snapshot,
     make_spec,
+    make_state_generation,
     sha,
 )
 
@@ -1550,3 +1559,235 @@ class EvidenceIdentitySuite:
         for invalid in [{"x": object()}, {"x": float("nan")}, {"x": float("inf")}]:
             with pytest.raises(ValueError):
                 parse_context_fingerprint(snap, invalid)
+
+
+RELEASE_SELECT = "SELECT source_id, table_key, obs_id, snapshot_sha256, release_id, value FROM observations"
+
+
+class ObservationReleaseSuite:
+    """301 的发布感知合格测试，与旧 ObservationStoreSuite 分开接入。
+
+    fixture store 返回空库；publish(store, StateGeneration) 模拟完成条件发布；
+    discard(store, generation) 模拟清单或任何依赖不可用。两者都是测试夹具，不是写库协议。
+    """
+
+    @pytest.fixture
+    def store(self):
+        return _missing("store")
+
+    @pytest.fixture
+    def publish(self):
+        return _missing("publish")
+
+    @pytest.fixture
+    def discard(self):
+        return _missing("discard")
+
+    @pytest.fixture
+    def releases(self, store):
+        observations = []
+        for seq, (release, day, value) in enumerate([
+            ("first", date(2026, 4, 1), "1"),
+            ("second", date(2026, 4, 1), "2"),
+            ("third", date(2026, 10, 1), "3"),
+        ], 1):
+            obs = make_observation("same", value, release_id=release, released_at=day,
+                                   snapshot_sha256=sha(release.encode()))
+            store.write_table("jp-stat", "t1", [obs], order=SnapshotOrder(fetched_at=T0, seq=seq))
+            observations.append(obs)
+        return observations
+
+    def test_as_of_date_and_release_keep_history(self, store, releases, publish):
+        publish(store, make_state_generation())
+        for cutoff, expected in [("first", releases[0]), ("second", releases[1]),
+                                 (date(2026, 4, 1), releases[1]), (None, releases[2])]:
+            result = store.query_readonly(RELEASE_SELECT, as_of_release=cutoff)
+            assert result.provenance == [expected]
+            assert result.row_evidence[0].identities == [expected.identity]
+            assert result.row_evidence[0].generation == 1
+            assert result.rows[0][-1] == expected.value
+            assert result.evidence_state is EvidenceState.complete
+        assert store.query_readonly(RELEASE_SELECT, as_of_release=date(2026, 3, 31)).rows == []
+
+    def test_cross_table_and_source_identity(self, store, publish):
+        observations = []
+        for seq, (source, table) in enumerate([("jp-stat", "t1"), ("jp-stat", "t2"), ("jp-other", "t1")], 1):
+            obs = make_observation("same", str(seq), source_id=source, dataset_key=f"{source}:pop",
+                                   table_key=table, release_id=f"r{seq}", released_at=date(2026, 4, 1))
+            store.write_table(source, table, [obs], order=SnapshotOrder(fetched_at=T0, seq=seq))
+            observations.append(obs)
+        publish(store, make_state_generation())
+        result = store.query_readonly(RELEASE_SELECT + " ORDER BY value", as_of_release=date(2026, 4, 1))
+        assert result.provenance == observations
+        assert [r.identities for r in result.row_evidence] == [[o.identity] for o in observations]
+        ambiguous = store.query_readonly("SELECT obs_id FROM observations")
+        assert ambiguous.provenance == []
+        assert ambiguous.evidence_state is EvidenceState.unavailable
+        assert all(row.identities == [] for row in ambiguous.row_evidence)
+
+    def test_token_pins_old_generation_during_publication(self, store, releases, publish):
+        first_manifest = make_state_generation()
+        publish(store, first_manifest)
+        token = store.pin_generation()
+        assert GenerationToken.parse(token).manifest_sha256 == sha(first_manifest.model_dump_json().encode())
+        newer = make_observation("same", "4", release_id="fourth", released_at=date(2026, 10, 2),
+                                 snapshot_sha256=sha(b"fourth"))
+        store.write_table("jp-stat", "t1", [newer], order=SnapshotOrder(fetched_at=T0, seq=4))
+        # 未发布的写入也不能泄露到当前代次。
+        assert store.query_readonly(RELEASE_SELECT).provenance == [releases[2]]
+        publish(store, make_state_generation(2))
+        pinned = store.query_readonly(RELEASE_SELECT, generation_token=token)
+        assert pinned.provenance == [releases[2]]
+        assert pinned.generation_token == token and pinned.row_evidence[0].generation == 1
+        assert store.query_readonly(RELEASE_SELECT).provenance == [newer]
+        assert store.query_readonly(RELEASE_SELECT, generation_token=token,
+                                    as_of_release="first").provenance == [releases[0]]
+        with pytest.raises(ReleaseNotFound):
+            store.query_readonly(RELEASE_SELECT, generation_token=token, as_of_release="fourth")
+
+    def test_invalid_token_never_falls_back_even_for_empty_results(self, store, releases, publish):
+        publish(store, make_state_generation())
+        for token in ["", "garbage", "[]", '["rikolto-generation-v2",1,"' + "a" * 64 + '"]',
+                      str(GenerationToken(generation=1, manifest_sha256="0" * 64))]:
+            with pytest.raises(InvalidGenerationToken):
+                store.query_readonly(RELEASE_SELECT + " WHERE 1=0", generation_token=token)
+        unknown = str(GenerationToken(generation=2, manifest_sha256="0" * 64))
+        with pytest.raises(GenerationUnavailable):
+            store.query_readonly(RELEASE_SELECT, generation_token=unknown)
+
+    def test_unavailable_generation_does_not_fall_back(self, store, releases, publish, discard):
+        with pytest.raises(GenerationUnavailable):
+            store.pin_generation()
+        publish(store, make_state_generation())
+        token = store.pin_generation()
+        publish(store, make_state_generation(2))
+        discard(store, 1)
+        with pytest.raises(GenerationUnavailable):
+            store.query_readonly(RELEASE_SELECT, generation_token=token)
+        assert store.query_readonly(RELEASE_SELECT).row_evidence[0].generation == 2
+        token2 = store.pin_generation()
+        discard(store, 2)
+        with pytest.raises(GenerationUnavailable):
+            store.query_readonly(RELEASE_SELECT, generation_token=token2)
+        with pytest.raises(GenerationUnavailable):
+            store.query_readonly(RELEASE_SELECT)
+
+    def test_legacy_releases_use_snapshot_and_utc_fetch_date(self, store, publish):
+        old = make_observation("same", None, note="秘匿", snapshot_sha256=sha(b"legacy1"),
+                               fetched_at=T0, released_at=date(1999, 1, 1))
+        new = make_observation("same", "0", snapshot_sha256=sha(b"legacy2"), fetched_at=T0 + H * 25)
+        for seq, obs in enumerate([old, new], 1):
+            store.write_table("jp-stat", "t1", [obs], order=SnapshotOrder(fetched_at=obs.fetched_at, seq=seq))
+        publish(store, make_state_generation())
+        result = store.query_readonly(RELEASE_SELECT, as_of_release=old.snapshot_sha256)
+        assert result.provenance == [old]
+        assert result.rows[0][-1] is None and result.provenance[0].note == "秘匿"
+        assert result.row_evidence[0].identities[0].release_id is None
+        assert store.query_readonly(RELEASE_SELECT, as_of_release=date(1999, 1, 1)).rows == []
+        assert store.query_readonly(RELEASE_SELECT, as_of_release=T0.astimezone(UTC).date()).provenance == [old]
+        assert store.query_readonly(RELEASE_SELECT).provenance == [new]
+
+    def test_as_of_aggregate_has_evidence_state_and_input_scope(self, store, releases, publish):
+        publish(store, make_state_generation())
+        token = store.pin_generation()
+        sql = "SELECT sum(value) FROM observations"
+        result = store.query_readonly(sql, generation_token=token, as_of_release="second")
+        assert Decimal(str(result.rows[0][0])) == Decimal(2)
+        assert result.evidence_state is EvidenceState.unavailable
+        assert result.row_evidence[0].identities == [] and result.row_evidence[0].generation == 1
+        assert result.evidence_inputs == {"sql": sql, "generation": 1, "as_of_release": "second"}
+
+    def test_unknown_or_ambiguous_release_is_error(self, store, publish):
+        for seq, source in enumerate(["jp-stat", "jp-other"], 1):
+            obs = make_observation("same", "1", source_id=source, dataset_key=f"{source}:pop",
+                                   release_id="shared-release", released_at=date(2026, 4, 1))
+            store.write_table(source, "t1", [obs], order=SnapshotOrder(fetched_at=T0, seq=seq))
+        publish(store, make_state_generation())
+        with pytest.raises(ReleaseNotFound):
+            store.query_readonly(RELEASE_SELECT, as_of_release="unknown")
+        with pytest.raises(AmbiguousRelease):
+            store.query_readonly(RELEASE_SELECT, as_of_release="shared-release")
+
+    def test_explicit_release_without_date_does_not_use_fetch_date(self, store, publish):
+        obs = make_observation("same", "1", release_id="undated")
+        store.write_table("jp-stat", "t1", [obs], order=SnapshotOrder(fetched_at=T0, seq=1))
+        publish(store, make_state_generation())
+        with pytest.raises(ReleaseDateUnavailable):
+            store.query_readonly(RELEASE_SELECT, as_of_release=T0.date())
+
+    def test_missing_snapshot_order_is_not_invented(self, store, publish):
+        store.write_table("jp-stat", "t1", [make_observation("same", "1")])
+        publish(store, make_state_generation())
+        with pytest.raises(QueryError):
+            store.query_readonly(RELEASE_SELECT, as_of_release=T0.date())
+
+
+    def test_snapshot_time_precedes_sequence_and_same_release_refetch(self, store, publish):
+        first = make_observation("same", "1", release_id="one", released_at=date(2026, 4, 1),
+                                 snapshot_sha256=sha(b"one"), fetched_at=T0)
+        second = make_observation("same", "2", release_id="two", released_at=date(2026, 4, 1),
+                                  snapshot_sha256=sha(b"two"), fetched_at=T0 + H)
+        repeat = make_observation("same", "3", release_id="two", released_at=date(2026, 4, 1),
+                                  snapshot_sha256=sha(b"two-refetch"), fetched_at=T0 + H * 2)
+        for obs, seq in [(first, 99), (second, 2), (repeat, 1)]:
+            store.write_table("jp-stat", "t1", [obs], order=SnapshotOrder(fetched_at=obs.fetched_at, seq=seq))
+        publish(store, make_state_generation())
+        assert store.query_readonly(RELEASE_SELECT, as_of_release="one").provenance == [first]
+        assert store.query_readonly(RELEASE_SELECT, as_of_release="two").provenance == [repeat]
+
+    def test_batch_accepts_distinct_release_identities(self, store, publish):
+        first = make_observation("same", "1", release_id="one", released_at=date(2026, 4, 1))
+        second = make_observation("same", "2", release_id="two", released_at=date(2026, 4, 2))
+        store.write_table("jp-stat", "t1", [first, second], order=SnapshotOrder(fetched_at=T0, seq=1))
+        publish(store, make_state_generation())
+        assert store.query_readonly(RELEASE_SELECT, as_of_release="one").provenance == [first]
+        assert store.query_readonly(RELEASE_SELECT).provenance == [second]
+
+
+    def test_release_protocol_capability(self, store):
+        assert isinstance(store, ObservationStore)
+        assert isinstance(store, ObservationReleaseStore)
+        assert "release_id" in store.describe().columns and "released_at" in store.describe().columns
+
+    def test_deleted_current_does_not_resurrect_archived_releases(self, store, releases, publish):
+        publish(store, make_state_generation())
+        token = store.pin_generation()
+        store.write_table("jp-stat", "t1", [], order=SnapshotOrder(fetched_at=T0, seq=4))
+        publish(store, make_state_generation(2))
+        assert store.query_readonly(RELEASE_SELECT).rows == []
+        assert store.query_readonly(RELEASE_SELECT, generation_token=token).provenance == [releases[2]]
+        assert store.query_readonly(RELEASE_SELECT, as_of_release="first").provenance == [releases[0]]
+
+    def test_pinned_observations_do_not_share_mutable_input_or_result(self, store, publish):
+        obs = make_observation("same", "1", dims={"kind": "original"})
+        store.write_table("jp-stat", "t1", [obs], order=SnapshotOrder(fetched_at=T0, seq=1))
+        publish(store, make_state_generation())
+        token = store.pin_generation()
+        obs.dims["kind"] = "input changed"
+        result = store.query_readonly(RELEASE_SELECT, generation_token=token)
+        assert result.provenance[0].dims == {"kind": "original"}
+        result.provenance[0].dims["kind"] = "result changed"
+        assert store.query_readonly(RELEASE_SELECT, generation_token=token).provenance[0].dims == {"kind": "original"}
+
+
+    @pytest.mark.parametrize("cutoff", ["", "  ", 20260401, T0])
+    def test_invalid_cutoff_is_rejected(self, store, releases, publish, cutoff):
+        publish(store, make_state_generation())
+        with pytest.raises(ValueError):
+            store.query_readonly(RELEASE_SELECT, as_of_release=cutoff)
+
+
+    def test_legacy_a_b_a_retains_first_occurrence_for_early_cutoff(self, store, publish):
+        first = make_observation("same", "1", snapshot_sha256=sha(b"legacy-a"), fetched_at=T0)
+        second = make_observation("same", "2", snapshot_sha256=sha(b"legacy-b"), fetched_at=T0 + H * 25)
+        repeat = first.model_copy(update={"fetched_at": T0 + H * 49})
+        assert first.identity == repeat.identity
+        for seq, obs in enumerate([first, second, repeat], 1):
+            store.write_table("jp-stat", "t1", [obs], order=SnapshotOrder(fetched_at=obs.fetched_at, seq=seq))
+        publish(store, make_state_generation())
+        for obs in [first, second, repeat]:
+            day = obs.fetched_at.astimezone(UTC).date()
+            assert store.query_readonly(RELEASE_SELECT, as_of_release=day).provenance == [obs]
+        assert store.query_readonly(RELEASE_SELECT).provenance == [repeat]
+        with pytest.raises(AmbiguousRelease):
+            store.query_readonly(RELEASE_SELECT, as_of_release=first.snapshot_sha256)

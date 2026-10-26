@@ -38,11 +38,14 @@ from datumoj.rikolto.core.models import (
     Citation,
     Dataset,
     Document,
+    EvidenceState,
     FetchOutcome,
     Freshness,
+    GenerationToken,
     Hit,
     LicenseInfo,
     Observation,
+    ObservationRowEvidence,
     Period,
     PublishState,
     RedactedUrl,
@@ -115,6 +118,26 @@ class QueryTimeout(QueryError):
 
 class TooManyRows(QueryError):
     """结果超过 max_rows。"""
+
+
+class InvalidGenerationToken(QueryError, ValueError):
+    """token 格式/版本非法或清单哈希不匹配；不得回退最新代次。"""
+
+
+class GenerationUnavailable(QueryError):
+    """代次未发布、不存在、已移除或依赖对象不可用；不得回退。"""
+
+
+class ReleaseNotFound(QueryError):
+    """固定代次中没有对应的来源发布标识（旧数据可用 snapshot_sha256）。"""
+
+
+class AmbiguousRelease(QueryError):
+    """发布标识跨来源或对应多个发布日期，无法确定截至边界。"""
+
+
+class ReleaseDateUnavailable(QueryError):
+    """显式发布标识缺少发布日期，无法安全确定来源发布顺序。"""
 
 
 class EmbeddingError(ContractError):
@@ -582,7 +605,7 @@ class ParseResult(_Model):
     def _consistent(self) -> ParseResult:
         _unique("doc_key", [d.doc_key for d in self.documents])
         _unique("chunk_id", [c.chunk_id for c in self.chunks])
-        _unique("obs_id", [o.obs_id for o in self.observations])
+        _unique("ObservationIdentity", [o.identity for o in self.observations])
         _unique("dataset_key", [d.dataset_key for d in self.datasets])
         _unique("resource", [(r.dataset_key, r.resource_id) for r in self.resources])
         docs = {d.doc_key for d in self.documents}
@@ -880,7 +903,12 @@ OBSERVATION_COLUMNS: dict[str, str] = {
     "granularity": "VARCHAR", "dims": "VARCHAR（JSON 文本）", "unit": "VARCHAR", "value": "DECIMAL",
     "note": "VARCHAR", "snapshot_sha256": "VARCHAR", "locator": "VARCHAR", "fetched_at": "TIMESTAMPTZ",
 }
-"""只读视图 ``observations`` 的列（就是 Observation 的字段）。value 为空就是 NULL，绝不补零。"""
+"""旧只读视图的稳定列集，保留历史 Parquet 兼容；value 缺失为 NULL，绝不补零。"""
+
+OBSERVATION_RELEASE_COLUMNS: dict[str, str] = {
+    **OBSERVATION_COLUMNS, "release_id": "VARCHAR", "released_at": "DATE",
+}
+"""发布感知视图的完整列集；301 读取旧文件时须为新增可选列提供 NULL。"""
 
 
 class QueryResult(_Model):
@@ -888,8 +916,34 @@ class QueryResult(_Model):
     rows: list[tuple[Any, ...]]
     """value 列是 Decimal 或 None。"""
     provenance: list[Observation] = Field(default_factory=list)
-    """结果涉及的观测值（按 obs_id 去重，按首次出现排序）。结果列里有 obs_id 时必须给全。"""
+    """按 ObservationIdentity 去重、按首次出现排序；禁止仅按 obs_id 关联/去重。
+
+    发布感知查询必须保留五个完整身份列才能证明逐行出处；不完整时不得猜测。
+    """
     warnings: list[str] = Field(default_factory=list)
+    generation_token: str | None = None
+    row_evidence: list[ObservationRowEvidence] = Field(default_factory=list)
+    """与 rows 一一对应，每行给出所读代次和可证明的完整身份；聚合允许空身份。"""
+    evidence_state: EvidenceState | None = None
+    evidence_inputs: dict[str, JsonValue] | None = None
+    """沿用 307；包含 SQL、generation、as_of_release，不能将聚合伪装成逐行出处。
+
+    以上字段的空缺省值仅兼容尚未接入 301 的实现；发布感知实现必须填写。
+    """
+
+    @model_validator(mode="after")
+    def _generation_evidence(self) -> QueryResult:
+        if self.generation_token is not None:
+            token = GenerationToken.parse(self.generation_token)
+            if len(self.row_evidence) != len(self.rows):
+                raise ValueError("row_evidence 必须与 rows 一一对应")
+            if any(row.generation != token.generation for row in self.row_evidence):
+                raise ValueError("行代次必须与 generation_token 一致")
+            if self.evidence_state is None or self.evidence_inputs is None:
+                raise ValueError("发布感知结果必须提供证据状态和输入范围")
+        elif self.row_evidence:
+            raise ValueError("有行代次时必须提供 generation_token")
+        return self
 
 
 class TableSummary(_Model):
@@ -913,13 +967,19 @@ class ObservationCatalog(_Model):
 
 @runtime_checkable
 class ObservationStore(Protocol):
-    """统计观测值库。实现：DATUMOJ-IVY-303（DuckDB + Parquet）。"""
+    """统计观测值库；发布感知实现由 WISTERIA-301 接入。
+
+    发布历史按 ObservationIdentity 保留；ObservationRef 标识一个逻辑观测值。
+    数据代次是 StateGeneration，与来源 release_id 不同。禁止仅按 obs_id 关联或去重。
+    """
 
     def write_table(
         self, source_id: str, table_key: str, observations: Sequence[Observation], order: SnapshotOrder | None = None,
     ) -> bool:
         """整体替换 (source_id, table_key) 这张表；空列表 = 删掉这张表。
-        观测值的 source_id / table_key 必须和参数一致、obs_id 不重复，否则 ValueError。
+        观测值的 source_id / table_key 必须和参数一致、ObservationIdentity 不重复，否则 ValueError。
+        替换 current 不删除发布历史；新实现须保存每次成功写入的发布版本及 SnapshotOrder。
+        无 order 的旧入口仍兼容；显式截至读取缺少持久化顺序时必须报 QueryError，不能臆造。
         order 早于表水位时返回 False；相等、更新或尚无水位时替换并返回 True。
         数据和水位原子生效；有序删表保留水位，防止旧数据复活。
         不传 order 时无条件替换并清除水位，兼容旧调用方。
@@ -930,8 +990,26 @@ class ObservationStore(Protocol):
         """读取持久化的表级水位；表不存在或升级前未记录水位时返回 None。"""
         ...
 
-    def query_readonly(self, sql: str, max_rows: int = 1000, timeout_s: float = 10) -> QueryResult:
-        """在只读视图 ``observations``（列见 OBSERVATION_COLUMNS）上执行单条 SELECT/WITH。
+    def query_readonly(
+        self, sql: str, max_rows: int = 1000, timeout_s: float = 10, *,
+        generation_token: str | None = None, as_of_release: date | str | None = None,
+    ) -> QueryResult:
+        """在只读视图 ``observations`` 上执行单条 SELECT/WITH。
+
+        发布感知视图列见 OBSERVATION_RELEASE_COLUMNS；旧实现保留 OBSERVATION_COLUMNS。
+
+        generation_token=None 在查询开始原子固定最新已发布代次，否则严格读指定代次。
+        非法格式/哈希不符 → InvalidGenerationToken；代次未发布、不存在或不可用 →
+        GenerationUnavailable。两者都不得回退最新代次，包括空查询结果时。
+        as_of_release=None 取每个 ObservationRef 最新发布；date 为闭区间（含当天全部发布）；
+        str 为该代次内 release_id（旧数据用 snapshot_sha256），闭区间截至该次发布。
+        不存在 → ReleaseNotFound；跨来源/多个发布日期 → AmbiguousRelease。
+        先在固定代次的历史视图按 (发布日期, SnapshotOrder) 选每个引用的最近版本，再执行 SQL。
+        同标识的重复抓取取最大 SnapshotOrder；同日多次发布同样依 SnapshotOrder 排序。
+        无 release_id 时按快照 SHA 和 fetched_at 的 UTC 日排序，即使 released_at 非空也不替代。
+        有 release_id 无 released_at → ReleaseDateUnavailable；不把抓取时间伪装成发布日期。
+        as_of_release 与 token 可同时用，具体规则见 ADR 0007。
+        每行附 row_evidence，聚合沿用 EvidenceState 并记录截至条件；不能证明关联时为空身份。
 
         写操作、多语句、ATTACH、COPY、PRAGMA、SET、读文件的函数 → QueryRejected；
         超时 → QueryTimeout；结果超过 max_rows → TooManyRows；其他 SQL 错误 → QueryError。
@@ -942,6 +1020,18 @@ class ObservationStore(Protocol):
         """按表列出调查、指标、地区数、时间范围、行数，按 (source_id, table_key) 排序。"""
         ...
 
+
+@runtime_checkable
+class ObservationReleaseStore(ObservationStore, Protocol):
+    """固定代次读取能力；301 实现继承新合格测试。旧 ObservationStore 运行时检查不变。"""
+
+    def pin_generation(self) -> str:
+        """原子固定当前已发布代次及清单字节哈希，返回 str(GenerationToken)。
+
+        无有效代次抛 GenerationUnavailable；不能选择未发布的候选或读取变化中的在线库。
+        token 不保证永久保留；每次查询仍须检查该代次清单与全部依赖可用。
+        """
+        ...
 
 # ---------- 出处 ----------
 

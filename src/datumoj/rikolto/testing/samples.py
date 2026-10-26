@@ -18,6 +18,7 @@ from datumoj.rikolto.core.models import (
     Observation,
     Resource,
     Snapshot,
+    StateGeneration,
     TimeGranularity,
 )
 
@@ -130,3 +131,15 @@ class RetrievalCorpus:
     specs: list[SourceSpec] = field(default_factory=list)
     snapshots: list[Snapshot] = field(default_factory=list)
     documents: list[tuple[Document, list[Chunk]]] = field(default_factory=list)
+
+
+def make_state_generation(generation: int = 1) -> StateGeneration:
+    """合成发布夹具；不声称任何真实对象已上传。"""
+    digest = sha(f"generation-{generation}".encode())
+    return StateGeneration(
+        generation=generation, previous_generation=None if generation == 1 else generation - 1,
+        created_at=T0 + timedelta(hours=generation), writer={"kind": "local", "run_id": "synthetic"},
+        stores=[{"name": "observations", "key": f"copies/sha256/{digest}", "sha256": digest,
+                 "size_bytes": 0, "format": "synthetic"}],
+        raw_prefix="raw/", vector_coverage=None, last_successful_runs={},
+    )

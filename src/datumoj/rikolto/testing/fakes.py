@@ -16,7 +16,7 @@ import unicodedata
 from collections import Counter, deque
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from threading import Lock
@@ -25,7 +25,8 @@ from typing import IO, Any
 from pydantic import AwareDatetime, JsonValue, TypeAdapter
 
 from datumoj.rikolto.core.contracts import (
-    OBSERVATION_COLUMNS,
+    OBSERVATION_RELEASE_COLUMNS,
+    AmbiguousRelease,
     CatalogFilter,
     CatalogHit,
     ContentState,
@@ -38,8 +39,10 @@ from datumoj.rikolto.core.contracts import (
     FailureSummary,
     FetchResult,
     FetchTask,
+    GenerationUnavailable,
     HttpFetcher,
     IndexResult,
+    InvalidGenerationToken,
     ModelMismatch,
     NotFoundError,
     ObservationCatalog,
@@ -53,6 +56,8 @@ from datumoj.rikolto.core.contracts import (
     QueryRejected,
     QueryResult,
     QueryTimeout,
+    ReleaseDateUnavailable,
+    ReleaseNotFound,
     ResourceEntry,
     ScoredChunk,
     SourceSpec,
@@ -71,17 +76,23 @@ from datumoj.rikolto.core.models import (
     Dataset,
     DocKind,
     Document,
+    EvidenceState,
     FetchOutcome,
     Freshness,
     GapState,
+    GenerationToken,
     Hit,
     MatchedBy,
     Observation,
+    ObservationIdentity,
+    ObservationRef,
+    ObservationRowEvidence,
     PublishState,
     Resource,
     Snapshot,
     SnapshotOrder,
     SourceText,
+    StateGeneration,
     ToolResult,
     parent_ref,
     parse_context_fingerprint,
@@ -934,6 +945,37 @@ class FakeObservationStore:
     def __init__(self) -> None:
         self._tables: dict[tuple[str, str], list[Observation]] = {}
         self._orders: dict[tuple[str, str], SnapshotOrder] = {}
+        self._history: dict[
+            tuple[ObservationIdentity, SnapshotOrder | None], tuple[Observation, SnapshotOrder | None]
+        ] = {}
+        self._generations: dict[
+            int, tuple[str, list[tuple[Observation, SnapshotOrder | None]], set[tuple[str, str, str]]]
+        ] = {}
+        self._current_generation: int | None = None
+
+    def publish_generation(self, manifest: StateGeneration) -> str:
+        """测试夹具的发布点：固定历史副本，哈希实际 model_dump_json 清单字节。
+
+        不模拟远端上传；调用者保证该清单代表完整有效状态。生产发布由 301 接入。
+        """
+        if manifest.generation != (self._current_generation or 0) + 1:
+            raise ValueError("测试代次必须连续发布，不能覆盖已有清单")
+        digest = hashlib.sha256(manifest.model_dump_json().encode()).hexdigest()
+        history = [(o.model_copy(deep=True), order) for o, order in self._history.values()]
+        current_refs = {(o.source_id, o.table_key, o.obs_id) for o in self._all()}
+        self._generations[manifest.generation] = (digest, history, current_refs)
+        self._current_generation = manifest.generation
+        return self.pin_generation()
+
+    def discard_generation(self, generation: int) -> None:
+        """测试夹具：模拟历史清单或任一依赖已不可用。"""
+        self._generations.pop(generation, None)
+
+    def pin_generation(self) -> str:
+        number = self._current_generation
+        if number is None or number not in self._generations:
+            raise GenerationUnavailable("没有可用的已发布代次")
+        return str(GenerationToken(generation=number, manifest_sha256=self._generations[number][0]))
 
     def table_order(self, source_id: str, table_key: str) -> SnapshotOrder | None:
         return self._orders.get((source_id, table_key))
@@ -941,17 +983,19 @@ class FakeObservationStore:
     def write_table(
         self, source_id: str, table_key: str, observations: Sequence[Observation], order: SnapshotOrder | None = None,
     ) -> bool:
-        ids: set[str] = set()
+        ids: set[ObservationIdentity] = set()
         for o in observations:
             if o.source_id != source_id or o.table_key != table_key:
                 raise ValueError(f"观测值 {o.obs_id} 不属于表 {source_id}/{table_key}")
-            if o.obs_id in ids:
-                raise ValueError(f"obs_id 重复：{o.obs_id}")
-            ids.add(o.obs_id)
+            if o.identity in ids:
+                raise ValueError(f"ObservationIdentity 重复：{o.identity}")
+            ids.add(o.identity)
         key = (source_id, table_key)
         current = self.table_order(source_id, table_key)
         if order is not None and current is not None and order < current:
             return False
+        for observation in observations:
+            self._history[(observation.identity, order)] = (observation.model_copy(deep=True), order)
         if observations:
             self._tables[key] = list(observations)
         else:
@@ -965,12 +1009,74 @@ class FakeObservationStore:
     def _all(self) -> list[Observation]:
         return [o for key in sorted(self._tables) for o in self._tables[key]]
 
-    def query_readonly(self, sql: str, max_rows: int = 1000, timeout_s: float = 10) -> QueryResult:
+    @staticmethod
+    def _select_releases(history, cutoff):
+        cutoff = TypeAdapter(date | str | None).validate_python(cutoff, strict=True)
+        if isinstance(cutoff, str) and not cutoff.strip():
+            raise ValueError("as_of_release 不能是空发布标识")
+        ordered = []
+        for observation, order in history:
+            if order is None:
+                raise QueryError("截至查询需要持久化 SnapshotOrder")
+            if observation.release_id is not None and observation.released_at is None:
+                raise ReleaseDateUnavailable("显式来源发布缺少 released_at")
+            day = (observation.released_at if observation.release_id is not None
+                   else observation.fetched_at.astimezone(UTC).date())
+            ordered.append((observation, day, order))
+        boundary = None
+        if isinstance(cutoff, str):
+            matches = [(o, day, order) for o, day, order in ordered
+                       if (o.release_id if o.release_id is not None else o.snapshot_sha256) == cutoff]
+            if not matches:
+                raise ReleaseNotFound("该代次没有指定发布标识")
+            if len({(o.source_id, day) for o, day, _ in matches}) != 1:
+                raise AmbiguousRelease("发布标识跨来源或对应多个日期")
+            boundary = max((day, order) for _, day, order in matches)
+        latest = {}
+        for observation, day, order in ordered:
+            if isinstance(cutoff, date) and day > cutoff:
+                continue
+            if boundary is not None and (day, order) > boundary:
+                continue
+            ref = ObservationRef(source_id=observation.source_id, table_key=observation.table_key,
+                                 obs_id=observation.obs_id)
+            previous = latest.get(ref)
+            if previous is None or (day, order) > (previous[1], previous[2]):
+                latest[ref] = (observation, day, order)
+            elif (day, order) == (previous[1], previous[2]) and observation.identity != previous[0].identity:
+                raise AmbiguousRelease("同一引用的发布排序相同，无法选择版本")
+        return [entry[0] for entry in latest.values()]
+
+    def query_readonly(
+        self, sql: str, max_rows: int = 1000, timeout_s: float = 10, *,
+        generation_token: str | None = None, as_of_release: date | str | None = None,
+    ) -> QueryResult:
+        if max_rows < 1 or timeout_s <= 0:
+            raise ValueError("max_rows 必须 ≥ 1，timeout_s 必须 > 0")
+        token = None
+        if generation_token is not None or self._current_generation is not None:
+            raw_token = self.pin_generation() if generation_token is None else generation_token
+            try:
+                token = GenerationToken.parse(raw_token)
+            except (ValueError, TypeError) as exc:
+                raise InvalidGenerationToken("generation_token 格式无效") from exc
+            version = self._generations.get(token.generation)
+            if version is None:
+                raise GenerationUnavailable("指定代次未发布或不可用")
+            if version[0] != token.manifest_sha256:
+                raise InvalidGenerationToken("generation_token 清单哈希不匹配")
+            history = version[1]
+            if as_of_release is None:
+                history = [(o, order) for o, order in history if (o.source_id, o.table_key, o.obs_id) in version[2]]
+            obs = self._select_releases(history, as_of_release)
+        elif as_of_release is not None:
+            raise GenerationUnavailable("截至查询需要已发布代次")
+        else:
+            obs = self._all()  # 兼容尚未接入代次发布的旧测试/调用方。
         _guard_sql(sql)
-        obs = self._all()
         conn = sqlite3.connect(":memory:", detect_types=sqlite3.PARSE_DECLTYPES)
         try:
-            cols = list(OBSERVATION_COLUMNS)
+            cols = list(OBSERVATION_RELEASE_COLUMNS)
             types = {c: (_DECIMAL_TYPE if c == "value" else "TEXT") for c in cols}
             conn.execute(f"CREATE TABLE observations ({', '.join(f'{c} {types[c]}' for c in cols)})")
             conn.executemany(
@@ -996,12 +1102,44 @@ class FakeObservationStore:
         finally:
             conn.close()
         provenance: list[Observation] = []
-        if "obs_id" in columns:
-            idx, lookup = columns.index("obs_id"), {o.obs_id: o for o in obs}
-            for oid in dict.fromkeys(r[idx] for r in rows):
-                if oid in lookup:
-                    provenance.append(lookup[oid])
-        return QueryResult(columns=columns, rows=[tuple(r) for r in rows], provenance=provenance)
+        row_evidence = []
+        warnings = []
+        identity_columns = tuple(ObservationIdentity.model_fields)
+        supplied = [name for name in identity_columns if name in columns]
+        seen = set()
+        linked = 0
+        lookup: dict[tuple[Any, ...], list[Observation]] = {}
+        # 发布感知路径必须含完整身份列，不能凭 obs_id 推测关联。
+        if "obs_id" in supplied and (token is None or len(supplied) == len(identity_columns)):
+            for observation in obs:
+                key = tuple(getattr(observation, name) for name in supplied)
+                lookup.setdefault(key, []).append(observation)
+        indexes = [columns.index(name) for name in supplied]
+        for row in rows:
+            matches = lookup.get(tuple(row[index] for index in indexes), [])
+            identities = []
+            if len(matches) == 1:
+                observation = matches[0]
+                identities = [observation.identity]
+                linked += 1
+                if observation.identity not in seen:
+                    provenance.append(observation.model_copy(deep=True))
+                    seen.add(observation.identity)
+            if token is not None:
+                row_evidence.append(ObservationRowEvidence(identities=identities, generation=token.generation))
+        if token is None:
+            return QueryResult(columns=columns, rows=rows, provenance=provenance, warnings=warnings)
+        state = (EvidenceState.complete if not rows or linked == len(rows) else
+                 EvidenceState.partial if linked else EvidenceState.unavailable)
+        if state is not EvidenceState.complete:
+            warnings.append("无法证明全部逐行出处；请保留五个 ObservationIdentity 身份列")
+        return QueryResult(
+            columns=columns, rows=rows, provenance=provenance, warnings=warnings,
+            generation_token=str(token), row_evidence=row_evidence, evidence_state=state,
+            evidence_inputs={"sql": sql, "generation": token.generation,
+                             "as_of_release": as_of_release.isoformat() if isinstance(as_of_release, date)
+                             else as_of_release},
+        )
 
     def describe(self) -> ObservationCatalog:
         tables = []
@@ -1014,11 +1152,11 @@ class FakeObservationStore:
                 area_count=len({o.area_code for o in obs if o.area_code}), time_start=min(starts, default=None),
                 time_end=max(ends, default=None), rows=len(obs),
             ))
-        return ObservationCatalog(tables=tables)
+        return ObservationCatalog(columns=dict(OBSERVATION_RELEASE_COLUMNS), tables=tables)
 
 
 def _obs_row(o: Observation) -> tuple[Any, ...]:
     d = o.model_dump(mode="json")
     d["dims"] = json.dumps(o.dims, ensure_ascii=False, sort_keys=True)
     d["value"] = None if o.value is None else str(o.value)
-    return tuple(d[c] for c in OBSERVATION_COLUMNS)
+    return tuple(d[c] for c in OBSERVATION_RELEASE_COLUMNS)
