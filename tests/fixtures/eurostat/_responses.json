@@ -1,0 +1,80 @@
+{
+  "gov_10dd_edpt1_EL_2000-2015.xml": {
+    "url": "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/gov_10dd_edpt1/A.PC_GDP+MIO_EUR.S13.B9+GD.EL?startPeriod=2000&endPeriod=2015",
+    "status": 200,
+    "fetched_at": "2026-10-26T18:07:59+09:00",
+    "bytes": 6486,
+    "sha256": "342be996b03f3a8fa891569046ce0f557f1735ff7355e7a9f52eb5a66e80b5bd",
+    "headers": {
+      "date": "Mon, 26 Oct 2026 09:07:59 GMT",
+      "content-length": "6486",
+      "content-type": "application/vnd.sdmx.genericdata+xml;version=2.1",
+      "content-disposition": "attachment; filename=\"estat_gov_10dd_edpt1_filtered.xml\"",
+      "access-control-allow-headers": "Content-Type, Accept, X-Requested-With",
+      "access-control-allow-methods": "GET",
+      "access-control-allow-origin": "*",
+      "connection": "close"
+    },
+    "sample_type": "captured"
+  },
+  "datastructure_GOV_10DD_EDPT1.xml": {
+    "url": "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/datastructure/ESTAT/GOV_10DD_EDPT1",
+    "status": 200,
+    "fetched_at": "2026-10-26T18:08:00+09:00",
+    "bytes": 6537,
+    "sha256": "0b947c38d7547fc8310f823f1d5bacab4416f62da867fe32cd77457893b0766b",
+    "headers": {
+      "date": "Mon, 26 Oct 2026 09:08:00 GMT",
+      "content-length": "6537",
+      "content-type": "application/vnd.sdmx.structure+xml;version=2.1",
+      "content-disposition": "attachment; filename=\"ESTAT_GOV_10DD_EDPT1_55.0.xml\"",
+      "x-oracle-dms-ecid": "3ed1ba10-06ca-42b8-9c25-1b5c333f64e8-002d5579",
+      "access-control-allow-headers": "Content-Type, Accept, X-Requested-With",
+      "access-control-allow-methods": "GET",
+      "x-oracle-dms-rid": "0",
+      "access-control-allow-origin": "*",
+      "connection": "close"
+    },
+    "sample_type": "captured"
+  },
+  "nama_10_gdp_DE-FR-NL_2020-2024.xml": {
+    "url": "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/nama_10_gdp/A.CP_MEUR.B1GQ.DE+FR+NL?startPeriod=2020&endPeriod=2024",
+    "status": 200,
+    "fetched_at": "2026-10-26T18:08:01+09:00",
+    "bytes": 2813,
+    "sha256": "9113003c7eec65aef1db4584e3fd7f3c4c96f1ded1f9d7a522003ed07d9f4d1a",
+    "headers": {
+      "date": "Mon, 26 Oct 2026 09:08:01 GMT",
+      "content-length": "2813",
+      "content-type": "application/vnd.sdmx.genericdata+xml;version=2.1",
+      "content-disposition": "attachment; filename=\"estat_nama_10_gdp_filtered.xml\"",
+      "x-oracle-dms-ecid": "4c89eb02-824c-40cc-8ef7-b336970f1703-0033c3aa",
+      "access-control-allow-headers": "Content-Type, Accept, X-Requested-With",
+      "access-control-allow-methods": "GET",
+      "x-oracle-dms-rid": "0",
+      "access-control-allow-origin": "*",
+      "connection": "close"
+    },
+    "sample_type": "captured"
+  },
+  "datastructure_NAMA_10_GDP.xml": {
+    "url": "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/datastructure/ESTAT/NAMA_10_GDP",
+    "status": 200,
+    "fetched_at": "2026-10-26T18:08:02+09:00",
+    "bytes": 5996,
+    "sha256": "969c645797bd408a984fcb4eb44b1b622f57fe24e9df803d27ef76071ab1c7ea",
+    "headers": {
+      "date": "Mon, 26 Oct 2026 09:08:02 GMT",
+      "content-length": "5996",
+      "content-type": "application/vnd.sdmx.structure+xml;version=2.1",
+      "content-disposition": "attachment; filename=\"ESTAT_NAMA_10_GDP_141.0.xml\"",
+      "x-oracle-dms-ecid": "242baf3e-dede-427b-a7fc-3acac8f54a48-0024de30",
+      "access-control-allow-headers": "Content-Type, Accept, X-Requested-With",
+      "access-control-allow-methods": "GET",
+      "x-oracle-dms-rid": "0",
+      "access-control-allow-origin": "*",
+      "connection": "close"
+    },
+    "sample_type": "captured"
+  }
+}
