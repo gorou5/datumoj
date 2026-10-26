@@ -1,4 +1,4 @@
-"""分析工具层：每个工具的正常、空结果、错误输入；出处、SourceText、只读、口径提示。全部用 datumoj.testing 的假实现。"""
+"""分析工具层：每个工具的正常、空结果、错误输入；出处、SourceText、只读、口径提示。全部用 datumoj.rikolto.testing 的假实现。"""
 
 from __future__ import annotations
 
@@ -14,10 +14,10 @@ import pytest
 from pydantic import JsonValue
 
 import datumoj
-from datumoj.analysis.glossary import expand_terms, load_glossary
-from datumoj.analysis.tools import INTERNAL_ONLY, AnalysisTools
-from datumoj.core.contracts import ContentState, ParseResult, QueryError, QueryRejected
-from datumoj.core.models import (
+from datumoj.rikolto.analysis.glossary import expand_terms, load_glossary
+from datumoj.rikolto.analysis.tools import INTERNAL_ONLY, AnalysisTools
+from datumoj.rikolto.core.contracts import ContentState, ParseResult, QueryError, QueryRejected
+from datumoj.rikolto.core.models import (
     FetchOutcome,
     LicenseInfo,
     Observation,
@@ -26,7 +26,7 @@ from datumoj.core.models import (
     TimeGranularity,
     UsageScope,
 )
-from datumoj.testing.fakes import (
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChunkStore,
     FakeManifest,
@@ -36,7 +36,7 @@ from datumoj.testing.fakes import (
     FakeRegistry,
     FakeRetriever,
 )
-from datumoj.testing.samples import (
+from datumoj.rikolto.testing.samples import (
     T0,
     make_chunk,
     make_dataset,

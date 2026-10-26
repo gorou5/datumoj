@@ -19,18 +19,18 @@ import pytest
 from typer.testing import CliRunner
 from werkzeug.wrappers import Response
 
-from datumoj import cli, wiring
-from datumoj.core.models import parse_context_fingerprint
-from datumoj.core.contracts import ParseStatus, select_parser
-from datumoj.core.http import PoliteHttpFetcher
-from datumoj.core.models import Citation, DocKind, FetchOutcome, SourceText, TimeBasis, parent_ref
-from datumoj.core.registry import RegistryImpl, load_registry
-from datumoj.core.runner import CrawlDeps
-from datumoj.core.schedule import read_control
-from datumoj.crawlers.gov_web import GovWebCrawler
-from datumoj.index.hybrid import HybridRetriever
-from datumoj.testing.contract_suites import ParserSuite
-from datumoj.testing.samples import ParseSample, make_snapshot
+from datumoj.rikolto import cli, wiring
+from datumoj.rikolto.core.models import parse_context_fingerprint
+from datumoj.rikolto.core.contracts import ParseStatus, select_parser
+from datumoj.rikolto.core.http import PoliteHttpFetcher
+from datumoj.rikolto.core.models import Citation, DocKind, FetchOutcome, SourceText, TimeBasis, parent_ref
+from datumoj.rikolto.core.registry import RegistryImpl, load_registry
+from datumoj.rikolto.core.runner import CrawlDeps
+from datumoj.rikolto.core.schedule import read_control
+from datumoj.rikolto.crawlers.gov_web import GovWebCrawler
+from datumoj.rikolto.index.hybrid import HybridRetriever
+from datumoj.rikolto.testing.contract_suites import ParserSuite
+from datumoj.rikolto.testing.samples import ParseSample, make_snapshot
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "tests/fixtures/gov_web"

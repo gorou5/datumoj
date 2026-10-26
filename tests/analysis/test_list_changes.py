@@ -6,8 +6,8 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.models import (
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.models import (
     ChangeEvent,
     ChangeKind,
     DocKind,
@@ -15,7 +15,7 @@ from datumoj.core.models import (
     Redistribution,
     UsageScope,
 )
-from datumoj.testing.fakes import (
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChangeLog,
     FakeChunkStore,
@@ -25,7 +25,7 @@ from datumoj.testing.fakes import (
     FakeRegistry,
     FakeRetriever,
 )
-from datumoj.testing.samples import T0, make_chunk, make_document, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_chunk, make_document, make_snapshot, make_spec
 
 
 @pytest.fixture
@@ -124,7 +124,7 @@ def test_list_changes_defaults_to_the_last_seven_days(env, monkeypatch):
         def now(cls, tz=None):
             return T0 + timedelta(days=1)
 
-    monkeypatch.setattr("datumoj.analysis.tools.datetime", FrozenDateTime)
+    monkeypatch.setattr("datumoj.rikolto.analysis.tools.datetime", FrozenDateTime)
     change_log.append([
         ChangeEvent.make(
             source_id="jp-test", kind=ChangeKind.added, doc_key="jp-test:a",

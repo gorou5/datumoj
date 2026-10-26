@@ -3,12 +3,12 @@
 import sqlite3
 from datetime import timedelta
 
-from datumoj.core.contracts import ParseRecord, ParseStatus
-from datumoj.core.manifest import SqliteManifest
-from datumoj.core.models import PublishState, parse_context_fingerprint
-from datumoj.pipeline import PipelineDeps, parse_pending
-from datumoj.store.chunks import SqliteChunkStore
-from datumoj.testing.fakes import (
+from datumoj.rikolto.core.contracts import ParseRecord, ParseStatus
+from datumoj.rikolto.core.manifest import SqliteManifest
+from datumoj.rikolto.core.models import PublishState, parse_context_fingerprint
+from datumoj.rikolto.pipeline import PipelineDeps, parse_pending
+from datumoj.rikolto.store.chunks import SqliteChunkStore
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeKeywordIndex,
     FakeObservationStore,
@@ -16,7 +16,7 @@ from datumoj.testing.fakes import (
     FakeRawStore,
     FakeRegistry,
 )
-from datumoj.testing.samples import T0, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 
 KEY = "jp-test:version.txt"
 URL = "https://example.go.jp/version.txt"

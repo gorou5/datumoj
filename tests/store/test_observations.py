@@ -5,11 +5,11 @@ from decimal import Decimal
 import duckdb
 import pytest
 
-from datumoj.core.contracts import QueryError, QueryRejected, QueryTimeout
-from datumoj.core.models import SnapshotOrder
-from datumoj.store.observations import DuckDBObservationStore
-from datumoj.testing.contract_suites import ObservationStoreSuite
-from datumoj.testing.samples import T0, make_observation
+from datumoj.rikolto.core.contracts import QueryError, QueryRejected, QueryTimeout
+from datumoj.rikolto.core.models import SnapshotOrder
+from datumoj.rikolto.store.observations import DuckDBObservationStore
+from datumoj.rikolto.testing.contract_suites import ObservationStoreSuite
+from datumoj.rikolto.testing.samples import T0, make_observation
 
 
 class TestDuckDBObservationStore(ObservationStoreSuite):
@@ -276,7 +276,7 @@ def test_describe_several_tables(tmp_path):
 def test_table_and_watermark_share_atomic_replace(tmp_path, monkeypatch, empty):
     import pyarrow.parquet as pq
 
-    import datumoj.store.observations as module
+    import datumoj.rikolto.store.observations as module
 
     store = DuckDBObservationStore(tmp_path / "obs")
     older = SnapshotOrder(fetched_at=T0, seq=1)

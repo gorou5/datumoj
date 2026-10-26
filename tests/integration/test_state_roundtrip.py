@@ -11,15 +11,15 @@ import boto3
 import httpx
 from moto import mock_aws
 
-from datumoj import wiring
-from datumoj.core.contracts import ParseResult
-from datumoj.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
-from datumoj.core.runner import CrawlDeps
-from datumoj.core.state import StateManager
-from datumoj.core.state_s3 import S3StateObjectStore
-from datumoj.core.storage import StorageConfig
-from datumoj.testing.fakes import FakeCrawler, FakeParser, FakeRegistry
-from datumoj.testing.samples import T0, make_observation, make_spec
+from datumoj.rikolto import wiring
+from datumoj.rikolto.core.contracts import ParseResult
+from datumoj.rikolto.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
+from datumoj.rikolto.core.runner import CrawlDeps
+from datumoj.rikolto.core.state import StateManager
+from datumoj.rikolto.core.state_s3 import S3StateObjectStore
+from datumoj.rikolto.core.storage import StorageConfig
+from datumoj.rikolto.testing.fakes import FakeCrawler, FakeParser, FakeRegistry
+from datumoj.rikolto.testing.samples import T0, make_observation, make_spec
 
 
 class SyntheticParser(FakeParser):

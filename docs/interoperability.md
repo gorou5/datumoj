@@ -11,7 +11,7 @@
 - 数据源 → `schemas/registry/data-source.schema.json`
 - 可复用模块 → `schemas/registry/module.schema.json`
 
-注：`schemas/` 根目录是内部数据契约，由 `src/datumoj` 的模型导出并有契约测试锁定
+注：`schemas/` 根目录是内部数据契约，由 `src/datumoj/rikolto` 的模型导出并有契约测试锁定
 （`export_schemas` 会清理多余的 `*.schema.json`），注册层标准不要直接放根目录。
 
 ### 1.1 公共字段（所有模块）
@@ -110,7 +110,7 @@
 
 ## 与 DATUMOJ 内部模型的映射
 
-`datumoj registry export` 将 `sources/*.yaml` 转成 `catalog/<id>.json`，输出仅包含
+`rikolto registry export` 将 `sources/*.yaml` 转成 `catalog/<id>.json`，输出仅包含
 `schemas/registry/data-source.schema.json` 定义的字段。字段映射如下：
 
 | `sources/*.yaml` | 注册层描述 |

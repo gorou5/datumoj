@@ -5,10 +5,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-from datumoj.core.contracts import Registry, RegistryError
-from datumoj.core.models import Redistribution, UsageScope
-from datumoj.core.registry import RegistryImpl, load_registry
-from datumoj.testing.contract_suites import RegistrySuite
+from datumoj.rikolto.core.contracts import Registry, RegistryError
+from datumoj.rikolto.core.models import Redistribution, UsageScope
+from datumoj.rikolto.core.registry import RegistryImpl, load_registry
+from datumoj.rikolto.testing.contract_suites import RegistrySuite
 
 
 class TestRegistryConformance(RegistrySuite):

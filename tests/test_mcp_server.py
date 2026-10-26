@@ -10,10 +10,10 @@ from typing import Any
 import pytest
 from mcp import Client
 
-from datumoj import mcp_server
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.models import ChangeEvent, ChangeKind, Observation, TimeGranularity
-from datumoj.testing.fakes import (
+from datumoj.rikolto import mcp_server
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.models import ChangeEvent, ChangeKind, Observation, TimeGranularity
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChangeLog,
     FakeChunkStore,
@@ -24,7 +24,7 @@ from datumoj.testing.fakes import (
     FakeRegistry,
     FakeRetriever,
 )
-from datumoj.testing.samples import T0, make_dataset, make_resource, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_dataset, make_resource, make_snapshot, make_spec
 
 TEXT = "お知らせ\n\n人口統計の公開について。"
 TOOLS = {"search_docs", "list_changes", "search_catalog", "query_sql", "get_chunk", "cite", "version", "coverage"}

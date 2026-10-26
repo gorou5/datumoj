@@ -1,11 +1,11 @@
 from datetime import date, timedelta
 
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.models import DocKind, GapState
-from datumoj.index.fts import SqliteKeywordIndex
-from datumoj.index.hybrid import HybridRetriever, MAX_RECALL_CANDIDATES
-from datumoj.index.vector import LanceVectorIndex
-from datumoj.testing.fakes import (
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.models import DocKind, GapState
+from datumoj.rikolto.index.fts import SqliteKeywordIndex
+from datumoj.rikolto.index.hybrid import HybridRetriever, MAX_RECALL_CANDIDATES
+from datumoj.rikolto.index.vector import LanceVectorIndex
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChunkStore,
     FakeEmbedder,
@@ -15,7 +15,7 @@ from datumoj.testing.fakes import (
     FakeRawStore,
     FakeRegistry,
 )
-from datumoj.testing.samples import T0, make_chunk, make_document, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_chunk, make_document, make_snapshot, make_spec
 
 
 def add_document(chunks, manifest, index, number, text, *, published_at=None, kind=None, title_path=None):

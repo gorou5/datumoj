@@ -8,13 +8,13 @@ from contextlib import closing
 import pytest
 from typer.testing import CliRunner
 
-from datumoj import cli, wiring
-from datumoj.core.models import StoreCopy
-from datumoj.core.state import StateError, StateManager
-from datumoj.index.fts import SqliteKeywordIndex
-from datumoj.index.vector import LanceVectorIndex
-from datumoj.testing.fakes import FakeEmbedder, FakeParser, FakeRegistry, FakeStateObjectStore
-from datumoj.testing.samples import make_chunk, make_snapshot, make_spec
+from datumoj.rikolto import cli, wiring
+from datumoj.rikolto.core.models import StoreCopy
+from datumoj.rikolto.core.state import StateError, StateManager
+from datumoj.rikolto.index.fts import SqliteKeywordIndex
+from datumoj.rikolto.index.vector import LanceVectorIndex
+from datumoj.rikolto.testing.fakes import FakeEmbedder, FakeParser, FakeRegistry, FakeStateObjectStore
+from datumoj.rikolto.testing.samples import make_chunk, make_snapshot, make_spec
 
 BLOCK_SIZE = 256 * 1024
 
@@ -222,7 +222,7 @@ def test_legacy_whole_file_generation_with_keyword_restores(corpus, tmp_path, wi
 
 
 def test_rebuild_or_provenance_failure_does_not_deliver_directory(corpus, tmp_path, monkeypatch):
-    from datumoj.core import state
+    from datumoj.rikolto.core import state
 
     _, _, manager, _ = corpus
     manager.push()

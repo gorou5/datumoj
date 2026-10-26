@@ -1,8 +1,8 @@
-from datumoj.core.contracts import IndexResult, ScoredChunk
-from datumoj.core.models import GapState, MatchedBy
-from datumoj.index.hybrid import DEFAULT_MIN_VECTOR_SCORE, HybridRetriever
-from datumoj.testing.contract_suites import retrieval_corpus
-from datumoj.testing.fakes import (
+from datumoj.rikolto.core.contracts import IndexResult, ScoredChunk
+from datumoj.rikolto.core.models import GapState, MatchedBy
+from datumoj.rikolto.index.hybrid import DEFAULT_MIN_VECTOR_SCORE, HybridRetriever
+from datumoj.rikolto.testing.contract_suites import retrieval_corpus
+from datumoj.rikolto.testing.fakes import (
     FakeChunkStore,
     FakeEmbedder,
     FakeKeywordIndex,

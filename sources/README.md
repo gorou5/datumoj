@@ -1,6 +1,6 @@
 # 来源注册表
 
-每个来源放在一个 `sources/<id>.yaml` 文件中。文件内容直接按 `datumoj.core.contracts.SourceSpec` 校验；`id` 必须符合契约格式，且与文件名一致。注册表只保存配置，不读取或展开环境变量。
+每个来源放在一个 `sources/<id>.yaml` 文件中。文件内容直接按 `datumoj.rikolto.core.contracts.SourceSpec` 校验；`id` 必须符合契约格式，且与文件名一致。注册表只保存配置，不读取或展开环境变量。
 
 ## 字段
 

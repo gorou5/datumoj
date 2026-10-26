@@ -8,9 +8,9 @@ COPY src/ ./src/
 COPY sources/ ./sources/
 COPY schemas/ ./schemas/
 RUN uv sync --frozen --no-dev \
-    && useradd --create-home --uid 10001 datumoj
+    && useradd --create-home --uid 10001 rikolto
 
 ENV PATH="/app/.venv/bin:$PATH" PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 USER 10001:10001
-ENTRYPOINT ["datumoj"]
+ENTRYPOINT ["rikolto"]
 CMD ["cloud", "run"]

@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from datumoj.core import models as m
-from datumoj.core.models import (
+from datumoj.rikolto.core import models as m
+from datumoj.rikolto.core.models import (
     Chunk,
     Citation,
     Dataset,

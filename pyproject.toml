@@ -22,7 +22,9 @@ dependencies = [
 ]
 
 [project.scripts]
-datumoj = "datumoj.cli:app"
+rikolto = "datumoj.rikolto.cli:app"
+# Temporary shortcut: 本机重装 launchd 并核对 JMA 无缺口后删除 datumoj 别名。
+datumoj = "datumoj.rikolto.cli:app"
 
 [dependency-groups]
 dev = [

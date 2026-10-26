@@ -7,11 +7,11 @@ import httpx
 import pytest
 from werkzeug.wrappers import Response
 
-from datumoj.core.http import PoliteHttpFetcher, RobotsCache, RobotsRules
-from datumoj.core.models import FetchOutcome
-from datumoj.core.runner import CrawlDeps, run_crawl
-from datumoj.testing.fakes import FakeCrawler, FakeHttpFetcher, FakeManifest, FakeRawStore
-from datumoj.testing.samples import T0, make_snapshot, make_spec
+from datumoj.rikolto.core.http import PoliteHttpFetcher, RobotsCache, RobotsRules
+from datumoj.rikolto.core.models import FetchOutcome
+from datumoj.rikolto.core.runner import CrawlDeps, run_crawl
+from datumoj.rikolto.testing.fakes import FakeCrawler, FakeHttpFetcher, FakeManifest, FakeRawStore
+from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 
 BASE = "https://example.go.jp"
 URL = f"{BASE}/file.pdf"

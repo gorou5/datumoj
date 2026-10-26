@@ -1,6 +1,6 @@
 # Add this file and --profile ollama only when running NAS embeddings.
 services:
-  datumoj:
+  rikolto:
     network_mode: "service:ollama"
     depends_on:
       - ollama

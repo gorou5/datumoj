@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from datumoj.testing.contract_suites import ParserSuite
-from datumoj.testing.samples import ParseSample, make_snapshot
-from datumoj.wiring import _CkanPages
+from datumoj.rikolto.testing.contract_suites import ParserSuite
+from datumoj.rikolto.testing.samples import ParseSample, make_snapshot
+from datumoj.rikolto.wiring import _CkanPages
 
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "ckan_egov"

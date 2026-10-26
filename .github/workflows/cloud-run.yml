@@ -4,7 +4,7 @@ name: Cloud run
   workflow_dispatch:
 
 concurrency:
-  group: datumoj-cloud-run
+  group: rikolto-cloud-run
   cancel-in-progress: false
 
 permissions:
@@ -60,4 +60,4 @@ jobs:
           DATUMOJ_S3_BUCKET: ${{ secrets.DATUMOJ_S3_BUCKET }}
           DATUMOJ_S3_PREFIX: ${{ secrets.DATUMOJ_S3_PREFIX }}
           DATUMOJ_RAW_BACKEND: s3
-        run: uv run --frozen datumoj cloud run --max-embed 1000 --max-minutes 40
+        run: uv run --frozen rikolto cloud run --max-embed 1000 --max-minutes 40

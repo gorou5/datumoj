@@ -1,8 +1,8 @@
 """Regression for audit D-05: aggregate queries must report unavailable row evidence."""
 
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.store.observations import DuckDBObservationStore
-from datumoj.testing.fakes import (
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.store.observations import DuckDBObservationStore
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChunkStore,
     FakeManifest,
@@ -10,7 +10,7 @@ from datumoj.testing.fakes import (
     FakeRegistry,
     FakeRetriever,
 )
-from datumoj.testing.samples import make_observation, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import make_observation, make_snapshot, make_spec
 
 
 def test_aggregate_without_obs_id_is_not_complete(tmp_path):

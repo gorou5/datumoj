@@ -7,11 +7,11 @@ from types import SimpleNamespace
 
 from starlette.testclient import TestClient
 
-from datumoj.admin import create_app
-from datumoj.core.monitor import evaluate_alerts
-from datumoj.core.schedule import Scheduler, _locked, set_enabled
-from datumoj.testing.fakes import FakeManifest, FakeRawStore, FakeRegistry
-from datumoj.testing.samples import T0, make_spec
+from datumoj.rikolto.admin import create_app
+from datumoj.rikolto.core.monitor import evaluate_alerts
+from datumoj.rikolto.core.schedule import Scheduler, _locked, set_enabled
+from datumoj.rikolto.testing.fakes import FakeManifest, FakeRawStore, FakeRegistry
+from datumoj.rikolto.testing.samples import T0, make_spec
 
 
 def _scheduler(tmp_path, *, execute=None, schedule="manual"):
@@ -179,7 +179,7 @@ def _admin_app(tmp_path, run_now=None):
 
 
 def test_admin_reports_thread_creation_failure_with_escaped_reason(tmp_path, monkeypatch):
-    import datumoj.admin.web as web
+    import datumoj.rikolto.admin.web as web
 
     class BrokenThread:
         def __init__(self, **_):
@@ -201,7 +201,7 @@ def test_admin_reports_thread_creation_failure_with_escaped_reason(tmp_path, mon
 
 
 def test_admin_reports_first_worker_step_failure(tmp_path, monkeypatch):
-    import datumoj.admin.web as web
+    import datumoj.rikolto.admin.web as web
 
     class InlineThread:
         def __init__(self, *, target, **_):

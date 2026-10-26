@@ -19,15 +19,15 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
-from datumoj import cli, wiring
-from datumoj.core.models import parse_context_fingerprint
-from datumoj.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
-from datumoj.core.models import Citation, FetchOutcome, SourceText, TimeBasis
-from datumoj.core.runner import CrawlDeps
-from datumoj.crawlers.egov_law import EgovLawCrawler
-from datumoj.eval import evaluate, load_questions, write_reports
-from datumoj.index.hybrid import HybridRetriever
-from datumoj.parsers.xml_law import LawXMLParser
+from datumoj.rikolto import cli, wiring
+from datumoj.rikolto.core.models import parse_context_fingerprint
+from datumoj.rikolto.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
+from datumoj.rikolto.core.models import Citation, FetchOutcome, SourceText, TimeBasis
+from datumoj.rikolto.core.runner import CrawlDeps
+from datumoj.rikolto.crawlers.egov_law import EgovLawCrawler
+from datumoj.rikolto.eval import evaluate, load_questions, write_reports
+from datumoj.rikolto.index.hybrid import HybridRetriever
+from datumoj.rikolto.parsers.xml_law import LawXMLParser
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "tests/fixtures/egov_law"

@@ -2,19 +2,19 @@ from __future__ import annotations
 
 import pytest
 
-from datumoj.core.budget import (
+from datumoj.rikolto.core.budget import (
     PARSE_BUDGET_META_KEY,
     BudgetChecker,
     BudgetExceeded,
     ParseBudget,
 )
-from datumoj.core.contracts import CrawlContext, Crawler, FetchResult, FetchTask, ParseRecord, ParseStatus
-from datumoj.core.models import ChangeKind, PublishState, parse_context_fingerprint
-from datumoj.core.runner import CrawlDeps, run_crawl
-from datumoj.parsers.html_page import HtmlPageParser
-from datumoj.parsers.pdf import PdfParser
-from datumoj.pipeline import PipelineDeps, parse_pending
-from datumoj.testing.fakes import (
+from datumoj.rikolto.core.contracts import CrawlContext, Crawler, FetchResult, FetchTask, ParseRecord, ParseStatus
+from datumoj.rikolto.core.models import ChangeKind, PublishState, parse_context_fingerprint
+from datumoj.rikolto.core.runner import CrawlDeps, run_crawl
+from datumoj.rikolto.parsers.html_page import HtmlPageParser
+from datumoj.rikolto.parsers.pdf import PdfParser
+from datumoj.rikolto.pipeline import PipelineDeps, parse_pending
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChangeLog,
     FakeChunkStore,
@@ -25,7 +25,7 @@ from datumoj.testing.fakes import (
     FakeRawStore,
     FakeRegistry,
 )
-from datumoj.testing.samples import T0, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 
 
 class Clock:
@@ -118,7 +118,7 @@ class _FakePdf:
 
 
 def test_pdf_parser_checks_pages_text_and_output_chunks(monkeypatch):
-    from datumoj.parsers import pdf
+    from datumoj.rikolto.parsers import pdf
 
     monkeypatch.setattr(pdf.pdfium, "PdfDocument", lambda data: _FakePdf())
     data = b"%PDF-synthetic"
@@ -224,7 +224,7 @@ def test_new_default_budget_context_rechecks_legacy_parser_success(monkeypatch):
             return super().parse(snapshot, data, meta)
 
     monkeypatch.setattr(
-        "datumoj.pipeline.ParseBudget.from_scope",
+        "datumoj.rikolto.pipeline.ParseBudget.from_scope",
         lambda scope: ParseBudget(max_output_chunks=1),
     )
     spec = make_spec()

@@ -13,15 +13,15 @@ import pytest
 from moto import mock_aws
 from typer.testing import CliRunner
 
-from datumoj import cli, mcp_server, wiring
-from datumoj.core.models import StateWriter
-from datumoj.core import pull as pull_module
-from datumoj.core.pull import PullError, pull
-from datumoj.core.state import StateManager
-from datumoj.core.state_s3 import S3StateObjectStore
-from datumoj.core.storage import StorageConfig
-from datumoj.testing.fakes import FakeParser, FakeRegistry
-from datumoj.testing.samples import T0, make_snapshot, make_spec
+from datumoj.rikolto import cli, mcp_server, wiring
+from datumoj.rikolto.core.models import StateWriter
+from datumoj.rikolto.core import pull as pull_module
+from datumoj.rikolto.core.pull import PullError, pull
+from datumoj.rikolto.core.state import StateManager
+from datumoj.rikolto.core.state_s3 import S3StateObjectStore
+from datumoj.rikolto.core.storage import StorageConfig
+from datumoj.rikolto.testing.fakes import FakeParser, FakeRegistry
+from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 
 _BUCKET = "synthetic-pull-bucket"
 _ENDPOINT = "https://s3.amazonaws.com"

@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
 
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.models import LicenseInfo, Redistribution, UsageScope
-from datumoj.testing.fakes import (
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.models import LicenseInfo, Redistribution, UsageScope
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChunkStore,
     FakeManifest,
@@ -12,8 +12,8 @@ from datumoj.testing.fakes import (
     FakeRegistry,
     FakeRetriever,
 )
-from datumoj.testing.samples import T0, make_dataset, make_snapshot, make_spec
-from datumoj.wiring import _CkanPages
+from datumoj.rikolto.testing.samples import T0, make_dataset, make_snapshot, make_spec
+from datumoj.rikolto.wiring import _CkanPages
 
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "ckan_egov"

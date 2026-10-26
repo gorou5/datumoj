@@ -8,9 +8,9 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from datumoj.core.contracts import ChangeLog, FetchTask, ParseRecord, ParseStatus, RawStore
-from datumoj.core.manifest import SqliteManifest
-from datumoj.core.models import (
+from datumoj.rikolto.core.contracts import ChangeLog, FetchTask, ParseRecord, ParseStatus, RawStore
+from datumoj.rikolto.core.manifest import SqliteManifest
+from datumoj.rikolto.core.models import (
     META_PARENT_SHA256,
     META_PARENT_URL,
     ChangeEvent,
@@ -27,10 +27,10 @@ from datumoj.core.models import (
     parent_ref,
     redact_url,
 )
-from datumoj.core.rawstore import FileRawStore
-from datumoj.testing.contract_suites import ChangeLogSuite, ManifestSuite
-from datumoj.testing.fakes import FakeChangeLog, FakeManifest, FakeParser, FakeRawStore
-from datumoj.testing.samples import T0, make_dataset, make_document, make_snapshot, sha
+from datumoj.rikolto.core.rawstore import FileRawStore
+from datumoj.rikolto.testing.contract_suites import ChangeLogSuite, ManifestSuite
+from datumoj.rikolto.testing.fakes import FakeChangeLog, FakeManifest, FakeParser, FakeRawStore
+from datumoj.rikolto.testing.samples import T0, make_dataset, make_document, make_snapshot, sha
 
 URL = "https://example.go.jp/page?appId=REDACTED"
 OLD, NEW = sha(b"old"), sha(b"new")

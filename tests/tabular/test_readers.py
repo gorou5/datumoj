@@ -7,9 +7,9 @@ from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile
 import pytest
 from openpyxl import Workbook
 
-from datumoj import tabular
-from datumoj.core.models import parse_locator
-from datumoj.tabular import ArchiveLimitError, detect_header, read_csv, read_xlsx, read_zip, sniff
+from datumoj.rikolto import tabular
+from datumoj.rikolto.core.models import parse_locator
+from datumoj.rikolto.tabular import ArchiveLimitError, detect_header, read_csv, read_xlsx, read_zip, sniff
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "tabular"
 

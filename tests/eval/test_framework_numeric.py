@@ -1,8 +1,8 @@
 from decimal import Decimal
 
-from datumoj.eval import Question, evaluate
-from datumoj.testing.fakes import FakeChunkStore, FakeManifest, FakeObservationStore, FakeRegistry, FakeRetriever
-from datumoj.testing.samples import make_chunk, make_document, make_observation, make_snapshot, make_spec
+from datumoj.rikolto.eval import Question, evaluate
+from datumoj.rikolto.testing.fakes import FakeChunkStore, FakeManifest, FakeObservationStore, FakeRegistry, FakeRetriever
+from datumoj.rikolto.testing.samples import make_chunk, make_document, make_observation, make_snapshot, make_spec
 
 
 def _fixture(row_value=Decimal("42")):

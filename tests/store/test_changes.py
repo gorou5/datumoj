@@ -2,9 +2,9 @@ from datetime import timedelta, timezone
 
 import pytest
 
-from datumoj.store.changes import SqliteChangeLog
-from datumoj.testing.contract_suites import ChangeLogSuite
-from datumoj.testing.samples import T0
+from datumoj.rikolto.store.changes import SqliteChangeLog
+from datumoj.rikolto.testing.contract_suites import ChangeLogSuite
+from datumoj.rikolto.testing.samples import T0
 
 
 class TestSqliteChangeLog(ChangeLogSuite):

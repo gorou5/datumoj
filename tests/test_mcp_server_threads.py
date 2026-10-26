@@ -10,14 +10,14 @@ from contextlib import contextmanager
 import pytest
 from mcp import Client
 
-from datumoj import mcp_server
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.manifest import SqliteManifest
-from datumoj.core.rawstore import FileRawStore
-from datumoj.index.fts import SqliteKeywordIndex
-from datumoj.store.chunks import SqliteChunkStore
-from datumoj.testing.fakes import FakeCatalogStore, FakeObservationStore, FakeParser, FakeRegistry, FakeRetriever
-from datumoj.testing.samples import T0, make_snapshot, make_spec
+from datumoj.rikolto import mcp_server
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.manifest import SqliteManifest
+from datumoj.rikolto.core.rawstore import FileRawStore
+from datumoj.rikolto.index.fts import SqliteKeywordIndex
+from datumoj.rikolto.store.chunks import SqliteChunkStore
+from datumoj.rikolto.testing.fakes import FakeCatalogStore, FakeObservationStore, FakeParser, FakeRegistry, FakeRetriever
+from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 
 TEXT = "お知らせ\n\n人口統計の公開について。"
 SNAPSHOT = make_snapshot("jp-open", "https://example.go.jp/notice.txt", TEXT.encode(), fetched_at=T0)

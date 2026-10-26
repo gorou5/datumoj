@@ -5,13 +5,13 @@ from mcp import Client
 from starlette.testclient import TestClient
 from typer.testing import CliRunner
 
-from datumoj import cli, mcp_server
-from datumoj.admin import create_app
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.contracts import ParseRecord, ParseStatus
-from datumoj.core.models import FetchOutcome, GapState, parse_context_fingerprint
-from datumoj.core.schedule import Scheduler
-from datumoj.index.coverage import (
+from datumoj.rikolto import cli, mcp_server
+from datumoj.rikolto.admin import create_app
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.contracts import ParseRecord, ParseStatus
+from datumoj.rikolto.core.models import FetchOutcome, GapState, parse_context_fingerprint
+from datumoj.rikolto.core.schedule import Scheduler
+from datumoj.rikolto.index.coverage import (
     INDEX_REBUILDING,
     NOT_INDEXED_MAJORITY,
     gap_state,
@@ -19,8 +19,8 @@ from datumoj.index.coverage import (
     pipeline_status,
     rebuilding_index,
 )
-from datumoj.index.hybrid import HybridRetriever
-from datumoj.testing.fakes import (
+from datumoj.rikolto.index.hybrid import HybridRetriever
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChunkStore,
     FakeKeywordIndex,
@@ -30,7 +30,7 @@ from datumoj.testing.fakes import (
     FakeRawStore,
     FakeRegistry,
 )
-from datumoj.testing.samples import T0, make_chunk, make_document, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_chunk, make_document, make_snapshot, make_spec
 
 
 def _env(tmp_path, *, source_ids=("jp-test",)):

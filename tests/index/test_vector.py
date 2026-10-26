@@ -5,11 +5,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-from datumoj.core.contracts import EmbeddingError, ModelMismatch
-from datumoj.index.embed import HashEmbedder, OllamaEmbedder
-from datumoj.index.vector import LanceVectorIndex
-from datumoj.testing.contract_suites import EmbedderSuite, VectorIndexSuite
-from datumoj.testing.samples import make_chunk
+from datumoj.rikolto.core.contracts import EmbeddingError, ModelMismatch
+from datumoj.rikolto.index.embed import HashEmbedder, OllamaEmbedder
+from datumoj.rikolto.index.vector import LanceVectorIndex
+from datumoj.rikolto.testing.contract_suites import EmbedderSuite, VectorIndexSuite
+from datumoj.rikolto.testing.samples import make_chunk
 
 SHA = "ab" * 32
 

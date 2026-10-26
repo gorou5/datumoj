@@ -2,12 +2,12 @@ from datetime import date, timedelta
 
 import pytest
 
-from datumoj.core.contracts import EmbeddingError, IndexResult, ModelMismatch, ScoredChunk, citation_for_chunk
-from datumoj.core.models import FetchOutcome, Freshness, GapState, MatchedBy, SourceText, TimeBasis
-from datumoj.index.coverage import gap_state
-from datumoj.index.hybrid import HybridRetriever
-from datumoj.testing.contract_suites import RetrieverSuite, retrieval_corpus
-from datumoj.testing.fakes import (
+from datumoj.rikolto.core.contracts import EmbeddingError, IndexResult, ModelMismatch, ScoredChunk, citation_for_chunk
+from datumoj.rikolto.core.models import FetchOutcome, Freshness, GapState, MatchedBy, SourceText, TimeBasis
+from datumoj.rikolto.index.coverage import gap_state
+from datumoj.rikolto.index.hybrid import HybridRetriever
+from datumoj.rikolto.testing.contract_suites import RetrieverSuite, retrieval_corpus
+from datumoj.rikolto.testing.fakes import (
     FakeChunkStore,
     FakeEmbedder,
     FakeKeywordIndex,
@@ -15,7 +15,7 @@ from datumoj.testing.fakes import (
     FakeRegistry,
     FakeVectorIndex,
 )
-from datumoj.testing.samples import T0, RetrievalCorpus, make_chunk, make_document, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, RetrievalCorpus, make_chunk, make_document, make_snapshot, make_spec
 
 
 def build(corpus=None, *, vector=True):
@@ -351,11 +351,11 @@ def test_source_text_stays_in_snippet_and_never_in_gap_detail():
 
 
 def test_real_dependencies_with_local_deterministic_embeddings(tmp_path):
-    from datumoj.core.manifest import SqliteManifest
-    from datumoj.core.registry import RegistryImpl
-    from datumoj.index.fts import SqliteKeywordIndex
-    from datumoj.index.vector import LanceVectorIndex
-    from datumoj.store.chunks import SqliteChunkStore
+    from datumoj.rikolto.core.manifest import SqliteManifest
+    from datumoj.rikolto.core.registry import RegistryImpl
+    from datumoj.rikolto.index.fts import SqliteKeywordIndex
+    from datumoj.rikolto.index.vector import LanceVectorIndex
+    from datumoj.rikolto.store.chunks import SqliteChunkStore
 
     corpus = retrieval_corpus()
     chunks = SqliteChunkStore(tmp_path / "chunks.db")

@@ -9,9 +9,9 @@ from pathlib import Path
 
 import yaml
 
-from datumoj.core.contracts import SourceSpec
-from datumoj.core.models import Snapshot, format_locator
-from datumoj.eval import load_questions
+from datumoj.rikolto.core.contracts import SourceSpec
+from datumoj.rikolto.core.models import Snapshot, format_locator
+from datumoj.rikolto.eval import load_questions
 
 ROOT = Path(__file__).parents[2]
 EVAL_EXTRA = ROOT / "tests" / "fixtures" / "eval_extra"
@@ -167,7 +167,7 @@ def test_non_japanese_questions_are_rewritten_as_japanese_subqueries():
 
 
 def test_skill_has_seven_rules_safety_boundary_and_three_real_examples():
-    skill = (ROOT / "skills" / "datumoj" / "SKILL.md").read_text(encoding="utf-8")
+    skill = (ROOT / "skills" / "rikolto" / "SKILL.md").read_text(encoding="utf-8")
     rules = [line for line in skill.splitlines() if line[:1].isdigit() and line[1:3] == ". "]
     assert len(rules) == 7
     for phrase in (

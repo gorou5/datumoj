@@ -6,20 +6,20 @@ from pathlib import Path
 
 import pytest
 
-from datumoj.core.models import parse_context_fingerprint
-from datumoj.core.contracts import ContentState, ParseResult
-from datumoj.core.manifest import SqliteManifest
-from datumoj.core.models import Dataset, FetchOutcome, Resource, Snapshot
-from datumoj.core.rawstore import FileRawStore
-from datumoj.pipeline import PipelineDeps, parse_pending, reindex
-from datumoj.store.catalog import SqliteCatalogStore
-from datumoj.testing.fakes import (
+from datumoj.rikolto.core.models import parse_context_fingerprint
+from datumoj.rikolto.core.contracts import ContentState, ParseResult
+from datumoj.rikolto.core.manifest import SqliteManifest
+from datumoj.rikolto.core.models import Dataset, FetchOutcome, Resource, Snapshot
+from datumoj.rikolto.core.rawstore import FileRawStore
+from datumoj.rikolto.pipeline import PipelineDeps, parse_pending, reindex
+from datumoj.rikolto.store.catalog import SqliteCatalogStore
+from datumoj.rikolto.testing.fakes import (
     FakeChunkStore,
     FakeKeywordIndex,
     FakeObservationStore,
     FakeRegistry,
 )
-from datumoj.testing.samples import T0, make_spec
+from datumoj.rikolto.testing.samples import T0, make_spec
 
 SOURCE_ID = "jp-egov-data"
 FIXTURES = Path(__file__).parent / "fixtures" / "ckan_egov"

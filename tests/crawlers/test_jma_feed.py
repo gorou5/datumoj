@@ -7,13 +7,13 @@ import pytest
 import yaml
 from lxml import etree
 
-from datumoj.core.contracts import ParseError, SourceSpec
-from datumoj.core.models import FetchOutcome
-from datumoj.crawlers.jma_feed import FEED_URL, JmaFeedCrawler
-from datumoj.parsers.jma_xml import JmaXmlParser
-from datumoj.testing.contract_suites import CrawlerSuite, ParserSuite
-from datumoj.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore, drive_crawler
-from datumoj.testing.samples import ParseSample, T0, make_snapshot, make_spec
+from datumoj.rikolto.core.contracts import ParseError, SourceSpec
+from datumoj.rikolto.core.models import FetchOutcome
+from datumoj.rikolto.crawlers.jma_feed import FEED_URL, JmaFeedCrawler
+from datumoj.rikolto.parsers.jma_xml import JmaXmlParser
+from datumoj.rikolto.testing.contract_suites import CrawlerSuite, ParserSuite
+from datumoj.rikolto.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore, drive_crawler
+from datumoj.rikolto.testing.samples import ParseSample, T0, make_snapshot, make_spec
 
 FIXTURES = Path(__file__).parents[2] / "tests" / "fixtures" / "jma"
 ATOM = "http://www.w3.org/2005/Atom"

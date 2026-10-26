@@ -9,13 +9,13 @@ from pathlib import Path
 import pytest
 from openpyxl import load_workbook
 
-from datumoj.core.contracts import CrawlContext, ParseError, ParseResult, discover_crawlers, discover_parsers
-from datumoj.core.registry import load_registry
-from datumoj.crawlers.estat_files import EstatFilesCrawler
-from datumoj.parsers.estat_tables import EstatTableParser
-from datumoj.testing.contract_suites import CrawlerSuite, ParserSuite
-from datumoj.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore, FakeResponse, drive_crawler
-from datumoj.testing.samples import T0, ParseSample, make_snapshot
+from datumoj.rikolto.core.contracts import CrawlContext, ParseError, ParseResult, discover_crawlers, discover_parsers
+from datumoj.rikolto.core.registry import load_registry
+from datumoj.rikolto.crawlers.estat_files import EstatFilesCrawler
+from datumoj.rikolto.parsers.estat_tables import EstatTableParser
+from datumoj.rikolto.testing.contract_suites import CrawlerSuite, ParserSuite
+from datumoj.rikolto.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore, FakeResponse, drive_crawler
+from datumoj.rikolto.testing.samples import T0, ParseSample, make_snapshot
 
 ROOT = Path(__file__).parents[2]
 FIXTURES = ROOT / "tests" / "fixtures" / "estat_files"

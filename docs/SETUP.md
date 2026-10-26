@@ -1,3 +1,26 @@
+# Rikolto 本地入口
+
+在仓库根目录安装锁定的依赖并启动 Rikolto：
+
+```bash
+uv sync --frozen
+uv run --frozen rikolto --help
+uv run --frozen rikolto mcp
+```
+
+Python 模块入口位于 `datumoj.rikolto`；项目包名仍为 `datumoj`。
+Claude Code 中的 MCP 注册名改为 `rikolto`，在仓库根目录重新注册：
+
+```bash
+claude mcp remove datumoj
+claude mcp add rikolto -- uv run --frozen rikolto mcp
+```
+
+回答规则位于 `skills/rikolto/SKILL.md`，MCP 工具名和参数保持不变。
+合并后在原本的本机工作目录执行 `uv run --frozen rikolto schedule launchd install`；
+安装会先卸载旧标签 `com.datumoj.schedule`，再加载 `com.datumoj.rikolto.schedule`。
+核对 JMA 抓取没有缺口后，才能删除为这次切换暂留的 `datumoj` 命令别名。
+
 # 初始化（第一次对话做一次）
 
 人会给出：项目名（英文字母开头，如 `notes`）和任务前缀（大写字母开头的大写字母或数字，如 `NT`）。缺哪个就问。

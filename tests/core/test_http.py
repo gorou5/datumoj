@@ -10,12 +10,12 @@ from urllib import robotparser
 import httpx
 import pytest
 
-from datumoj.core.contracts import UrlNotAllowed
-from datumoj.core.http import PoliteHttpFetcher, Recorded, ReplayTransport, RobotsCache, RobotsRules
-from datumoj.core.models import FetchOutcome
-from datumoj.testing.contract_suites import HttpFetcherSuite
-from datumoj.testing.fakes import UnregisteredUrl
-from datumoj.testing.samples import T0, make_spec
+from datumoj.rikolto.core.contracts import UrlNotAllowed
+from datumoj.rikolto.core.http import PoliteHttpFetcher, Recorded, ReplayTransport, RobotsCache, RobotsRules
+from datumoj.rikolto.core.models import FetchOutcome
+from datumoj.rikolto.testing.contract_suites import HttpFetcherSuite
+from datumoj.rikolto.testing.fakes import UnregisteredUrl
+from datumoj.rikolto.testing.samples import T0, make_spec
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 BASE = "https://example.go.jp"

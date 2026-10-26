@@ -2,12 +2,12 @@
 
 from datetime import timedelta
 
-from datumoj.pipeline import PipelineDeps, parse_pending
-from datumoj.testing.fakes import (
+from datumoj.rikolto.pipeline import PipelineDeps, parse_pending
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore, FakeChunkStore, FakeKeywordIndex, FakeManifest, FakeObservationStore,
     FakeParser, FakeRawStore, FakeRegistry,
 )
-from datumoj.testing.samples import T0, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 
 
 def pipeline():

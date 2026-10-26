@@ -6,11 +6,11 @@ import pytest
 from lancedb.query import LanceQueryBuilder
 from lancedb.table import LanceTable
 
-from datumoj.core.contracts import EmbeddingError
-from datumoj.index.embed import HashEmbedder
-from datumoj.index.vector import LanceVectorIndex
-from datumoj.pipeline import PipelineDeps, reindex
-from datumoj.testing.fakes import (
+from datumoj.rikolto.core.contracts import EmbeddingError
+from datumoj.rikolto.index.embed import HashEmbedder
+from datumoj.rikolto.index.vector import LanceVectorIndex
+from datumoj.rikolto.pipeline import PipelineDeps, reindex
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChunkStore,
     FakeKeywordIndex,
@@ -19,7 +19,7 @@ from datumoj.testing.fakes import (
     FakeRawStore,
     FakeRegistry,
 )
-from datumoj.testing.samples import make_chunk, make_document
+from datumoj.rikolto.testing.samples import make_chunk, make_document
 
 SHA = "ab" * 32
 SHA2 = "cd" * 32

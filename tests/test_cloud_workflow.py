@@ -17,7 +17,7 @@ def load():
 def test_triggers_concurrency_permissions_and_timeout():
     workflow = load()
     assert set(workflow["on"]) == {"workflow_dispatch"}
-    assert workflow["concurrency"] == {"group": "datumoj-cloud-run", "cancel-in-progress": False}
+    assert workflow["concurrency"] == {"group": "rikolto-cloud-run", "cancel-in-progress": False}
     assert workflow["permissions"] == {"contents": "read"}
     assert set(workflow["jobs"]) == {"run"}
     job = workflow["jobs"]["run"]
@@ -68,7 +68,7 @@ def test_actions_pinned_dependencies_frozen_model_cached_and_no_data_artifacts()
     assert cache["with"]["path"] == "~/.ollama/models"
     assert "bge-m3" in cache["with"]["key"]
     assert any("ollama pull bge-m3" in s.get("run", "") for s in steps)
-    command = next(s for s in steps if "datumoj cloud run" in s.get("run", ""))
+    command = next(s for s in steps if "rikolto cloud run" in s.get("run", ""))
     assert "uv run --frozen" in command["run"]
     assert command["env"]["DATUMOJ_RAW_BACKEND"] == "s3"
 

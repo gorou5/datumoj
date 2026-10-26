@@ -5,11 +5,11 @@ from datetime import datetime, timezone
 
 import pytest
 
-from datumoj.crawlers.ckan import CkanCrawler
-from datumoj.core.runner import CrawlDeps, run_crawl
-from datumoj.core.models import FetchOutcome
-from datumoj.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore, FakeResponse, drive_crawler
-from datumoj.testing.samples import make_spec
+from datumoj.rikolto.crawlers.ckan import CkanCrawler
+from datumoj.rikolto.core.runner import CrawlDeps, run_crawl
+from datumoj.rikolto.core.models import FetchOutcome
+from datumoj.rikolto.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore, FakeResponse, drive_crawler
+from datumoj.rikolto.testing.samples import make_spec
 
 API = "https://data.e-gov.go.jp/data/api/action"
 SEARCH = API + "/package_search?q=%2A%3A%2A&rows={rows}&start={start}&sort=id%20asc"

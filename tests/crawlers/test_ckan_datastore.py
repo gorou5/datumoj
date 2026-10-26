@@ -8,11 +8,11 @@ from urllib.request import urlopen
 
 import yaml
 
-from datumoj.core.contracts import CrawlContext, FetchResult
-from datumoj.core.models import FetchOutcome
-from datumoj.crawlers.ckan import CkanCrawler
-from datumoj.testing.fakes import FakeManifest, FakeRawStore, drive_crawler
-from datumoj.testing.samples import T0, make_snapshot, make_spec
+from datumoj.rikolto.core.contracts import CrawlContext, FetchResult
+from datumoj.rikolto.core.models import FetchOutcome
+from datumoj.rikolto.crawlers.ckan import CkanCrawler
+from datumoj.rikolto.testing.fakes import FakeManifest, FakeRawStore, drive_crawler
+from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 
 ROOT = Path(__file__).parents[2]
 FIXTURES = ROOT / "tests" / "fixtures" / "bodik"
@@ -182,7 +182,7 @@ def test_datastore_max_rows_stops_and_logs_warning(httpserver, caplog):
     _expect(httpserver, DATASTORE_PATH, _datastore_query(5, 2), json.dumps({"success": True, "result": capped}).encode())
     fetcher = _LocalServerFetcher()
 
-    with caplog.at_level(logging.WARNING, logger="datumoj.crawlers.ckan"):
+    with caplog.at_level(logging.WARNING, logger="datumoj.rikolto.crawlers.ckan"):
         steps = drive_crawler(CkanCrawler(), _spec(base_url, datastore=True, datastore_limit=5, datastore_max_rows=7),
                               fetcher, limit=1, now=T0)
 

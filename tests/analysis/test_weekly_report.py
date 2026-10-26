@@ -7,12 +7,12 @@ from types import SimpleNamespace
 
 from typer.testing import CliRunner
 
-from datumoj import cli
-from datumoj.analysis.reports import weekly_report
-from datumoj.core.models import ChangeEvent, ChangeKind, DocKind
-from datumoj.core.monitor import Alert
-from datumoj.testing.fakes import FakeChangeLog, FakeChunkStore, FakeManifest, FakeRegistry
-from datumoj.testing.samples import T0, make_chunk, make_document, make_snapshot, make_spec
+from datumoj.rikolto import cli
+from datumoj.rikolto.analysis.reports import weekly_report
+from datumoj.rikolto.core.models import ChangeEvent, ChangeKind, DocKind
+from datumoj.rikolto.core.monitor import Alert
+from datumoj.rikolto.testing.fakes import FakeChangeLog, FakeChunkStore, FakeManifest, FakeRegistry
+from datumoj.rikolto.testing.samples import T0, make_chunk, make_document, make_snapshot, make_spec
 
 
 def _deps(tmp_path):

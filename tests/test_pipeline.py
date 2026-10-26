@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from datumoj.core.models import parse_context_fingerprint
-from datumoj.core.contracts import NO_PARSER, ContentState, ParseResult, ParseStatus
-from datumoj.pipeline import PipelineDeps, parse_pending, reindex
-from datumoj.testing.fakes import (
+from datumoj.rikolto.core.models import parse_context_fingerprint
+from datumoj.rikolto.core.contracts import NO_PARSER, ContentState, ParseResult, ParseStatus
+from datumoj.rikolto.pipeline import PipelineDeps, parse_pending, reindex
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore, FakeChunkStore, FakeKeywordIndex, FakeManifest, FakeObservationStore, FakeParser,
     FakeRawStore, FakeRegistry, FakeVectorIndex, FakeEmbedder,
 )
-from datumoj.testing.samples import (
+from datumoj.rikolto.testing.samples import (
     T0, make_dataset, make_observation, make_resource, make_snapshot, sha,
 )
 from datetime import timedelta
@@ -51,7 +51,7 @@ def build(parsers, vectors=False):
 
 
 def _spec():
-    from datumoj.testing.samples import make_spec
+    from datumoj.rikolto.testing.samples import make_spec
     return make_spec()
 
 
@@ -131,7 +131,7 @@ def test_same_sha_different_content_type_runs_each_parser():
 
 def test_non_ok_snapshots_ignored_and_source_filter():
     deps = build([FakeParser])
-    add(deps, b"x", outcome=__import__("datumoj.core.models", fromlist=["FetchOutcome"]).FetchOutcome.http_error)
+    add(deps, b"x", outcome=__import__("datumoj.rikolto.core.models", fromlist=["FetchOutcome"]).FetchOutcome.http_error)
     summary = parse_pending(deps, "jp-test")
     assert summary.parsed == [] and summary.skipped == 0
     try:

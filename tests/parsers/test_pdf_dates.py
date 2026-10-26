@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-from datumoj.parsers.pdf import PdfParser
-from datumoj.testing.samples import make_snapshot
+from datumoj.rikolto.parsers.pdf import PdfParser
+from datumoj.rikolto.testing.samples import make_snapshot
 
 PDF_FIXTURE = Path(__file__).parents[1] / "fixtures" / "gov_web" / "pdf" / "text.pdf"
 PDF_URL = "https://www8.cao.go.jp/cstp/openinnovation/procurement/guideline.pdf"
