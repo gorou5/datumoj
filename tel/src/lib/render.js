@@ -297,7 +297,7 @@ ${popular.map((p) => `<li><a href="/${esc(p.digits)}">${esc(p.formatted)}</a> <s
 </ul>
 <p class="meta">このサイトで実際に調べられた回数が多い番号です。</p>
 </section>` : ''}
-<p class="home-links"><a href="/gov">政府機関の番号</a> ・ <a href="/history">日本の電話番号の歴史</a> ・ <a href="/about">このサイトについて</a></p>
+<p class="home-links"><a href="/popular">よく検索される電話番号</a> ・ <a href="/gov">政府機関の番号</a> ・ <a href="/history">日本の電話番号の歴史</a> ・ <a href="/about">このサイトについて</a></p>
 </div>
 <script>
 (function(){
@@ -751,6 +751,41 @@ ${searchForm(a.digits)}`;
   return layout({
     title: `${a.digits} は割り当てが確認できません｜tel.datumoj.com`,
     robots: 'noindex',
+    body,
+  });
+}
+
+// "Hot numbers" hub: numbers with confirmed public search demand
+// (src/data/hot_numbers.js, ordered by demand), 100 per page. Every entry
+// is a real link to the number's own page; line type / carrier come from
+// the same official designation snapshot the number pages compose from.
+export function popularPage(entries, page, totalPages) {
+  const pageUrl = (n) => (n <= 1 ? '/popular' : `/popular?page=${n}`);
+  const items = entries
+    .map((e) => {
+      const formatted = formatNumber(e.digits, { lineType: e.lineType, areaCode: e.areaCode });
+      const meta = [e.lineTypeName, e.carrierName].filter(Boolean).join('・');
+      return `<li><a href="/${esc(e.digits)}">${esc(formatted)}</a>${meta ? ` <span class="meta">${esc(meta)}</span>` : ''}</li>`;
+    })
+    .join('\n');
+  const nav = [];
+  if (page > 1) nav.push(`<a href="${pageUrl(page - 1)}">← 前の100件</a>`);
+  nav.push(`<span class="meta">${page} / ${totalPages} ページ</span>`);
+  if (page < totalPages) nav.push(`<a href="${pageUrl(page + 1)}">次の100件 →</a>`);
+  const body = `
+<p class="crumbs"><a href="/">トップ</a> ＞ よく検索される電話番号</p>
+<h1>よく検索される電話番号</h1>
+<p class="meta">公開統計で検索需要が高いと確認できた番号を、需要の高い順に並べた一覧です（${(page - 1) * 100 + 1}〜${(page - 1) * 100 + entries.length}件目）。各番号の詳細ページでは、総務省の指定データに基づく番号の種類・割当事業者を表示します。</p>
+<section class="card" aria-label="よく検索される電話番号">
+<ul class="tight">
+${items}
+</ul>
+</section>
+<p>${nav.join('　')}</p>`;
+  return layout({
+    title: 'よく検索される電話番号｜tel.datumoj.com',
+    description: '検索需要の高い日本の電話番号の一覧。各番号の種類・割当事業者を総務省の指定データで確認できます。',
+    canonical: `https://tel.datumoj.com${pageUrl(page)}`,
     body,
   });
 }
