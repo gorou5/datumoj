@@ -1,0 +1,84 @@
+# Eltiro 需求定义样例：一个模拟的外部项目注入的需求（0.4 计划 H1），取自试点 #002（https://plan.datumoj.com/cases/）。
+# 这是设计样例，还没有代码校验它；契约 001 定 schema 时以本目录为基准，字段可以改，但它表达的东西都要能表达。
+# 一份需求一个文件（0.4 计划第 6.1 节）。写法约定：
+#   - 指标用文字描述概念，不写死表名；preferred_sources 只是偏好，用注册表的来源 id（intl-* 为 0.4 计划接入，id 以 H2 定稿为准），Eltiro 自己去匹配。
+#   - examples 里的正例、反例用来判断匹配对不对，反例专门写口径相近但不能混用的东西。
+#   - 运算只能从固定的运算库里选（第 6.5 节），不能写代码。
+
+schema: eltiro.request/v0
+id: three-gdp-reconciliation
+version: 1
+consumer: example-analysis-site
+purpose: >-
+  同一国家同一年的名义 GDP，IMF、OECD、世界银行各给一个数。
+  把三个来源并列，算出来源之间的差，供外部项目分析差异来自汇率折算、基准修订还是定义。
+source_case: "cases #002 一个国家，三个 GDP"
+
+entities:
+  countries: [JPN, USA, DEU, FRA, GBR]   # ISO 3166-1 alpha-3
+period:
+  from: "2000"
+  to: "2024"
+  frequency: annual
+revisions: latest                         # 只要每个来源最新一次发布
+
+indicators:
+  - key: gdp_usd
+    concept: 名义 GDP，当年价格，以美元计（按来源自己的汇率折算）
+    unit: USD
+    preferred_sources: [intl-imf-weo, intl-oecd, intl-wdi]
+    min_sources: 3                        # 少于 3 个来源算缺口
+    keep_separate_by: [source]            # 不同来源的数不合并
+    examples:
+      positive:
+        - "IMF WEO: Gross domestic product, current prices, U.S. dollars"
+        - "World Bank WDI: GDP (current US$)"
+      negative:
+        - "实际 GDP 增长率"
+        - "人均 GDP"
+        - "按购买力平价（PPP）计的 GDP"
+  - key: gdp_lcu
+    concept: 名义 GDP，当年价格，以本币计；用来区分汇率折算造成的差异
+    preferred_sources: [intl-imf-weo, intl-oecd, intl-wdi]
+    min_sources: 2
+    keep_separate_by: [source]
+    examples:
+      positive:
+        - "World Bank WDI: GDP (current LCU)"
+      negative:
+        - "以美元计的 GDP"
+
+align:
+  keys: [country, year]
+  require_same_unit: true                 # 单位不同的不对齐，报出来
+
+operations:
+  # 单位相同不等于数量级相同（如 IMF WEO 以十亿计）：先显式统一到 1 个货币单位。
+  # 各来源的发布倍率取自来源元数据，作为换算依据写进出处；倍率未确认的来源不进下面的 spread，记入缺口报告。
+  - id: gdp_usd_units
+    op: rescale
+    input: gdp_usd
+    target_scale: 1
+  - id: gdp_lcu_units
+    op: rescale
+    input: gdp_lcu
+    target_scale: 1
+  - id: spread_usd
+    op: source_spread                     # 每个国家、年份内各来源与中位数的差，以及最大最小差
+    input: gdp_usd_units
+  - id: spread_lcu
+    op: source_spread
+    input: gdp_lcu_units
+
+output:
+  fields: [country, year, source, gdp_usd_units, gdp_lcu_units, spread_usd, spread_lcu, release_id, citation_id]
+  format: [parquet, csv]
+
+accept_outflow: [raw_ok, derived_only]    # 只能输出派生结果的来源也可以用
+models:
+  max_tier: medium                        # 匹配判断最多用到中档模型
+  allow_cloud: true                       # 仍受各来源的 cloud_model_ok 约束
+  max_calls_per_run: 200
+run:
+  trigger: on_new_generation              # 有新代次且相关序列变化时重跑
+  notify_on: [binding_stale, definition_changed, new_candidate, gap_filled]

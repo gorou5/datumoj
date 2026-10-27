@@ -1,0 +1,45 @@
+schema: eltiro.request/v0
+id: japan-monthly-earnings-revisions
+version: 1
+consumer: example-analysis-site
+purpose: >-
+  比较日本每月勤劳统计工资在重算前后的发布，并将 ILO、OECD 所载的日本序列
+  分开呈现。只匹配相同调查、覆盖范围、工资定义、频率及单位；国际来源没有相同
+  口径时报告缺口，不能以年度平均工资、实际工资指数或时薪替代。
+source_case: "verify V13 日本 · 每月勤劳统计调查（工资）2018"
+entities:
+  countries: [JPN]
+period:
+  from: "2012-01"
+  to: "2018-12"
+  frequency: monthly
+revisions: all
+indicators:
+  - key: cash_earnings_jpy
+    concept: >-
+      每月勤労統計調査，全国、调查产业计、常用劳动者、事业所规模5人以上，
+      每名劳动者月均現金給与総額（名义金额）；重算前后发布各自保留
+    unit: JPY
+    preferred_sources: [jp-estat-files, intl-ilo, intl-oecd]
+    min_sources: 3
+    keep_separate_by: [source, release, survey, methodology]
+    examples:
+      positive: ["毎月勤労統計調査 現金給与総額，5人以上，調査産業計"]
+      negative: ["実質賃金指数", "所定内給与", "年度平均賃金", "30人以上の事業所のみ"]
+align:
+  keys: [country, month, release]
+  require_same_unit: true
+operations:
+  - id: revision_delta
+    op: revision_diff
+    input: cash_earnings_jpy
+output:
+  fields: [country, month, source, release_id, released_at, cash_earnings_jpy, revision_delta, citation_id]
+  format: [parquet, csv]
+accept_outflow: [raw_ok, derived_only]
+models:
+  max_tier: low
+  allow_cloud: false
+run:
+  trigger: on_new_generation
+  notify_on: [binding_stale, definition_changed, gap_filled]

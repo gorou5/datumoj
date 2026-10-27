@@ -1,0 +1,29 @@
+schema: "eltiro.eval.values/v1"
+demand_id: "three-gdp-reconciliation"
+points:
+  - id: "jpn-2023-wdi-usd"
+    status: "pending_h2"
+    selector: {"demand_id": "three-gdp-reconciliation", "country": "JPN", "period": "2023", "indicator_key": "gdp_usd", "source_id": "intl-wdi", "release_id": "pending_h2"}
+    unit: "USD"
+    source_value: null
+    source_note: null
+    source_multiplier: "1"
+    output_multiplier: "1"
+    absolute_tolerance: "0"
+    significant_digits: null
+    evidence: {"reference": "https://data.worldbank.org/indicator/NY.GDP.MKTP.CD", "locator": "NY.GDP.MKTP.CD / JPN / 2023", "note": "待核验点，非已录原值；本次只检查仓库证据，未访问页面。若有倍率，H2 必须核对元数据。"}
+    checked_at: null
+    pending_reason: "没有该点的官方原值及发布快照；H2 补原值、来源页/存档、核对日期、真实 release_id、倍率和精度后才能计分。"
+  - id: "usa-2023-weo-usd"
+    status: "pending_h2"
+    selector: {"demand_id": "three-gdp-reconciliation", "country": "USA", "period": "2023", "indicator_key": "gdp_usd", "source_id": "intl-imf-weo", "release_id": "pending_h2"}
+    unit: "USD"
+    source_value: null
+    source_note: null
+    source_multiplier: "1000000000"
+    output_multiplier: "1"
+    absolute_tolerance: "0"
+    significant_digits: null
+    evidence: {"reference": "https://www.imf.org/en/Publications/WEO/weo-database", "locator": "NGDPD / USA / 2023", "note": "待核验点，非已录原值；本次只检查仓库证据，未访问页面。若有倍率，H2 必须核对元数据。"}
+    checked_at: null
+    pending_reason: "没有该点的官方原值及发布快照；H2 补原值、来源页/存档、核对日期、真实 release_id、倍率和精度后才能计分。"

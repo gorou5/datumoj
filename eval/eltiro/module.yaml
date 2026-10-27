@@ -1,0 +1,12 @@
+id: eltiro-offline-eval
+name: Eltiro checkpoint evaluation
+version: 1
+description: Offline match scoring, source-original comparisons and negative license-gate probes.
+inputs: [eltiro.eval.gold/v1, eltiro.eval.thresholds/v1, MatchRecord, eltiro.eval.values/v1, decoded-output-rows, eltiro.eval.license/v1, gate-adapter]
+outputs: [MatchReport, CheckReport]
+runtime: Python 3.12–3.13; locked pydantic and PyYAML
+permissions: local caller-selected evaluation files only; no network, credentials or external writes
+sources_and_license: Official reference links in each entry; original values currently unverified; license probes synthetic. Repository license unknown.
+errors: Invalid files/records raise ValueError; scoring failures identify entries in structured reports; gate exceptions fail their case.
+testing: make check T=tests/regressions/test_audit_wisteria_701.py
+maintenance: pending_h2 corpus; scoring API ready for checkpoint adapters 902–904
