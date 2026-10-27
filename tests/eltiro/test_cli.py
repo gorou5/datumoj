@@ -1,0 +1,105 @@
+"""The CLI uses only local configuration, a synthetic registry and local inputs."""
+
+import json
+
+import pytest
+from typer.testing import CliRunner
+
+from datumoj.eltiro.cli import app
+from datumoj.eltiro.models import MAX_FILE_BYTES
+from datumoj.eltiro.testing.samples import make_demand
+from datumoj.rikolto.testing.samples import make_spec
+
+
+@pytest.fixture
+def cli(tmp_path):
+    state = tmp_path / "eltiro"
+    state.mkdir()
+    config = {"consumers": [{
+        "id": "example-consumer", "inbox": "consumer/inbox", "outbox": "consumer/outbox",
+        "allowed_sources": ["intl-wdi"], "models": {"consumer": "example-consumer",
+        "authorized_sources": ["intl-wdi"]}, "max_active_demands": 1,
+    }]}
+    (state / "consumers.yaml").write_text(json.dumps(config))
+    sources = tmp_path / "sources"
+    sources.mkdir()
+    (sources / "intl-wdi.yaml").write_text(make_spec("intl-wdi").model_dump_json())
+    runner = CliRunner()
+
+    def invoke(*args):
+        return runner.invoke(app, ["--data-dir", str(tmp_path), "--sources-dir", str(sources), *args])
+
+    return tmp_path, invoke
+
+
+def test_submit_list_show_deactivate_and_intake_persist_across_invocations(cli):
+    root, invoke = cli
+    file = root / "request.yaml"
+    file.write_text(make_demand().model_dump_json(by_alias=True))
+    result = invoke("submit", "--consumer", "example-consumer", str(file))
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["conclusion"] == "accepted"
+    assert file.exists()
+    result = invoke("demands", "list")
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)[0]["active"] == 1
+    for args in (("demands", "show", "example-demand"), ("demands", "show", "example-demand", "--version", "1")):
+        result = invoke(*args)
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.output)["purpose"] == make_demand().purpose
+    result = invoke("demands", "deactivate", "example-demand", "--version", "1")
+    assert result.exit_code == 0, result.output
+    assert json.loads(invoke("demands", "list").output)[0]["active"] == 0
+    assert json.loads(invoke("intake").output) == {"accepted": 0, "rejected": 0}
+    (root / "consumer/inbox/next.yaml").write_text(make_demand(version=2).model_dump_json(by_alias=True))
+    result = invoke("intake")
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == {"accepted": 1, "rejected": 0}
+    assert json.loads(invoke("demands", "show", "example-demand").output)["version"] == 2
+
+
+@pytest.mark.parametrize("kind", ["invalid", "oversized", "symlink", "consumer"])
+def test_submit_rejections_have_receipts_and_audit_without_content(cli, kind):
+    root, invoke = cli
+    file = root / "request.yaml"
+    if kind == "oversized":
+        file.write_bytes(b"x" * (MAX_FILE_BYTES + 1))
+    elif kind == "symlink":
+        target = root / "target.yaml"
+        target.write_text("PRIVATE CONTENT")
+        file.symlink_to(target)
+    elif kind == "consumer":
+        file.write_text(make_demand(consumer="foreign-consumer", purpose="PRIVATE CONTENT").model_dump_json())
+    else:
+        file.write_text('{"unknown": "PRIVATE CONTENT"}')
+    result = invoke("submit", "--consumer", "example-consumer", str(file))
+    assert result.exit_code == 1, result.output
+    assert "PRIVATE CONTENT" not in result.output
+    assert "foreign-consumer" not in result.output
+    assert json.loads(result.output)["conclusion"] == "rejected"
+    assert len(list((root / "consumer/outbox").glob("*.json"))) == 1
+    assert len((root / "eltiro/audit.jsonl").read_text().splitlines()) == 1
+    assert json.loads(invoke("demands", "list").output) == []
+
+
+def test_configuration_and_lookup_errors_are_fixed_messages(cli):
+    root, invoke = cli
+    for args in (("demands", "show", "missing"), ("demands", "deactivate", "missing", "--version", "1"),
+                 ("submit", "--consumer", "missing", str(root / "missing.yaml"))):
+        result = invoke(*args)
+        assert result.exit_code == 1
+        assert "Eltiro operation failed" in result.output
+    (root / "eltiro/consumers.yaml").write_text('{"password": "PRIVATE CONFIG CONTENT"}')
+    result = invoke("intake")
+    assert result.exit_code == 1
+    assert "PRIVATE" not in result.output and "password" not in result.output
+
+
+def test_sqlite_state_symlink_is_rejected(cli):
+    root, invoke = cli
+    sentinel = root / "sentinel"
+    sentinel.write_text("unchanged")
+    (root / "eltiro/demands.sqlite3").symlink_to(sentinel)
+    result = invoke("intake")
+    assert result.exit_code == 1
+    assert sentinel.read_text() == "unchanged"
