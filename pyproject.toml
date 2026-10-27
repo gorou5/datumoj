@@ -23,6 +23,7 @@ dependencies = [
 
 [project.scripts]
 rikolto = "datumoj.rikolto.cli:app"
+eltiro = "datumoj.eltiro.cli:app"
 # Temporary shortcut: 本机重装 launchd 并核对 JMA 无缺口后删除 datumoj 别名。
 datumoj = "datumoj.rikolto.cli:app"
 
