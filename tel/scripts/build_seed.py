@@ -104,8 +104,9 @@ third_party_sources = [
     ('迷惑情報データベース', 'トビラシステムズ', 'https://tobila.com/', 'A', 'B2Bフィード（警察提供番号＋利用者報告＋独自調査）', 1, 'licensed', '事業者番号データ約600万件（iタウンページ含む）。Web表示には商用ライセンスが必要。本プロジェクトは無料リソースのみを使う方針のため未契約', '2026-10-22'),
     ('無登録業者リスト', '金融庁', 'https://www.fsa.go.jp/', 'B', 'Excel/PDF公開（商号・所在地・業務内容・備考・掲載時期）', 0, 'public', '2010年以降の警告約1,245件。電話番号の列は無く、事業者名照合が主用途', '2026-10-22'),
     ('防犯メール（メールけいしちょう等）', '警視庁・都道府県警察', 'https://www.keishicho.metro.tokyo.lg.jp/', 'C', 'HTML/メール配信（手口の叙述中心、番号は概ね非公開）', 0, 'public', '単号の標識には使わず、手口・警戒情報として参照', '2026-10-22'),
-    ('注意喚起・悪質通販サイト情報', '消費者庁／国民生活センター', 'https://www.kokusen.go.jp/', 'C', 'PDF（叙述）／サイトURLリスト', 0, 'public', '電話番号単位のデータではないため third_party_flag には投入しない', '2026-10-22'),
-    ('電話番号口コミ（jpnumber等）', 'UGCプラットフォーム', 'https://www.jpnumber.com/', 'C', 'Webページ（利用規約・robots制約あり）', 1, 'public-web', '取得しない。将来は報告件数の形で、規約確認のうえ検討', '2026-10-22'),
+    ('注意喚起・悪質通販サイト情報', '消費者庁', 'https://www.caa.go.jp/', 'C', 'PDF（叙述）／サイトURLリスト', 0, 'public', '電話番号単位のデータではないため third_party_flag には投入しない', '2026-10-22'),
+    # 本番DBでは migration 0010 により id=7 で登録（seed の挿入順では 6 番目）。
+    ('事業者の名称等を公表', '国民生活センター', 'https://www.kokusen.go.jp/', 'C', '公表ページ（事業者の情報として名称・所在地・電話番号等を掲載）', 1, 'public', '事業者名と電話番号をセットで公表する公的定型。番号のある公表から third_party_flag を生成する', '2026-10-27'),
 ]
 for name, pub, url, tier, form, has_numbers, access, note, upd in third_party_sources:
     out.append("INSERT INTO third_party_source (name, publisher, url, tier, form, has_numbers, access, note, updated_at) VALUES "
