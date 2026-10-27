@@ -46,8 +46,7 @@ authorized_sources 必须排序、去重，且只能取 allowed_sources 的子�
 
 ## 调用
 
-当前可直接运行模块入口；安装命令入口指向 `datumoj.eltiro.cli:app`。
-本任务受执行环境禁止修改 `pyproject.toml` 的规则约束，没有添加该安装入口。
+命令 `eltiro`（`pyproject.toml` 入口 `datumoj.eltiro.cli:app`），等同于 `python -m datumoj.eltiro`。
 
 ```sh
 python -m datumoj.eltiro --data-dir data --sources-dir sources intake
