@@ -7,9 +7,11 @@ Cross-field rules (references, cycles, compatibility) additionally require Pydan
 from __future__ import annotations
 
 import json
+import re
 import sys
 from calendar import monthrange
 from datetime import date
+from hashlib import sha256
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -24,7 +26,7 @@ from pydantic import (
     model_validator,
 )
 
-from datumoj.rikolto.core.models import Lang, Outflow, Sha256, SourceId
+from datumoj.rikolto.core.models import GenerationToken, Lang, Outflow, Sha256, SourceId
 
 MAX_FILE_BYTES = 256 * 1024
 MAX_INDICATORS = 64
@@ -433,10 +435,205 @@ class MatchRecord(_Model):
 
 
 class ModelUse(_Model):
-    provider: Id
+    # Existing provider ids remain valid; routing provider names also contain underscores.
+    provider: Annotated[str, Field(max_length=MAX_ID_LENGTH, pattern=r"^[a-z][a-z0-9_-]*$")]
     model: Label
     version: Label
     tier: ModelTier
+
+
+ModelProvider = Literal["none", "claude_plan", "ollama", "cloud_api"]
+Difficulty = Literal["low", "medium", "high"]
+CLOUD_PROVIDERS = frozenset({"claude_plan", "cloud_api"})
+MODEL_TIERS = ("none", "low", "medium", "high")
+
+
+def content_hash(value: Any) -> str:
+    """Canonical JSON SHA256; never uses Python's process-dependent hash()."""
+    return sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+
+
+def _config_text(value: str) -> str:
+    # Configuration carries identifiers only, never bearer tokens or credential assignments.
+    if re.fullmatch(r"sha256:[0-9a-f]{64}", value):
+        return value  # Explicitly named content digests can pin local model versions.
+    if re.search(r"(?i)(?:\bsk[-_]|bearer\s|(?:api[_-]?key|token|password|secret)\s*[:=]|"
+                 r"AKIA[A-Z0-9]{12}|-----BEGIN)", value) or re.search(r"[A-Za-z0-9+/=_-]{40,}", value):
+        raise ValueError("routing configuration must not contain credential values")
+    return value
+
+
+ConfigLabel = Annotated[Label, AfterValidator(_config_text)]
+EnvName = Annotated[
+    str, Field(min_length=1, max_length=128, pattern=r"^[A-Z][A-Z0-9_]*$"), AfterValidator(_config_text),
+]
+
+
+class ModelIdentity(_Model):
+    model: ConfigLabel
+    version: ConfigLabel
+
+
+class RouteTarget(_Model):
+    provider: ModelProvider
+    identity: ModelIdentity | None = None
+    credential_env: EnvName | None = None
+
+    @model_validator(mode="after")
+    def _target(self) -> RouteTarget:
+        if (self.provider == "none") != (self.identity is None):
+            raise ValueError("none has no model; every other provider requires model and version")
+        if self.provider in ("none", "ollama") and self.credential_env is not None:
+            raise ValueError("local/none targets do not use cloud credentials")
+        return self
+
+
+class DifficultyRoutes(_Model):
+    low: RouteTarget
+    medium: RouteTarget
+    high: RouteTarget
+
+
+class RoutingPolicy(_Model):
+    routes: Annotated[dict[Symbol, DifficultyRoutes], Field(min_length=2, max_length=MAX_ITEMS)]
+
+    @model_validator(mode="after")
+    def _steps(self) -> RoutingPolicy:
+        if not {"match_judge", "concept_note"} <= self.routes.keys():
+            raise ValueError("match_judge and concept_note routes are required")
+        for step in self.routes:
+            _config_text(step)
+        return self
+
+    @property
+    def content_hash(self) -> str:
+        return content_hash(self.model_dump(mode="json"))
+
+
+class ConsumerModelConfig(_Model):
+    """Trusted authorization supplied by the host; only tightens registry permissions."""
+
+    consumer: Id
+    authorized_sources: Annotated[tuple[Source, ...], Field(min_length=1, max_length=MAX_ITEMS)]
+    max_tier: ModelTier = "none"
+    allow_cloud: Annotated[bool, Field(strict=True)] = False
+    allowed_providers: Annotated[tuple[ModelProvider, ...], Field(min_length=1, max_length=4)] = ("none", "ollama")
+
+    @model_validator(mode="after")
+    def _scope(self) -> ConsumerModelConfig:
+        if tuple(sorted(set(self.authorized_sources))) != self.authorized_sources:
+            raise ValueError("authorized_sources must be sorted and unique")
+        if len(set(self.allowed_providers)) != len(self.allowed_providers):
+            raise ValueError("duplicate providers")
+        return self
+
+
+class ModelInputPart(_Model):
+    source_id: Source
+    content: Text  # Untrusted source data, never instructions to the router.
+
+
+class ModelInput(_Model):
+    id: Symbol
+    step: Symbol
+    difficulty: Difficulty
+    parts: Annotated[tuple[ModelInputPart, ...], Field(min_length=1, max_length=MAX_ITEMS)]
+    splittable: Annotated[bool, Field(strict=True)] = False
+    prompt_version: Label
+
+    @model_validator(mode="after")
+    def _sources(self) -> ModelInput:
+        if len({part.source_id for part in self.parts}) != len(self.parts):
+            raise ValueError("one part per source is required")
+        return self
+
+
+class ModelCacheKey(_Model):
+    """Exactly eight components; model identity includes its pinned version."""
+
+    consumer: Id
+    authorized_sources: Annotated[tuple[Source, ...], Field(min_length=1, max_length=MAX_ITEMS)]
+    generation_token: GenerationToken
+    input_sha256: Sha256
+    provider: Literal["claude_plan", "ollama", "cloud_api"]
+    identity: ModelIdentity
+    policy_sha256: Sha256
+    prompt_version: Label
+
+    @model_validator(mode="after")
+    def _scope(self) -> ModelCacheKey:
+        if tuple(sorted(set(self.authorized_sources))) != self.authorized_sources:
+            raise ValueError("cache authorization scope must be sorted and unique")
+        return self
+
+    @property
+    def digest(self) -> str:
+        return content_hash(self.model_dump(mode="json"))
+
+
+class RouteDecision(_Model):
+    request: ModelInput
+    consumer: Id
+    authorized_sources: Annotated[tuple[Source, ...], Field(min_length=1, max_length=MAX_ITEMS)]
+    generation_token: GenerationToken
+    policy_sha256: Sha256
+    target: RouteTarget
+    tier: ModelTier
+    downgraded: Annotated[bool, Field(strict=True)]
+    reasons: Annotated[tuple[Label, ...], Field(max_length=16)] = ()
+
+    @model_validator(mode="after")
+    def _decision(self) -> RouteDecision:
+        if (self.tier == "none") != (self.target.provider == "none"):
+            raise ValueError("none tier and provider must agree")
+        if MODEL_TIERS.index(self.tier) > MODEL_TIERS.index(self.request.difficulty):
+            raise ValueError("cannot upgrade above requested difficulty")
+        if self.downgraded != (self.tier != self.request.difficulty):
+            raise ValueError("downgrade flag disagrees with selected tier")
+        if self.downgraded and not self.reasons:
+            raise ValueError("downgrades require reasons")
+        if self.target.provider != "none":
+            self.cache_key()  # Also validate canonical scope and complete cache identity.
+        return self
+
+    def cache_key(self) -> ModelCacheKey:
+        return ModelCacheKey(
+            consumer=self.consumer, authorized_sources=self.authorized_sources,
+            generation_token=self.generation_token,
+            input_sha256=content_hash(self.request.model_dump(mode="json")),
+            provider=self.target.provider, identity=self.target.identity,
+            policy_sha256=self.policy_sha256, prompt_version=self.request.prompt_version,
+        )
+
+
+class ManualQueueItem(_Model):
+    request: ModelInput
+    reason: Label
+    decision: RouteDecision | None = None
+
+
+class RoutePlan(_Model):
+    run_id: Id
+    budget: ModelBudget
+    items: Annotated[tuple[RouteDecision | ManualQueueItem, ...], Field(max_length=MAX_ITEMS)]
+
+
+class ModelField(_Model):
+    value: Text
+    model_use: ModelUse
+
+
+class ModelResult(_Model):
+    fields: Annotated[dict[Symbol, ModelField], Field(min_length=1, max_length=MAX_ITEMS)]
+
+    def validate_route(self, decision: RouteDecision) -> None:
+        identity = decision.target.identity
+        if identity is None:
+            raise ValueError("none cannot produce model fields")
+        expected = ModelUse(provider=decision.target.provider, model=identity.model,
+                            version=identity.version, tier=decision.tier)
+        if any(field.model_use != expected for field in self.fields.values()):
+            raise ValueError("every model field must identify the selected route")
 
 
 class LicenseSummary(_Model):
@@ -500,6 +697,8 @@ SCHEMA_TYPES: dict[str, Any] = {
         SourceSpread, RevisionDiff, MirrorDiff, Residual, MovingAverage, LeadLagCorr, OutputSpec, ModelBudget,
         RunSpec, DemandSpec, SeriesIdentity, ConceptId, Scale, SeriesProfile, MatchEvidence, Compatibility,
         MatchRecord, ModelUse, LicenseSummary, DataFile, InputObservation, CitationEntry, OutputManifest,
+        ModelIdentity, RouteTarget, DifficultyRoutes, RoutingPolicy, ConsumerModelConfig, ModelInputPart,
+        ModelInput, ModelCacheKey, RouteDecision, ManualQueueItem, RoutePlan, ModelField, ModelResult,
     )
 }
 SCHEMA_TYPES["Operation"] = Operation

@@ -1,0 +1,88 @@
+{
+  "$defs": {
+    "ModelField": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        },
+        "model_use": {
+          "$ref": "#/$defs/ModelUse"
+        }
+      },
+      "required": [
+        "value",
+        "model_use"
+      ],
+      "title": "ModelField",
+      "type": "object"
+    },
+    "ModelUse": {
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        },
+        "tier": {
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high"
+          ],
+          "title": "Tier",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "model",
+        "version",
+        "tier"
+      ],
+      "title": "ModelUse",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "fields": {
+      "maxProperties": 256,
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*$": {
+          "$ref": "#/$defs/ModelField"
+        }
+      },
+      "propertyNames": {
+        "maxLength": 128,
+        "minLength": 1
+      },
+      "title": "Fields",
+      "type": "object"
+    }
+  },
+  "required": [
+    "fields"
+  ],
+  "title": "ModelResult",
+  "type": "object"
+}

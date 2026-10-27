@@ -1,0 +1,247 @@
+{
+  "$defs": {
+    "GenerationToken": {
+      "additionalProperties": false,
+      "description": "已发布 StateGeneration 编号及其实际清单字节的 SHA256；不是认证凭据。",
+      "properties": {
+        "generation": {
+          "minimum": 1,
+          "title": "Generation",
+          "type": "integer"
+        },
+        "manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Manifest Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation",
+        "manifest_sha256"
+      ],
+      "title": "GenerationToken",
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model",
+        "version"
+      ],
+      "title": "ModelIdentity",
+      "type": "object"
+    },
+    "ModelInput": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "step": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Step",
+          "type": "string"
+        },
+        "difficulty": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "title": "Difficulty",
+          "type": "string"
+        },
+        "parts": {
+          "items": {
+            "$ref": "#/$defs/ModelInputPart"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "title": "Parts",
+          "type": "array"
+        },
+        "splittable": {
+          "default": false,
+          "title": "Splittable",
+          "type": "boolean"
+        },
+        "prompt_version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Prompt Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "step",
+        "difficulty",
+        "parts",
+        "prompt_version"
+      ],
+      "title": "ModelInput",
+      "type": "object"
+    },
+    "ModelInputPart": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "maxLength": 128,
+          "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "content"
+      ],
+      "title": "ModelInputPart",
+      "type": "object"
+    },
+    "RouteTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "enum": [
+            "none",
+            "claude_plan",
+            "ollama",
+            "cloud_api"
+          ],
+          "title": "Provider",
+          "type": "string"
+        },
+        "identity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "credential_env": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Z][A-Z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Credential Env"
+        }
+      },
+      "required": [
+        "provider"
+      ],
+      "title": "RouteTarget",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "request": {
+      "$ref": "#/$defs/ModelInput"
+    },
+    "consumer": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "title": "Consumer",
+      "type": "string"
+    },
+    "authorized_sources": {
+      "items": {
+        "maxLength": 128,
+        "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+        "type": "string"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "title": "Authorized Sources",
+      "type": "array"
+    },
+    "generation_token": {
+      "$ref": "#/$defs/GenerationToken"
+    },
+    "policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Policy Sha256",
+      "type": "string"
+    },
+    "target": {
+      "$ref": "#/$defs/RouteTarget"
+    },
+    "tier": {
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Tier",
+      "type": "string"
+    },
+    "downgraded": {
+      "title": "Downgraded",
+      "type": "boolean"
+    },
+    "reasons": {
+      "default": [],
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Reasons",
+      "type": "array"
+    }
+  },
+  "required": [
+    "request",
+    "consumer",
+    "authorized_sources",
+    "generation_token",
+    "policy_sha256",
+    "target",
+    "tier",
+    "downgraded"
+  ],
+  "title": "RouteDecision",
+  "type": "object"
+}

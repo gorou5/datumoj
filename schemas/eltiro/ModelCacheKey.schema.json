@@ -1,0 +1,114 @@
+{
+  "$defs": {
+    "GenerationToken": {
+      "additionalProperties": false,
+      "description": "已发布 StateGeneration 编号及其实际清单字节的 SHA256；不是认证凭据。",
+      "properties": {
+        "generation": {
+          "minimum": 1,
+          "title": "Generation",
+          "type": "integer"
+        },
+        "manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Manifest Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation",
+        "manifest_sha256"
+      ],
+      "title": "GenerationToken",
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model",
+        "version"
+      ],
+      "title": "ModelIdentity",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Exactly eight components; model identity includes its pinned version.",
+  "properties": {
+    "consumer": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "title": "Consumer",
+      "type": "string"
+    },
+    "authorized_sources": {
+      "items": {
+        "maxLength": 128,
+        "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+        "type": "string"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "title": "Authorized Sources",
+      "type": "array"
+    },
+    "generation_token": {
+      "$ref": "#/$defs/GenerationToken"
+    },
+    "input_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Sha256",
+      "type": "string"
+    },
+    "provider": {
+      "enum": [
+        "claude_plan",
+        "ollama",
+        "cloud_api"
+      ],
+      "title": "Provider",
+      "type": "string"
+    },
+    "identity": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Policy Sha256",
+      "type": "string"
+    },
+    "prompt_version": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Prompt Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "consumer",
+    "authorized_sources",
+    "generation_token",
+    "input_sha256",
+    "provider",
+    "identity",
+    "policy_sha256",
+    "prompt_version"
+  ],
+  "title": "ModelCacheKey",
+  "type": "object"
+}

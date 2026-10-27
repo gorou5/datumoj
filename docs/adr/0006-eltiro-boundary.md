@@ -93,8 +93,82 @@ Schema 表达结构与局部参数限制；实体合计、有效日历日期与�
 
 805 在写出前根据权威 `LicenseInfo`、消费者授权、需求接受范围逐列检查完整血缘；混合来源取最严，缺许可或失败时整包不交出，不能先交部分文件。将数据送入云端模型也算流出：no_outflow 不进云端，即使 cloud_model_ok 为真；cloud_model_ok 为否也不进。003/806 负责路由与云端前置检查，消费者只能收紧这些规则。001 的结构校验不是一次许可放行。
 
+## 模型路由
+
+003 定义 `RoutingPolicy`、`ConsumerModelConfig`、`RouteDecision`、`RoutePlan`、`ModelCacheKey`、
+`ModelResult` 及 `ModelRouter` / `ModelProviderClient` / `ModelCache` 协议。102 已提供权威
+`LicenseInfo.outflow` / `cloud_model_ok`，002 的 `GenerationToken` 在本契约中直接复用。
+只提供内存假实现和离线合格测试，不解析凭证、不启动 Claude Code、不连接 Ollama 或云端 API。
+
+提供方只有 `none`、`claude_plan`、`ollama`、`cloud_api`；Claude 套餐与云端 API 都是云端。
+策略按步骤（必须包含 `match_judge`、`concept_note`，可增加步骤名）及 low / medium / high
+难度配置目标，每个目标固定提供方、模型名和版本。凭证位置只允许环境变量名
+`credential_env`，没有凭证值、端点、脚本或命令字段；拒绝未知字段、密钥形状、Bearer、
+凭证赋值及不合环境变量语法的值。标识符检查采用保守拒绝，不能据此把任意文本当作安全凭证容器。
+`RoutingPolicy.content_hash` 是配置规范 JSON（键排序、紧凑分隔、UTF-8）的 SHA256，
+由内容推导，不接受配置方传入的哈希覆盖。选定的决策另保存此哈希。
+
+宿主把**当前注册表**的 `LicenseInfo` 传给路由器；消费者不得提交许可替代品。
+`ConsumerModelConfig` 中的消费者身份及已授权来源范围也必须由宿主授权层提供，不能从来源正文读取。
+消费者的提供方白名单、max_tier、allow_cloud 只能收紧需求预算与注册表权限：
+
+- `no_outflow` 不得进入任何云端提供方，即使 `cloud_model_ok=true`。
+- `cloud_model_ok=false` 只能选 `ollama` 或 `none`。
+- 需求或消费者任一 `allow_cloud=false` 都禁云端；档位不得高于两者任一 `max_tier`。
+- 缺少注册表许可或来源不在已授权范围内，进入人工队列，不调用模型。
+- 混合来源输入先按来源许可拆开。`ModelInput.parts` 明确各来源的独立内容；
+  只有调用方能证明可拆时才设 `splittable=true`。假实现逐来源分区，各部分单独路由，
+  不把受限部分交给云端。无法独立拆分时整个输入进入人工队列，不以最宽松来源放行。
+
+`plan` 在运行前一次选定所有路由，尚不调用模型。从请求难度开始，按
+high → medium → low → none 逐级检查（low 从 low 开始），超过档位上限、提供方不被允许
+或许可不满足就继续降档；配置的 none 也继续向低档检查。到最后仍无合格目标则记录
+none 决策及降档原因，并生成 `ManualQueueItem`，绝不调用 none。
+未配置的扩展步骤也进人工队列。`RouteDecision` 保存消费者、完整授权范围、代次 token、
+输入、选定目标、档位、策略哈希及降档原因；`RoutePlan` 以 `run_id` 固定这些决策和预算。
+同 run_id 重复 plan 只能返回原计划，任何上下文变更都抛 `RouteInvalid`。
+
+`invoke` 只能使用已保存计划；包括重试在内都不重新选目标。提供方缺失或不可用抛
+`ProviderUnavailable`，本次运行失败，不切换到本地或另一云端。每次实际尝试（含失败重试）
+消耗一次 `max_calls_per_run`，缓存命中不消耗；额度用完后剩余调用进入人工队列，
+零预算在计划阶段就进入人工队列。806 的持久实现必须保存计划和调用计数，重启不能重置预算。
+
+缓存身份恰好八项：
+
+| 项 | 内容 |
+|---|---|
+| 使用方 | consumer |
+| 授权来源范围 | 完整、排序且去重的 authorized_sources，不能只记本次实际来源 |
+| 固定代次 | GenerationToken，包含 generation 与 manifest_sha256 |
+| 输入哈希 | 规范 JSON 的 SHA256，包含步骤、难度及各来源内容 |
+| 提供方 | claude_plan / ollama / cloud_api |
+| 模型及版本 | ModelIdentity(model, version) 作为一项 |
+| 路由策略哈希 | RoutingPolicy.content_hash |
+| 提示词版本 | prompt_version |
+
+`ModelCacheKey.digest` 同样取八项规范 JSON 的 SHA256。不同使用方、授权范围、代次、
+策略、模型版本或提示词版本不能命中旧结果。缓存存储本身不是授权层；每次读取前，
+路由器先检查当前消费者身份和完整授权范围与决策一致，并从当前注册表重验来源许可。
+许可撤回、来源缺失、授权范围变化、当前消费者进一步禁云或降档时，旧路由抛
+`RouteInvalid`，不能为了读缓存临时换路由。许可记录或缓存中的审计副本都不能覆盖注册表。
+
+同代次重跑必须引用原 run_id，`rerun=True` 只读原路由的缓存；缺失抛 `RerunCacheMiss`，
+即使有预算也不重新调用。新的授权、策略或代次应显式建立新运行，不作为原运行的重跑。
+`ModelResult.fields` 的每个字段使用 `ModelField.model_use` 保存提供方、模型、版本、档位；
+路由器校验返回值及缓存值均与固定决策一致。已有 `ModelUse` 提供方 id 语法扩展为允许下划线，
+保留原有连字符 id 的兼容性；路由配置本身仍只接受上述四种提供方。
+
+`ModelRouterSuite` 通过 `make_router` 工厂注入实现，直接包含全部许可硬规则、混合来源、
+降档到 none、失败不换路由、失败重试计费及预算耗尽用例，并检查缓存隔离、读前复核和重跑。
+`tests/eltiro/` 用假实现继承整个套件，806 必须同样继承；回归测试复用套件而不能替代它。
+`ModelProviderSuite`、`ModelCacheSuite` 分别检查提供方输出标注与八项缓存身份和副本隔离。
+Schema 使用既有导出入口重新生成；跨字段规则仍必须完整通过 Pydantic 验证。
+
 ## 兼容性及后续
 
 Eltiro 是新增的 v0 契约。样例原样读入，补充的缺省字段只收紧行为；没有迁移现有 Rikolto 数据。删除 119 已完成改名验收的 schemas 整目录哈希锁，保留重新导出逐字节一致断言，让合法契约新增可继续验收。
 
-后续保留：002 的发布身份和 token，102 的许可字段/迁移，003 的路由契约，801 的授权与注入目录，802 的画像提取，803 的语义判断与增量匹配，804 的运算数值语义及输入血缘组装，805 的实际许可闸门、缺口/差异报告和输出写出，806 的模型提供方、缓存、提示词与授权隔离。没有在本任务中实现这些功能。
+002 的发布身份和 token、102 的许可字段及 003 的路由契约已由各自任务定义。
+后续保留：801 的授权与注入目录，802 的画像提取，803 的语义判断与增量匹配，
+804 的运算数值语义及输入血缘组装，805 的实际许可闸门、缺口/差异报告和输出写出，
+806 的真实模型适配、持久路由与缓存、提示词及运行预算管理。本契约任务没有实现这些生产功能。
