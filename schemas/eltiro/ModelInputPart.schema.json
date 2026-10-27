@@ -1,0 +1,23 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "source_id": {
+      "maxLength": 128,
+      "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+      "title": "Source Id",
+      "type": "string"
+    },
+    "content": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "title": "Content",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_id",
+    "content"
+  ],
+  "title": "ModelInputPart",
+  "type": "object"
+}
