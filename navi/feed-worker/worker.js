@@ -7,20 +7,19 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname !== '/feed.json') return new Response('not found', { status: 404 });
+    const key = url.pathname === '/feed.json' ? 'items' : url.pathname === '/people.json' ? 'people' : null;
+    if (!key) return new Response('not found', { status: 404 });
     let raw = null;
-    let err = null;
     try {
-      raw = await env.NAVI_FEED.get('items');
-    } catch (e) {
-      err = String(e);
+      raw = await env.NAVI_FEED.get(key);
+    } catch {
+      raw = null;
     }
     return new Response(raw || '[]', {
       headers: {
         'content-type': 'application/json; charset=utf-8',
         'cache-control': 'public, max-age=120',
         'access-control-allow-origin': '*',
-        'x-feed-raw': raw === null ? 'null' : String(raw.length),
       },
     });
   },

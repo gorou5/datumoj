@@ -4,6 +4,7 @@ compatibility_date = "2025-01-01"
 
 routes = [
   { pattern = "navi.datumoj.com/feed.json", zone_name = "datumoj.com" },
+  { pattern = "navi.datumoj.com/people.json", zone_name = "datumoj.com" },
 ]
 
 [[kv_namespaces]]

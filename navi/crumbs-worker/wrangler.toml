@@ -6,4 +6,5 @@ routes = [
   { pattern = "navi.datumoj.com/nas*", zone_name = "datumoj.com" },
   { pattern = "navi.datumoj.com/report*", zone_name = "datumoj.com" },
   { pattern = "navi.datumoj.com/intl-sources*", zone_name = "datumoj.com" },
+  { pattern = "navi.datumoj.com/people*", zone_name = "datumoj.com" },
 ]
