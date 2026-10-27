@@ -10,12 +10,15 @@ import {
   listGovAgencies, listGovNumbers, govNumbersByAgency, findAreaCode,
 } from './lib/compose.js';
 import {
-  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES, unavailablePage,
+  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES, unavailablePage, popularPage,
 } from './lib/render.js';
 import {
   findRecord, insertRecord, updateRecordFacts, factsFromRecord, getSnapshotVersion,
   bumpRecordView, bumpRecordComment, popularFromRecords,
+  FIRST_RECORD_YEAR, currentRecordYear,
+  drawRandomRecord, factsFromRecordSnapshot,
 } from './lib/record.js';
+import { HOT_NUMBERS } from './data/hot_numbers.js';
 
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
 const CACHE_HUB = 'public, max-age=3600, s-maxage=86400';
@@ -25,29 +28,17 @@ function html(body, status = 200, cache = CACHE_HUB) {
   return new Response(body, { status, headers: { ...HTML, 'cache-control': cache } });
 }
 
-// Draw one random really-designated number and build its hero payload.
+// Draw one random number from the record pool — numbers real visitors
+// have actually queried (DESIGN v2.0 per-year record tables) — and build
+// its hero payload from the stored snapshot. No synthetic candidate is
+// composed any more, so every hero is a real, fully-explained number page.
 // Never throws: returns null when D1 is unavailable (e.g. free-tier daily
 // quota exhausted), so callers can fall back to FALLBACK_HEROES and the
 // homepage hero never dead-ends on placeholders.
 async function drawRandomHero(db) {
   try {
-    // Draw from the small hero_candidate sample table (migration 0006):
-    // ORDER BY RANDOM() over ~30k designated blocks scanned the whole table
-    // on every homepage render.
-    const types = ['fixed', 'mobile', 'ip050', 'free0120', 'free0800', 'navi0570', 'm2m020'];
-    for (let attempt = 0; attempt < 6; attempt++) {
-      const lt = types[Math.floor(Math.random() * types.length)];
-      const brow = await db
-        .prepare('SELECT prefix FROM hero_candidate WHERE line_type = ? ORDER BY RANDOM() LIMIT 1')
-        .bind(lt)
-        .first();
-      if (!brow) continue;
-      const ltRow = await db.prepare('SELECT digits FROM line_type WHERE code = ?').bind(lt).first();
-      let digits = brow.prefix;
-      while (digits.length < ltRow.digits) digits += Math.floor(Math.random() * 10);
-      const facts = await composeNumber(db, digits);
-      if (facts) return randomHero(facts);
-    }
+    const row = await drawRandomRecord(db);
+    if (row) return randomHero(factsFromRecordSnapshot(row));
   } catch {
     return null;
   }
@@ -56,6 +47,106 @@ async function drawRandomHero(db) {
 
 function pickFallbackHero() {
   return FALLBACK_HEROES[Math.floor(Math.random() * FALLBACK_HEROES.length)];
+}
+
+// --- Sitemaps ---------------------------------------------------------------
+// /sitemap.xml is an index: /sitemap-main.xml carries the site structure
+// (home, hubs, government numbers, the /popular hub), and
+// /sitemap-numbers-N.xml shards carry number pages: the hot list
+// (src/data/hot_numbers.js — demand-verified, Tier 1 validated) first in
+// demand order, then every Tier 1 digit already laid down in the per-year
+// record tables, in digit order. Shards stay under the 50k protocol limit.
+const SITEMAP_SHARD_SIZE = 45000;
+const POPULAR_PER_PAGE = 100;
+
+function xmlResponse(xml) {
+  return new Response(xml, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': CACHE_HUB } });
+}
+
+function urlsetXml(urls) {
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
+    .map((u) => `<url><loc>${u}</loc></url>`)
+    .join('\n')}\n</urlset>`;
+}
+
+function popularTotalPages() {
+  return Math.max(1, Math.ceil(HOT_NUMBERS.length / POPULAR_PER_PAGE));
+}
+
+async function mainSitemapUrls(db) {
+  const areas = await allAreaCodes(db);
+  const prefs = [...new Set(areas.map((a) => a.prefecture))];
+  const types = await listLineTypes(db);
+  const govNumbers = await listGovNumbers(db);
+  const popularUrls = ['https://tel.datumoj.com/popular'];
+  for (let p = 2; p <= popularTotalPages(); p++) {
+    popularUrls.push(`https://tel.datumoj.com/popular?page=${p}`);
+  }
+  return [
+    'https://tel.datumoj.com/',
+    'https://tel.datumoj.com/about',
+    'https://tel.datumoj.com/history',
+    'https://tel.datumoj.com/gov',
+    ...popularUrls,
+    ...types.map((t) => `https://tel.datumoj.com/type/${t.code}`),
+    ...prefs.map((p) => `https://tel.datumoj.com/pref/${encodeURIComponent(p)}`),
+    ...areas.map((a) => `https://tel.datumoj.com/area/${a.area_code}`),
+    ...govNumbers.map((n) => `https://tel.datumoj.com/${n}`),
+    // Numbers tracked by the SEO watch (tel/seo/SEO_LOG.md):
+    // indexable designated-block pages surfaced for discovery.
+    'https://tel.datumoj.com/08007779633',
+    'https://tel.datumoj.com/0120923499',
+  ];
+}
+
+// Tier 1 digits already laid down in the per-year record tables. The
+// tables are small (one row per queried number), but reads still go
+// through the digits primary key in bounded pages — never a LIKE scan.
+async function listRecordTier1Digits(db) {
+  const out = [];
+  const now = currentRecordYear();
+  for (let y = now; y >= FIRST_RECORD_YEAR; y--) {
+    let last = '';
+    for (;;) {
+      let r;
+      try {
+        r = await db
+          .prepare(`SELECT digits FROM number_record_${y} WHERE tier = 1 AND digits > ? ORDER BY digits LIMIT 5000`)
+          .bind(last)
+          .all();
+      } catch {
+        break; // year table does not exist yet
+      }
+      const rows = r.results || [];
+      if (!rows.length) break;
+      for (const row of rows) {
+        out.push(row.digits);
+        last = row.digits;
+      }
+      if (rows.length < 5000) break;
+    }
+  }
+  return out;
+}
+
+async function sitemapNumberDigits(db) {
+  const seen = new Set();
+  const out = [];
+  for (const h of HOT_NUMBERS) {
+    if (!seen.has(h.digits)) {
+      seen.add(h.digits);
+      out.push(h.digits);
+    }
+  }
+  const recDigits = await listRecordTier1Digits(db).catch(() => []);
+  recDigits.sort();
+  for (const d of recDigits) {
+    if (!seen.has(d)) {
+      seen.add(d);
+      out.push(d);
+    }
+  }
+  return out;
 }
 
 // Prefix-only line-type detection for the homepage "popular numbers" box.
@@ -150,31 +241,38 @@ export default {
           { headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': CACHE_HUB } }
         );
       }
-      if (path === '/sitemap.xml') {
-        const areas = await allAreaCodes(db);
-        const prefs = [...new Set(areas.map((a) => a.prefecture))];
-        const types = await listLineTypes(db);
-        const govNumbers = await listGovNumbers(db);
-        const urls = [
-          'https://tel.datumoj.com/',
-          'https://tel.datumoj.com/about',
-          'https://tel.datumoj.com/history',
-          'https://tel.datumoj.com/gov',
-          ...types.map((t) => `https://tel.datumoj.com/type/${t.code}`),
-          ...prefs.map((p) => `https://tel.datumoj.com/pref/${encodeURIComponent(p)}`),
-          ...areas.map((a) => `https://tel.datumoj.com/area/${a.area_code}`),
-          ...govNumbers.map((n) => `https://tel.datumoj.com/${n}`),
-          // Numbers tracked by the SEO watch (tel/seo/SEO_LOG.md):
-          // indexable designated-block pages surfaced for discovery.
-          'https://tel.datumoj.com/08007779633',
-          'https://tel.datumoj.com/0120923499',
-        ];
-        const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
-          .map((u) => `<url><loc>${u}</loc></url>`)
-          .join('\n')}\n</urlset>`;
-        return new Response(xml, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': CACHE_HUB } });
-      }
       let m;
+      if (path === '/sitemap.xml') {
+        const digits = await sitemapNumberDigits(db);
+        const shards = Math.max(1, Math.ceil(digits.length / SITEMAP_SHARD_SIZE));
+        const children = [
+          'https://tel.datumoj.com/sitemap-main.xml',
+          ...Array.from({ length: shards }, (_, i) => `https://tel.datumoj.com/sitemap-numbers-${i + 1}.xml`),
+        ];
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${children
+          .map((u) => `<sitemap><loc>${u}</loc></sitemap>`)
+          .join('\n')}\n</sitemapindex>`;
+        return xmlResponse(xml);
+      }
+      if (path === '/sitemap-main.xml') {
+        return xmlResponse(urlsetXml(await mainSitemapUrls(db)));
+      }
+      if ((m = path.match(/^\/sitemap-numbers-(\d+)\.xml$/))) {
+        const shard = Number(m[1]);
+        const digits = await sitemapNumberDigits(db);
+        const shards = Math.max(1, Math.ceil(digits.length / SITEMAP_SHARD_SIZE));
+        if (shard < 1 || shard > shards) return html(notFoundPage(path), 404);
+        const slice = digits.slice((shard - 1) * SITEMAP_SHARD_SIZE, shard * SITEMAP_SHARD_SIZE);
+        return xmlResponse(urlsetXml(slice.map((d) => `https://tel.datumoj.com/${d}`)));
+      }
+      if (path === '/popular') {
+        const totalPages = popularTotalPages();
+        const raw = parseInt(url.searchParams.get('page') || '1', 10);
+        const page = Number.isInteger(raw) && raw >= 1 ? raw : 1;
+        if (page > totalPages) return html(notFoundPage('popular'), 404);
+        const entries = HOT_NUMBERS.slice((page - 1) * POPULAR_PER_PAGE, page * POPULAR_PER_PAGE);
+        return html(popularPage(entries, page, totalPages));
+      }
       if ((m = path.match(/^\/pref\/(.+)$/))) {
         const areas = await listAreaCodes(db, m[1]);
         if (!areas.length) return html(notFoundPage(m[1]), 404);
@@ -191,9 +289,9 @@ export default {
         return html(typePage(hub));
       }
       if (path === '/random.json') {
-        // Homepage hero: draw a real designated block at random (type first,
-        // so all line types rotate), fill it out with random subscriber
-        // digits, and return the fullest explanation compose can give.
+        // Homepage hero: draw at random from the record pool (numbers real
+        // visitors have queried) and return the fullest explanation the
+        // stored snapshot supports.
         // Degrades to a verified static hero (still 200) when D1 is down.
         const payload = (await drawRandomHero(db)) || pickFallbackHero();
         return new Response(JSON.stringify(payload), {
