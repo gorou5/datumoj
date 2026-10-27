@@ -528,6 +528,41 @@ class ConsumerModelConfig(_Model):
         return self
 
 
+class ConsumerConfig(_Model):
+    """Host-owned intake configuration; directory containment is checked against data_dir."""
+
+    id: Id
+    inbox: ConfigLabel
+    outbox: ConfigLabel
+    allowed_sources: Annotated[tuple[Source, ...], Field(min_length=1, max_length=MAX_ITEMS)]
+    accept_outflow: Annotated[tuple[Outflow, ...], Field(min_length=1, max_length=3)] = (Outflow.no_outflow,)
+    models: ConsumerModelConfig
+    max_active_demands: Annotated[int, Field(strict=True, ge=0)]
+    max_calls_per_run: Annotated[int, Field(strict=True, ge=0, le=MAX_CALLS_PER_RUN)] = 0
+
+    @model_validator(mode="after")
+    def _authorization(self) -> ConsumerConfig:
+        if self.models.consumer != self.id:
+            raise ValueError("model consumer must match configuration id")
+        if len(set(self.allowed_sources)) != len(self.allowed_sources):
+            raise ValueError("duplicate allowed source")
+        if len(set(self.accept_outflow)) != len(self.accept_outflow):
+            raise ValueError("duplicate outflow level")
+        if not set(self.models.authorized_sources) <= set(self.allowed_sources):
+            raise ValueError("model sources must be within allowed sources")
+        return self
+
+
+class ConsumersConfig(_Model):
+    consumers: Annotated[tuple[ConsumerConfig, ...], Field(max_length=MAX_ITEMS)]
+
+    @model_validator(mode="after")
+    def _unique(self) -> ConsumersConfig:
+        if len({item.id for item in self.consumers}) != len(self.consumers):
+            raise ValueError("duplicate consumer id")
+        return self
+
+
 class ModelInputPart(_Model):
     source_id: Source
     content: Text  # Untrusted source data, never instructions to the router.
@@ -699,6 +734,7 @@ SCHEMA_TYPES: dict[str, Any] = {
         MatchRecord, ModelUse, LicenseSummary, DataFile, InputObservation, CitationEntry, OutputManifest,
         ModelIdentity, RouteTarget, DifficultyRoutes, RoutingPolicy, ConsumerModelConfig, ModelInputPart,
         ModelInput, ModelCacheKey, RouteDecision, ManualQueueItem, RoutePlan, ModelField, ModelResult,
+        ConsumerConfig, ConsumersConfig,
     )
 }
 SCHEMA_TYPES["Operation"] = Operation

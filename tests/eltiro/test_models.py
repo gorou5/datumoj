@@ -163,3 +163,40 @@ def test_budget_period_and_source_validation():
         make_match(auto_bind=True)
     with pytest.raises(ValidationError):
         make_match(confidence=float("nan"))
+
+
+def consumer_data():
+    return {
+        "id": "example-consumer", "inbox": "consumer/inbox", "outbox": "consumer/outbox",
+        "allowed_sources": ["intl-wdi"], "models": {"consumer": "example-consumer",
+        "authorized_sources": ["intl-wdi"]}, "max_active_demands": 1,
+    }
+
+
+@pytest.mark.parametrize("field,value", [("unknown", True), ("password", "synthetic-invalid-credential"),
+                                        ("max_active_demands", True), ("max_active_demands", -1),
+                                        ("max_calls_per_run", 1001), ("accept_outflow", ["raw_ok", "raw_ok"]),
+                                        ("allowed_sources", ["intl-wdi", "intl-wdi"])])
+def test_consumer_configuration_is_strict(field, value):
+    with pytest.raises(ValidationError):
+        m.ConsumerConfig.model_validate({**consumer_data(), field: value})
+
+
+@pytest.mark.parametrize("changes", [{"consumer": "other-consumer"}, {"authorized_sources": ["intl-oecd"]},
+                                    {"api_key": "synthetic-invalid-credential"}])
+def test_consumer_model_identity_and_scope_cannot_expand(changes):
+    data = consumer_data()
+    data["models"].update(changes)
+    with pytest.raises(ValidationError):
+        m.ConsumerConfig.model_validate(data)
+
+
+def test_consumers_require_unique_ids_and_forbid_unknown_fields():
+    data = consumer_data()
+    validated = m.ConsumerConfig.model_validate(data)
+    assert validated.max_calls_per_run == 0
+    assert validated.accept_outflow == (m.Outflow.no_outflow,)
+    with pytest.raises(ValidationError):
+        m.ConsumersConfig.model_validate({"consumers": [data, data]})
+    with pytest.raises(ValidationError):
+        m.ConsumersConfig.model_validate({"consumers": [], "unknown": True})
