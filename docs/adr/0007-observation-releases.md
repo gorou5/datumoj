@@ -144,23 +144,53 @@ JSON Schema 按模型重新导出并与仓库逐字比较。所有样本人工�
 
 人类需审定日期/标识边界、跨来源歧义和历史代次失效规则；测试通过不代表生产存储已支持。
 
-## 301 实现说明
+## 301 / 307 实现说明
 
 ### 本机布局与原子写入
 
 保留原有 `parquet/<source>/<表键哈希32位>.parquet` current 文件名和表水位。
-current 只含当前批次；文件 footer 的 `datumoj.history_file` 指向同目录内一个不可变的
-历史 Parquet，文件名仍是 32 位十六进制（兼容现有状态副本的文件名校验）。历史文件带
-`datumoj.history_only` 标记，不作为 current 表读取。历史保存完整观测字段、每行原始
-`_order_at` / `_order_seq` 以及 `_current` 引用成员标记；A→B→A 的各次抓取事件分别保留。
-第一次写入可以只保存 current，下一次替换时把旧行纳入历史。
+current 只含当前批次；footer 的 `datumoj.history_segments` 保存已提交的随机段名列表。
+历史位于 `parquet-history/<source>/<表键哈希32位>/<随机32位>.parquet`，每次写入只新增
+本批事件，不读取或重写旧段。段保存完整观测字段和原始 `_order_at` / `_order_seq`；
+按完整身份加抓取排序键去重，重复事件以较后提交的段为准，A→B→A 的抓取事件分别保留。
+空批次不产生事件段，但仍原子更新 current 和水位。
 
-写入先生成历史文件，再原子替换 current 和 footer 水位/指针；替换失败删除新历史文件，
-旧 current、水位和历史均不变。有序删表保留空 current、水位和历史指针；无序删除清除
-水位但仍保留历史。被水位拒绝的旧写入不产生历史。读取 current 时忽略历史专用文件。
-历史文件采用状态模块已经支持的 Parquet 路径，push/restore 不需要新增格式。
+先独占发布完整段，再原子替换 current 及其段引用。current 替换失败时移除本次段和发布
+别名；进程突然退出留下的未提交段不被 current 引用，也不参与历史查询。不做自动清理。
+有序删表保留空 current、水位和历史引用；无序删除清除水位但仍保留历史。
+被水位拒绝的旧写入不产生新事件段。
 
-旧文件无需迁移：读取 schema 后给 `release_id` / `released_at` 提供 NULL。
+状态模块的发布路径契约保持不变。每段还在专用的
+`parquet/zz-observation-history/<随机32位>.parquet` 命名空间有一个硬链接发布别名，
+footer 的 `datumoj.history_table` 指明原来源/表文件。别名在 current 提交前建立，和写入
+使用同一写锁，保证状态模块冻结副本时已包含全部引用；它不额外占用文件内容空间。
+恢复时由别名重建独立历史目录，能够重复执行。current 扫描在目录层排除这个发布命名空间，
+既不列举其中的段，也不打开历史目录。301 留下的历史专用文件在开库时登记为排除项。
+无 token 的请求沿用 301 的隐式固定代次规则：已有发布时直接读派生最新视图，无发布时
+只读 current；截至查询、保留和发布索引生成才扫描历史。
+
+### 301 历史迁移
+
+`check_history_migration(root)` 是只读检查函数，返回 `tables`（待迁移表数）和
+`reclaimable_bytes`（删除冗余旧文件可释放的内容字节数，不含块舍入；仍被其他硬链接
+持有的内容不计入）。它不创建库、不写迁移记录。
+正常开库仅登记待迁移项；首次 `write_table` 或 `import_release` 在写锁内自动迁移，
+避免状态发布/恢复的只读出处抽查改写清单副本。更早的无历史指针表在首次替换前补一个基线段。
+
+对 footer 含 `datumoj.history_file` 的 current：
+
+1. 将它引用的 301 完整历史写为一个不可变基线段。
+2. 逐条比较完整身份、排序键及所有观测字段，连同事件重复次数核对；`_current` 是
+   当次视图成员标记，不属于历史事件身份。不一致立即报错，保留所有旧文件。
+3. 收集同目录中带 `datumoj.history_only` 且事件完全被基线段包含的文件。
+   current 原子切换到新段，并记录待删文件名与已核对段的 SHA。
+4. 再核对段 SHA 和每个待删文件的标记/包含关系，全部通过后才删除这些旧文件。
+   最后原子移除迁移记录。未标记文件、其他表的文件和未被包含的历史文件都保留。
+
+任何阶段失败都可重跑：提交前失败移除新段；提交后通过 current 的迁移记录续接，
+已经删除的旧文件不再需要，基线段不会再生成一份。迁移不修改已保留代次的副本。
+
+更早的缺列文件仍兼容：读取 schema 后给 `release_id` / `released_at` 提供 NULL。
 顺序优先读 footer 已持久化的 SnapshotOrder；更早的文件按来源、SHA 和确切 fetched_at
 从该代次的原始 manifest 恢复序号，不用最新的同 SHA 抓取替代。保留时为旧副本生成
 `.release-legacy/` 派生 Parquet（不改原文件），后续查询不在 Python 中加载 manifest 历史。
@@ -173,7 +203,7 @@ wiring 在本机 push 成功后恢复**实际已发布副本**并保留；restor
 CLI `pull` 在已校验目录安装后保留，并继承前一目录已保留的代次。
 有效性依据状态模块从 current 可达的发布链，候选或 staged 产物不能自行变为发布。
 保留目录为 `.observation-generations/<generation>/`：`manifest.json` 保存实际发布清单字节，
-`data/` 保存独立文件副本，`verified.json` 保存清单哈希、依赖文件大小/mtime_ns 和磁盘字节数。
+`data/` 保存可核对的代次文件，`verified.json` 保存清单哈希、依赖文件大小/mtime_ns 和逻辑字节数。
 `current.json` 原子切换 token；数据目录另保留已发布标记，避免保留目录丢失后误读 live current。
 remote raw 模式的 restore 不创建可固定读取的本机代次；须使用 local raw 恢复。
 
@@ -195,10 +225,23 @@ remote raw 模式的 restore 不创建可固定读取的本机代次；须使用
 显式 pin、token 或截至条件要求已发布代次。已知发布但保留资料损坏时不能回退 current。
 固定代次 token 没有自动过期，但不保证永久保留。
 
-每个代次使用**复制**，不使用硬链接，避免 live SQLite/current 改写影响旧 token；
-单代磁盘量为清单存储副本的重建文件 + manifest 引用的全部 raw + 派生发布索引 + 少量
-清单/校验记录（以及最新视图、旧文件适配副本）；精确数据字节数见 verified.json 的 size_bytes。各代次没有去重和自动清理。
-每次替换生成的旧历史文件暂不清理，也会计入状态副本；清理策略留给后续任务。
+保留边界按文件选择存储方式：raw、历史段（含旧历史专用文件）优先硬链接；SQLite、
+current 和其他可变文件首次从在线库保留时复制，绝不链接到在线可变文件。内容 SHA 与
+前一个已保留代次相同的存储文件可链接到前代副本（包括 SQLite/current），先核对前代
+依赖的大小和 mtime_ns。空 DuckDB 描述按重建后实际文件 SHA 比较。硬链接失败则复制，
+逐个文件在 `verified.json.file_storage` 中记录 `link` 或 `copy`；`store_hashes` 记录
+可跨代共用的内容 SHA。顶层 `storage: copy` 只为兼容 301 的读取方保留，表示可变文件
+从在线库的默认策略；实际方式以逐文件记录为准。
+
+push 仍从实际发布副本保留，只有 live raw/历史段的 SHA 与该发布一致时才复用其 inode。
+pull 继承旧保留目录时也优先链接，复制退路保留 mtime，旧 token 的轻量核对继续有效。
+硬链接任何一端被改动，所有依赖它的代次都会因大小或 mtime_ns 不同而报
+`GenerationUnavailable`，不回退到 live current。
+
+`size_bytes` 是全部登记依赖的逻辑大小，不能当作硬链接后的新增磁盘占用；逐文件的
+方式和 inode 可用于核算共用量。派生发布索引、最新视图和旧格式适配文件仍按代生成。
+不做按时间或个数的清理，按 2026-10-22 的决定由另外的机制处理。
+本实现仅消除新增历史的累计重写、代次的冗余内容副本，以及已经核对完全包含的 301 文件。
 
 ### 导入与入口
 

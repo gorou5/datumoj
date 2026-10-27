@@ -383,7 +383,7 @@ class _ReleaseStateManager(_StateManager):
             found = self.store.get(f"generations/{manifest.generation}.json")
             if found is None:
                 raise ValueError("已发布清单不可用")
-            retain_generation(self.data_dir, found[0], target, verified=True)
+            retain_generation(self.data_dir, found[0], target, verified=True, immutable_root=self.data_dir)
         return manifest
 
 
@@ -394,7 +394,9 @@ def retain_pulled_generation(root, generation):
     root = Path(root)
     previous = root.with_name(root.name + ".previous") / ".observation-generations"
     if previous.exists():
-        shutil.copytree(previous, root / ".observation-generations", dirs_exist_ok=True)
+        from datumoj.rikolto.store.observations import _link_or_copy
+
+        shutil.copytree(previous, root / ".observation-generations", dirs_exist_ok=True, copy_function=_link_or_copy)
     return build_state(root).retain(root, generation)
 
 

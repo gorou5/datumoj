@@ -21,6 +21,8 @@ def publish_fixture(store, manifest):
     data = base / 'data'
     data.mkdir(parents=True)
     shutil.copytree(store.root / 'parquet', data / 'parquet')
+    if (store.root / 'parquet-history').exists():
+        shutil.copytree(store.root / 'parquet-history', data / 'parquet-history')
     shutil.copyfile(store.root / 'observations.duckdb', data / 'observations.duckdb')
     if (store.root / 'manifest.sqlite').exists():
         with sqlite3.connect(store.root / 'manifest.sqlite') as source, sqlite3.connect(data / 'manifest.sqlite') as target:
