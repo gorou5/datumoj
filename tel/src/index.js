@@ -16,6 +16,7 @@ import {
   findRecord, insertRecord, updateRecordFacts, factsFromRecord, getSnapshotVersion,
   bumpRecordView, bumpRecordComment, popularFromRecords,
   FIRST_RECORD_YEAR, currentRecordYear,
+  drawRandomRecord, factsFromRecordSnapshot,
 } from './lib/record.js';
 import { HOT_NUMBERS } from './data/hot_numbers.js';
 
@@ -27,29 +28,17 @@ function html(body, status = 200, cache = CACHE_HUB) {
   return new Response(body, { status, headers: { ...HTML, 'cache-control': cache } });
 }
 
-// Draw one random really-designated number and build its hero payload.
+// Draw one random number from the record pool — numbers real visitors
+// have actually queried (DESIGN v2.0 per-year record tables) — and build
+// its hero payload from the stored snapshot. No synthetic candidate is
+// composed any more, so every hero is a real, fully-explained number page.
 // Never throws: returns null when D1 is unavailable (e.g. free-tier daily
 // quota exhausted), so callers can fall back to FALLBACK_HEROES and the
 // homepage hero never dead-ends on placeholders.
 async function drawRandomHero(db) {
   try {
-    // Draw from the small hero_candidate sample table (migration 0006):
-    // ORDER BY RANDOM() over ~30k designated blocks scanned the whole table
-    // on every homepage render.
-    const types = ['fixed', 'mobile', 'ip050', 'free0120', 'free0800', 'navi0570', 'm2m020'];
-    for (let attempt = 0; attempt < 6; attempt++) {
-      const lt = types[Math.floor(Math.random() * types.length)];
-      const brow = await db
-        .prepare('SELECT prefix FROM hero_candidate WHERE line_type = ? ORDER BY RANDOM() LIMIT 1')
-        .bind(lt)
-        .first();
-      if (!brow) continue;
-      const ltRow = await db.prepare('SELECT digits FROM line_type WHERE code = ?').bind(lt).first();
-      let digits = brow.prefix;
-      while (digits.length < ltRow.digits) digits += Math.floor(Math.random() * 10);
-      const facts = await composeNumber(db, digits);
-      if (facts) return randomHero(facts);
-    }
+    const row = await drawRandomRecord(db);
+    if (row) return randomHero(factsFromRecordSnapshot(row));
   } catch {
     return null;
   }
@@ -300,9 +289,9 @@ export default {
         return html(typePage(hub));
       }
       if (path === '/random.json') {
-        // Homepage hero: draw a real designated block at random (type first,
-        // so all line types rotate), fill it out with random subscriber
-        // digits, and return the fullest explanation compose can give.
+        // Homepage hero: draw at random from the record pool (numbers real
+        // visitors have queried) and return the fullest explanation the
+        // stored snapshot supports.
         // Degrades to a verified static hero (still 200) when D1 is down.
         const payload = (await drawRandomHero(db)) || pickFallbackHero();
         return new Response(JSON.stringify(payload), {
