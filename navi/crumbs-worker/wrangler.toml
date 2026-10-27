@@ -8,4 +8,6 @@ routes = [
   { pattern = "navi.datumoj.com/intl-sources*", zone_name = "datumoj.com" },
   { pattern = "navi.datumoj.com/people*", zone_name = "datumoj.com" },
   { pattern = "navi.datumoj.com/news*", zone_name = "datumoj.com" },
+  { pattern = "plan.datumoj.com/*", zone_name = "datumoj.com" },
+  { pattern = "task.datumoj.com/*", zone_name = "datumoj.com" },
 ]
