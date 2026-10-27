@@ -1,10 +1,11 @@
-"""统计观测值库：current 原子指向发布历史，DuckDB 提供只读 ``observations``。
+"""统计观测值库：current 原子提交历史段引用，DuckDB 提供只读 ``observations``。
 
 目录布局（root 下）：
 - ``parquet/<source_id>/<sha256(table_key) 前 32 位>.parquet``：一张表一个文件，整体替换。
   文件名用哈希而不用 table_key 原文：大小写不敏感的文件系统上 ``T1`` 和 ``t1`` 不会互相覆盖，
   ``/``、``..`` 也走不出目录。真正的键在文件里的 table_key 列。
-- 同目录内 footer 标记的不可变历史 Parquet：记录完整身份、抓取事件和 SnapshotOrder。
+- ``parquet-history/<source_id>/<表哈希>/<随机段名>.parquet``：只追加本批事件。
+  current footer 保存已提交段名；旧 301 历史在首次写入前校验并迁移。
 - ``.observation-generations/``：已验证代次副本、实际清单字节与轻量核对记录。
 - ``observations.duckdb``：空的 DuckDB 库，只用来以 read_only 方式打开查询连接。
 
@@ -24,6 +25,7 @@ import sqlite3
 import tempfile
 import threading
 import time
+from collections import Counter
 from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from decimal import Context, Decimal
@@ -92,6 +94,89 @@ _monotonic = time.monotonic
 _ORDER_KEY = b"datumoj.snapshot_order"
 _HISTORY_FILE = b"datumoj.history_file"
 _HISTORY_ONLY = b"datumoj.history_only"
+_SEGMENTS = b"datumoj.history_segments"
+_SEGMENT_TABLE = b"datumoj.history_table"
+_MIGRATION = b"datumoj.history_migration"
+_PUBLICATION_SOURCE = "zz-observation-history"
+
+
+def _current_files(root, ignored=()):
+    return sorted(p for directory in (root / 'parquet').glob('*')
+                  if directory.is_dir() and directory.name != _PUBLICATION_SOURCE
+                  for p in directory.glob('*.parquet') if p not in ignored)
+
+
+def _segment_paths(root, path, metadata):
+    names = json.loads(metadata.get(_SEGMENTS, b'[]'))
+    if not isinstance(names, list) or any(not isinstance(n, str) or not re.fullmatch(r'[0-9a-f]{32}\.parquet', n) for n in names):
+        raise QueryError('历史段引用无效')
+    return [root / 'parquet-history' / path.parent.name / path.stem / n for n in names]
+
+
+def _events(table):
+    # _current is membership in a particular current file, not an event field.
+    return Counter(tuple(row.get(c) for c in _HISTORY_SCHEMA.names if c != '_current')
+                   for row in table.to_pylist())
+
+
+def check_history_migration(root):
+    """Read-only 301 inventory; never creates a store or changes files."""
+    root = Path(root)
+    tables, removable = 0, set()
+    if not (root / 'parquet').exists():
+        return {'tables': 0, 'reclaimable_bytes': 0}
+    for path in _current_files(root):
+        metadata = pq.read_schema(path).metadata or {}
+        if _HISTORY_ONLY in metadata:
+            continue
+        if _HISTORY_FILE in metadata:
+            tables += 1
+            name = metadata[_HISTORY_FILE].decode()
+            if not re.fullmatch(r'[0-9a-f]{32}\.parquet', name):
+                raise QueryError('历史文件引用无效')
+            events = _events(pq.read_table(path.with_name(name)))
+            for candidate in path.parent.glob('*.parquet'):
+                if _HISTORY_ONLY in (pq.read_schema(candidate).metadata or {}) and _events(pq.read_table(candidate)) <= events:
+                    removable.add(candidate)
+        elif _MIGRATION in metadata:
+            tables += 1
+            removable.update(path.with_name(n) for n in json.loads(metadata[_MIGRATION])['files'] if path.with_name(n).exists())
+    inodes, links = {}, Counter()
+    for path in removable:
+        stat = path.stat()
+        key = stat.st_dev, stat.st_ino
+        inodes[key] = stat
+        links[key] += 1
+    # A retained generation may still own a link to a redundant 301 file.
+    reclaimable = sum(stat.st_size for key, stat in inodes.items() if links[key] == stat.st_nlink)
+    return {'tables': tables, 'reclaimable_bytes': reclaimable}
+
+
+def _link_or_copy(source, destination):
+    try:
+        os.link(source, destination)
+        return 'link'
+    except OSError:
+        shutil.copy2(source, destination)
+        return 'copy'
+
+
+def _install_published_segments(root):
+    directory = root / 'parquet' / _PUBLICATION_SOURCE
+    for path in directory.glob('*.parquet'):
+        path = _dependency(root, path.relative_to(root).as_posix())
+        metadata = pq.read_schema(path).metadata or {}
+        value = metadata.get(_SEGMENT_TABLE, b'').decode()
+        if not re.fullmatch(r'[a-z]{2,4}(?:-[a-z0-9]+)+/[0-9a-f]{32}\.parquet', value) or _HISTORY_ONLY not in metadata:
+            raise QueryError('发布历史段路径无效')
+        source, table = value.split('/')
+        destination = _dependency(root, f'parquet-history/{source}/{Path(table).stem}/{path.name}')
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.exists():
+            if _file_digest(destination) != _file_digest(path):
+                raise QueryError('发布历史段冲突')
+        else:
+            _link_or_copy(path, destination)
 
 
 class DuckDBObservationStore:
@@ -107,6 +192,12 @@ class DuckDBObservationStore:
         self._describe_cache: ObservationCatalog | None = None
         if not self._db.exists():
             duckdb.connect(str(self._db)).close()
+        metadata = {p: pq.read_schema(p).metadata or {} for p in _current_files(self.root)}
+        self._ignored_history = {p for p, m in metadata.items() if _HISTORY_ONLY in m}
+        self._needs_migration = any(_HISTORY_FILE in m or _MIGRATION in m
+                                    for p, m in metadata.items() if p not in self._ignored_history)
+        self._needs_install = any(not segment.exists() for p, m in metadata.items()
+                                  for segment in _segment_paths(self.root, p, m))
 
     # ---------- 写 ----------
 
@@ -135,6 +226,11 @@ class DuckDBObservationStore:
         self, source_id: str, table_key: str, observations: Sequence[Observation], order: SnapshotOrder | None, *, check_watermark: bool = True,
     ) -> bool:
         path = self.path_for(source_id, table_key)
+        if self._needs_install:
+            _install_published_segments(self.root)
+            self._needs_install = False
+        if self._needs_migration:
+            self._migrate_history()
         ids: set[ObservationIdentity] = set()
         for o in observations:
             if o.source_id != source_id or o.table_key != table_key:
@@ -148,37 +244,101 @@ class DuckDBObservationStore:
             current = self.table_order(source_id, table_key)
             if current is not None and order < current:
                 return False
-        # Current atomically points to an immutable columnar history file.
-        old = self._stored_rows(path)
-        for row in old:
-            row["_current"] = False
         incoming = [{**_row(o), "_order_at": order.fetched_at if order else None,
                      "_order_seq": order.seq if order else None, "_current": True} for o in observations]
-        keys = {_event_key(row) for row in incoming}
-        old = [row for row in old if _event_key(row) not in keys]
-        history = pa.Table.from_pylist(old + incoming, schema=_HISTORY_SCHEMA)
-        table = pa.Table.from_pylist(incoming, schema=_HISTORY_SCHEMA)
         metadata = {_ORDER_KEY: order.model_dump_json().encode()} if order is not None else {}
-        history_path = None
-        if old:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            history_path = path.with_name(sha256(os.urandom(32)).hexdigest()[:32] + '.parquet')
-            _atomic_parquet(history.replace_schema_metadata({_HISTORY_ONLY: b'1'}), history_path, immutable=True)
-            metadata[_HISTORY_FILE] = history_path.name.encode()
-        table = table.replace_schema_metadata(metadata)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".", suffix=".tmp")
-        os.close(fd)
-        try:
-            pq.write_table(table, tmp)
-            os.replace(tmp, path)
-            self._invalidate_describe()
-        except BaseException:
-            Path(tmp).unlink(missing_ok=True)
-            if history_path is not None:
-                history_path.unlink(missing_ok=True)
-            raise
+        self._append(path, incoming, pa.Table.from_pylist(incoming, schema=_HISTORY_SCHEMA), metadata)
+        self._invalidate_describe()
         return True
+
+    def _append(self, path, incoming, current, metadata):
+        old_metadata = pq.read_schema(path).metadata or {} if path.exists() else {}
+        segments = _segment_paths(self.root, path, old_metadata)
+        created = []
+        try:
+            # Pre-301 tables have no segments yet. Preserve their original ordering.
+            if path.exists() and _SEGMENTS not in old_metadata:
+                old = self._stored_rows(path)
+                if old:
+                    created.append(self._new_segment(path, old))
+            if incoming:
+                created.append(self._new_segment(path, incoming))
+            metadata = dict(metadata)
+            metadata[_SEGMENTS] = json.dumps([p.name for p in [*segments, *created]]).encode()
+            _atomic_parquet(current.replace_schema_metadata(metadata), path)
+        except BaseException:
+            for segment in created:
+                self._discard_segment(segment)
+            raise
+
+    def _discard_segment(self, segment):
+        alias = self._parquet / _PUBLICATION_SOURCE / segment.name
+        alias.unlink(missing_ok=True)
+        segment.unlink(missing_ok=True)
+
+    def _new_segment(self, path, rows):
+        segment = _dependency(self.root, f'parquet-history/{path.parent.name}/{path.stem}/{os.urandom(16).hex()}.parquet')
+        table = pa.Table.from_pylist(rows, schema=_HISTORY_SCHEMA).replace_schema_metadata({
+            _HISTORY_ONLY: b'1', _SEGMENT_TABLE: f'{path.parent.name}/{path.name}'.encode(),
+        })
+        _atomic_parquet(table, segment, immutable=True)
+        alias = _dependency(self.root, f'parquet/{_PUBLICATION_SOURCE}/{segment.name}')
+        alias.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            os.link(segment, alias)
+        except BaseException:
+            segment.unlink(missing_ok=True)
+            raise
+        return segment
+
+    def _migrate_history(self):
+        files = _current_files(self.root)
+        self._ignored_history = {p for p in files if _HISTORY_ONLY in (pq.read_schema(p).metadata or {})}
+        for path in files:
+            if path in self._ignored_history:
+                continue
+            table = pq.read_table(path)
+            metadata = dict(table.schema.metadata or {})
+            if _HISTORY_FILE in metadata:
+                name = metadata[_HISTORY_FILE].decode()
+                if not re.fullmatch(r'[0-9a-f]{32}\.parquet', name):
+                    raise QueryError('历史文件引用无效')
+                original = pq.read_table(path.with_name(name))
+                segment = self._new_segment(path, original.to_pylist())
+                try:
+                    if _events(pq.read_table(segment)) != _events(original):
+                        raise QueryError('历史迁移核对不一致')
+                    events = _events(original)
+                    redundant = [p.name for p in path.parent.glob('*.parquet')
+                                 if _HISTORY_ONLY in (pq.read_schema(p).metadata or {})
+                                 and _events(pq.read_table(p)) <= events]
+                    metadata.pop(_HISTORY_FILE)
+                    metadata[_SEGMENTS] = json.dumps([segment.name]).encode()
+                    metadata[_MIGRATION] = json.dumps({'files': redundant, 'sha256': _file_digest(segment)}).encode()
+                    _atomic_parquet(table.replace_schema_metadata(metadata), path)
+                except BaseException:
+                    self._discard_segment(segment)
+                    raise
+            if _MIGRATION in metadata:
+                pending = json.loads(metadata[_MIGRATION])
+                segments = _segment_paths(self.root, path, metadata)
+                if len(segments) != 1 or _file_digest(segments[0]) != pending['sha256']:
+                    raise QueryError('历史迁移核对不一致')
+                events = _events(pq.read_table(segments[0]))
+                candidates = []
+                for name in pending['files']:
+                    if not re.fullmatch(r'[0-9a-f]{32}\.parquet', name):
+                        raise QueryError('历史迁移路径无效')
+                    candidate = path.with_name(name)
+                    if candidate.exists():
+                        if _HISTORY_ONLY not in (pq.read_schema(candidate).metadata or {}) or not _events(pq.read_table(candidate)) <= events:
+                            raise QueryError('历史迁移核对不一致')
+                        candidates.append(candidate)
+                for candidate in candidates:
+                    candidate.unlink()
+                metadata.pop(_MIGRATION)
+                _atomic_parquet(table.replace_schema_metadata(metadata), path)
+        self._needs_migration = False
 
     # ---------- 读 ----------
 
@@ -324,7 +484,7 @@ class DuckDBObservationStore:
 
     def _parquet_generation(self) -> tuple[tuple[str, int, int], ...]:
         generation = []
-        for path in sorted(self._parquet.glob("*/*.parquet")):
+        for path in _current_files(self.root, self._ignored_history):
             try:
                 stat = path.stat()
             except FileNotFoundError:
@@ -334,7 +494,7 @@ class DuckDBObservationStore:
 
     def _connect(self) -> duckdb.DuckDBPyConnection:
         """只读连接：视图 ``observations`` 已建好，外部访问已关闭且配置已锁定。"""
-        files = sorted(self._parquet.glob("*/*.parquet"))
+        files = _current_files(self.root, self._ignored_history)
         con = duckdb.connect(str(self._db), read_only=True)
         try:
             scan = self._scan(files, self.root)
@@ -363,6 +523,14 @@ class DuckDBObservationStore:
             schema = pq.read_schema(path)
             metadata = schema.metadata or {}
             if _HISTORY_ONLY in metadata:
+                continue
+            if history and _SEGMENTS in metadata:
+                segments = _segment_paths(root, path, metadata)
+                if segments:
+                    parts = [f"SELECT *, {i} AS _segment FROM read_parquet({_quote(str(p))})" for i, p in enumerate(segments)]
+                    scans.append("SELECT * EXCLUDE (_segment) FROM (" + " UNION ALL ".join(parts) + ") QUALIFY row_number() OVER ("
+                                 "PARTITION BY source_id,table_key,obs_id,snapshot_sha256,release_id,_order_at,_order_seq "
+                                 "ORDER BY _segment DESC)=1")
                 continue
             if history and _HISTORY_FILE in metadata:
                 name = metadata[_HISTORY_FILE].decode()
@@ -408,7 +576,7 @@ class DuckDBObservationStore:
     @classmethod
     def prepare_release_index(cls, root):
         """Build small release/error metadata once, at the retention boundary."""
-        files = sorted((root / 'parquet').glob('*/*.parquet'))
+        files = _current_files(root)
         # Adapt legacy copies once. Original generation files stay byte-identical;
         # queries never reload the entire ordering manifest into Python.
         with duckdb.connect() as con:
@@ -538,7 +706,7 @@ class DuckDBObservationStore:
                         "(PARTITION BY source_id,table_key,obs_id ORDER BY _day DESC,_order_at DESC,_order_seq DESC)=1")
             allowed = [*files, index]
         _check_timeout(deadline, timeout_s, timed_out)
-        _lock_connection(con, allowed)
+        _lock_connection(con, allowed, root)
 
     @staticmethod
     def _release_evidence(con, sql, columns, rows, generation):
@@ -577,9 +745,14 @@ class DuckDBObservationStore:
     def import_release(self, source_id, table_key, observations, order):
         """Archive an explicitly labelled release; advance current only if newer."""
         with self._describe_lock:
+            if self._needs_install:
+                _install_published_segments(self.root)
+                self._needs_install = False
+            if self._needs_migration:
+                self._migrate_history()
             path = self.path_for(source_id, table_key)
-            old = self._stored_rows(path)
-            current = [row for row in old if row['_current']]
+            with duckdb.connect() as con:
+                current = con.sql(self._scan([path], self.root)).to_arrow_table().to_pylist() if path.exists() else []
             if not current or min(_release_key(_row(o), order) for o in observations) > max(
                 _release_key(row, SnapshotOrder(fetched_at=row['_order_at'], seq=row['_order_seq'])
                              if row['_order_seq'] is not None else None) for row in current
@@ -594,18 +767,8 @@ class DuckDBObservationStore:
                     raise ValueError("历史发布观测值不属于表或数值无法无损保存")
             if len({o.identity for o in observations}) != len(observations):
                 raise ValueError("ObservationIdentity 重复")
-            keys = {_event_key(row) for row in incoming}
-            history = pa.Table.from_pylist([row for row in old if _event_key(row) not in keys] + incoming, schema=_HISTORY_SCHEMA)
-            history_path = path.with_name(sha256(os.urandom(32)).hexdigest()[:32] + '.parquet')
-            _atomic_parquet(history.replace_schema_metadata({_HISTORY_ONLY: b'1'}), history_path, immutable=True)
             table = pq.read_table(path)
-            metadata = dict(table.schema.metadata or {})
-            metadata[_HISTORY_FILE] = history_path.name.encode()
-            try:
-                _atomic_parquet(table.replace_schema_metadata(metadata), path)
-            except BaseException:
-                history_path.unlink(missing_ok=True)
-                raise
+            self._append(path, incoming, table, table.schema.metadata or {})
             self._invalidate_describe()
             return True
 
@@ -751,11 +914,13 @@ def _atomic_parquet(table, path, *, immutable=False):
         Path(tmp).unlink(missing_ok=True)
 
 
-def _lock_connection(con, files):
+def _lock_connection(con, files, root=None):
     if files:
         for path in list(files):
             metadata = pq.read_schema(path).metadata or {}
-            if _HISTORY_FILE in metadata:
+            if root is not None and _SEGMENTS in metadata:
+                files = [*files, *_segment_paths(root, path, metadata)]
+            if root is not None and _HISTORY_FILE in metadata:
                 name = metadata[_HISTORY_FILE].decode()
                 if not re.fullmatch(r'[0-9a-f]{32}\.parquet', name):
                     raise QueryError('历史文件引用无效')
@@ -784,16 +949,18 @@ def _file_digest(path):
     return digest.hexdigest()
 
 
-def retain_generation(root: Path, manifest_bytes: bytes, snapshot_root: Path, *, verified: bool = False) -> str:
+def retain_generation(root: Path, manifest_bytes: bytes, snapshot_root: Path, *, verified: bool = False, immutable_root: Path | None = None) -> str:
     """Retain a published boundary. Call only after validating its effective chain.
 
     ``verified`` is for the state restore/pull boundary, which has already checked
     every copy, raw SHA and publication state. Queries never call this function.
-    Copies are independent files, not hard links to mutable current databases.
+    Mutable live files are copied; immutable files and verified previous copies
+    can share inodes. ``immutable_root`` permits push to reuse checked live blobs.
     """
     from datumoj.rikolto.core.state import _copy_path
 
     manifest = StateGeneration.model_validate_json(manifest_bytes)
+    _install_published_segments(Path(snapshot_root))
     digest = sha256(manifest_bytes).hexdigest()
     token = str(GenerationToken(generation=manifest.generation, manifest_sha256=digest))
     directory = Path(root) / '.observation-generations'
@@ -812,11 +979,46 @@ def retain_generation(root: Path, manifest_bytes: bytes, snapshot_root: Path, *,
                 raise GenerationUnavailable('保留代次依赖已改变')
         _write_generation_pointer(directory, token)
         return token
+    previous_data, previous_record = None, {}
+    pointer = directory / 'current.json'
+    if pointer.exists():
+        previous_token = GenerationToken.parse(pointer.read_text())
+        previous_base = directory / str(previous_token.generation)
+        previous_record = json.loads((previous_base / 'verified.json').read_bytes())
+        previous_data = previous_base / 'data'
+    previous_hashes = {digest: name for name, digest in previous_record.get('store_hashes', {}).items()}
     with tempfile.TemporaryDirectory(prefix='.retain-', dir=directory) as temp:
         stage = Path(temp)
         data = stage / 'data'
         data.mkdir()
-        expected = {}
+        expected, modes, hashes = {}, {}, {}
+
+        def preserve(source, name, *, immutable=False, digest=None):
+            destination = _dependency(data, name)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            previous = None
+            if digest is not None and previous_data is not None and digest in previous_hashes:
+                previous_name = previous_hashes[digest]
+                candidate = _dependency(previous_data, previous_name)
+                stat = candidate.stat()
+                if [stat.st_size, stat.st_mtime_ns] != previous_record['files'][previous_name]:
+                    raise GenerationUnavailable('前代依赖已改变')
+                previous = candidate
+            if previous is not None:
+                modes[name] = _link_or_copy(previous, destination)
+            elif immutable:
+                candidate = _dependency(Path(immutable_root), name) if immutable_root is not None else source
+                if candidate != source and (not candidate.exists() or _file_digest(candidate) != digest):
+                    candidate = source
+                modes[name] = _link_or_copy(candidate, destination)
+            else:
+                shutil.copyfile(source, destination)
+                modes[name] = 'copy'
+            expected[name] = destination
+            if digest is not None:
+                hashes[name] = digest
+            return destination
+
         for copy in manifest.stores:
             if copy.format == 'sqlite-block-v1':
                 continue  # The reconstructed whole database checksum covers all blocks.
@@ -824,9 +1026,17 @@ def retain_generation(root: Path, manifest_bytes: bytes, snapshot_root: Path, *,
             # vectors/vectors-state.json lives beside the other local stores).
             name = _copy_path(data, copy.name).relative_to(data).as_posix()
             source = _dependency(Path(snapshot_root), name)
-            destination = _dependency(data, name)
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source, destination)
+            immutable = False
+            if copy.format == 'parquet':
+                metadata = pq.read_schema(source).metadata or {}
+                immutable = _HISTORY_ONLY in metadata
+                if _SEGMENT_TABLE in metadata:
+                    value = metadata[_SEGMENT_TABLE].decode()
+                    if not re.fullmatch(r'[a-z]{2,4}(?:-[a-z0-9]+)+/[0-9a-f]{32}\.parquet', value):
+                        raise GenerationUnavailable('发布历史段路径无效')
+                    sid, table = value.split('/')
+                    name = f'parquet-history/{sid}/{Path(table).stem}/{source.name}'
+            destination = preserve(source, name, immutable=immutable, digest=copy.sha256 if copy.format != 'duckdb-empty' else _file_digest(source))
             if not verified:
                 if copy.format == 'duckdb-empty':
                     descriptor = b'{"format":"duckdb-empty-v1"}\n'
@@ -838,6 +1048,13 @@ def retain_generation(root: Path, manifest_bytes: bytes, snapshot_root: Path, *,
                 elif destination.stat().st_size != copy.size_bytes or _file_digest(destination) != copy.sha256:
                     raise GenerationUnavailable('代次存储副本校验失败')
             expected[name] = destination
+        for path in _current_files(data):
+            metadata = pq.read_schema(path).metadata or {}
+            for segment in _segment_paths(data, path, metadata):
+                name = segment.relative_to(data).as_posix()
+                if name not in expected:
+                    source = _dependency(Path(snapshot_root), name)
+                    preserve(source, name, immutable=True, digest=_file_digest(source))
         manifest_path = data / 'manifest.sqlite'
         if manifest_path.exists():
             with sqlite3.connect(f'file:{manifest_path}?mode=ro', uri=True) as db:
@@ -849,9 +1066,7 @@ def retain_generation(root: Path, manifest_bytes: bytes, snapshot_root: Path, *,
                     raise GenerationUnavailable('raw 哈希无效')
                 name = f'raw/{sha[:2]}/{sha}'
                 source = _dependency(Path(snapshot_root), name)
-                destination = _dependency(data, name)
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(source, destination)
+                destination = preserve(source, name, immutable=True, digest=sha)
                 if not verified and _file_digest(destination) != sha:
                     raise GenerationUnavailable('代次 raw 校验失败')
                 expected[name] = destination
@@ -865,11 +1080,14 @@ def retain_generation(root: Path, manifest_bytes: bytes, snapshot_root: Path, *,
             expected[path.relative_to(data).as_posix()] = path
         expected['.release-index.parquet'] = data / '.release-index.parquet'
         expected['.release-latest.parquet'] = data / '.release-latest.parquet'
+        for name in expected:
+            modes.setdefault(name, 'copy')  # Derived indexes and reconstructed catalogs.
         files = {name: [p.stat().st_size, p.stat().st_mtime_ns] for name, p in expected.items()}
         (stage / 'manifest.json').write_bytes(manifest_bytes)
         (stage / 'verified.json').write_text(json.dumps({
             'generation': manifest.generation, 'manifest_sha256': digest, 'files': files,
             'size_bytes': sum(s[0] for s in files.values()), 'storage': 'copy',
+            'file_storage': modes, 'store_hashes': hashes,
             'parquet_files': [p.relative_to(data).as_posix() for p in query_files],
         }))
         os.replace(stage, target)
