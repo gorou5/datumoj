@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -104,7 +104,8 @@ def test_search_docs(tools):
 
 
 def test_list_changes(tools):
-    data = _data(_call(tools, "list_changes"))
+    # 显式 since：默认窗口是“最近 7 天”，固定的 T0 过几天就落在窗口外。
+    data = _data(_call(tools, "list_changes", {"since": (T0 - timedelta(days=1)).isoformat()}))
     assert data["gap_state"] == "ok"
     event = data["data"][0]
     assert event["kind"] == "added"
