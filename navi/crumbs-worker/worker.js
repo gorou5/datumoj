@@ -28,6 +28,7 @@ const TRAILS = [
   { test: (p) => p.startsWith('/intl-sources/review'), trail: [{ label: '导航', href: '/' }, { label: '七源核验', href: '/intl-sources/' }, { label: '独立评审' }] },
   { test: (p) => p.startsWith('/intl-sources'), trail: [{ label: '导航', href: '/' }, { label: '七源核验' }] },
   { test: (p) => p.startsWith('/nas'), trail: [{ label: '导航', href: '/' }, { label: 'NAS 容量预估' }] },
+  { test: (p) => p.startsWith('/news'), trail: [{ label: '导航', href: '/' }, { label: '全部动态' }] },
   { test: (p) => p.startsWith('/people'), trail: [{ label: '导航', href: '/' }, { label: '协作者贡献' }] },
   { test: (p) => p.startsWith('/report'), trail: [{ label: '导航', href: '/' }, { label: '阶段汇报' }] },
 ];

@@ -46,16 +46,19 @@
 
   <h2>最新动态</h2>
   <div class="feed" id="feed"><p class="lede">加载中…</p></div>
+  <p class="more" style="margin:.1rem 0 .7rem"><a href="/news/">查看全部动态 →</a></p>
   <p class="lede" style="font-size:.85rem">动态每天定时从仓库与运维记录核实后更新，没有变化就不写。协作者同步近况：把文件（Markdown / HTML 优先，任何格式均可）放进仓库 <b>navi/inbox/</b> 目录，每天整理进这里并归档。</p>
   <script>
   function esc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   fetch('/feed.json').then(function(r){return r.json();}).then(function(items){
     var box=document.getElementById('feed');
     if(!items || !items.length){ box.innerHTML='<p class="lede">暂无动态。</p>'; return; }
-    box.innerHTML = items.map(function(it){
+    box.innerHTML = items.slice(0,5).map(function(it){
       var okUrl = typeof it.url==='string' && (/^https:\/\//.test(it.url) || /^\/(?!\/)/.test(it.url));
       var link = okUrl ? ' <a href="'+esc(it.url)+'">查看</a>' : '';
-      var tag = it.tag ? '<span class="ftag">'+esc(it.tag)+'</span>' : '';
+var TAGS = {'仓库':['#e3ecf7','#205f9e','#a9c4e2'],'上线':['#e2f2e4','#1e7a34','#a3d3ac'],'调研':['#ece5f7','#5b3ea8','#c4b2e8'],'运维':['#fdf0dc','#9a6206','#ecc887'],'安全':['#fdecea','#a02c2c','#e3a49f'],'同步':['#ddf2f0','#0f766e','#93d5cf']};
+      var c = TAGS[it.tag] || ['#eef1f4','#5a6a7a','#ccd4dc'];
+      var tag = it.tag ? '<span class="ftag" style="background:'+c[0]+';color:'+c[1]+';border-color:'+c[2]+'">'+esc(it.tag)+'</span>' : '';
       return '<div class="fi"><div class="m">'+tag+esc(it.date)+'</div><div class="tx">'+esc(it.text)+link+'</div></div>';
     }).join('');
   }).catch(function(){
