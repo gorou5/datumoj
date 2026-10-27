@@ -21,6 +21,15 @@
   .d{color:var(--sub);font-size:.88rem;margin-top:.15rem}
   .u{color:var(--acc);font-size:.8rem;margin-top:.3rem;word-break:break-all}
   .feed{display:flex;flex-direction:column;gap:.55rem;margin-bottom:.4rem}
+  .pstats{display:flex;flex-wrap:wrap;gap:.55rem;margin:.2rem 0 .6rem}
+  .pstat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.55rem .8rem;min-width:150px;flex:1}
+  .pstat .n{font-weight:600}
+  .pstat .r{color:var(--sub);font-size:.78rem;margin-left:.35rem}
+  .pstat .s{font-size:.86rem;margin-top:.15rem}
+  .pstat .s b{color:var(--acc)}
+  .more{font-size:.92rem}
+  .more a{color:var(--acc);text-decoration:none}
+  .more a:hover{text-decoration:underline}
   .fi{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:8px;padding:.6rem .9rem}
   .fi .m{font-size:.78rem;color:var(--sub)}
   .fi .tx{font-size:.95rem}
@@ -51,6 +60,21 @@
     }).join('');
   }).catch(function(){
     document.getElementById('feed').innerHTML='<p class="lede">动态加载失败，请稍后再看。</p>';
+  });
+  </script>
+
+  <h2>协作者</h2>
+  <div class="pstats" id="pstats"><p class="lede">加载中…</p></div>
+  <p class="more"><a href="/people/">查看每位协作者的完整贡献历史 →</a></p>
+  <script>
+  fetch('/people.json').then(function(r){return r.json();}).then(function(d){
+    var ps = (d.people||[]).slice().sort(function(a,b){return b.merged_count-a.merged_count;});
+    document.getElementById('pstats').innerHTML = ps.map(function(p){
+      return '<div class="pstat"><span class="n">'+esc(p.login)+'</span><span class="r">'+esc(p.role||'')+'</span>'
+        + '<div class="s">已合并 PR <b>'+p.merged_count+'</b> 个 · 执行合并 <b>'+(p.merged_by||0)+'</b> 个</div></div>';
+    }).join('');
+  }).catch(function(){
+    document.getElementById('pstats').innerHTML='<p class="lede">统计加载失败，点下方入口看完整历史。</p>';
   });
   </script>
 
@@ -94,11 +118,6 @@
       <div class="t">计划总览</div>
       <div class="d">项目计划与调研产出的总览页，下含登记库、案例与验证各子页（见下）。</div>
       <div class="u">plan.datumoj.com</div>
-    </a>
-    <a class="item" href="/people/">
-      <div class="t">协作者与贡献历史</div>
-      <div class="d">仓库协作者名单与各自已合并 PR 的历史，每日更新。</div>
-      <div class="u">navi.datumoj.com/people/</div>
     </a>
     <a class="item" href="https://task.datumoj.com">
       <div class="t">项目任务中心</div>
