@@ -13,7 +13,7 @@ from typing import Any
 
 from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult, discover_parsers
 from datumoj.rikolto.core.storage import load_storage_config
-from datumoj.rikolto.core.state import local_write
+from datumoj.rikolto.core.state import StateManager as _StateManager, local_write
 from datumoj.rikolto.parsers.ckan_meta import CkanMetaParser
 from datumoj.rikolto.store.catalog import SqliteCatalogStore
 
@@ -326,14 +326,13 @@ def _build(data_dir: str | Path | None = None, overrides: dict[str, Any] | None 
 def build_state(data_dir: str | Path | None = None):
     """State commands avoid opening or migrating live data stores."""
     from datumoj.rikolto.core.models import StateWriter
-    from datumoj.rikolto.core.state import StateManager
     from datumoj.rikolto.core.state_s3 import S3StateObjectStore
 
     config = load_storage_config(data_dir=data_dir)
     run_id = os.environ.get("GITHUB_RUN_ID")
     kind = state_writer_kind()
     writer = StateWriter(kind=kind, run_id=run_id or uuid.uuid4().hex)
-    return StateManager(S3StateObjectStore(config), config.data_dir, writer=writer)
+    return _ReleaseStateManager(S3StateObjectStore(config), config.data_dir, writer=writer)
 
 
 def state_writer_kind() -> str:
@@ -351,3 +350,112 @@ def build_tools() -> Any:
     deps = build(str(load_storage_config().data_dir))
     deps.require("search")
     return deps.tools
+
+
+# The state implementation remains unchanged. These composition hooks retain the
+# exact verified publication boundary for observation queries.
+class _ReleaseStateManager(_StateManager):
+    def restore(self, target, generation=None, *, raw="local"):
+        report = super().restore(target, generation, raw=raw)
+        if raw == "local":
+            self.retain(target, report["generation"])
+        return report
+
+    def retain(self, target, generation):
+        from datumoj.rikolto.store.observations import retain_generation
+
+        if not any(g.generation == generation for g in self.list()):
+            raise ValueError("代次不在有效发布链中")
+        found = self.store.get(f"generations/{generation}.json")
+        if found is None:
+            raise ValueError("已发布清单不可用")
+        return retain_generation(Path(target), found[0], Path(target), verified=True)
+
+    def push(self):
+        import tempfile
+        from datumoj.rikolto.store.observations import retain_generation
+
+        manifest = super().push()
+        # Restore the published copy, never recopy mutable live current after CAS.
+        with tempfile.TemporaryDirectory(prefix=".retain-push-", dir=self.data_dir) as temp:
+            target = Path(temp) / "published"
+            super().restore(target, manifest.generation, raw="local")
+            found = self.store.get(f"generations/{manifest.generation}.json")
+            if found is None:
+                raise ValueError("已发布清单不可用")
+            retain_generation(self.data_dir, found[0], target, verified=True)
+        return manifest
+
+
+def retain_pulled_generation(root, generation):
+    """Called after the pull implementation has verified and installed all files."""
+    import shutil
+
+    root = Path(root)
+    previous = root.with_name(root.name + ".previous") / ".observation-generations"
+    if previous.exists():
+        shutil.copytree(previous, root / ".observation-generations", dirs_exist_ok=True)
+    return build_state(root).retain(root, generation)
+
+
+def import_observation_release(deps, source_id, file, release_id, released_at):
+    """Match local bytes against registered source plans, without fetching URLs."""
+    from datetime import UTC, date, datetime
+    from itertools import islice
+    from datumoj.rikolto.core.contracts import CrawlContext, ParseError, select_parser
+    from datumoj.rikolto.core.models import FetchOutcome, PublishState, Snapshot
+
+    if not isinstance(release_id, str) or not release_id.strip() or type(released_at) is not date:
+        raise ValueError("必须显式给出发布标识和来源发布日期")
+    spec = deps.registry.get(source_id)
+    if spec is None:
+        raise ValueError("来源未注册")
+    with Path(file).open('rb') as stream:
+        data = stream.read(spec.max_total_bytes + 1)
+    if len(data) > spec.max_total_bytes:
+        raise ValueError("文件超过来源 max_total_bytes 上限")
+    sha = deps.raw.put(data)
+    now = datetime.now(UTC)
+    crawler = deps.crawler_classes.get(spec.kind)
+    if crawler is None:
+        raise ValueError("来源没有已注册的采集计划，无法确认文件出处")
+    parsers = _connected_parsers()
+    matches = []
+    ctx = CrawlContext(spec=spec, manifest=deps.manifest, raw=deps.raw, now=now, limit=spec.max_files)
+    for task in islice(crawler().plan(ctx), spec.max_files):
+        # The source's existing plan supplies official URL and parser metadata.
+        # Accept exactly one successful match; filenames never determine identity.
+        candidates = {cls for (kind, _), cls in parsers.items() if kind == spec.kind}
+        preferred = select_parser(parsers, spec.kind, 'application/octet-stream')
+        if preferred is not None:
+            candidates = {preferred}
+        for cls in candidates:
+            snapshot = Snapshot(snapshot_id=uuid.uuid4().hex, source_id=source_id,
+                                resource_url=task.redacted_url, fetched_at=now,
+                                outcome=FetchOutcome.ok, sha256=sha, size=len(data),
+                                content_type=None if cls.content_type == '*' else cls.content_type)
+            try:
+                parsed = cls().parse(snapshot, data, task.meta)
+                parsed.check_against(snapshot)
+            except ParseError:
+                continue
+            if parsed.observations:
+                matches.append((snapshot, task.meta, parsed))
+    if len(matches) != 1:
+        raise ValueError("文件必须唯一匹配来源现有解析计划；无法确认出处或存在歧义")
+    snapshot, meta, parsed = matches[0]
+    deps.manifest.record_snapshot(snapshot, meta)
+    order = deps.manifest.snapshot_order(snapshot.snapshot_id)
+    if order is None:
+        raise ValueError("导入快照缺少持久化 SnapshotOrder")
+    tables = {}
+    for obs in parsed.observations:
+        labelled = obs.model_copy(update={'release_id': release_id, 'released_at': released_at})
+        tables.setdefault(obs.table_key, []).append(labelled)
+    deps.manifest.record_publish_state(snapshot.snapshot_id, PublishState.staged)
+    for table_key, observations in tables.items():
+        deps.observations.import_release(source_id, table_key, observations, order)
+    deps.manifest.record_publish_state(snapshot.snapshot_id, PublishState.published)
+    return {'snapshot_id': snapshot.snapshot_id, 'snapshot_sha256': sha, 'release_id': release_id,
+            'released_at': released_at.isoformat(), 'observations': len(parsed.observations),
+            'warnings': parsed.warnings}

@@ -819,13 +819,18 @@ class AnalysisTools:
 
     # ----- query_sql -----
 
-    def query_sql(self, sql: str, max_rows: int = MAX_ROWS, timeout_s: float = 10) -> dict[str, Any]:
+    def query_sql(
+        self, sql: str, max_rows: int = MAX_ROWS, timeout_s: float = 10, *,
+        as_of_release: date | str | None = None, generation_token: str | None = None,
+    ) -> dict[str, Any]:
         """在只读视图 ``observations`` 上执行单条 SELECT/WITH（由 ObservationStore 把关只读）。
 
         数值只能从这里取。``data.describe`` 是库里有哪些表和列；要明确逐行出处时 SELECT 带上
         ``source_id``、``table_key``、``obs_id``。
         字符串单元格一律包成 SourceText，value 列是十进制字符串或 null（绝不补零）。
         ``timeout_s`` 限制整个请求，包括查询、出处和元数据处理。
+        ``as_of_release`` 是来源发布标识或 date（含当天）；``generation_token`` 固定数据代次。
+        发布感知逐行出处须保留 source_id、table_key、obs_id、snapshot_sha256、release_id。
         """
         if not isinstance(sql, str) or not sql.strip():
             raise ValueError("sql 不能为空白")
@@ -842,17 +847,54 @@ class AnalysisTools:
         timeout_s = float(timeout_s)
         deadline = _monotonic() + timeout_s
         try:
+            release_options = {}
+            if as_of_release is not None:
+                release_options['as_of_release'] = as_of_release
+            if generation_token is not None:
+                release_options['generation_token'] = generation_token
             res = self.observations.query_readonly(
-                sql, max_rows=max_rows, timeout_s=_remaining_timeout(deadline, timeout_s),
+                sql, max_rows=max_rows, timeout_s=_remaining_timeout(deadline, timeout_s), **release_options,
             )
             _remaining_timeout(deadline, timeout_s)
             warnings = list(res.warnings)
+            query_observations = res.provenance
+            # Preserve legacy three-column citations for calls without new options.
+            # Explicit release-aware calls use the original five-column evidence.
+            # Calls without options keep the legacy response shape and citations.
+            reference_cols = ('source_id', 'table_key', 'obs_id')
+            if (res.generation_token is not None and not release_options and not query_observations
+                    and all(res.columns.count(c) == 1 for c in reference_cols) and res.rows):
+                refs = dict.fromkeys(tuple(row[res.columns.index(c)] for c in reference_cols) for row in res.rows)
+                conditions = []
+                for ref in refs:
+                    if all(isinstance(value, str) for value in ref):
+                        conditions.append('(' + ','.join("'" + value.replace("'", "''") + "'" for value in ref) + ')')
+                if conditions:
+                    cited = self.observations.query_readonly(
+                        'SELECT * FROM observations WHERE (source_id,table_key,obs_id) IN (VALUES ' + ','.join(conditions) + ')' , max_rows=MAX_ROWS,
+                        timeout_s=_remaining_timeout(deadline, timeout_s), generation_token=res.generation_token,
+                    )
+                    by_ref = {(o.source_id, o.table_key, o.obs_id): o for o in cited.provenance}
+                    query_observations = [by_ref[ref] for ref in refs if ref in by_ref]
             provenance = []
-            for observation in res.provenance:
+            for observation in query_observations:
                 _remaining_timeout(deadline, timeout_s)
-                provenance.append(self._obs_view(observation, self._obs_citation(observation, warnings)))
+                citation = self._obs_citation(observation, warnings)
+                if res.generation_token is not None:
+                    matches = [s for s in self.manifest.snapshots_by_sha256(observation.snapshot_sha256)
+                               if s.source_id == observation.source_id and s.fetched_at == observation.fetched_at
+                               and (citation is None or s.resource_url == citation.resource_url)]
+                    if len({s.resource_url for s in matches}) == 1:
+                        citation = citation_for_observation(observation, matches[-1], self._license(observation.source_id))
+                    else:
+                        citation = None
+                view = self._obs_view(observation, citation)
+                if release_options and res.generation_token is not None:
+                    view.update(observation_identity=str(observation.identity), release_id=observation.release_id,
+                                released_at=observation.released_at)
+                provenance.append(view)
                 _remaining_timeout(deadline, timeout_s)
-            surveys = {o.survey for o in res.provenance}
+            surveys = {o.survey for o in query_observations}
             if len(surveys) > 1:
                 warnings.append(
                     f"结果涉及 {len(surveys)} 个不同的调查：不同调查的数据口径不同，不能直接相加，也不能直接算增长率"
@@ -860,7 +902,7 @@ class AnalysisTools:
             if res.rows and "obs_id" not in res.columns:
                 warnings.append("结果列里没有 obs_id，无法逐行给出出处；需要出处时在 SELECT 里带上 obs_id")
             evidence_state, linked_rows = self._query_evidence_state(
-                sql, res.rows, res.columns, res.provenance, provenance,
+                sql, res.rows, res.columns, query_observations, provenance,
             )
             _remaining_timeout(deadline, timeout_s)
             if evidence_state is EvidenceState.unavailable:
@@ -874,13 +916,23 @@ class AnalysisTools:
                     "并按观测行查询，避免聚合或丢失行标识"
                 )
             _usage_warning((p["usage_notice"] for p in provenance), warnings)
-            evidence_inputs = self._query_evidence_inputs(sql, deadline=deadline, timeout_s=timeout_s)
+            if release_options and res.generation_token is not None:
+                evidence_state = res.evidence_state
+                evidence_inputs = res.evidence_inputs
+            else:
+                evidence_inputs = self._query_evidence_inputs(
+                    sql, deadline=deadline, timeout_s=timeout_s,
+                    query_options={'generation_token': res.generation_token} if res.generation_token else None,
+                )
             data = {
                 "columns": res.columns, "rows": [[_cell(v) for v in row] for row in res.rows],
                 "provenance": provenance,
                 "describe": self._describe_view(deadline=deadline, timeout_s=timeout_s),
             }
-            freshness = _freshness([(o.source_id, o.fetched_at) for o in res.provenance])
+            if release_options and res.generation_token is not None:
+                data['generation_token'] = res.generation_token
+                data['row_evidence'] = [row.model_dump(mode='json') for row in res.row_evidence]
+            freshness = _freshness([(o.source_id, o.fetched_at) for o in query_observations])
             _remaining_timeout(deadline, timeout_s)
             if not res.rows:
                 result = _result(
@@ -933,6 +985,7 @@ class AnalysisTools:
 
     def _query_evidence_inputs(
         self, sql: str, *, deadline: float | None = None, timeout_s: float = 10,
+        query_options: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         conditions = _where_conditions(sql)
         time_fields = {"time_start", "time_end", "time_label"}
@@ -948,7 +1001,7 @@ class AnalysisTools:
                 "SELECT source_id, table_key, snapshot_sha256, min(fetched_at), max(fetched_at) "
                 "FROM observations GROUP BY source_id, table_key, snapshot_sha256 "
                 "ORDER BY source_id, table_key, snapshot_sha256",
-                deadline=deadline, timeout_s=timeout_s,
+                deadline=deadline, timeout_s=timeout_s, query_options=query_options,
             )
             if conditions and all(_SIMPLE_FILTER.fullmatch(condition) for condition in conditions):
                 where = " AND ".join(f"({condition})" for condition in conditions)
@@ -956,7 +1009,7 @@ class AnalysisTools:
                     matching = self._query_all_rows(
                         "SELECT DISTINCT source_id, table_key FROM observations WHERE " + where
                         + " ORDER BY source_id, table_key",
-                        deadline=deadline, timeout_s=timeout_s,
+                        deadline=deadline, timeout_s=timeout_s, query_options=query_options,
                     )
                     used = {(sid, table) for sid, table in matching}
                     table_rows = [row for row in table_rows if (row[0], row[1]) in used]
@@ -996,6 +1049,7 @@ class AnalysisTools:
 
     def _query_all_rows(
         self, sql: str, *, deadline: float | None = None, timeout_s: float = 10,
+        query_options: dict[str, Any] | None = None,
     ) -> list[tuple[Any, ...]]:
         """Read query pages so an input inventory can exceed the user result row limit."""
         rows = []
@@ -1003,7 +1057,7 @@ class AnalysisTools:
         while True:
             page = self.observations.query_readonly(
                 f"{sql} LIMIT {MAX_ROWS} OFFSET {offset}", max_rows=MAX_ROWS,
-                timeout_s=_remaining_timeout(deadline, timeout_s),
+                timeout_s=_remaining_timeout(deadline, timeout_s), **(query_options or {}),
             ).rows
             _remaining_timeout(deadline, timeout_s)
             rows.extend(page)

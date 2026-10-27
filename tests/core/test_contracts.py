@@ -680,3 +680,21 @@ class TestFakeObservationReleases(ObservationReleaseSuite):
     @pytest.fixture
     def discard(self):
         return lambda store, generation: store.discard_generation(generation)
+
+
+class TestDuckDBObservationReleases(ObservationReleaseSuite):
+    @pytest.fixture
+    def store(self, tmp_path):
+        from datumoj.rikolto.store.observations import DuckDBObservationStore
+        return DuckDBObservationStore(tmp_path)
+
+    @pytest.fixture
+    def publish(self):
+        def publish(store, manifest):
+            from tests.store.test_observation_releases import publish_fixture
+            return publish_fixture(store, manifest)
+        return publish
+
+    @pytest.fixture
+    def discard(self):
+        return lambda store, generation: (store.root / '.observation-generations' / str(generation) / 'verified.json').unlink()
