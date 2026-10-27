@@ -211,6 +211,75 @@ export async function bumpRecordComment(db, digits) {
     .run();
 }
 
+// Names of the record tables that actually exist, newest year first.
+// Discovered from sqlite_master so years with no table yet are skipped
+// without probing blindly.
+export async function listRecordTables(db) {
+  const r = await db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name GLOB 'number_record_[0-9]*'")
+    .all();
+  const years = [];
+  for (const row of r.results || []) {
+    const m = /^number_record_(\d{4})$/.exec(row.name);
+    if (!m) continue;
+    const y = Number(m[1]);
+    if (y >= FIRST_RECORD_YEAR && y <= 2200) years.push(y);
+  }
+  return years.sort((a, b) => b - a).map((y) => tableFor(y));
+}
+
+// Draw one random Tier 1 record for the homepage hero. The record pool is
+// the site's real query history, so the line-type mix is whatever people
+// actually looked up — no synthetic balancing. Tables are tried in random
+// order so no single year dominates; each table holds at most a few
+// thousand rows, so ORDER BY RANDOM() stays a handful of reads.
+export async function drawRandomRecord(db) {
+  const tables = await listRecordTables(db);
+  for (let i = tables.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [tables[i], tables[j]] = [tables[j], tables[i]];
+  }
+  for (const t of tables) {
+    const row = await db.prepare(`SELECT * FROM ${t} WHERE tier = 1 ORDER BY RANDOM() LIMIT 1`).first();
+    if (row) return row;
+  }
+  return null;
+}
+
+// Facts rebuilt from the stored snapshot alone (no live overlay lookups):
+// the hero explanation renders entirely from fields the record already
+// carries — block prefix / carrier / area code / MA list — so drawing a
+// hero costs no composition and no extra reads beyond the draw itself.
+export function factsFromRecordSnapshot(row) {
+  let mas = [];
+  try {
+    mas = JSON.parse(row.mas_json || '[]');
+  } catch {
+    mas = [];
+  }
+  return {
+    digits: row.digits,
+    lineType: row.line_type,
+    lineTypeName: row.line_type_name,
+    portable: !!row.portable,
+    block: {
+      prefix: row.block_prefix,
+      carrierName: row.carrier_name,
+      designatedOn: row.designated_on,
+      status: row.block_status,
+      note: row.block_note,
+      source: row.block_source,
+    },
+    areaCode: row.area_code || undefined,
+    prefecture: row.prefecture || undefined,
+    mas,
+    designated: !!row.designated,
+    tier: row.tier,
+    viewCount: row.view_count,
+    commentCount: row.comment_count,
+  };
+}
+
 // Most-queried numbers across all year tables (real demand, replaces the
 // old number_view ranking). Returns [{ number, views }].
 export async function popularFromRecords(db, limit = 6) {
