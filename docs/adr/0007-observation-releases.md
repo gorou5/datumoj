@@ -143,3 +143,82 @@ snapshot_sha256, release_id`；去重按完整身份、按首次出现排序。
 JSON Schema 按模型重新导出并与仓库逐字比较。所有样本人工构造、测试离线。
 
 人类需审定日期/标识边界、跨来源歧义和历史代次失效规则；测试通过不代表生产存储已支持。
+
+## 301 实现说明
+
+### 本机布局与原子写入
+
+保留原有 `parquet/<source>/<表键哈希32位>.parquet` current 文件名和表水位。
+current 只含当前批次；文件 footer 的 `datumoj.history_file` 指向同目录内一个不可变的
+历史 Parquet，文件名仍是 32 位十六进制（兼容现有状态副本的文件名校验）。历史文件带
+`datumoj.history_only` 标记，不作为 current 表读取。历史保存完整观测字段、每行原始
+`_order_at` / `_order_seq` 以及 `_current` 引用成员标记；A→B→A 的各次抓取事件分别保留。
+第一次写入可以只保存 current，下一次替换时把旧行纳入历史。
+
+写入先生成历史文件，再原子替换 current 和 footer 水位/指针；替换失败删除新历史文件，
+旧 current、水位和历史均不变。有序删表保留空 current、水位和历史指针；无序删除清除
+水位但仍保留历史。被水位拒绝的旧写入不产生历史。读取 current 时忽略历史专用文件。
+历史文件采用状态模块已经支持的 Parquet 路径，push/restore 不需要新增格式。
+
+旧文件无需迁移：读取 schema 后给 `release_id` / `released_at` 提供 NULL。
+顺序优先读 footer 已持久化的 SnapshotOrder；更早的文件按来源、SHA 和确切 fetched_at
+从该代次的原始 manifest 恢复序号，不用最新的同 SHA 抓取替代。保留时为旧副本生成
+`.release-legacy/` 派生 Parquet（不改原文件），后续查询不在 Python 中加载 manifest 历史。
+无法恢复时，发布感知查询
+抛 QueryError；没有代次时仍允许按旧行为读 current，包括没有顺序的文件。
+
+### 保留、校验和查询成本
+
+wiring 在本机 push 成功后恢复**实际已发布副本**并保留；restore(local) 完成时保留；
+CLI `pull` 在已校验目录安装后保留，并继承前一目录已保留的代次。
+有效性依据状态模块从 current 可达的发布链，候选或 staged 产物不能自行变为发布。
+保留目录为 `.observation-generations/<generation>/`：`manifest.json` 保存实际发布清单字节，
+`data/` 保存独立文件副本，`verified.json` 保存清单哈希、依赖文件大小/mtime_ns 和磁盘字节数。
+`current.json` 原子切换 token；数据目录另保留已发布标记，避免保留目录丢失后误读 live current。
+remote raw 模式的 restore 不创建可固定读取的本机代次；须使用 local raw 恢复。
+
+完整存储校验、raw SHA 校验及 staged 状态检查发生在保留边界：push/restore/pull 复用状态
+模块已完成的校验，不在 pin 或 query 中重新下载或哈希 raw。保留器独立使用时执行一次
+完整校验。保留时还生成派生 `.release-index.parquet`，只记录发布边界与元数据错误/排序
+歧义，避免每次查询遍历全部历史行。另生成按来源/表/引用排序的 `.release-latest.parquet`，
+供无截至条件的查询及兼容工具元数据查询直接读取，避免这些请求反复对全库历史选版本。
+两个派生文件都列入依赖状态记录。
+
+查询仅哈希清单字节，并逐个 stat 核对登记依赖的大小和 mtime_ns；不同即报错，不重做
+全量校验，也不自动修复或回退。只扫描登记的 Parquet；目录里额外出现的文件不参与查询。
+截至条件和版本选择在 DuckDB 惰性视图里执行，SQL 的表/引用过滤可下推，历史行不会全部
+载入 Python。全局元数据错误由派生发布索引检查，SQL WHERE 不能隐藏它们。
+请求预算从代次加载之前开始，覆盖轻量核对、选版本、SQL 和出处回查；DuckDB 操作同时
+由 interrupt 定时器限制，预算用尽抛 QueryTimeout。
+
+**没有任何已发布代次的本机数据目录**，无 token、无截至条件时继续读 current，行为不变；
+显式 pin、token 或截至条件要求已发布代次。已知发布但保留资料损坏时不能回退 current。
+固定代次 token 没有自动过期，但不保证永久保留。
+
+每个代次使用**复制**，不使用硬链接，避免 live SQLite/current 改写影响旧 token；
+单代磁盘量为清单存储副本的重建文件 + manifest 引用的全部 raw + 派生发布索引 + 少量
+清单/校验记录（以及最新视图、旧文件适配副本）；精确数据字节数见 verified.json 的 size_bytes。各代次没有去重和自动清理。
+每次替换生成的旧历史文件暂不清理，也会计入状态副本；清理策略留给后续任务。
+
+### 导入与入口
+
+`rikolto observations import-release --source <id> --file <path> --release-id <id>
+--released-at <YYYY-MM-DD>` 必须显式给出来源发布信息。文件按来源 max_total_bytes 限制
+读取，先存 raw，然后仅使用来源注册采集器的本地 plan 提供 URL/meta、现有注册解析器
+核对内容；不发 HTTP、不依赖文件名。只有唯一成功且含观测值的解析匹配才导入，否则报错。
+尚未列在该来源计划里的存档不能猜测其 URL/表标识，须先由来源任务提供计划元数据。
+原始 parser meta 原样保留，使出处可重放；发布标识和发布日期写在观测行里。
+
+导入按表比较 `(来源发布日期或兼容 UTC 日, SnapshotOrder)`：只有整批导入行都比当前表
+的最新行新，才整体推进 current；否则只追加历史，current 引用和水位不变。
+缺少已知发布日期的显式 current 发布不能用抓取时间猜测。导入使用同一个 manifest 的
+SnapshotOrder 域，并记录 staged/published 状态；失败留下明确 staged 状态阻止状态发布。
+
+分析 query_sql 接受 Python date 或发布标识，generation_token 接受不透明字符串。
+MCP 日期用 `as_of_release={"date":"YYYY-MM-DD"}`，字符串始终表示发布标识；可同时传
+`generation_token`。CLI SQL 用 `--as-of-release <id>` 或 `--as-of-date YYYY-MM-DD`，
+并可传 `--generation-token <token>`。不传新参数时兼容旧调用。
+
+不传新参数的 analysis/MCP 调用保持旧响应形状和三列引用的兼容出处；内部回查固定同一个
+隐式 token，避免请求内代次漂移。显式使用新参数时才暴露 generation_token、row_evidence
+和来源发布字段，并采用五列完整身份的严格证据规则；聚合和不完整身份不猜测出处。

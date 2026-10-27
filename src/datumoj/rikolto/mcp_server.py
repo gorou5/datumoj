@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 import asyncio
 import functools
 import importlib
@@ -203,20 +205,36 @@ def create_server(tools: AnalysisTools | Callable[[], AnalysisTools]) -> MCPServ
     @server.tool()
     @on_worker
     @_guarded
-    def query_sql(sql: str, max_rows: int = 1000) -> dict[str, Any]:
+    def query_sql(
+        sql: str, max_rows: int = 1000, as_of_release: str | dict[str, str] | None = None,
+        generation_token: str | None = None,
+    ) -> dict[str, Any]:
         """Run ONE read-only SELECT/WITH on the view `observations`. The only source of numbers.
 
         Args:
             sql: a single SELECT or WITH statement. Writes, multiple statements, ATTACH, COPY, PRAGMA, SET and
                 file-reading functions are rejected.
             max_rows: 1-1000 (default 1000); exceeding it is an error, so add LIMIT or filters.
+            as_of_release: source release ID string, or {"date": "YYYY-MM-DD"} (inclusive whole day).
+                A plain ISO date string is a release ID, not a date cutoff.
+            generation_token: opaque token returned by a query; pins a published data generation.
+                A data generation contains many source releases. Invalid/unavailable tokens fail without fallback.
 
         `data.describe` lists the columns and the available tables. Include `source_id`, `table_key`,
         and `obs_id` in SELECT to get a citation per row (obs_id alone may be ambiguous across tables).
         A NULL value means missing or annotated (see `note`); never treat it as 0.
         Different surveys are not comparable: do not add them or compute growth across them.
         """
-        return get_tools().query_sql(sql, max_rows=max_rows)
+        options = {}
+        if isinstance(as_of_release, dict):
+            if set(as_of_release) != {'date'}:
+                raise ValueError('as_of_release 日期对象须只有 date 字段')
+            as_of_release = date.fromisoformat(as_of_release['date'])
+        if as_of_release is not None:
+            options['as_of_release'] = as_of_release
+        if generation_token is not None:
+            options['generation_token'] = generation_token
+        return get_tools().query_sql(sql, max_rows=max_rows, **options)
 
     @server.tool()
     @on_worker

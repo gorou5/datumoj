@@ -22,9 +22,10 @@ from datumoj.rikolto.core.lease import LeaseManager, remote_configured
 from datumoj.rikolto.core.monitor import attach_cloud_status
 from datumoj.rikolto.core.models import Citation
 from datumoj.rikolto.core.pull import data_state
-from datumoj.rikolto.core.pull import pull as pull_state
+from datumoj.rikolto.core.pull import pull as _pull_state
 from datumoj.rikolto.core.registry_export import export_registry
 from datumoj.rikolto.core.storage import load_storage_config
+from datumoj.rikolto.core.state import local_write
 from datumoj.rikolto.index.coverage import INDEX_REBUILDING, rebuilding_index
 from datumoj.rikolto.pipeline import vector_status
 
@@ -47,6 +48,8 @@ app.add_typer(diagnose_app, name="diagnose")
 app.add_typer(state_app, name="state")
 app.add_typer(cloud_app, name="cloud")
 app.add_typer(index_app, name="index")
+observations_app = typer.Typer(no_args_is_help=True, help="观测值来源发布历史。")
+app.add_typer(observations_app, name="observations")
 _DATA_DIR: ContextVar[str | None] = ContextVar("datumoj_data_dir", default=None)
 
 
@@ -197,6 +200,12 @@ def state_push(data_dir: Path | None = typer.Option(None, "--data-dir")) -> None
     except scheduling.ReadOnlyReplicaError as exc:
         typer.echo(_json({"error": str(exc)}))
         raise typer.Exit(1) from exc
+
+
+def pull_state(root, generation=None):
+    result = _pull_state(root, generation)
+    wiring.retain_pulled_generation(root, result["generation"])
+    return result
 
 
 @app.command("pull")
@@ -829,10 +838,21 @@ def search(
 def sql(
     query: str = typer.Argument(..., help="单条只读 SELECT/WITH 查询"),
     json_output: bool = typer.Option(False, "--json", help="输出 JSON"),
+    as_of_release: str | None = typer.Option(None, "--as-of-release", help="截至来源发布标识（包括该次发布）"),
+    as_of_date: str | None = typer.Option(None, "--as-of-date", help="截至 YYYY-MM-DD 当天全部来源发布"),
+    generation_token: str | None = typer.Option(None, "--generation-token", help="固定已发布数据代次的不透明 token"),
 ) -> None:
-    """查询只读 observations 视图。"""
+    """查询只读 observations 视图；来源发布与数据代次独立。"""
+    if as_of_release is not None and as_of_date is not None:
+        raise typer.BadParameter("--as-of-release 和 --as-of-date 只能指定一个")
+    cutoff = date.fromisoformat(as_of_date) if as_of_date is not None else as_of_release
     def action(deps: Any) -> None:
-        result = deps.tools.query_sql(query)
+        options = {}
+        if cutoff is not None:
+            options['as_of_release'] = cutoff
+        if generation_token is not None:
+            options['generation_token'] = generation_token
+        result = deps.tools.query_sql(query, **options)
         if json_output:
             typer.echo(_json(result))
             return
@@ -927,3 +947,25 @@ def evaluate_corpus(
             raise typer.Exit(1)
 
     _run("search", action)
+
+
+@observations_app.command("import-release")
+def observations_import_release(
+    source: str = typer.Option(..., "--source", help="已注册来源 ID"),
+    file: Path = typer.Option(..., "--file", exists=True, dir_okay=False, help="来源历史发布的原始文件"),
+    release_id: str = typer.Option(..., "--release-id", help="显式来源发布标识，不从文件名推断"),
+    released_at: str = typer.Option(..., "--released-at", help="来源发布日期 YYYY-MM-DD，不是抓取日"),
+) -> None:
+    """把 raw 存档交给来源现有解析器；旧发布只入历史，新发布可推进 current。"""
+    try:
+        day = date.fromisoformat(released_at)
+        if day.isoformat() != released_at or not release_id.strip():
+            raise ValueError("必须给出非空发布标识和 YYYY-MM-DD 来源发布日期")
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    def action(deps):
+        scheduling.ensure_writable(deps.data_dir)
+        with local_write(deps.data_dir):
+            result = wiring.import_observation_release(deps, source, file, release_id, day)
+        typer.echo(_json(result))
+    _run("sql", action)

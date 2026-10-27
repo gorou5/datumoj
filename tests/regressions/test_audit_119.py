@@ -60,7 +60,8 @@ ENVIRONMENT = (
     'DATUMOJ_VECTOR_RETAIN_HOURS',
     'DATUMOJ_WRITER_KIND',
 )
-MCP_TOOLS_HASH = 'e4e5e837d7d3f0df21d69aa6c5e3370cb8dfd6b12969f8750be5f6d328ef412b'
+# 301 adds query_sql as_of_release and generation_token.
+MCP_TOOLS_HASH = 'ea5c4390d48f5197db1cf1ecb4f948e66786a1fa0e19457b4b499e0856e494f3'
 
 
 def digest(value):
