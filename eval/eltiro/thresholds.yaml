@@ -1,0 +1,12 @@
+schema: eltiro.eval.thresholds/v1
+deterministic:
+  precision: 0.95
+  recall: 0.8
+overall:
+  precision: 0.95
+  recall: 0.8
+max_counterexample_bindings: 0
+rationale: >-
+  初始门槛偏重查准，避免相近口径被自动混用；允许20%的已确认目标暂时漏配，
+  但漏配逐条报告。两个档均以全部 verified 正例作查全分母，确定性档只计该档预测。
+  pending_h2 不计分，反例自动绑定必须为零。没有 verified 正例时报告不可评测，不能达标。

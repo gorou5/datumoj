@@ -1,0 +1,29 @@
+schema: "eltiro.eval.values/v1"
+demand_id: "trade-mirror"
+points:
+  - id: "jpn-usa-2023-export"
+    status: "pending_h2"
+    selector: {"demand_id": "trade-mirror", "country": "JPN", "period": "2023", "indicator_key": "exports_usd", "source_id": "intl-un-comtrade", "release_id": "pending_h2", "reporter": "JPN", "partner": "USA"}
+    unit: "USD"
+    source_value: null
+    source_note: null
+    source_multiplier: "1"
+    output_multiplier: "1"
+    absolute_tolerance: "0"
+    significant_digits: null
+    evidence: {"reference": "https://comtradeapi.un.org/", "locator": "C / A / reporter=392 / partner=842 / X / TOTAL / 2023", "note": "待核验点，非已录原值；本次只检查仓库证据，未访问页面。若有倍率，H2 必须核对元数据。"}
+    checked_at: null
+    pending_reason: "没有该点的官方原值及发布快照；H2 补原值、来源页/存档、核对日期、真实 release_id、倍率和精度后才能计分。"
+  - id: "usa-jpn-2023-import"
+    status: "pending_h2"
+    selector: {"demand_id": "trade-mirror", "country": "USA", "period": "2023", "indicator_key": "imports_usd", "source_id": "intl-un-comtrade", "release_id": "pending_h2", "reporter": "USA", "partner": "JPN"}
+    unit: "USD"
+    source_value: null
+    source_note: null
+    source_multiplier: "1"
+    output_multiplier: "1"
+    absolute_tolerance: "0"
+    significant_digits: null
+    evidence: {"reference": "https://comtradeapi.un.org/", "locator": "C / A / reporter=842 / partner=392 / M / TOTAL / 2023", "note": "待核验点，非已录原值；本次只检查仓库证据，未访问页面。若有倍率，H2 必须核对元数据。"}
+    checked_at: null
+    pending_reason: "没有该点的官方原值及发布快照；H2 补原值、来源页/存档、核对日期、真实 release_id、倍率和精度后才能计分。"

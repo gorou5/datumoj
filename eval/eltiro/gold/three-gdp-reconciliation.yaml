@@ -1,0 +1,88 @@
+schema: "eltiro.eval.gold/v1"
+demand_id: "three-gdp-reconciliation"
+demand_version: 1
+entries:
+  - id: "wdi-gdp_usd"
+    indicator_key: "gdp_usd"
+    series: {"source_id": "intl-wdi", "table_key": "WDI", "indicator": "GDP (current US$)", "indicator_code": "NY.GDP.MKTP.CD", "fixed_dimensions": {}}
+    expected: "positive"
+    status: "pending_h2"
+    evidence: {"reference": "https://data.worldbank.org/indicator/NY.GDP.MKTP.CD", "locator": "NY.GDP.MKTP.CD", "note": "WDI 官方指标入口；本次未联网核验。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"
+  - id: "weo-gdp_usd"
+    indicator_key: "gdp_usd"
+    series: {"source_id": "intl-imf-weo", "table_key": "WEO", "indicator": "Gross domestic product, current prices", "indicator_code": "NGDPD", "fixed_dimensions": {"currency": "USD", "observation_status": "historical"}}
+    expected: "positive"
+    status: "pending_h2"
+    evidence: {"reference": "https://www.imf.org/en/Publications/WEO/weo-database", "locator": "NGDPD", "note": "WEO 指标代码；币种、十亿倍率和实绩边界均待 H2，不能把预测混入。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"
+  - id: "oecd-gdp_usd"
+    indicator_key: "gdp_usd"
+    series: {"source_id": "intl-oecd", "table_key": "Annual national accounts (dataset key unresolved)", "indicator": "Gross domestic product, current prices", "indicator_code": null, "fixed_dimensions": {"currency": "USD"}}
+    expected: "positive"
+    status: "pending_h2"
+    evidence: {"reference": "https://data-explorer.oecd.org/", "locator": "National accounts / GDP at current prices", "note": "仅有概念入口，不臆造 SDMX dataflow 或维度代码。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。 OECD dataflow、维度和版本尚未确认。"
+  - id: "wdi-gdp_lcu"
+    indicator_key: "gdp_lcu"
+    series: {"source_id": "intl-wdi", "table_key": "WDI", "indicator": "GDP (current LCU)", "indicator_code": "NY.GDP.MKTP.CN", "fixed_dimensions": {}}
+    expected: "positive"
+    status: "pending_h2"
+    evidence: {"reference": "https://data.worldbank.org/indicator/NY.GDP.MKTP.CN", "locator": "NY.GDP.MKTP.CN", "note": "WDI 官方指标入口；本次未联网核验。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"
+  - id: "weo-gdp_lcu"
+    indicator_key: "gdp_lcu"
+    series: {"source_id": "intl-imf-weo", "table_key": "WEO", "indicator": "Gross domestic product, current prices", "indicator_code": "NGDP", "fixed_dimensions": {"currency": "LCU", "observation_status": "historical"}}
+    expected: "positive"
+    status: "pending_h2"
+    evidence: {"reference": "https://www.imf.org/en/Publications/WEO/weo-database", "locator": "NGDP", "note": "WEO 指标代码；币种、十亿倍率和实绩边界均待 H2，不能把预测混入。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"
+  - id: "oecd-gdp_lcu"
+    indicator_key: "gdp_lcu"
+    series: {"source_id": "intl-oecd", "table_key": "Annual national accounts (dataset key unresolved)", "indicator": "Gross domestic product, current prices", "indicator_code": null, "fixed_dimensions": {"currency": "LCU"}}
+    expected: "positive"
+    status: "pending_h2"
+    evidence: {"reference": "https://data-explorer.oecd.org/", "locator": "National accounts / GDP at current prices", "note": "仅有概念入口，不臆造 SDMX dataflow 或维度代码。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。 OECD dataflow、维度和版本尚未确认。"
+  - id: "real-growth"
+    indicator_key: "gdp_usd"
+    series: {"source_id": "intl-wdi", "table_key": "WDI", "indicator": "GDP growth (annual %)", "indicator_code": "NY.GDP.MKTP.KD.ZG", "fixed_dimensions": {}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://data.worldbank.org/indicator/NY.GDP.MKTP.KD.ZG", "locator": "NY.GDP.MKTP.KD.ZG", "note": "与需求的总量、价格或币种不同，不可混用；本次未联网核验。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"
+  - id: "per-capita"
+    indicator_key: "gdp_usd"
+    series: {"source_id": "intl-wdi", "table_key": "WDI", "indicator": "GDP per capita (current US$)", "indicator_code": "NY.GDP.PCAP.CD", "fixed_dimensions": {}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://data.worldbank.org/indicator/NY.GDP.PCAP.CD", "locator": "NY.GDP.PCAP.CD", "note": "与需求的总量、价格或币种不同，不可混用；本次未联网核验。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"
+  - id: "ppp"
+    indicator_key: "gdp_usd"
+    series: {"source_id": "intl-wdi", "table_key": "WDI", "indicator": "GDP, PPP (current international $)", "indicator_code": "NY.GDP.MKTP.PP.CD", "fixed_dimensions": {}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://data.worldbank.org/indicator/NY.GDP.MKTP.PP.CD", "locator": "NY.GDP.MKTP.PP.CD", "note": "与需求的总量、价格或币种不同，不可混用；本次未联网核验。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"
+  - id: "wrong-currency"
+    indicator_key: "gdp_lcu"
+    series: {"source_id": "intl-wdi", "table_key": "WDI", "indicator": "GDP (current US$)", "indicator_code": "NY.GDP.MKTP.CD", "fixed_dimensions": {}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://data.worldbank.org/indicator/NY.GDP.MKTP.CD", "locator": "NY.GDP.MKTP.CD", "note": "与需求的总量、价格或币种不同，不可混用；本次未联网核验。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"
+  - id: "constant-lcu"
+    indicator_key: "gdp_lcu"
+    series: {"source_id": "intl-wdi", "table_key": "WDI", "indicator": "GDP (constant LCU)", "indicator_code": "NY.GDP.MKTP.KN", "fixed_dimensions": {}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://data.worldbank.org/indicator/NY.GDP.MKTP.KN", "locator": "NY.GDP.MKTP.KN", "note": "与需求的总量、价格或币种不同，不可混用；本次未联网核验。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"
+  - id: "weo-forecast"
+    indicator_key: "gdp_usd"
+    series: {"source_id": "intl-imf-weo", "table_key": "WEO", "indicator": "Gross domestic product, current prices", "indicator_code": "NGDPD", "fixed_dimensions": {"currency": "USD", "observation_status": "forecast"}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://www.imf.org/en/Publications/WEO/weo-database", "locator": "NGDPD; Estimates Start After", "note": "同代码的预测也不能替代实绩；状态维度是评测语义，待映射至接入契约。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"
