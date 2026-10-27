@@ -1,2 +1,5 @@
 .wrangler/
 knowledge/soumu_foundation.db
+
+# SSG snapshot backfill progress (runtime state, resumable)
+scripts/backfill_snapshots.state.json

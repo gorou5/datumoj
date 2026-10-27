@@ -17,13 +17,14 @@ import {
   bumpRecordView, bumpRecordComment, popularFromRecords,
   drawRandomRecord, factsFromRecordSnapshot,
 } from './lib/record.js';
+import { flagFingerprint, getSnapshot, putSnapshot } from './lib/snapshot.js';
 
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
 const CACHE_HUB = 'public, max-age=3600, s-maxage=86400';
 const CACHE_NUM = 'public, max-age=3600, s-maxage=604800';
 
-function html(body, status = 200, cache = CACHE_HUB) {
-  return new Response(body, { status, headers: { ...HTML, 'cache-control': cache } });
+function html(body, status = 200, cache = CACHE_HUB, extra = {}) {
+  return new Response(body, { status, headers: { ...HTML, 'cache-control': cache, ...extra } });
 }
 
 // Draw one random number from the record pool — numbers real visitors
@@ -98,7 +99,7 @@ async function getPopularNumbers(db, limit = 6) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     let path;
     try {
@@ -261,14 +262,35 @@ export default {
         // its record snapshot (per-year foundation tables); only a first
         // query — or a snapshot older than the current snapshot_version —
         // goes through composition, and the result is laid down / refreshed.
+        // SSG snapshots (lib/snapshot.js): a fresh Tier 1 record's rendered
+        // HTML is served from R2 when the stored snapshot provably matches
+        // the record state + flag fingerprint; renders on any other path
+        // (re)generate the snapshot in the background. Content, URL, tier
+        // and 404 behaviour are identical either way, and any snapshot
+        // failure falls back to the plain SSR render below.
+        const defer = (p) => { if (ctx && ctx.waitUntil) ctx.waitUntil(p); };
         const version = await getSnapshotVersion(db);
         const rec = await findRecord(db, m[1]);
         if (rec && rec.row.snapshot_version >= version) {
+          if (rec.row.tier === 1) {
+            const fp = await flagFingerprint(db, m[1]);
+            const snap = fp !== null ? await getSnapshot(env, m[1]) : null;
+            if (snap && Number(snap.meta.sv) === rec.row.snapshot_version && snap.meta.fp === fp) {
+              return html(snap.body, 200, CACHE_NUM, { 'x-snapshot': 'hit' });
+            }
+            const facts = await factsFromRecord(db, rec.row);
+            const body = numberPage(facts);
+            if (facts.tier === 1 && fp !== null) {
+              defer(putSnapshot(env, m[1], body, { sv: rec.row.snapshot_version, fp }));
+            }
+            return html(body, 200, CACHE_NUM, { 'x-snapshot': 'miss' });
+          }
           const facts = await factsFromRecord(db, rec.row);
           return html(numberPage(facts), 200, CACHE_NUM);
         }
         const facts = await composeNumber(db, m[1]);
         if (facts) {
+          let laidDown = false;
           try {
             if (rec) {
               await updateRecordFacts(db, rec.year, facts, version);
@@ -279,8 +301,18 @@ export default {
               facts.viewCount = 0;
               facts.commentCount = 0;
             }
+            laidDown = true;
           } catch { /* record write must never break the page */ }
-          return html(numberPage(facts), 200, CACHE_NUM);
+          const body = numberPage(facts);
+          if (laidDown && facts.tier === 1) {
+            // Snapshot the just-landed page so later queries can be served
+            // statically (the v2.0 record path above validates it against
+            // the record row and the flag fingerprint before serving).
+            const fp = await flagFingerprint(db, m[1]);
+            if (fp !== null) defer(putSnapshot(env, m[1], body, { sv: version, fp }));
+            return html(body, 200, CACHE_NUM, { 'x-snapshot': 'miss' });
+          }
+          return html(body, 200, CACHE_NUM);
         }
         // Catch-all: any 11-digit 0-leading input (and any other digit string
         // whose band can be identified) gets an explanatory page keyed by the
