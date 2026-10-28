@@ -151,3 +151,32 @@ def test_match_cli_errors_redact_input_and_refuse_symlink(cli):
     (root / "eltiro/matches.sqlite").symlink_to(sentinel)
     result = invoke("matches", "queue")
     assert result.exit_code == 1 and sentinel.read_text() == "unchanged"
+
+
+def test_run_commands_select_registered_version_and_show_private_records(cli):
+    from tests.eltiro.test_executor import observation, seed, publish
+
+    root, invoke = cli
+    store, _ = seed(root, [[observation()]])
+    token = publish(store)
+    with SQLiteDemandRegistry(root / "eltiro/demands.sqlite3") as demands:
+        demands.register(make_demand(indicators=[{"key": "gdp", "concept": "NY.GDP.MKTP.CD", "unit": "USD"}]))
+        demands.register(make_demand(version=2, indicators=[{"key": "gdp", "concept": "NY.GDP.MKTP.CD", "unit": "USD"}]))
+    first = invoke("run", "example-demand", "--version", "1", "--generation-token", token)
+    assert first.exit_code == 0, first.output
+    receipt = json.loads(first.output)
+    assert receipt["row_count"] == 1 and receipt["gap_count"] == 0
+    shown = invoke("runs", "show", receipt["run_id"])
+    assert shown.exit_code == 0 and json.loads(shown.output)["demand_version"] == 1
+    second = invoke("run", "example-demand")
+    assert second.exit_code == 0, second.output
+    listing = invoke("runs", "list")
+    assert listing.exit_code == 0
+    assert {r["demand_version"] for r in json.loads(listing.output)} == {1, 2}
+    assert not (root / "consumer/outbox").exists()
+    for args in (("run", "example-demand", "--generation-token", "PRIVATE TOKEN"),
+                 ("run", "missing"), ("runs", "show", "../PRIVATE")):
+        result = invoke(*args)
+        assert result.exit_code == 1 and "PRIVATE" not in result.output
+        assert "Eltiro operation failed" in result.output
+    assert len(json.loads(invoke("runs", "list").output)) == 2

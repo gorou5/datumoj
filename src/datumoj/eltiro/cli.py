@@ -16,6 +16,8 @@ from datumoj.eltiro.intake import IntakeService, load_consumers, open_directory
 from datumoj.eltiro.match_store import SQLiteMatchStore
 from datumoj.eltiro.models import SeriesIdentity
 from datumoj.eltiro.registry_store import SQLiteDemandRegistry
+from datumoj.eltiro.executor import run_registered
+from datumoj.eltiro.runs import RunStore
 from datumoj.rikolto.core.contracts import SourceSpec
 
 app = typer.Typer(no_args_is_help=True, help="Eltiro local demand intake.")
@@ -23,6 +25,8 @@ demands_app = typer.Typer(no_args_is_help=True)
 app.add_typer(demands_app, name="demands")
 matches_app = typer.Typer(no_args_is_help=True)
 app.add_typer(matches_app, name="matches")
+runs_app = typer.Typer(no_args_is_help=True)
+app.add_typer(runs_app, name="runs")
 
 
 class SourceDirectory:
@@ -204,3 +208,39 @@ def reject_match(
     generation: Annotated[int, typer.Option("--generation")],
 ) -> None:
     _confirm_match(ctx, demand_id, version, indicator, series, generation, "rejected")
+
+
+@app.command("run")
+def run_demand(
+    ctx: typer.Context, demand_id: str,
+    version: Annotated[int | None, typer.Option("--version")] = None,
+    generation_token: Annotated[str | None, typer.Option("--generation-token")] = None,
+):
+    try:
+        _state_path(ctx, "profiles.sqlite")
+        _state_path(ctx, "matches.sqlite")
+        with _registry(ctx) as demands:
+            record = run_registered(demand_id, version=version, generation_token=generation_token,
+                                    data_root=ctx.obj["data_dir"], registry=SourceDirectory(ctx.obj["sources_dir"]),
+                                    demands=demands)
+        typer.echo(json.dumps({k: record[k] for k in ("run_id", "row_count", "gap_count")}))
+    except Exception:
+        _error()
+
+
+@runs_app.command("list")
+def list_runs(ctx: typer.Context):
+    try:
+        load_consumers(ctx.obj["data_dir"])
+        typer.echo(json.dumps(RunStore(ctx.obj["data_dir"]).list()))
+    except Exception:
+        _error()
+
+
+@runs_app.command("show")
+def show_run(ctx: typer.Context, run_id: str):
+    try:
+        load_consumers(ctx.obj["data_dir"])
+        typer.echo(json.dumps(RunStore(ctx.obj["data_dir"]).show(run_id)))
+    except Exception:
+        _error()
