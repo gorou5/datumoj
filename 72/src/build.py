@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json, html, os, shutil
-from data import CHARS, GLOBAL_PROMPT, GLOBAL_PROMPT_EN, NEGATIVE_PROMPT, SHEET_LAYOUT
+from data import CHARS, GLOBAL_PROMPT_V2, GLOBAL_PROMPT_EN_V2, NEGATIVE_PROMPT_V2, SHEET_LAYOUT
+GLOBAL_PROMPT, GLOBAL_PROMPT_EN, NEGATIVE_PROMPT = GLOBAL_PROMPT_V2, GLOBAL_PROMPT_EN_V2, NEGATIVE_PROMPT_V2
 
 PALETTE = [
  ("#c96f4a","#e9b44c"),("#7a8450","#d9c27a"),("#5d7a8c","#c96f4a"),("#a44a3f","#e0a458"),
@@ -23,7 +24,7 @@ for c in CHARS:
     bg, ac = PALETTE[(c["id"]-1) % len(PALETTE)]
     d = dict(c); d["color"]=bg; d["accent"]=ac; d["stats"]=stats(c)
     d["prompt_cn"] = SHEET_LAYOUT + "角色：" + c["visual"] + "。 " + GLOBAL_PROMPT
-    d["prompt_en"] = "Claymation character turnaround sheet: front view, side view, back view of the same character standing side by side, same scale, full body, natural standing pose, pitch-black background, no text, no scenery. Character: " + c["visual"] + ". " + GLOBAL_PROMPT_EN
+    d["prompt_en"] = "Claymation character turnaround sheet: not three characters but one clay puppet turned and photographed from front, side and back, standing side by side on the same ground line, evenly spaced, same scale, full body, natural standing pose, identical outfit and props in all three views, the views never look at or interact with each other, pitch-black background, no text, no scenery. Character: " + c["visual"] + ". " + GLOBAL_PROMPT_EN
     imgf = f"img/char-{c['id']:02d}.webp"; avf = f"img/avatar-{c['id']:02d}.webp"
     d["img"] = imgf if os.path.exists(imgf) else None
     d["avatar"] = avf if os.path.exists(avf) else None
@@ -65,8 +66,12 @@ h1 .n72{color:var(--rust);text-shadow:3px 3px 0 var(--gold)}
 .chip{border:3px solid var(--ink);background:var(--card);padding:6px 12px;border-radius:99px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:3px 3px 0 rgba(59,45,32,.8)}
 .chip.on{background:var(--ink);color:var(--paper)}
 .chip small{opacity:.65;font-weight:600}
-.main{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(320px,1fr);gap:20px;align-items:start}
-@media(max-width:900px){.main{grid-template-columns:1fr}}
+.main{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(340px,1fr);gap:20px;align-items:start;grid-template-areas:"left detail" "bible detail"}
+.leftCol{grid-area:left}.bibleWrap{grid-area:bible}
+@media(max-width:900px){.main{grid-template-columns:1fr;grid-template-areas:"left" "detail" "bible"}}
+.slotDesc{font-size:12.5px;color:#6d5741;line-height:1.65;margin-top:11px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.slotLine{font-size:12.5px;margin-top:8px;background:#fffdf6;border:2px solid rgba(59,45,32,.5);border-radius:9px;padding:5px 9px;line-height:1.55}
+.badgeIcon{margin-right:3px}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 @media(max-width:640px){.grid{grid-template-columns:repeat(2,1fr);gap:9px}}
 .slot{border:4px solid var(--ink);border-radius:16px;background:var(--card);box-shadow:5px 5px 0 rgba(59,45,32,.85);padding:12px;text-align:left;cursor:pointer;position:relative;transition:transform .08s}
@@ -74,8 +79,8 @@ h1 .n72{color:var(--rust);text-shadow:3px 3px 0 var(--gold)}
 .slot.sel{background:#fff3cf;outline:4px solid var(--gold);box-shadow:5px 5px 0 var(--rust)}
 .slotHead{display:flex;gap:12px;align-items:center}
 .slot .no{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;font-weight:700;opacity:.65;display:block}
-.avatarImg{width:78px;height:96px;object-fit:cover;flex:0 0 auto;border:3px solid rgba(59,45,32,.8);border-radius:14px;box-shadow:3px 4px 0 rgba(59,45,32,.35);background:#000}
-.bigAvatarImg{width:118px;height:146px;object-fit:cover;flex:0 0 auto;border:3.5px solid var(--ink);border-radius:16px;box-shadow:4px 5px 0 rgba(59,45,32,.4);background:#000}
+.avatarImg{width:78px;height:96px;object-fit:cover;object-position:50% 0%;flex:0 0 auto;border:3px solid rgba(59,45,32,.8);border-radius:14px;box-shadow:3px 4px 0 rgba(59,45,32,.35);background:#000}
+.bigAvatarImg{width:118px;height:146px;object-fit:cover;object-position:50% 0%;flex:0 0 auto;border:3.5px solid var(--ink);border-radius:16px;box-shadow:4px 5px 0 rgba(59,45,32,.4);background:#000}
 .turnImg{width:100%;border:3.5px solid var(--ink);border-radius:14px;margin-top:6px;background:#000;display:block}
 .turnWait{border:3px dashed var(--mud);border-radius:14px;padding:20px 14px;text-align:center;color:#77644c;font-weight:700;font-size:13.5px;margin-top:6px;background:#00000008}
 .detailHead{display:flex;gap:16px;align-items:center}
@@ -95,7 +100,7 @@ h1 .n72{color:var(--rust);text-shadow:3px 3px 0 var(--gold)}
 .pgbtn.on{background:var(--rust);color:#fff}
 .pgbtn:disabled{opacity:.4;cursor:not-allowed}
 .pageInfo{font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:700;margin-left:auto}
-.detail{border:4px solid var(--ink);border-radius:18px;background:var(--card);box-shadow:7px 7px 0 var(--ink);padding:20px;position:sticky;top:16px}
+.detail{grid-area:detail;border:4px solid var(--ink);border-radius:18px;background:var(--card);box-shadow:7px 7px 0 var(--ink);padding:20px;position:sticky;top:16px}
 @media(max-width:900px){.detail{position:static}}
 .detail .bigAvatar{width:118px;height:146px;font-size:58px;margin:0;border-radius:16px}
 .detail h2{text-align:left;font-size:30px;font-weight:900}
@@ -112,7 +117,7 @@ h1 .n72{color:var(--rust);text-shadow:3px 3px 0 var(--gold)}
 .promptBox{background:#2f2718;color:#f2e4bd;border-radius:12px;padding:12px 13px;font-size:12.5px;line-height:1.75;word-break:break-all;max-height:190px;overflow:auto}
 .copyBtn{margin-top:8px;border:3px solid var(--ink);background:var(--gold);padding:8px 14px;border-radius:10px;font-weight:900;cursor:pointer;box-shadow:3px 3px 0 rgba(59,45,32,.9);font-size:13.5px}
 .copyBtn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 rgba(59,45,32,.9)}
-.bible{margin-top:30px;border:4px solid var(--ink);border-radius:18px;background:var(--card);box-shadow:7px 7px 0 var(--ink);padding:22px}
+.bible{margin-top:2px;border:4px solid var(--ink);border-radius:18px;background:var(--card);box-shadow:7px 7px 0 var(--ink);padding:22px}
 .bible h2{font-size:21px;margin-bottom:6px}
 .bible p{font-size:13.5px;line-height:1.8;color:#5c4a36}
 .bible h3{font-size:12.5px;letter-spacing:.16em;color:var(--rust);margin:16px 0 6px;font-family:ui-monospace,Menlo,monospace}
@@ -141,16 +146,15 @@ footer{margin-top:26px;text-align:center;font-size:12.5px;color:#77644c;line-hei
 </div>
 
 <div class="main">
-  <div>
+  <div class="leftCol">
     <div class="grid" id="grid"></div>
     <div class="pager" id="pager"></div>
   </div>
   <aside class="detail" id="detail"></aside>
-</div>
 
-<section class="bible">
-  <h2>🎨 视觉圣经 · 粘土世界全局风格</h2>
-  <p>全部 69 个角色共用这一套全局 Prompt（The Neverhood 设计哲学版：捏出来的世界、糖果色派对悬浮于漆黑虚空），生成时拼上角色卡里的「视觉设定」即可。三视图正在按此 Prompt 逐个生成、回填到每个角色卡的 Prompt 下方，头像取自三视图的正面；未生成者暂用按标志性道具做的粘土色占位脸。</p>
+<section class="bible bibleWrap">
+  <h2>🎨 视觉圣经 · 粘土世界全局风格（v2）</h2>
+  <p>全部 69 个角色共用这一套全局 Prompt。v2 据 Doug TenNapel 与 The Neverhood 制作资料调研迭代：原作主角本体是泡沫乳胶＋球窝骨架、外糊一层泥皮，刻意保留指纹与按压痕；造型按「几块大色块粘土＋细长四肢＋小泥珠眼睛」收紧，专治 v1 生成偏 Q 版大眼的问题。生成时拼上角色卡里的「视觉设定」即可；三视图逐个生成后回填到各卡 Prompt 下方，头像取三视图的正面，绰号前的图标是该角色的徽章。</p>
   <h3>GLOBAL STYLE · 中文</h3>
   <div class="promptBox" id="gCn"></div>
   <button class="copyBtn" data-copy="cn">📋 复制中文全局 Prompt</button>
@@ -161,9 +165,10 @@ footer{margin-top:26px;text-align:center;font-size:12.5px;color:#77644c;line-hei
   <div class="promptBox" id="gNeg"></div>
   <button class="copyBtn" data-copy="neg">📋 复制 Negative Prompt</button>
 </section>
+</div>
 
 <footer>
-  72 = 8 页 × 9 格 · 69 实装 + 3 锁定（70 / 71 / 72 号位留给下一批评论区新物种）<br>
+  72 = 12 页 × 6 格 · 69 实装 + No.70 / 71 / 72 为隐藏角色（尚未揭晓，前端仅作文字说明）<br>
   72.datumoj.com · datumoj 人物资产库 · 角色人设与台词为评论生态观察记录，手感参数为趣味示意
 </footer>
 </div>
@@ -194,7 +199,7 @@ function renderChips(){
 }
 function avatarHTML(c, big){
   if(c.avatar) return `<img class="${big?'bigAvatarImg':'avatarImg'}" src="${c.avatar}" alt="${c.name}头像">`;
-  return `<div class="avatar ${big?'bigAvatar':''}" style="background:radial-gradient(circle at 32% 28%, ${c.accent}, ${c.color} 72%)">${c.icon}</div>`;
+  return `<div class="avatar ${big?'bigAvatar':''}" style="background:radial-gradient(circle at 32% 28%, ${c.accent}, ${c.color} 72%)">？</div>`;
 }
 function renderGrid(){
   const list = filtered();
@@ -207,14 +212,16 @@ function renderGrid(){
         ${avatarHTML(c,false)}
         <div><span class="no">No.${String(c.id).padStart(2,'0')}</span>
         <div class="nm">${c.name}</div>
-        <div class="tt">${c.title}</div>
+        <div class="tt"><span class="badgeIcon">${c.icon}</span>${c.title}</div>
         <span class="fc" style="background:${c.accent}55">${c.faction}</span></div>
       </div>
+      <div class="slotDesc">${c.desc}</div>
+      <div class="slotLine">💬 ${c.lines[0]}</div>
     </div>`).join("");
   // 未筛选、最后一页：补 3 个锁定格凑满 72
   if(faction==="全部" && !query && page===pages-1){
     for(let n=70;n<=72;n++){
-      cells += `<div class="slot locked"><div class="slotHead"><div class="avatar">🔒</div><div><span class="no">No.${n}</span><div class="nm">？？？</div><div class="tt">未解锁角色</div><span class="fc">COMING SOON</span></div></div></div>`;
+      cells += `<div class="slot locked"><div class="slotHead"><div class="avatar">🔒</div><div><span class="no">No.${n}</span><div class="nm">？？？</div><div class="tt">隐藏角色</div><span class="fc">HIDDEN</span></div></div><div class="slotDesc">隐藏角色，尚未揭晓——这里先只有文字说明，本人还没被想出来。</div></div>`;
     }
   }
   $("#grid").innerHTML = cells || `<div class="empty">没有找到这个角色——换个关键词试试？</div>`;
@@ -243,7 +250,7 @@ function renderDetail(){
     <div class="detailHead">
       ${avatarHTML(c,true)}
       <div><h2>${c.name}</h2>
-      <div class="dtitle">No.${String(c.id).padStart(2,'0')} · ${c.title}</div>
+      <div class="dtitle">No.${String(c.id).padStart(2,'0')} · <span class="badgeIcon">${c.icon}</span>${c.title}</div>
       <div class="dnote">名字由来：${c.note}</div>
       <div class="dfc"><span class="fc" style="background:${c.accent}55;border:2px solid var(--ink);padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700">${c.faction}</span></div></div>
     </div>
