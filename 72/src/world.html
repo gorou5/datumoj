@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>评论区粘土世界 · 全景 — 72 号人物资产库</title>
-<meta name="description" content="72 号评论区人物资产库的粘土世界：城堡、长廊、评论公寓、回声广场与六大阵营街区，69 个角色以不同姿态生活在里面，点任意角色直达他的资产卡。">
+<meta name="description" content="72 号评论区人物资产库的粘土世界：一块有机大陆、一条带刺长桥与桥尽头的城堡岛，湖畔、档案馆、评论公寓与六大阵营街区，69 个角色以不同姿态生活在里面，点任意角色直达他的资产卡。">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{height:100%;overflow:hidden;background:#060607}
@@ -51,7 +51,7 @@
 <a class="hud" id="backBtn" href="/">← 回到选人画面</a>
 <div class="hud" id="titleBox">
   <h1>🌍 评论区粘土世界 · 全景</h1>
-  <p>城堡 · 长廊 · 评论公寓 · 回声广场 · 六大阵营街区 — 69 个角色都在里面</p>
+  <p>有机大陆 · 带刺长桥 · 城堡岛 · 湖畔 · 档案馆 — 69 个角色都在里面，隐藏角色躲在厕所那儿</p>
 </div>
 <div class="hud" id="hint">🖱️ 拖动旋转 · 滚轮缩放 · 点任意角色看他的资产卡</div>
 <div id="tip"></div>
@@ -94,14 +94,14 @@ renderer.setSize(innerWidth, innerHeight);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x060607);
-scene.fog = new THREE.FogExp2(0x060607, 0.0015);
+scene.fog = new THREE.FogExp2(0x060607, 0.0009);
 
 const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 700);
 window.__scene = scene;
 window.__camera = camera;
-const _fitK = innerWidth/innerHeight < 1 ? Math.min(1/(innerWidth/innerHeight), 1.9) : 1;
-const CAM_END = new THREE.Vector3(0, 62*_fitK, 108*_fitK);
-const CAM_START = new THREE.Vector3(0, 145, 250);
+const _fitK = innerWidth/innerHeight < 1 ? Math.min(1.45/(innerWidth/innerHeight), 3.1) : 1;
+const CAM_END = new THREE.Vector3(12, 76*(1+(_fitK-1)*0.5), 132*_fitK);
+const CAM_START = new THREE.Vector3(12, 190*(1+(_fitK-1)*0.5), 300*_fitK);
 if(QS.has('cam')){
   const v = QS.get('cam').split(',').map(Number);
   camera.position.set(v[0], v[1], v[2]);
@@ -121,12 +121,12 @@ rim.position.set(-15, 30, 60);
 scene.add(rim);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-const LOOK = QS.has('look') ? QS.get('look').split(',').map(Number) : [0, 2, -4];
+const LOOK = QS.has('look') ? QS.get('look').split(',').map(Number) : [12, 1, 2];
 controls.target.set(LOOK[0], LOOK[1], LOOK[2]);
 controls.enableDamping = true;
 controls.dampingFactor = 0.06;
 controls.minDistance = 5;
-controls.maxDistance = 240;
+controls.maxDistance = 560;
 controls.maxPolarAngle = 1.52;
 controls.enabled = STILL || QS.has('cam');
 controls.update();
@@ -288,17 +288,21 @@ function textSprite(text, sub, scale=1, fg='#fdf6e3'){
 }
 const polar = (a, r)=>[Math.cos(a)*r, Math.sin(a)*r];
 
-/* ---------- 地面：不规则大陆 + 分层街区 + 环路大道 ---------- */
+/* ---------- 地形：不规则大陆 + 长桥 + 城堡岛 + 链锁浮岩（v4 结构重构） ---------- */
+const LAND_C = {x: -22, z: 2};
 function radiusAt(a){
-  return 62 + 4*Math.sin(3*a+1.3) + 3*Math.sin(5*a+0.7) + 2*Math.sin(8*a+2.1);
+  return 50 + 5*Math.sin(2*a+0.6) + 4*Math.sin(3*a+2.0) + 2.5*Math.sin(6*a+1.0);
+}
+function inLand(x, z, margin=0){
+  const dx = x - LAND_C.x, dz = z - LAND_C.z;
+  return Math.hypot(dx, dz) < radiusAt(Math.atan2(dz, dx)) - margin;
 }
 {
-  // 不规则多边形大陆（星凸轮廓挤压成型，顶面为城镇地面）
   const shape = new THREE.Shape();
-  const SEG = 72;
+  const SEG = 80;
   for(let i=0;i<=SEG;i++){
     const a = (i/SEG)*Math.PI*2, r = radiusAt(a);
-    const x = Math.cos(a)*r, y = Math.sin(a)*r;
+    const x = LAND_C.x + Math.cos(a)*r, y = LAND_C.z + Math.sin(a)*r;
     if(i===0) shape.moveTo(x, y); else shape.lineTo(x, y);
   }
   const contGeo = new THREE.ExtrudeGeometry(shape, {depth:3.4, bevelEnabled:true, bevelThickness:1.1, bevelSize:1.8, bevelSegments:2, steps:1});
@@ -307,12 +311,11 @@ function radiusAt(a){
   continent.position.y = -1.10;
   continent.userData.noMerge = true;
   scene.add(continent);
-  const rootTip = cone(34, 20, '#6f5b74', 0, -13.5, 0, scene, 9);
+  const rootTip = cone(38, 22, '#6f5b74', LAND_C.x, -14, LAND_C.z, scene, 9);
   rootTip.rotation.x = Math.PI;
-  // 卫星小岛（3 座：灯塔礁 / 独树礁 / 碎石礁）
-  const islets = [[1.15, 84, 'lamp'], [3.6, 92, 'tree'], [5.5, 80, 'rock']];
-  for(const [ia, ir, kind] of islets){
-    const [ix, iz] = polar(ia, ir);
+  // 卫星小岛 x3
+  const islets = [[-92, -30, 'lamp'], [64, -52, 'tree'], [30, 80, 'rock']];
+  for(const [ix, iz, kind] of islets){
     const ig = new THREE.Group();
     ig.position.set(ix, 2.5, iz);
     scene.add(ig);
@@ -322,243 +325,388 @@ function radiusAt(a){
     if(kind==='tree'){ cyl(0.24, 0.4, 1.8, '#6e5138', 0, 1.9, 0, ig, 7); ball(1.5, '#7a8450', 0, 3.6, 0, ig); ball(1.0, '#5e7153', 1.0, 2.9, 0.4, ig); }
     if(kind==='rock'){ ball(1.1, '#77648a', 0.6, 1.4, 0.3, ig); ball(0.7, '#6b5a73', -0.9, 1.2, -0.5, ig); }
   }
-  // 环路 + 大道（石板贴图）
-  const ring = new THREE.Mesh(new THREE.RingGeometry(21.5, 26.8, 56), M('#ffffff', {tex:'road', bump:0.25}));
-  ring.rotation.x = -Math.PI/2; ring.position.y = 0.045;
-  scene.add(ring);
-  for(let i=0;i<6;i++){
-    const a = i*Math.PI/3 + Math.PI/12;
-    const ave = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 34), M('#ffffff', {tex:'road', bump:0.25}));
-    ave.rotation.x = -Math.PI/2; ave.rotation.z = -a + Math.PI/2;
-    const [ax, az] = polar(a, 30.5);
-    ave.position.set(ax, 0.04, az);
-    scene.add(ave);
-  }
-  const castleAve = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 27), M('#ffffff', {tex:'road', bump:0.25}));
-  castleAve.rotation.x = -Math.PI/2;
-  castleAve.position.set(0, 0.04, -23.5);
-  scene.add(castleAve);
-  const plaza = new THREE.Mesh(jitterGeo(new THREE.CircleGeometry(11.5, 36), 0.2, 55), M('#b08a5e', {tex:'wall', bump:0.4}));
-  plaza.rotation.x = -Math.PI/2; plaza.position.y = 0.05;
-  scene.add(plaza);
-  //  patchwork 田块（不规则色块地毯，分块感）
-  const fieldCols = ['#8f7346','#977c4e','#86703f','#9c8256','#7d683c'];
-  const frnd = mulberry32(2024);
-  for(let i=0;i<9;i++){
-    const fa = frnd()*Math.PI*2, fr = 50 + frnd()*6;
-    if(Math.abs(fr*Math.sin(fa) + 36) < 15 && Math.abs(fr*Math.cos(fa)) < 18) continue; // 避开城堡
-    const [fx, fz] = polar(fa, Math.min(fr, radiusAt(fa)-9));
-    const f = new THREE.Mesh(jitterGeo(new THREE.CircleGeometry(4.5+frnd()*3.5, 9), 0.9, 300+i), M(fieldCols[i%5], {bump:0.3}));
-    f.rotation.x = -Math.PI/2; f.rotation.z = frnd()*3;
-    f.scale.set(1, 0.65+frnd()*0.4, 1);
-    f.position.set(fx, 0.03, fz);
-    scene.add(f);
-  }
 }
-
-/* ---------- 星空与漂浮石 ---------- */
+/* ---------- 长桥（带刺） ---------- */
+const BRIDGE = {z: 10, x0: 25, x1: 89, topY: 0};
 {
-  const n = 480, pos = new Float32Array(n*3), rnd = mulberry32(9);
-  for(let i=0;i<n;i++){
-    const th = rnd()*Math.PI*2, ph = Math.acos(rnd()*1.7-0.85), r = 230+rnd()*180;
-    pos[i*3] = r*Math.sin(ph)*Math.cos(th); pos[i*3+1] = Math.abs(r*Math.cos(ph))*0.7-25; pos[i*3+2] = r*Math.sin(ph)*Math.sin(th);
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  scene.add(new THREE.Points(g, new THREE.PointsMaterial({color:0xaFC4e8, size:1.7, sizeAttenuation:false, transparent:true, opacity:0.85, fog:false})));
-  const rockGeo = new THREE.IcosahedronGeometry(1, 0);
-  const rockMat = M('#77648a');
-  const rnd2 = mulberry32(31);
-  for(let i=0;i<14;i++){
-    const m = new THREE.Mesh(rockGeo, rockMat);
-    const a = rnd2()*Math.PI*2, r = 85+rnd2()*70;
-    m.position.set(Math.cos(a)*r, -10+rnd2()*34, Math.sin(a)*r);
-    m.rotation.set(rnd2()*3, rnd2()*3, rnd2()*3);
-    m.scale.setScalar(1+rnd2()*3);
-    scene.add(m);
-  }
-}
-
-/* ---------- 城堡（评论城堡） ---------- */
-const CASTLE = {x:0, z:-36, hillY:5};
-{
-  const {x, z, hillY} = CASTLE;
-  cyl(14.5, 17, hillY, '#7d6248', x, hillY/2, z, scene, 26);
-  const topD = new THREE.Mesh(new THREE.CircleGeometry(14.5, 26), M('#8d6d4e', {bump:0.45}));
-  topD.rotation.x = -Math.PI/2; topD.position.set(x, hillY+0.03, z);
-  scene.add(topD);
-  const wall = '#9c7a56', wallD = '#86664a', roof = '#a44a3f';
-  box(13, 6.5, 1.2, wall, x, hillY+3.25, z+5.4);                 // 前墙
-  box(13, 6.5, 1.2, wallD, x, hillY+3.25, z-5.4);                // 后墙
-  box(1.2, 6.5, 10, wallD, x-6.4, hillY+3.25, z);
-  box(1.2, 6.5, 10, wallD, x+6.4, hillY+3.25, z);
-  for(let i=-5;i<=5;i+=2) box(1.1, 1.1, 1.3, wall, x+i, hillY+7, z+5.4);  // 雉堞
-  [[-6.4,-5.4],[6.4,-5.4],[-6.4,5.4],[6.4,5.4]].forEach(([ox, oz])=>{
-    cyl(1.9, 2.2, 10, wall, x+ox, hillY+5, z+oz, scene, 12);
-    cone(2.9, 3.6, roof, x+ox, hillY+11.8, z+oz, scene, 12);
-  });
-  box(4.6, 5, 0.7, '#4a3826', x, hillY+2.5, z+6.05);            // 城门（深色门洞）
-  for(let gi=-2; gi<=2; gi++) box(0.16, 4.4, 0.16, '#2e2a26', x+gi*0.95, hillY+2.3, z+6.45);  // 铁栅
-  box(4.4, 0.22, 0.18, '#2e2a26', x, hillY+4.4, z+6.45);
-  [[-3.6, 6.1],[3.6, 6.1]].forEach(([ox, oz])=>{
-    cyl(0.07, 0.07, 0.9, '#5d4a33', x+ox, hillY+4.4, z+oz, scene, 6);
-    const fl = ball(0.3, '#ffb35c', x+ox, hillY+5.05, z+oz); fl.material = M('#ffb35c', {emissive:0xa05a10});
-  });
-  box(1.1, 1.1, 1.1, '#8a6d4f', x-4.6, hillY+0.55, z+2.5);
-  box(0.9, 0.9, 0.9, '#96795a', x-4.5, hillY+1.55, z+2.4);
-  cyl(0.5, 0.55, 1.0, '#71563f', x+4.7, hillY+0.5, z+2.2, scene, 10);
-  box(5.6, 0.8, 1.1, wallD, x, hillY+5.3, z+6.0);
-  ball(0.55, '#e9b44c', x, hillY+6.2, z+6.0).material = M('#e9b44c', {emissive:0x664d10});
-  // 露台（前墙外）
-  box(9, 0.5, 2.6, wallD, x, hillY+4.1, z+7.3);
-  for(let i=-4;i<=4;i+=1.33) box(0.28, 1, 0.28, wall, x+i, hillY+4.85, z+8.5);
-  box(9, 0.3, 0.3, wall, x, hillY+5.4, z+8.5);
-  // 旗帜
-  cyl(0.09, 0.09, 5.5, '#5d4a33', x, hillY+12.5, z-5.4, scene, 6);
-  const flag = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.5), new THREE.MeshBasicMaterial({color:0xe9b44c, side:THREE.DoubleSide}));
-  flag.position.set(x+1.35, hillY+14.3, z-5.4);
-  scene.add(flag);
-  const lb = textSprite('评论城堡', 'CASTLE', 0.95);
-  lb.position.set(x, hillY+17.5, z);
-  scene.add(lb);
-}
-
-/* ---------- 长廊（城堡大道回廊） ---------- */
-{
-  for(let z=-13.5; z>=-25; z-=2.9){
-    cyl(0.32, 0.4, 4.4, '#b08a5e', -3.4, 2.2, z, scene, 10);
-    cyl(0.32, 0.4, 4.4, '#b08a5e',  3.4, 2.2, z, scene, 10);
-    ball(0.5, '#8a6d4f', -3.4, 4.55, z); ball(0.5, '#8a6d4f', 3.4, 4.55, z);
-  }
-  const roofSlab = box(8.6, 0.45, 14.5, '#a44a3f', 0, 4.95, -19.2);
-  roofSlab.rotation.x = 0.012;
-  box(8.6, 0.45, 14.5, '#b3543f', 0, 5.35, -19.2).rotation.x = -0.012;
-  for(let z=-14.5; z>=-24; z-=3.2){
-    const t = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.1, 8, 20), M('#e9b44c'));
-    t.position.set(0, 4.35, z); scene.add(t);
-  }
-  ['#b3543f','#e9b44c','#5d7a8c','#b3543f','#7a8450'].forEach((bc, bi)=>{
-    const ban = new THREE.Mesh(jitterGeo(new THREE.PlaneGeometry(1.7, 2.3, 3, 3), 0.08, 600+bi), M(bc, {bump:0.15}));
-    ban.position.set(bi%2 ? -3.4 : 3.4, 3.6, -14.6 - bi*2.35);
-    ban.rotation.y = Math.PI/2;
-    scene.add(ban);
-  });
-  const lb = textSprite('回音长廊', '', 0.7);
-  lb.position.set(0, 7.6, -19.2);
-  scene.add(lb);
-}
-
-/* ---------- 回声广场喷泉 ---------- */
-{
-  cyl(3.1, 3.5, 0.85, '#7a9db0', 0, 0.42, 0, scene, 20);
-  cyl(2.5, 2.5, 0.3, '#a8c8d8', 0, 0.95, 0, scene, 20).material = M('#a8c8d8', {emissive:0x11222a});
-  cyl(0.3, 0.42, 2.6, '#7a9db0', 0, 1.9, 0, scene, 10);
-  ball(1.05, '#fdf6e3', -0.9, 3.9, 0.2);
-  ball(0.8, '#fdf6e3', 0.85, 4.3, -0.3);
-  ball(0.62, '#fdf6e3', 0.1, 4.9, 0.55);
-  const lb = textSprite('回声广场', 'PLAZA', 0.8);
-  lb.position.set(0, 8.6, 0);
-  scene.add(lb);
-}
-
-/* ---------- 评论公寓（剖面房间楼） ---------- */
-const APART = {x:22.7, z:25.2, ry: Math.atan2(-22.7, -25.2)};
-{
-  const g = new THREE.Group();
-  g.position.set(APART.x, 0, APART.z);
-  g.rotation.y = APART.ry;
-  scene.add(g);
-  const W = 15, D = 4.6, FH = 3.1;
-  box(W, 0.35, D+1.2, '#6e5138', 0, 0.17, 0, 0, g);                    // 地基
-  box(W, FH*3+0.4, 0.4, '#8d6d4e', 0, (FH*3)/2, -D/2, 0, g);           // 后墙
-  box(0.4, FH*3+0.4, D, '#86664a', -W/2, (FH*3)/2, 0, 0, g);
-  box(0.4, FH*3+0.4, D, '#86664a',  W/2, (FH*3)/2, 0, 0, g);
-  box(W+1.4, 0.5, D+1.6, '#a44a3f', 0, FH*3+0.6, 0, 0, g);             // 屋顶
-  cone(0.1, 0.1, '#000000', 0, -99, 0, g).visible = false;
-  const rugCols = ['#b3543f','#5d7a8c','#7a8450','#c96f4a','#845ec2','#e0a458','#8fa98f','#a44a3f','#5e7153'];
-  for(let f=0; f<3; f++){
-    const y = f*FH;
-    box(W, 0.28, D, '#77573c', 0, y+0.14, 0, 0, g);                   // 楼板
-    for(let rIdx=0; rIdx<3; rIdx++){
-      const cx = -W/3 + rIdx*(W/3) + 0.1;
-      if(rIdx>0) box(0.25, FH, D*0.92, '#9c7a56', cx-W/6, y+FH/2, 0, 0, g);  // 隔墙
-      const rug = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 3.2), M(rugCols[f*3+rIdx], {bump:0.15}));
-      rug.rotation.x = -Math.PI/2; rug.position.set(cx, y+0.3, 0.2);
-      g.add(rug);
-      // 家具三选一：桌 / 床 / 书架
-      const kind = (f*3+rIdx) % 3;
-      if(kind===0){ box(1.7, 0.16, 1, '#5d4a33', cx-0.4, y+1.05, -1.1, 0, g); box(0.16, 0.8, 0.16, '#5d4a33', cx-1.1, y+0.65, -1.4, 0, g); box(0.16, 0.8, 0.16, '#5d4a33', cx+0.3, y+0.65, -1.4, 0, g); ball(0.3, '#e9b44c', cx-0.4, y+1.35, -1.1, g); }
-      if(kind===1){ box(2.4, 0.55, 1.5, '#5d7a8c', cx, y+0.6, -1.2, 0, g); box(0.9, 0.35, 1.4, '#fdf6e3', cx-0.7, y+0.95, -1.2, 0, g); }
-      if(kind===2){ box(2.2, 2.1, 0.5, '#71563f', cx+0.5, y+1.35, -1.9, 0, g); box(1.8, 0.14, 0.55, '#e9b44c', cx+0.5, y+1.6, -1.85, 0, g); box(1.8, 0.14, 0.55, '#b3543f', cx+0.5, y+2.25, -1.85, 0, g); }
-      // 暖光窗（后墙小窗，自发光贴片）
-      const win = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.2), new THREE.MeshBasicMaterial({color:0xffca7a}));
-      win.position.set(cx-1.1, y+2.1, -D/2+0.22);
-      g.add(win);
+  const deckLen = BRIDGE.x1 - BRIDGE.x0;
+  const deck = box(deckLen, 1.6, 9, '#8a6d4f', (BRIDGE.x0+BRIDGE.x1)/2, -0.85, BRIDGE.z);
+  deck.material = M('#8a6d4f', {bump: 0.55});
+  const deckTop = new THREE.Mesh(new THREE.PlaneGeometry(deckLen, 8.2), M('#ffffff', {tex:'road', bump:0.25}));
+  deckTop.rotation.x = -Math.PI/2;
+  deckTop.position.set((BRIDGE.x0+BRIDGE.x1)/2, 0.02, BRIDGE.z);
+  scene.add(deckTop);
+  const srnd = mulberry32(777);
+  for(let x = BRIDGE.x0 + 2; x < BRIDGE.x1 - 1; x += 3.6){
+    for(const dz of [-4.1, 4.1]){
+      const sp = cone(0.42, 1.5 + srnd()*0.5, '#c9b18a', x + (srnd()-0.5), 0.7, BRIDGE.z + dz, scene, 6);
+      sp.rotation.z = (srnd()-0.5)*0.15;
     }
   }
+  for(const px of [45, 68]){
+    const pil = cone(3.2, 15, '#6f5b74', px, -8.5, BRIDGE.z, scene, 8);
+    pil.rotation.x = Math.PI;
+  }
+  shadowDisc(57, 0.04, BRIDGE.z, 30, scene, 0.25).scale.set(1, 0.16, 1);
+}
+/* ---------- 城堡岛 + 评论城堡（粉墙蓝顶，原创造型） ---------- */
+const CASTLE_POS = {x: 102, z: 8};
+function castleLocalToWorld(lx, ly, lz){
+  // 城堡组 rotY=-π/2: local (x,z) → world (102 - lz, 8 + lx)
+  return [CASTLE_POS.x - lz, ly, CASTLE_POS.z + lx];
+}
+{
+  const isl = cyl(17, 12, 2.6, '#8a6d4f', CASTLE_POS.x, -1.35, CASTLE_POS.z, scene, 26);
+  isl.material = M('#8a6d4f', {bump: 0.55});
+  const islTip = cone(9, 9, '#6f5b74', CASTLE_POS.x, -7, CASTLE_POS.z, scene, 9);
+  islTip.rotation.x = Math.PI;
+  const cg = new THREE.Group();
+  cg.position.set(CASTLE_POS.x, 0, CASTLE_POS.z);
+  cg.rotation.y = -Math.PI/2;
+  scene.add(cg);
+  const hillY = 5;
+  cyl(13, 15, hillY, '#9c7a56', 0, hillY/2, 0, cg, 26);
+  const wallC = '#c4747f', roofC = '#4a6a9c', darkC = '#5d4250';
+  cyl(2.3, 2.7, 8.6, wallC, -5.4, hillY+4.3, 4.4, cg, 12);
+  cyl(2.3, 2.7, 8.6, wallC, 5.4, hillY+4.3, 4.4, cg, 12);
+  cone(3.1, 3.6, roofC, -5.4, hillY+10.4, 4.4, cg, 12);
+  cone(3.1, 3.6, roofC, 5.4, hillY+10.4, 4.4, cg, 12);
+  cyl(1.7, 2.0, 6.8, wallC, -5.4, hillY+3.4, -4.6, cg, 12);
+  cyl(1.7, 2.0, 6.8, wallC, 5.4, hillY+3.4, -4.6, cg, 12);
+  cone(2.3, 2.8, roofC, -5.4, hillY+8.2, -4.6, cg, 12);
+  cone(2.3, 2.8, roofC, 5.4, hillY+8.2, -4.6, cg, 12);
+  box(13.4, 6.4, 10.4, wallC, 0, hillY+3.2, 0, 0, cg);
+  box(13.8, 1.1, 10.8, '#b4656f', 0, hillY+6.9, 0, 0, cg);
+  for(let bx=-6; bx<=6; bx+=2){
+    box(1.15, 1.0, 0.7, wallC, bx, hillY+7.9, 5.15, 0, cg);
+    box(1.15, 1.0, 0.7, wallC, bx, hillY+7.9, -5.15, 0, cg);
+  }
+  for(let bx=-6; bx<=6; bx+=3){
+    box(0.7, 1.0, 0.5, darkC, bx, hillY+7.9, 0, 0, cg).position.z = 5.3;
+  }
+  box(7.6, 3.1, 0.9, '#b4656f', 0, hillY+8.1, -0.5, 0, cg);
+  box(4.6, 5, 0.7, '#3d2c33', 0, hillY+2.5, 5.25, 0, cg);
+  for(let gi=-2; gi<=2; gi++) box(0.16, 4.4, 0.16, '#2e2a26', gi*0.95, hillY+2.3, 5.7, 0, cg);
+  box(4.4, 0.22, 0.18, '#2e2a26', 0, hillY+4.4, 5.7, 0, cg);
+  [[-3.6, 5.4],[3.6, 5.4]].forEach(([ox, oz])=>{
+    cyl(0.07, 0.07, 0.9, '#5d4a33', ox, hillY+4.4, oz, cg, 6);
+    const fl = ball(0.3, '#ffb35c', ox, hillY+5.05, oz, cg); fl.material = M('#ffb35c', {emissive:0xa05a10});
+  });
+  for(let wx2=-4; wx2<=4; wx2+=2.7){
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 1.05), new THREE.MeshBasicMaterial({color:0xffca7a}));
+    win.position.set(wx2, hillY+4.4, 5.22); cg.add(win);
+  }
+  box(6.8, 0.5, 2.6, '#8a6d4f', 0, hillY+7.35, 3.4, 0, cg);
+  cyl(0.09, 0.09, 3.4, '#5d4a33', 0, hillY+9.5, -0.5, cg, 6);
+  const flag = new THREE.Mesh(jitterGeo(new THREE.PlaneGeometry(2.3, 1.4, 4, 2), 0.14, 42), new THREE.MeshBasicMaterial({color:0xe9b44c, side:THREE.DoubleSide}));
+  flag.position.set(1.2, hillY+10.6, -0.5); cg.add(flag);
+  box(1.1, 1.1, 1.1, '#8a6d4f', -4.6, hillY+0.55, 2.5, 0, cg);
+  cyl(0.5, 0.55, 1.0, '#71563f', 4.7, hillY+0.5, 2.2, cg, 10);
+  shadowDisc(0, 0.06, 0, 15.6, cg, 0.5);
+  const lb = textSprite('评论城堡', 'CASTLE · 桥的尽头', 1.0);
+  lb.position.set(CASTLE_POS.x, 19.5, CASTLE_POS.z);
+  scene.add(lb);
+}
+/* ---------- 链锁浮岩（高阶抬杠的瞭望台） ---------- */
+const ROCK_POS = {x: 84, y: 18.6, z: -4};
+{
+  const rock = ball(5, '#77648a', ROCK_POS.x, 15.4, ROCK_POS.z);
+  rock.scale.set(1, 0.72, 1);
+  rock.material = M('#77648a', {bump: 0.7});
+  ball(1.6, '#6b5a73', ROCK_POS.x+3.4, 13.8, ROCK_POS.z+2.2);
+  const p0 = new THREE.Vector3(87, 12.5, -1), p1 = new THREE.Vector3(99, 3.5, 5.5);
+  for(let i=0;i<11;i++){
+    const t = i/10;
+    const p = p0.clone().lerp(p1, t);
+    p.y -= Math.sin(t*Math.PI)*1.6;
+    const link = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.16, 6, 12), M('#4c4453'));
+    link.position.copy(p);
+    link.rotation.set(i%2 ? Math.PI/2 : 0.2, i%2 ? 0.3 : Math.PI/2, 0.4);
+    scene.add(link);
+  }
+}
+/* ---------- 通用民居（带细部） ---------- */
+const ROOF_COLS = ['#a44a3f','#c96f4a','#7a8450','#5d7a8c','#8a6d9c','#b3543f'];
+function buildHouse(x, y, z, faceRy, rnd, parent=scene, bodyTint=null){
+  const hg = new THREE.Group();
+  hg.position.set(x, y, z);
+  hg.rotation.y = faceRy;
+  parent.add(hg);
+  const wallBase = new THREE.Color('#cbb59a');
+  const tint = bodyTint ? new THREE.Color(bodyTint) : new THREE.Color().setHSL(rnd()*0.1+0.02, 0.25, 0.72);
+  const bodyC = '#' + wallBase.clone().lerp(tint, 0.35).getHexString();
+  const roofC = ROOF_COLS[Math.floor(rnd()*ROOF_COLS.length)];
+  box(3.1, 2.7, 3.0, bodyC, 0, 1.45, 0, 0, hg).material = M(bodyC, {tex:'wall', bump:0.3});
+  const roof = cone(2.85, 1.9, roofC, 0, 3.75, 0, hg, 4);
+  roof.rotation.y = Math.PI/4;
+  box(0.95, 1.7, 0.14, '#4a3826', 0, 0.95, 1.55, 0, hg);
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), new THREE.MeshBasicMaterial({color:0xffca7a}));
+  win.position.set(1.05, 1.8, 1.53); hg.add(win);
+  box(1.0, 0.1, 0.1, '#5d4a33', 1.05, 1.8, 1.57, 0, hg);
+  box(0.1, 1.0, 0.1, '#5d4a33', 1.05, 1.8, 1.57, 0, hg);
+  box(0.55, 0.8, 0.55, '#8d6d4e', -1.0, 3.3+rnd()*0.3, -0.7, 0, hg);
+  const awn = box(1.5, 0.1, 0.8, roofC, 0, 2.05, 1.8, 0, hg); awn.rotation.x = 0.35;
+  box(1.3, 0.18, 0.7, '#96795a', 0, 0.09, 1.9, 0, hg);
+  shadowDisc(0, 0.04, 0, 3.1, hg, 0.5);
+  return hg;
+}
+/* ---------- 阵营奇观（原创） ---------- */
+function buildWonder(faction){
+  const g = new THREE.Group();
+  if(faction === '真爱粉丝'){
+    const heart = new THREE.Group();
+    const hm = M('#d96a80', {bump:0.3});
+    const s1 = new THREE.Mesh(new THREE.SphereGeometry(1.15, 10, 8), hm); s1.position.set(-0.95, 2.5, 0);
+    const s2 = s1.clone(); s2.position.x = 0.95;
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(1.62, 2.6, 4), hm);
+    tip.rotation.x = Math.PI; tip.rotation.y = Math.PI/4; tip.position.y = 1.15; tip.scale.set(1, 1, 0.62);
+    heart.add(s1, s2, tip);
+    g.add(heart);
+    cyl(2.6, 3.1, 0.6, '#e8b4bc', 0, 0.3, 0, g, 18);
+    cyl(0.16, 0.16, 1.2, '#c9a86a', -3.1, 0.6, 0, g, 6);
+    cyl(0.16, 0.16, 1.2, '#c9a86a', 3.1, 0.6, 0, g, 6);
+    ball(0.34, '#e9b44c', -3.1, 1.45, 0, g); ball(0.34, '#e9b44c', 3.1, 1.45, 0, g);
+  } else if(faction === '挑剔观众'){
+    cyl(2.4, 2.9, 0.7, '#7d94a6', 0, 0.35, 0, g, 18);
+    const handle = cyl(0.34, 0.42, 3.4, '#71563f', 1.9, 1.9, 0, g, 8);
+    handle.rotation.z = 0.6;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(2.5, 0.34, 10, 26), M('#3c4652', {bump:0.2}));
+    rim.position.set(0, 4.3, 0); rim.rotation.x = 0.5; g.add(rim);
+    const glass = new THREE.Mesh(new THREE.CircleGeometry(2.3, 26), new THREE.MeshBasicMaterial({color:0xbcd8e8, transparent:true, opacity:0.30, side:THREE.DoubleSide}));
+    glass.position.copy(rim.position); glass.rotation.x = 0.5 - Math.PI/2 + Math.PI/2; glass.rotation.set(0.5, 0, 0);
+    glass.rotation.x = -Math.PI/2 + 0.5 + Math.PI/2;
+    g.add(glass);
+  } else if(faction === '理性分析'){
+    cyl(0.42, 0.55, 5.6, '#4e6b5e', 0, 2.8, 0, g, 10);
+    box(6.4, 0.42, 0.42, '#5d4a33', 0, 5.7, 0, 0, g);
+    ball(0.55, '#e9b44c', 0, 6.25, 0, g);
+    for(const sx of [-2.9, 2.9]){
+      cyl(0.05, 0.05, 1.1, '#5d4a33', sx, 5.05, 0, g, 5);
+      const pan = cyl(1.15, 0.5, 0.42, '#c9a86a', sx, 4.35, 0, g, 12);
+      pan.material = M('#c9a86a', {bump:0.2});
+    }
+    cyl(2.2, 2.6, 0.55, '#6f8f80', 0, 0.28, 0, g, 16);
+  } else if(faction === '立场交锋'){
+    box(1.5, 5.6, 1.5, '#8c4a56', -1.7, 2.8, 0, 0.1, g);
+    box(1.5, 5.6, 1.5, '#4a6070', 1.7, 2.8, 0, -0.1, g);
+    cone(1.25, 1.6, '#5d3240', -1.7, 6.4, 0, g, 4);
+    cone(1.25, 1.6, '#324a5d', 1.7, 6.4, 0, g, 4);
+    const crack = box(0.5, 0.14, 4.6, '#2c2226', 0, 0.09, 0, 0, g);
+    crack.material = M('#2c2226', {bump:0.1});
+  } else if(faction === '路过乱入'){
+    cyl(2.9, 3.4, 0.55, '#6a7f9e', 0, 0.28, 0, g, 20);
+    const ringM = new THREE.Mesh(new THREE.TorusGeometry(2.3, 0.3, 10, 26), M('#8fa3c7', {emissive:0x1c2a44, bump:0.2}));
+    ringM.position.set(0, 3.1, 0); g.add(ringM);
+    const inner = new THREE.Mesh(new THREE.CircleGeometry(2.05, 26), new THREE.MeshBasicMaterial({color:0x9fc4e8, transparent:true, opacity:0.35, side:THREE.DoubleSide}));
+    inner.position.copy(ringM.position); g.add(inner);
+    ball(0.4, '#c7d4ea', -2.6, 1.1, 1.2, g); ball(0.3, '#c7d4ea', 2.7, 0.9, -0.8, g);
+  } else {
+    for(let i=0;i<6;i++){
+      const w = 3.6 - i*0.42;
+      box(w, 0.78, w, i%2 ? '#7a4a56' : '#8c5a64', Math.sin(i*0.9)*0.35, 0.4 + i*0.8, Math.cos(i*0.7)*0.3, i*0.5, g);
+    }
+    cone(0.9, 1.8, '#e9b44c', 0, 6.05, 0, g, 8);
+    cyl(2.9, 3.4, 0.5, '#6e4550', 0, 0.25, 0, g, 16);
+  }
+  return g;
+}
+/* ---------- 区域定义 ---------- */
+const PLAZA = {x: -14, z: 12};
+const ZONES = [
+  {faction:'真爱粉丝', cx:-48, cz:-24, y:1.6, kind:'hill'},
+  {faction:'挑剔观众', cx:-6,  cz:-26, y:0,   kind:'lake'},
+  {faction:'理性分析', cx:-24, cz:-12, y:0,   kind:'hall'},
+  {faction:'立场交锋', cx:-48, cz:24,  y:0,   kind:'cliff', moundY:2.2},
+  {faction:'路过乱入', cx:4,   cz:24,  y:0,   kind:'sand'},
+  {faction:'高阶抬杠', cx:102, cz:8,   y:0,   kind:'isle'},
+];
+const zoneInfo = [];
+/* ---------- 公园广场 + 喷泉 + 摊位 ---------- */
+{
+  const plaza = new THREE.Mesh(jitterGeo(new THREE.CircleGeometry(11.5, 36), 0.2, 55), M('#b08a5e', {tex:'wall', bump:0.4}));
+  plaza.rotation.x = -Math.PI/2; plaza.position.set(PLAZA.x, 0.05, PLAZA.z);
+  scene.add(plaza);
+  const fg = new THREE.Group(); fg.position.set(PLAZA.x, 0, PLAZA.z); scene.add(fg);
+  cyl(2.6, 3.0, 0.9, '#7d94a6', 0, 0.45, 0, fg, 18);
+  cyl(0.32, 0.45, 1.7, '#5d7a8c', 0, 1.5, 0, fg, 10);
+  ball(1.15, '#e8eef2', 0, 3.3, 0, fg); ball(0.85, '#e8eef2', 0.95, 2.85, 0.3, fg); ball(0.7, '#e8eef2', -0.9, 2.95, -0.25, fg);
+  const lb = textSprite('回声广场', 'PLAZA · 公园', 0.9);
+  lb.position.set(PLAZA.x, 9.5, PLAZA.z); scene.add(lb);
+}
+const STALL_POS = [[-25, 4], [-3, 5], [-24, 21]];
+{
+  const goodsCols = ['#b3543f','#e9b44c','#7a8450','#c96f4a'];
+  STALL_POS.forEach(([sx, sz], si)=>{
+    const sg = new THREE.Group(); sg.position.set(sx, 0, sz);
+    sg.rotation.y = Math.atan2(PLAZA.x - sx, PLAZA.z - sz);
+    scene.add(sg);
+    box(3.4, 0.22, 2.0, '#8a6d4f', 0, 1.05, 0, 0, sg);
+    for(const [px, pz] of [[-1.55, -0.85],[1.55, -0.85],[-1.55, 0.85],[1.55, 0.85]])
+      box(0.18, 2.6, 0.18, '#5d4a33', px, 1.3, pz, 0, sg);
+    const sroof = box(3.9, 0.16, 2.5, '#a44a3f', 0, 2.75, 0, 0, sg); sroof.rotation.x = 0.1;
+    ball(0.42, goodsCols[si%4], -0.8, 1.4, 0.2, sg);
+    ball(0.38, goodsCols[(si+1)%4], 0.1, 1.38, -0.3, sg);
+    ball(0.4, goodsCols[(si+2)%4], 0.85, 1.4, 0.25, sg);
+    shadowDisc(0, 0.04, 0, 2.6, sg, 0.45);
+  });
+}
+/* ---------- 评论公寓（桥西陆侧，剖面） ---------- */
+const APT_POS = {x: 14, z: -6};
+{
+  const g = new THREE.Group();
+  g.position.set(APT_POS.x, 0, APT_POS.z);
+  g.rotation.y = -Math.PI/2;
+  g.name = 'apartment';
+  scene.add(g);
+  window.__apartment = g;
+  const W = 13, D = 5, FH = 3.1, FL = 3;
+  box(W, 0.5, D+0.8, '#6e5138', 0, 0.25, 0, 0, g);
+  box(W, FL*FH+0.6, 0.45, '#8a6d4f', 0, (FL*FH)/2+0.5, -D/2, 0, g);
+  box(0.45, FL*FH+0.6, D, '#8a6d4f', -W/2, (FL*FH)/2+0.5, 0, 0, g);
+  box(0.45, FL*FH+0.6, D, '#8a6d4f', W/2, (FL*FH)/2+0.5, 0, 0, g);
+  const roofA = box(W+1.2, 0.35, D+1.6, '#a44a3f', 0, FL*FH+1.05, 0, 0, g);
+  const roomCols = ['#e8c9a0','#c9d6a5','#a5c4d6','#e3b7d0','#f2dd9b','#b7a5d6','#a5d6c0','#e8b09a','#cbb59a'];
+  let ri = 0;
+  for(let f=0; f<FL; f++){
+    box(W, 0.32, D, '#96795a', 0, f*FH+0.66, 0, 0, g);
+    for(let r2=0; r2<3; r2++){
+      const rx = -W/2 + (r2+0.5)*(W/3);
+      if(r2 < 2) box(0.3, FH-0.3, D-0.4, '#a08059', -W/2 + (r2+1)*(W/3), f*FH+FH/2+0.5, 0, 0, g);
+      const rc = roomCols[ri++ % roomCols.length];
+      box(W/3-0.5, FH-0.7, 0.18, rc, rx, f*FH+FH/2+0.55, -D/2+0.35, 0, g).material = M(rc, {tex:'wall', bump:0.25});
+      box(1.7, 0.14, 1.0, '#cbb59a', rx-0.7, f*FH+0.78, 0.9, 0, g);
+      if(ri % 3 === 0) box(0.9, 1.0, 0.5, '#7a9c8c', rx+0.8, f*FH+1.15, -0.6, 0, g);
+      if(ri % 3 === 1) box(1.3, 0.75, 0.4, '#8c6a4a', rx+0.6, f*FH+1.05, 1.1, 0, g);
+      const lampM = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.62), new THREE.MeshBasicMaterial({color:0xffd98a}));
+      lampM.position.set(rx, f*FH+FH-0.35, -D/2+0.5); g.add(lampM);
+    }
+  }
+  shadowDisc(0, 0.05, 1.5, 8.6, g, 0.5).scale.set(1.25, 0.62, 1);
   const lb = textSprite('评论公寓', '每人一间房', 0.85);
-  lb.position.set(0, FH*3+3.4, 0);
-  g.add(lb);
-  APART.group = g; APART.W = W; APART.FH = FH;
+  lb.position.set(APT_POS.x, 12.6, APT_POS.z); scene.add(lb);
 }
-
-/* ---------- 市集摊位 ---------- */
-const STALL_ANGLES = [1.85, 3.75, 5.6];
+/* ---------- 回音长廊（北侧 · 西厅） ---------- */
+const CORRIDOR_POS = {x: -36, z: -33, ry: 0.5};
 {
-  for(const a of STALL_ANGLES){
-    const [sx, sz] = polar(a, 15.5);
-    const g = new THREE.Group();
-    g.position.set(sx, 0, sz);
-    g.rotation.y = Math.atan2(-sx, -sz);
-    scene.add(g);
-    box(3.4, 0.9, 1.4, '#71563f', 0, 0.45, 0, 0, g);
-    [[-1.55,-0.6],[1.55,-0.6],[-1.55,0.6],[1.55,0.6]].forEach(([ox,oz])=>cyl(0.09, 0.09, 2.6, '#5d4a33', ox, 1.3, oz, g, 6));
-    box(3.9, 0.14, 2.2, '#b3543f', 0, 2.62, 0, 0, g).rotation.x = 0.1;
-    box(3.9, 0.14, 0.75, '#fdf6e3', 0, 2.68, -0.72, 0, g).rotation.x = 0.1;
-    ball(0.3, '#e9b44c', -0.9, 1.1, 0.2, g); ball(0.26, '#b3543f', -0.2, 1.08, 0.35, g); ball(0.3, '#7a8450', 0.55, 1.1, 0.15, g);
-    g.userData.stallPos = new THREE.Vector3(sx, 0, sz);
-    (window.__stalls ||= []).push(g);
+  const g = new THREE.Group();
+  g.position.set(CORRIDOR_POS.x, 0, CORRIDOR_POS.z);
+  g.rotation.y = CORRIDOR_POS.ry;
+  g.name = 'corridor';
+  scene.add(g);
+  window.__corridor = g;
+  for(let i=0;i<5;i++){
+    const cz2 = -7 + i*3.5;
+    cyl(0.32, 0.4, 4.4, '#b8a888', -3.2, 2.2, cz2, g, 10);
+    cyl(0.32, 0.4, 4.4, '#b8a888', 3.2, 2.2, cz2, g, 10);
+    ball(0.5, '#cbb59a', -3.2, 4.6, cz2, g); ball(0.5, '#cbb59a', 3.2, 4.6, cz2, g);
   }
+  box(8.6, 0.5, 15.8, '#a44a3f', 0, 5.15, 0, 0, g);
+  box(9.2, 0.35, 16.4, '#8c3f34', 0, 4.85, 0, 0, g);
+  for(let i=0;i<3;i++){
+    const t = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.1, 8, 20), M('#e9b44c'));
+    t.position.set(0, 4.35, -5 + i*5); g.add(t);
+  }
+  ['#b3543f','#e9b44c','#5d7a8c','#7a8450'].forEach((bc, bi)=>{
+    const ban = new THREE.Mesh(jitterGeo(new THREE.PlaneGeometry(1.7, 2.3, 3, 3), 0.08, 600+bi), M(bc, {bump:0.15}));
+    ban.position.set(bi%2 ? -3.35 : 3.35, 3.6, -5.2 + bi*3.4);
+    ban.rotation.y = Math.PI/2;
+    g.add(ban);
+  });
+  shadowDisc(0, 0.04, 0, 8.8, g, 0.4).scale.set(0.62, 1.05, 1);
+  const lb = textSprite('回音长廊', 'WEST HALL', 0.85);
+  lb.position.set(CORRIDOR_POS.x, 8.6, CORRIDOR_POS.z); scene.add(lb);
 }
-
-/* ---------- 路灯与泥树 ---------- */
-{
-  for(let i=0;i<12;i++){
-    const a = i*Math.PI/6 + 0.13;
-    const [lx, lz] = polar(a, 28.6);
-    cyl(0.09, 0.13, 3.1, '#4a3a28', lx, 1.55, lz, scene, 6);
-    const bulb = ball(0.34, '#ffd98a', lx, 3.3, lz);
-    bulb.material = M('#ffd98a', {emissive:0x8a6420});
+/* ---------- 地标群 ---------- */
+{ // 档案馆（理性分析 · 螺旋柱廊）
+  const hx = -30, hz = -18;
+  const hg = new THREE.Group(); hg.position.set(hx, 0, hz); hg.rotation.y = 0.65; scene.add(hg);
+  const stripeCv = document.createElement('canvas'); stripeCv.width = stripeCv.height = 128;
+  const sg2 = stripeCv.getContext('2d');
+  sg2.fillStyle = '#e8e2d2'; sg2.fillRect(0,0,128,128);
+  sg2.strokeStyle = '#5d7a8c'; sg2.lineWidth = 13;
+  for(let i=-2;i<6;i++){ sg2.beginPath(); sg2.moveTo(i*32-16, 140); sg2.lineTo(i*32+52, -12); sg2.stroke(); }
+  const stripeTex = new THREE.CanvasTexture(stripeCv);
+  stripeTex.wrapS = stripeTex.wrapT = THREE.RepeatWrapping; stripeTex.repeat.set(2,1);
+  stripeTex.colorSpace = THREE.SRGBColorSpace;
+  const colMat = new THREE.MeshLambertMaterial({map:stripeTex, bumpMap:bumpTex, bumpScale:0.2});
+  for(let i=0;i<7;i++){
+    const a = -0.9 + i*0.3;
+    const cx2 = Math.sin(a)*8.5, cz2 = -Math.cos(a)*8.5 + 6;
+    const col = new THREE.Mesh(jitterGeo(new THREE.CylinderGeometry(0.62, 0.72, 6.4, 10), 0.05, 800+i), colMat);
+    col.position.set(cx2, 3.2, cz2); hg.add(col);
+    ball(0.5, '#c9a86a', cx2, 6.7, cz2, hg);
   }
-  const rnd = mulberry32(1234);
-  for(let i=0;i<13;i++){
-    const a = rnd()*Math.PI*2;
-    const r = Math.min(48+rnd()*9, radiusAt(a)-6);
-    const [tx2, tz2] = polar(a, r);
-    cyl(0.22, 0.36, 1.7, '#6e5138', tx2, 0.85, tz2, scene, 7);
-    const br1 = cyl(0.1, 0.16, 1.3, '#6e5138', tx2+0.45, 2.0, tz2+0.2, scene, 6); br1.rotation.z = -0.6;
-    const br2 = cyl(0.09, 0.14, 1.1, '#6e5138', tx2-0.4, 2.1, tz2-0.25, scene, 6); br2.rotation.z = 0.65;
-    const fc = ['#7a8450','#5e7153','#8fa98f'][i%3];
-    ball(1.15+rnd()*0.6, fc, tx2, 2.9+rnd()*0.5, tz2);
-    ball(0.85, fc, tx2+0.85, 2.3, tz2+0.35);
-    ball(0.7, '#7a8450', tx2-0.8, 2.45, tz2-0.3);
-    shadowDisc(tx2, 0.04, tz2, 1.6, scene, 0.45);
-  }
-  // 草地蘑菇与石子（小资产点缀）
-  for(let i=0;i<16;i++){
-    const a = rnd()*Math.PI*2;
-    const r = Math.min(44+rnd()*13, radiusAt(a)-4);
-    const [mx, mz] = polar(a, r);
-    if(i%2){ cone(0.32, 0.4, '#b3543f', mx, 0.32, mz, scene, 8); cyl(0.09, 0.12, 0.25, '#f3e2c2', mx, 0.12, mz, scene, 6); }
-    else ball(0.28+rnd()*0.25, '#8d84a0', mx, 0.18, mz);
-  }
+  const slab = cyl(9.6, 9.6, 0.55, '#7d94a6', 0, 7.15, -2.5, hg, 24);
+  slab.scale.set(1, 1, 0.72);
+  box(7.5, 3.4, 4.5, '#93a7b8', 0, 1.7, 3.4, 0, hg).material = M('#93a7b8', {tex:'wall', bump:0.3});
+  shadowDisc(0, 0.05, 0, 10.5, hg, 0.45);
+  const lb = textSprite('档案馆', 'HALL OF RECORDS', 0.85);
+  lb.position.set(hx, 10.6, hz); scene.add(lb);
 }
-
-/* ---------- 城镇小资产：水井 / 路牌 / 货车 / 货堆 ---------- */
-{
-  // 水井（广场东南沿）
-  const [wx, wz] = polar(0.85, 14.8);
-  const wg2 = new THREE.Group(); wg2.position.set(wx, 0, wz); scene.add(wg2);
+{ // 湖畔（挑剔观众）：湖面 + 水屋 + 排水口 + 警告牌
+  const lx = -2, lz = -30;
+  const rim = cyl(10.6, 11.4, 0.5, '#8a7a4f', lx, 0.1, lz, scene, 26);
+  const water = new THREE.Mesh(new THREE.CircleGeometry(10.2, 30), new THREE.MeshLambertMaterial({color:0x5d8ca8, transparent:true, opacity:0.88, bumpMap:bumpTex, bumpScale:0.08}));
+  water.rotation.x = -Math.PI/2; water.position.set(lx, 0.38, lz); scene.add(water);
+  const ag = new THREE.Group(); ag.position.set(lx-9.5, 0, lz+3); ag.rotation.y = 1.2; scene.add(ag);
+  cyl(2.2, 2.6, 2.4, '#7fb3a8', 0, 1.2, 0, ag, 12);
+  const dome = ball(2.3, '#a8d0c8', 0, 2.6, 0, ag); dome.scale.set(1, 0.72, 1);
+  box(0.9, 1.5, 0.14, '#3d5a54', 0, 0.8, 2.35, 0, ag);
+  const drain = new THREE.Mesh(new THREE.CircleGeometry(1.7, 18), M('#26221e', {bump:0.1}));
+  drain.rotation.x = -Math.PI/2; drain.position.set(lx+7.5, 0.42, lz-5.5); scene.add(drain);
+  [[lx+9.6, lz-3.6],[lx+5.2, lz-8.6]].forEach(([px, pz], i)=>{
+    cyl(0.07, 0.09, 1.5, '#5d4a33', px, 0.75, pz, scene, 6);
+    box(1.5, 0.95, 0.08, '#e8e2d2', px, 1.75, pz, i ? 0.5 : -0.3, scene);
+  });
+  const lb = textSprite('回音湖', 'LAKE · 别跳排水口', 0.8);
+  lb.position.set(lx, 8.2, lz); scene.add(lb);
+}
+{ // 粉崖 + 洞口 + 条纹高塔（立场交锋）
+  const cx2 = -54, cz2 = 16;
+  const cliff = ball(7.5, '#b06a7a', cx2, 1.2, cz2);
+  cliff.scale.set(1.15, 0.78, 1);
+  cliff.material = M('#b06a7a', {bump:0.65});
+  const mouth = new THREE.Mesh(new THREE.CircleGeometry(2.1, 18), M('#33222a', {bump:0.1}));
+  mouth.position.set(cx2+4.4, 1.9, cz2+4.6); mouth.rotation.y = 0.85; scene.add(mouth);
+  const tg = new THREE.Group(); tg.position.set(-63, 0, 27); scene.add(tg);
+  const bands = ['#e8e2d2','#7a4a8c','#e8e2d2','#7a4a8c','#e8d28a'];
+  bands.forEach((bc, i)=> cone(2.5 - i*0.34, 2.6, bc, 0, 1.3 + i*2.35, 0, tg, 14));
+  ball(0.55, '#e9b44c', 0, 13.2, 0, tg);
+  shadowDisc(0, 0.05, 0, 3.4, tg, 0.5);
+}
+{ // 蘑菇屋（公园西南）
+  const mg = new THREE.Group(); mg.position.set(-32, 0, 20); mg.rotation.y = 0.7; scene.add(mg);
+  cyl(1.5, 1.9, 2.6, '#efe6da', 0, 1.3, 0, mg, 12);
+  const cap = ball(3.1, '#b8402f', 0, 2.9, 0, mg); cap.scale.set(1, 0.55, 1);
+  [[1.2,3.6,0.8],[-1.5,3.9,-0.5],[0.2,4.3,1.2],[-0.6,3.5,-1.4]].forEach(([px,py,pz])=> ball(0.34, '#f3e8da', px, py, pz, mg));
+  box(0.95, 1.6, 0.14, '#5d3a26', 0, 0.8, 1.78, 0, mg);
+  shadowDisc(0, 0.04, 0, 3.6, mg, 0.5);
+}
+{ // 广播塔（北缘） + 大炮台（湖东） + 火药棚（馆湖之间）
+  const tg = new THREE.Group(); tg.position.set(-17, 0, -40); scene.add(tg);
+  cyl(0.14, 0.3, 11, '#6e5138', 0, 5.5, 0, tg, 7);
+  for(const hy of [3.5, 6.5, 9.5]) box(2.6 - hy*0.16, 0.14, 0.14, '#6e5138', 0, hy, 0, 0, tg);
+  const dish = cone(1.1, 0.8, '#c9ccd4', 0.8, 10.6, 0, tg, 12); dish.rotation.z = -0.9;
+  ball(0.22, '#e4573d', 0, 11.2, 0, tg).material = M('#e4573d', {emissive:0x7a1e08});
+  shadowDisc(0, 0.04, 0, 2.2, tg, 0.45);
+  const cg2 = new THREE.Group(); cg2.position.set(11, 0, -33); cg2.rotation.y = -0.7; scene.add(cg2);
+  cyl(3.4, 3.9, 0.55, '#8f9e6a', 0, 0.28, 0, cg2, 18);
+  const barrel = cyl(0.42, 0.55, 3.6, '#4c4c55', 0, 1.55, 0.4, cg2, 10); barrel.rotation.x = Math.PI/2 - 0.18;
+  box(1.6, 0.9, 2.0, '#5d4a33', 0, 0.75, -0.9, 0, cg2);
+  for(const wx3 of [-0.95, 0.95]){
+    const wh = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.14, 8, 16), M('#4a3826'));
+    wh.position.set(wx3, 0.62, -0.9); cg2.add(wh);
+  }
+  shadowDisc(0, 0.04, 0, 4.2, cg2, 0.45);
+  const sg3 = new THREE.Group(); sg3.position.set(-15, 0, -21); sg3.rotation.y = 0.4; scene.add(sg3);
+  box(2.6, 2.0, 2.2, '#9c4a3a', 0, 1.0, 0, 0, sg3).material = M('#9c4a3a', {tex:'wall', bump:0.3});
+  const sroof = box(3.0, 0.18, 2.6, '#6e3a2e', 0, 2.15, 0, 0, sg3); sroof.rotation.z = 0.08;
+  cyl(0.42, 0.46, 0.95, '#7a3a2e', 1.9, 0.48, 0.7, sg3, 9);
+  cyl(0.42, 0.46, 0.95, '#8c4a3a', 1.85, 0.48, -0.75, sg3, 9);
+  shadowDisc(0, 0.04, 0, 3.0, sg3, 0.45);
+}
+{ // 水井 / 货车 / 路牌 / 货堆
+  const wg2 = new THREE.Group(); wg2.position.set(-3, 0, 19); scene.add(wg2);
   cyl(1.25, 1.4, 0.95, '#8d84a0', 0, 0.48, 0, wg2, 14);
   cyl(1.0, 1.0, 0.25, '#4a6070', 0, 0.95, 0, wg2, 14);
   box(0.18, 1.9, 0.18, '#5d4a33', -1.1, 0.95, 0, 0, wg2);
@@ -566,315 +714,329 @@ const STALL_ANGLES = [1.85, 3.75, 5.6];
   const wr = cone(1.9, 0.9, '#a44a3f', 0, 2.35, 0, wg2, 4); wr.rotation.y = Math.PI/4;
   box(0.5, 0.45, 0.5, '#71563f', 0, 0.65, 0, 0, wg2);
   shadowDisc(0, 0.04, 0, 2.1, wg2, 0.5);
-  // 路牌（两处大道口）
-  [[2.2, 13.5], [4.4, 13.5]].forEach(([sa, sr], si)=>{
-    const [px, pz] = polar(sa, sr);
-    const pg = new THREE.Group(); pg.position.set(px, 0, pz); pg.rotation.y = -sa; scene.add(pg);
-    cyl(0.09, 0.12, 2.6, '#5d4a33', 0, 1.3, 0, pg, 7);
-    box(1.7, 0.42, 0.08, '#96795a', 0.3, 2.2, 0, 0, pg).rotation.z = 0.06;
-    box(1.5, 0.42, 0.08, '#8a6d4f', -0.25, 1.65, 0, 0, pg).rotation.z = -0.05;
-    shadowDisc(0, 0.04, 0, 1.0, pg, 0.45);
-  });
-  // 货车（市集旁）
-  const [cxp, czp] = polar(5.9, 16.5);
-  const cg = new THREE.Group(); cg.position.set(cxp, 0, czp); cg.rotation.y = 0.8; scene.add(cg);
-  box(2.6, 0.5, 1.5, '#71563f', 0, 0.85, 0, 0, cg);
-  box(2.6, 0.35, 0.12, '#8a6d4f', 0, 1.25, 0.72, 0, cg);
-  box(2.6, 0.35, 0.12, '#8a6d4f', 0, 1.25, -0.72, 0, cg);
+  const cg3 = new THREE.Group(); cg3.position.set(19, 0, 19); cg3.rotation.y = 0.8; scene.add(cg3);
+  box(2.6, 0.5, 1.5, '#71563f', 0, 0.85, 0, 0, cg3);
+  box(2.6, 0.35, 0.12, '#8a6d4f', 0, 1.25, 0.72, 0, cg3);
+  box(2.6, 0.35, 0.12, '#8a6d4f', 0, 1.25, -0.72, 0, cg3);
   [[-0.95, 0.85],[0.95, 0.85],[-0.95, -0.85],[0.95, -0.85]].forEach(([ox, oz])=>{
     const wh = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.13, 8, 18), M('#4a3826'));
-    wh.position.set(ox, 0.45, oz); cg.add(wh);
+    wh.position.set(ox, 0.45, oz); cg3.add(wh);
   });
-  box(0.9, 0.7, 0.9, '#c96f4a', -0.5, 1.45, 0, 0, cg);
-  ball(0.42, '#e9b44c', 0.5, 1.35, 0.2, cg);
-  const h1 = cyl(0.06, 0.06, 1.6, '#5d4a33', 1.9, 0.75, 0.4, cg, 6); h1.rotation.z = 1.25;
-  const h2 = cyl(0.06, 0.06, 1.6, '#5d4a33', 1.9, 0.75, -0.4, cg, 6); h2.rotation.z = 1.25;
-  shadowDisc(0, 0.04, 0, 2.2, cg, 0.5);
-  // 货箱酒桶簇（公寓旁 + 城堡山脚）
-  [[27.5, 30.5, 0.5], [-7.5, -24.5, 2.2], [12.5, -13, 1.1]].forEach(([hx, hz, ry2], hi)=>{
-    const hg2 = new THREE.Group(); hg2.position.set(hx, 0, hz); hg2.rotation.y = ry2; scene.add(hg2);
+  box(0.9, 0.7, 0.9, '#c96f4a', -0.5, 1.45, 0, 0, cg3);
+  ball(0.42, '#e9b44c', 0.5, 1.35, 0.2, cg3);
+  shadowDisc(0, 0.04, 0, 2.2, cg3, 0.5);
+  [[-8, 3], [8, 30]].forEach(([hx, hz], hi)=>{
+    const hg2 = new THREE.Group(); hg2.position.set(hx, 0, hz); hg2.rotation.y = hi; scene.add(hg2);
     box(1.0, 1.0, 1.0, '#8a6d4f', 0, 0.5, 0, 0, hg2);
     box(0.85, 0.85, 0.85, '#96795a', 0.15, 1.42, 0.1, 0.4, hg2);
     cyl(0.48, 0.52, 0.95, '#71563f', 1.25, 0.48, 0.3, hg2, 10);
-    if(hi !== 1) ball(0.4, ['#b3543f','#7a8450','#e9b44c'][hi], -0.9, 0.4, 0.5, hg2);
     shadowDisc(0, 0.04, 0, 1.9, hg2, 0.45);
   });
 }
-
-/* ---------- 六大街区：民居 + 奇观 ---------- */
-const WONDERS = {
-  '真爱粉丝': (g)=>{ // 应援舞台 + 爱心碑
-    cyl(4.6, 5.2, 0.7, '#c96f4a', 0, 0.35, 0, g, 22);
-    cyl(0.5, 0.7, 2.2, '#8d84a0', 0, 1.8, 0, g, 10);
-    ball(1.15, '#e56b8c', -0.85, 4.1, 0, g); ball(1.15, '#e56b8c', 0.85, 4.1, 0, g);
-    const tipH = cone(2.2, 2.8, '#e56b8c', 0, 2.2, 0, g, 4); tipH.rotation.x = Math.PI; tipH.rotation.y = Math.PI/4; tipH.scale.set(1, 1, 0.55);
-  },
-  '挑剔观众': (g)=>{ // 巨型放大镜
-    cyl(3.6, 4.4, 0.7, '#5d7a8c', 0, 0.35, 0, g, 22);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.3, 10, 30), M('#3f4c56'));
-    ring.position.set(0, 4.6, 0); ring.rotation.x = 0.35; g.add(ring);
-    const glass = new THREE.Mesh(new THREE.CircleGeometry(2.45, 30), M('#bcd8e4', {basic:true, transparent:true, opacity:0.30}));
-    glass.position.copy(ring.position); glass.rotation.x = 0.35; g.add(glass);
-    const hd = cyl(0.32, 0.38, 3.6, '#71563f', 1.9, 1.9, 0, g, 8); hd.rotation.z = -0.7;
-  },
-  '理性分析': (g)=>{ // 天平纪念碑
-    cyl(3.6, 4.4, 0.7, '#7a8450', 0, 0.35, 0, g, 22);
-    cyl(0.35, 0.55, 5.4, '#5e7153', 0, 3.4, 0, g, 10);
-    box(7.2, 0.35, 0.35, '#71563f', 0, 6.2, 0, 0, g);
-    [-3.2, 3.2].forEach(ox=>{
-      cyl(0.05, 0.05, 1.6, '#3b2d20', ox, 5.3, 0, g, 5);
-      const pan = cone(1.25, 0.55, '#e9b44c', ox, 4.35, 0, g, 14); pan.rotation.x = Math.PI;
-    });
-    ball(0.5, '#e9b44c', 0, 6.7, 0, g);
-  },
-  '立场交锋': (g)=>{ // 对峙双塔 + 裂谷
-    const t1 = box(2.2, 6.4, 2.2, '#a44a3f', -2.3, 3.2, 0, 0, g); t1.rotation.z = 0.10;
-    const t2 = box(2.2, 6.4, 2.2, '#5d7a8c',  2.3, 3.2, 0, 0, g); t2.rotation.z = -0.10;
-    cone(1.9, 1.8, '#7a3428', -2.3, 7.3, 0, g, 4); cone(1.9, 1.8, '#3f5a68', 2.3, 7.3, 0, g, 4);
-    box(1.1, 0.14, 6.5, '#14100c', 0, 0.10, 0, 0, g, 0);
-  },
-  '路过乱入': (g)=>{ // 传送圆环
-    cyl(3.8, 4.6, 0.7, '#845ec2', 0, 0.35, 0, g, 22);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(2.7, 0.32, 10, 32), M('#6a4ca0'));
-    ring.position.set(0, 3.9, 0); g.add(ring);
-    const inner = new THREE.Mesh(new THREE.CircleGeometry(2.5, 30), M('#c9b8f0', {basic:true, transparent:true, opacity:0.35}));
-    inner.position.copy(ring.position); g.add(inner);
-    box(2.6, 0.35, 1.1, '#8d84a0', 0, 0.85, 1.8, 0, g);
-    box(2.0, 0.35, 1.1, '#8d84a0', 0, 0.5, 2.9, 0, g);
-  },
-  '高阶抬杠': (g)=>{ // 螺旋塔
-    let y = 0, s = 5.2;
-    for(let i=0;i<9;i++){
-      const b = box(s, 0.95, s, i%2 ? '#946b54' : '#a87c5e', 0, y+0.48, 0, 0, g);
-      b.rotation.y = i*0.21;
-      y += 0.95; s *= 0.90;
-    }
-    cone(1.3, 2.0, '#b3543f', 0, y+1, 0, g, 4);
-    ball(0.4, '#e9b44c', 0, y+2.3, 0, g);
-  },
-};
-const districtInfo = []; // {angle, color, name}
-const TERRACE_Y = {1: 1.2, 3: 1.6, 4: 0.9};
-function buildDistrict(faction, colorHex, angle, membersCount, fi){
-  const g = new THREE.Group();
-  scene.add(g);
-  const [cx, cz] = polar(angle, 38);
-  const baseY = TERRACE_Y[fi] || 0;
-  if(baseY > 0){
-    const ter = cyl(13.5, 15.5, baseY, '#86664a', cx, baseY/2 - 0.06, cz, scene, 26);
-    ter.material = M('#86664a', {bump: 0.55});
-    const terTop = new THREE.Mesh(jitterGeo(new THREE.CircleGeometry(13.5, 26), 0.25, 900+fi), M(colorHex, {bump:0.3, transparent:true, opacity:0.16}));
-    terTop.rotation.x = -Math.PI/2; terTop.position.set(cx, baseY + 0.045, cz);
-    scene.add(terTop);
-    shadowDisc(cx, 0.06, cz, 15.2, scene, 0.55);
-    // 台阶（朝向广场一侧）
-    for(let k=0;k<4;k++){
-      const topY = baseY*(1-(k+1)/5.2);
-      const [sx2, sz2] = polar(angle, 38 - 14.2 - k*1.15);
-      const st = box(3.4, topY, 1.15, '#96795a', sx2, topY/2, sz2, -angle+Math.PI/2);
-      st.rotation.y = -angle + Math.PI/2;
-    }
-  }
-  const wg = new THREE.Group();
-  wg.position.set(cx, baseY, cz);
-  wg.rotation.y = Math.atan2(-cx, -cz);
-  g.add(wg);
-  if(baseY === 0){
-    const tint = new THREE.Mesh(new THREE.CircleGeometry(14.5, 30), M(colorHex, {bump:0.2, transparent:true, opacity:0.20}));
-    tint.rotation.x = -Math.PI/2; tint.position.set(cx, 0.055, cz);
-    scene.add(tint);
-  }
-  (WONDERS[faction] || WONDERS['真爱粉丝'])(wg);
-  const lb = textSprite(faction, membersCount + ' 人', 0.95);
-  lb.position.set(cx, 11.5 + baseY, cz);
-  scene.add(lb);
-  shadowDisc(cx, baseY + 0.05, cz, 6.4, scene, 0.5);
-  // 民居 5 栋（弧形排布）
-  const houses = [];
-  const rnd = mulberry32(Math.floor(angle*1000)+7);
-  for(let i=0;i<5;i++){
-    const ha = angle + (i-2)*0.13;
-    const hr = 45.5 + (i%2)*2;
-    const [hx, hz] = polar(ha, hr);
-    const hg = new THREE.Group();
-    hg.position.set(hx, baseY, hz);
-    hg.rotation.y = Math.atan2(-hx, -hz);
-    scene.add(hg);
-    const bodyC = new THREE.Color(colorHex).lerp(new THREE.Color(0xf3e2c2), 0.35 + rnd()*0.3).getHex();
-    const roofC = ['#a44a3f','#71563f','#5e7153','#845ec2','#c96f4a'][Math.floor(rnd()*5)];
-    box(3.4, 2.5+rnd()*0.7, 3.1, bodyC, 0, 1.45, 0, 0, hg);
-    const roof = cone(3.1, 1.7, roofC, 0, 3.6+rnd()*0.35, 0, hg, 4); roof.rotation.y = Math.PI/4;
-    box(0.95, 1.7, 0.14, '#4a3826', 0, 0.95, 1.6, 0, hg);
-    const win = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), new THREE.MeshBasicMaterial({color:0xffca7a}));
-    win.position.set(1.05, 1.8, 1.58); hg.add(win);
-    box(1.0, 0.1, 0.1, '#5d4a33', 1.05, 1.8, 1.62, 0, hg);
-    box(0.1, 1.0, 0.1, '#5d4a33', 1.05, 1.8, 1.62, 0, hg);
-    box(0.55, 0.8, 0.55, '#8d6d4e', -1.0, 3.6+rnd()*0.3, -0.7, 0, hg);            // 烟囱
-    const awn = box(1.5, 0.1, 0.8, roofC, 0, 2.05, 1.85, 0, hg); awn.rotation.x = 0.35;  // 门廊
-    box(1.3, 0.18, 0.7, '#96795a', 0, 0.09, 1.95, 0, hg);                            // 门阶
-    if(i % 2 === 0){                                                                // 栅栏（隔栋）
-      for(let fp=0; fp<3; fp++) box(0.14, 0.85, 0.14, '#a08059', -2.3+fp*0.75, 0.42, 2.3, 0, hg);
-      box(2.2, 0.12, 0.1, '#a08059', -1.55, 0.68, 2.3, 0, hg);
-    }
-    shadowDisc(0, 0.04, 0, 3.1, hg, 0.5);
-    houses.push({x:hx, z:hz, a:ha});
-  }
-  districtInfo.push({faction, angle, cx, cz, houses, y: baseY});
-  return g;
-}
-
-/* ---------- 隐藏岛（No.70–72） ---------- */
+/* ---------- 六大区域：地形垫 + 民居 + 奇观 + 标签 + 路径 ---------- */
 {
-  const g = new THREE.Group();
-  g.position.set(58, 9, 46);
-  scene.add(g);
-  const isl = cyl(5.4, 2.2, 2.2, '#4a4157', 0, 0, 0, g, 20);
-  const tipR = cone(2.2, 3.4, '#3c3547', 0, -2.8, 0, g, 8); tipR.rotation.x = Math.PI;
-  [[-1.9,-0.6],[0.2,1.2],[2.1,-0.9]].forEach((off, i)=>{
-    const mon = box(1.15, 2.7, 0.55, '#8d84a0', off[0], 2.4, off[1], i*0.5-0.4, g);
-    mon.userData = {hidden:true};
-    pickables.push(mon);
-    const q = textSprite('？', '', 0.42);
-    q.position.set(off[0], 4.6, off[1]);
-    q.userData = {hidden:true};
-    g.add(q); pickables.push(q);
-  });
-  const lb = textSprite('？？？', '隐藏角色 · 尚未揭晓', 0.85, '#cfc4e8');
-  lb.position.set(0, 7, 0);
-  g.add(lb);
+  const hrnd = mulberry32(2025);
+  for(const z of ZONES){
+    if(z.kind === 'hill'){
+      const mound = cyl(12.5, 15, z.y, '#7d8f57', z.cx, z.y/2 - 0.05, z.cz, scene, 26);
+      mound.material = M('#7d8f57', {bump: 0.5});
+      const top = new THREE.Mesh(jitterGeo(new THREE.CircleGeometry(12.5, 26), 0.25, 910), M('#8fa065', {bump:0.3}));
+      top.rotation.x = -Math.PI/2; top.position.set(z.cx, z.y + 0.03, z.cz); scene.add(top);
+      for(let k=0;k<4;k++){
+        const topY = z.y*(1-(k+1)/5.2);
+        const sx2 = z.cx + 11.8 + k*1.15, sz2 = z.cz + 6.5;
+        box(1.15, topY, 3.2, '#867552', sx2, topY/2, sz2);
+      }
+    }
+    if(z.kind === 'cliff'){
+      const mound = cyl(12, 14.5, z.moundY, '#a87a72', z.cx, z.moundY/2 - 0.05, z.cz, scene, 26);
+      mound.material = M('#a87a72', {bump: 0.55});
+      const top = new THREE.Mesh(jitterGeo(new THREE.CircleGeometry(12, 26), 0.25, 911), M('#b98a80', {bump:0.3}));
+      top.rotation.x = -Math.PI/2; top.position.set(z.cx, z.moundY + 0.03, z.cz); scene.add(top);
+      for(let k=0;k<4;k++){
+        const topY = z.moundY*(1-(k+1)/5.2);
+        box(3.2, topY, 1.15, '#96705f', z.cx + 8.5, topY/2, z.cz + 12.2 + k*1.15);
+      }
+    }
+    if(z.kind === 'sand'){
+      const sand = new THREE.Mesh(jitterGeo(new THREE.CircleGeometry(12.5, 24), 0.5, 912), M('#c2a06b', {bump:0.35}));
+      sand.rotation.x = -Math.PI/2; sand.position.set(z.cx, 0.04, z.cz); scene.add(sand);
+    }
+    if(z.kind === 'isle'){
+      const tint = new THREE.Mesh(new THREE.CircleGeometry(15.5, 28), M('#8c5a64', {bump:0.2, transparent:true, opacity:0.25}));
+      tint.rotation.x = -Math.PI/2; tint.position.set(z.cx, 0.05, z.cz); scene.add(tint);
+    }
+    // 奇观（城堡岛以城堡本体为奇观，不另放）
+    const wz = z.kind==='isle' ? new THREE.Group() : buildWonder(z.faction);
+    const wonderY = z.kind==='hill' ? z.y : z.kind==='cliff' ? z.moundY : 0;
+    const wonderPos = z.kind==='lake' ? {x:-16, z:-26} : z.kind==='hall' ? {x:-24, z:-2} : {x:z.cx, z:z.cz};
+    wz.position.set(wonderPos.x, wonderY, wonderPos.z);
+    scene.add(wz);
+    shadowDisc(wonderPos.x, wonderY + 0.05, wonderPos.z, 5.6, scene, 0.45);
+    // 民居 5 栋（环绕）
+    const houses = [];
+    for(let i=0;i<5;i++){
+      const ha = (i/5)*Math.PI*2 + hrnd()*0.4 + (z.kind==='lake' ? 2.2 : 0.3);
+      const hr = z.kind==='hill' ? 8.6 : z.kind==='isle' ? 12.8 : 10.6;
+      const hx = z.cx + Math.cos(ha)*hr, hz = z.cz + Math.sin(ha)*hr;
+      if(z.kind !== 'isle' && !inLand(hx, hz, 2.5)) continue;
+      if(z.kind === 'lake' && Math.hypot(hx - (-2), hz - (-30)) < 12.5) continue;
+      if(z.kind === 'hall' && Math.hypot(hx - (-30), hz - (-18)) < 11.5) continue;
+      if(z.kind === 'cliff' && Math.hypot(hx - (-54), hz - (16)) < 11) continue;
+      const hy = z.kind==='hill' ? z.y : z.kind==='cliff' ? z.moundY : z.kind==='isle' ? 5 : 0;
+      buildHouse(hx, hy, hz, Math.atan2(z.cx - hx, z.cz - hz), hrnd, scene);
+      if(z.kind !== 'hill' || hrnd() > 0.3){
+        const fg = new THREE.Group(); fg.position.set(hx, hy, hz); fg.rotation.y = Math.atan2(z.cx - hx, z.cz - hz); scene.add(fg);
+        for(let fp=0; fp<3; fp++) box(0.14, 0.85, 0.14, '#a08059', -2.3+fp*0.75, 0.42, 2.35, 0, fg);
+        box(2.2, 0.12, 0.1, '#a08059', -1.55, 0.68, 2.35, 0, fg);
+      }
+      houses.push({x:hx, z:hz, y:hy});
+    }
+    // 标签（城堡岛已有「评论城堡」标签，不重复）
+    if(z.kind !== 'isle'){
+      const lb = textSprite(z.faction, '', 0.95);
+      lb.position.set(z.cx, 12.2 + (z.kind==='hill' ? z.y : 0), z.cz);
+      scene.add(lb);
+    }
+    zoneInfo.push({...z, wonderPos, wonderY, houses});
+  }
+  // 路径：广场 → 各区 + 广场 → 桥头
+  const pathTargets = ZONES.filter(z2=>z2.kind!=='isle').map(z2=>({x:z2.cx, z:z2.cz}));
+  pathTargets.push({x: BRIDGE.x0 + 2, z: BRIDGE.z});
+  for(const t of pathTargets){
+    const dx = t.x - PLAZA.x, dz = t.z - PLAZA.z;
+    const len = Math.hypot(dx, dz) - 12;
+    if(len < 4) continue;
+    const a = Math.atan2(dz, dx);
+    const ave = new THREE.Mesh(new THREE.PlaneGeometry(4.4, len), M('#ffffff', {tex:'road', bump:0.25}));
+    ave.rotation.x = -Math.PI/2; ave.rotation.z = -a + Math.PI/2;
+    ave.position.set(PLAZA.x + dx/2 + Math.cos(a)*3, 0.035, PLAZA.z + dz/2 + Math.sin(a)*3);
+    scene.add(ave);
+  }
 }
-
-/* ---------- 角色入驻 ---------- */
+/* ---------- 厕所（隐藏角色 No.70–72 在这里） ---------- */
+const TOILET_POS = {x: -58, z: 40};
+{
+  const shelf = cyl(6.5, 4.2, 1.8, '#8a6d4f', TOILET_POS.x, -0.95, TOILET_POS.z, scene, 18);
+  shelf.material = M('#8a6d4f', {bump: 0.55});
+  const tip = cone(3.4, 4.5, '#6f5b74', TOILET_POS.x, -4, TOILET_POS.z, scene, 8);
+  tip.rotation.x = Math.PI;
+  const path = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 12), M('#ffffff', {tex:'road', bump:0.25}));
+  path.rotation.x = -Math.PI/2; path.rotation.z = 0.72;
+  path.position.set(TOILET_POS.x + 6.8, 0.03, TOILET_POS.z - 5.2);
+  scene.add(path);
+  const hg = new THREE.Group(); hg.position.set(TOILET_POS.x - 1, 0, TOILET_POS.z - 1); hg.rotation.y = 0.72; scene.add(hg);
+  box(2.7, 3.0, 2.3, '#e3dac8', 0, 1.5, 0, 0, hg).material = M('#e3dac8', {tex:'wall', bump:0.3});
+  const roof = box(3.1, 0.18, 2.7, '#7a5c48', 0, 3.15, 0, 0, hg); roof.rotation.z = 0.1;
+  box(1.1, 2.1, 0.1, '#8c6a4a', 0, 1.05, 1.18, 0, hg);
+  const moon = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.09, 6, 14, Math.PI*1.45), new THREE.MeshBasicMaterial({color:0xe9b44c}));
+  moon.position.set(0, 1.85, 1.25); moon.rotation.z = 2.2; hg.add(moon);
+  // 白瓷马桶（开敞式陈列，像原作那间屋子）
+  const tg = new THREE.Group(); tg.position.set(TOILET_POS.x + 2.6, 0, TOILET_POS.z + 1.6); tg.rotation.y = 0.72 + Math.PI; scene.add(tg);
+  const porc = M('#f2efe9', {bump:0.08});
+  cyl(0.55, 0.4, 0.55, '#f2efe9', 0, 0.28, 0, tg, 12).material = porc;
+  const seat = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.14, 8, 18), porc);
+  seat.rotation.x = Math.PI/2; seat.position.set(0, 0.6, 0.05); tg.add(seat);
+  box(1.05, 0.75, 0.4, '#f2efe9', 0, 0.85, -0.62, 0, tg).material = porc;
+  box(0.5, 0.35, 0.3, '#e8e2d2', 0.95, 0.5, -0.5, 0, tg);
+  shadowDisc(0, 0.04, 0, 1.3, tg, 0.45);
+  shadowDisc(0, 0.04, 0, 3.4, hg, 0.5);
+  // 三块「?」石：排在厕所门口（点它们看隐藏角色说明）
+  for(let i=0;i<3;i++){
+    const mx = TOILET_POS.x + 0.8 + i*1.9, mz = TOILET_POS.z + 3.6 - i*0.35;
+    const mon = box(1.15, 1.9, 0.55, '#5a4a6e', mx, 0.95, mz, 0.72);
+    mon.userData.hidden = true;
+    pickables.push(mon);
+    const q = textSprite('?', '', 0.62);
+    q.position.set(mx, 2.6, mz);
+    q.userData.hidden = true;
+    scene.add(q);
+    pickables.push(q);
+  }
+  const lb = textSprite('隐藏角色', 'No.70–72 · 在厕所里', 0.8);
+  lb.position.set(TOILET_POS.x, 6.4, TOILET_POS.z);
+  scene.add(lb);
+}
+/* ---------- 路灯 / 泥树 / 石子蘑菇（散布，避让功能区） ---------- */
+{
+  const blocked = [
+    [PLAZA.x, PLAZA.z, 13], [-2, -30, 13], [-30, -18, 12], [APT_POS.x, APT_POS.z, 10],
+    [CORRIDOR_POS.x, CORRIDOR_POS.z, 10], [CASTLE_POS.x, CASTLE_POS.z, 19], [TOILET_POS.x, TOILET_POS.z, 8],
+    ...ZONES.map(z=>[z.cx, z.cz, z.kind==='isle' ? 4 : 14]),
+  ];
+  const free = (x, z, m=1) => inLand(x, z, m) && !blocked.some(([bx, bz, br]) => Math.hypot(x-bx, z-bz) < br) && !(x > 20 && Math.abs(z - BRIDGE.z) < 8);
+  const rnd = mulberry32(1234);
+  for(let i=0;i<10;i++){
+    let x, z, tries = 0;
+    do { const a = rnd()*Math.PI*2, r = 14 + rnd()*30; x = LAND_C.x + Math.cos(a)*r; z = LAND_C.z + Math.sin(a)*r; } while(!free(x, z, 4) && ++tries < 30);
+    if(tries >= 30) continue;
+    cyl(0.09, 0.13, 3.1, '#4a3a28', x, 1.55, z, scene, 7);
+    const bulb = ball(0.42, '#ffd98a', x, 3.35, z);
+    bulb.material = M('#ffd98a', {emissive:0x8a6420});
+    shadowDisc(x, 0.04, z, 1.1, scene, 0.4);
+  }
+  for(let i=0;i<13;i++){
+    let x, z, tries = 0;
+    do { const a = rnd()*Math.PI*2, r = 20 + rnd()*30; x = LAND_C.x + Math.cos(a)*r; z = LAND_C.z + Math.sin(a)*r; } while(!free(x, z, 5) && ++tries < 30);
+    if(tries >= 30) continue;
+    cyl(0.22, 0.36, 1.7, '#6e5138', x, 0.85, z, scene, 7);
+    const br1 = cyl(0.1, 0.16, 1.3, '#6e5138', x+0.45, 2.0, z+0.2, scene, 6); br1.rotation.z = -0.6;
+    const br2 = cyl(0.09, 0.14, 1.1, '#6e5138', x-0.4, 2.1, z-0.25, scene, 6); br2.rotation.z = 0.65;
+    const fc = ['#7a8450','#5e7153','#8fa98f'][i%3];
+    ball(1.15+rnd()*0.6, fc, x, 2.9+rnd()*0.5, z);
+    ball(0.85, fc, x+0.85, 2.3, z+0.35);
+    ball(0.7, '#7a8450', x-0.8, 2.45, z-0.3);
+    shadowDisc(x, 0.04, z, 1.6, scene, 0.45);
+  }
+  for(let i=0;i<16;i++){
+    let x, z, tries = 0;
+    do { const a = rnd()*Math.PI*2, r = 16 + rnd()*32; x = LAND_C.x + Math.cos(a)*r; z = LAND_C.z + Math.sin(a)*r; } while(!free(x, z, 3) && ++tries < 30);
+    if(tries >= 30) continue;
+    if(i%2){ cone(0.32, 0.4, '#b3543f', x, 0.32, z, scene, 8); cyl(0.09, 0.12, 0.25, '#f3e2c2', x, 0.12, z, scene, 6); }
+    else ball(0.28+rnd()*0.25, '#8d84a0', x, 0.18, z);
+  }
+}
+/* ---------- 角色入驻（v4 分配：城堡班底/公寓/长廊/广场/摊位/桥上行人/浮岩/各区） ---------- */
 const texLoader = new THREE.TextureLoader();
 texLoader.setCrossOrigin('anonymous');
-let loadedCount = 0, totalCount = 69;
+let loadedCount = 0, totalCount = 0, loadFinished = false;
+window.__placed = {calls:0, ok:0, err:0, urls:[]};
 function finishLoad(){
-  if(++loadedCount >= totalCount){
-    loadingEl.style.opacity = '0';
-    setTimeout(()=>loadingEl.remove(), 550);
-  }
+  if(loadFinished) return;
+  loadFinished = true;
+  mergeStatic();
+  loadingEl.style.opacity = '0';
+  setTimeout(()=>{ loadingEl.style.display = 'none'; }, 550);
+  window.__ready = true;
+  render();
 }
-function placeChar(c, view, x, y, z, h=2.3, parent=scene){
-  shadowDisc(x, y + 0.03, z, 0.95*(h/2.3), parent, 0.42);
-  texLoader.load(`/img/view-${view}-${String(c.id).padStart(2,'0')}.webp`, tx=>{
+function placeChar(c, x, y, z, kind='front', h=2.9){
+  window.__placed.calls++;
+  shadowDisc(x, y + 0.03, z, 0.95);
+  const url = `/img/view-${kind}-${String(c.id).padStart(2,'0')}.webp`;
+  texLoader.load(url, tx=>{
+    window.__placed.ok++;
     tx.colorSpace = THREE.SRGBColorSpace;
+    const aspect = (tx.image && tx.image.width) ? tx.image.width/tx.image.height : 0.42;
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:tx, transparent:true}));
-    const w = h*(tx.image.width/tx.image.height);
-    sp.scale.set(w, h, 1);
-    sp.position.set(x, y + h/2, z);
-    sp.userData = {id:c.id, name:c.name, title:c.title, baseScale:new THREE.Vector3(w, h, 1)};
-    parent.add(sp);
+    sp.center.set(0.5, 0);
+    sp.scale.set(h*aspect, h, 1);
+    sp.position.set(x, y, z);
+    sp.userData.id = c.id;
+    sp.userData.name = c.name;
+    sp.userData.title = c.title;
+    sp.userData.baseScale = sp.scale.clone();
+    scene.add(sp);
     pickables.push(sp);
-    finishLoad();
+    if(++loadedCount >= totalCount) finishLoad();
     render();
-  }, undefined, ()=>{ finishLoad(); });
+  }, undefined, ()=>{
+    window.__placed.err++; window.__placed.urls.push(url);
+    if(++loadedCount >= totalCount) finishLoad();
+  });
 }
+fetch('/characters.json').then(r=>r.json()).then(data=>{
+  const all = [...data].sort((a,b)=>a.id-b.id);
+  totalCount = all.length;
+  const pools = {};
+  for(const c of all){ (pools[c.faction] = pools[c.faction] || []).push(c); }
+  const take = f => (pools[f] && pools[f].length) ? pools[f].shift() : null;
+  const put = (f, x, y, z, kind, h) => { const c = take(f); if(c) placeChar(c, x, y, z, kind, h); };
 
-fetch('/characters.json').then(r=>r.json()).then(chars=>{
-  totalCount = chars.length;
-  const factions = [];
-  for(const c of chars) if(!factions.includes(c.faction)) factions.push(c.faction);
-  const byFaction = factions.map(f=>chars.filter(c=>c.faction===f));
-
-  // 街区先建（需要 houses 坐标给居民定位）
-  byFaction.forEach((members, i)=>{
-    const angle = i*Math.PI/3 + Math.PI/12;
-    buildDistrict(members[0].faction, members[0].color, angle, members.length, i);
+  /* 城堡班底 6（高阶抬杠）：门卫×2 / 露台×2 / 城墙×2 */
+  const gateL = castleLocalToWorld(-3.2, 5, 6.6), gateR = castleLocalToWorld(3.2, 5, 6.6);
+  const terL = castleLocalToWorld(-2.2, 12.6, 3.4), terR = castleLocalToWorld(2.2, 12.6, 3.4);
+  const walL = castleLocalToWorld(-4.5, 12.45, -3), walR = castleLocalToWorld(4.5, 12.45, -3);
+  for(const [sx, sy, sz] of [gateL, gateR, terL, terR, walL, walR]) put('高阶抬杠', sx, sy, sz, 'front');
+  /* 链锁浮岩瞭望 1 */
+  put('高阶抬杠', ROCK_POS.x, ROCK_POS.y, ROCK_POS.z, 'front');
+  /* 评论公寓 9（挑剔2/理性2/立场2/路过2/高阶1），房间行优先 */
+  const aptPlan = ['挑剔观众','理性分析','立场交锋','路过乱入','挑剔观众','理性分析','立场交锋','路过乱入','高阶抬杠'];
+  aptPlan.forEach((f, i)=>{
+    const fl = Math.floor(i/3), rm = i%3;
+    const rx = -6.5 + (rm + 0.5)*(13/3);
+    put(f, 13, fl*3.1 + 0.82, -6 + rx, 'front', 2.7);
   });
-
-  /* 分配：公共建筑优先，每阵营至少留 2 人回本区 */
-  const assigned = new Set();
-  const remaining = ()=>chars.filter(c=>!assigned.has(c.id));
-  const homeCount = f=>remaining().filter(c=>c.faction===f).length;
-  function take(filterFn){
-    const pool = remaining();
-    const c = pool.find(x=>(!filterFn || filterFn(x)) && homeCount(x.faction) > 2) || pool.find(x=>!filterFn || filterFn(x));
-    if(c) assigned.add(c.id);
-    return c;
+  /* 回音长廊 4（侧面像，沿廊行走） */
+  const corrPlan = [['路过乱入', -1.7, -4.5], ['路过乱入', 1.7, -1.5], ['挑剔观众', -1.7, 1.5], ['理性分析', 1.7, 4.5]];
+  for(const [f, lx, lz] of corrPlan){
+    const wx = CORRIDOR_POS.x + lx*Math.cos(0.5) + lz*Math.sin(0.5);
+    const wz = CORRIDOR_POS.z - lx*Math.sin(0.5) + lz*Math.cos(0.5);
+    put(f, wx, 0, wz, 'side');
   }
-  function takeFromFaction(f, skip=0){
-    const pool = remaining().filter(c=>c.faction===f);
-    const c = pool[skip] || pool[0];
-    if(c) assigned.add(c.id);
-    return c;
-  }
-
-  // 城堡班底：每阵营第一人
-  const crew = byFaction.map(m=>takeFromFaction(m[0].faction));
-  const [g1, g2, b1, b2, w1, w2] = crew;
-  if(g1) placeChar(g1, 'front', CASTLE.x-2.4, CASTLE.hillY, CASTLE.z+7.2, 2.3);
-  if(g2) placeChar(g2, 'front', CASTLE.x+2.4, CASTLE.hillY, CASTLE.z+7.2, 2.3);
-  if(b1) placeChar(b1, 'front', CASTLE.x+1.9, CASTLE.hillY+4.35, CASTLE.z+7.3, 2.2);
-  if(b2) placeChar(b2, 'back',  CASTLE.x-1.9, CASTLE.hillY+4.35, CASTLE.z+7.3, 2.2);
-  if(w1) placeChar(w1, 'back',  CASTLE.x-5.2, CASTLE.hillY+7.6, CASTLE.z+5.4, 2.2);
-  if(w2) placeChar(w2, 'back',  CASTLE.x+5.2, CASTLE.hillY+7.6, CASTLE.z+5.4, 2.2);
-
-  // 评论公寓：9 间房
-  const apartChars = [];
-  for(let i=0;i<9;i++) apartChars.push(take());
-  apartChars.forEach((c, i)=>{
-    if(!c) return;
-    const f = Math.floor(i/3), rIdx = i%3;
-    const cx = -APART.W/3 + rIdx*(APART.W/3) + 0.1;
-    placeChar(c, 'front', cx+0.55, f*APART.FH+0.28, 0.75, 2.0, APART.group);
+  /* 回声广场 6（绕喷泉，正背交替） */
+  const plazaPlan = ['真爱粉丝','挑剔观众','理性分析','立场交锋','路过乱入','高阶抬杠'];
+  plazaPlan.forEach((f, i)=>{
+    const a = 0.3 + i*(Math.PI*2/6);
+    put(f, PLAZA.x + Math.cos(a)*6.8, 0, PLAZA.z + Math.sin(a)*6.8, i%2 ? 'back' : 'front');
   });
-
-  // 长廊散步：4 人侧面
-  for(let i=0;i<4;i++){
-    const c = take(); if(!c) break;
-    placeChar(c, 'side', (i%2? -1.7: 1.7), 0, -14.5 - i*2.8, 2.25);
-  }
-  // 广场围观喷泉：6 人
-  for(let i=0;i<6;i++){
-    const c = take(); if(!c) break;
-    const a = i*(Math.PI*2/6) + 0.4;
-    const [px, pz] = polar(a, 6.4);
-    placeChar(c, i%2? 'back':'front', px, 0, pz, 2.5);
-  }
-  // 市集摊主：3 人
-  (window.__stalls||[]).forEach((sg, i)=>{
-    const c = take(); if(!c) return;
-    const wp = new THREE.Vector3();
-    sg.getWorldPosition(wp);
-    const inward = wp.clone().normalize().multiplyScalar(-1.15);
-    placeChar(c, 'front', wp.x + inward.x, 0, wp.z + inward.z, 2.2);
+  /* 摊位摊主 3（站在摊子背向广场一侧） */
+  const stallPlan = ['路过乱入','真爱粉丝','立场交锋'];
+  STALL_POS.forEach(([sx, sz], i)=>{
+    const ry = Math.atan2(PLAZA.x - sx, PLAZA.z - sz);
+    put(stallPlan[i], sx - Math.sin(ry)*1.5, 0, sz - Math.cos(ry)*1.5, 'front', 2.7);
   });
-
-  // 其余回各街区：门口 / 街道 / 奇观前 / 院子 轮换
-  const slotCycle = ['door', 'street', 'wonder', 'yard', 'street', 'door'];
-  byFaction.forEach((members, fi)=>{
-    const info = districtInfo[fi];
-    const rest = members.filter(c=>!assigned.has(c.id));
-    rest.forEach((c, k)=>{
-      const slot = slotCycle[k % slotCycle.length];
-      const rnd = mulberry32(c.id*97+13);
-      if(slot==='door'){
-        const h = info.houses[k % info.houses.length];
-        const inw = polar(Math.atan2(h.z, h.x)+Math.PI, 0); // 朝中心方向
-        const dirx = -h.x/Math.hypot(h.x, h.z), dirz = -h.z/Math.hypot(h.x, h.z);
-        placeChar(c, 'front', h.x + dirx*2.6 + (rnd()-0.5), info.y, h.z + dirz*2.6 + (rnd()-0.5), 2.5);
-      }else if(slot==='street'){
-        const a = info.angle + (k%2? 0.16 : -0.14) + (rnd()-0.5)*0.05;
-        const [sx, sz] = polar(a, info.y > 0 ? 21.8 : 24.2);
-        placeChar(c, 'side', sx, 0, sz, 2.5);
-      }else if(slot==='wonder'){
-        const a = info.angle + (rnd()-0.5)*0.3;
-        const [wx, wz] = polar(a, 31.5);
-        placeChar(c, 'back', wx, info.y, wz, 2.5);
-      }else{
-        const a = info.angle + (rnd()-0.5)*0.4;
-        const [yx, yz] = polar(a, 46.5 + rnd()*2);
-        placeChar(c, 'front', yx, info.y, yz, 2.5);
-      }
+  /* 长桥行人 4（路过乱入，侧面像，往城堡去） */
+  [[38, 7.5], [52, 12.5], [64, 7.5], [78, 12.5]].forEach(([bx, bz])=>{
+    put('路过乱入', bx, 0, bz, 'side');
+  });
+  /* 各区填充：门口 2 → 奇观访客（背）2 → 小径行人（侧）1 → 院落其余 */
+  const yardAngles = {'真爱粉丝':[2.2], '挑剔观众':[2.6], '理性分析':[0.7], '立场交锋':[5.5], '路过乱入':[1.9], '高阶抬杠':[0.4, 1.5, 2.6, 3.7, 4.8, 5.9, 0.95]};
+  for(const z of zoneInfo){
+    const groundY = z.kind==='hill' ? z.y : z.kind==='cliff' ? z.moundY : z.kind==='isle' ? 5 : 0;
+    // 门口
+    z.houses.slice(0, z.kind==='isle' ? 3 : 2).forEach(hs=>{
+      const dx = z.cx - hs.x, dz = z.cz - hs.z;
+      const dl = Math.hypot(dx, dz) || 1;
+      put(z.faction, hs.x + dx/dl*2.4, hs.y, hs.z + dz/dl*2.4, 'front');
     });
-  });
-  if(!new URLSearchParams(location.search).has('nomerge')) mergeStatic();
+    if(z.kind === 'isle'){
+      // 城堡即奇观：余众在山顶平台环列
+      let guard = 0;
+      while(pools[z.faction] && pools[z.faction].length && guard < 8){
+        const a = yardAngles[z.faction][guard % yardAngles[z.faction].length] + guard*0.35;
+        const r = 10.2 + (guard % 3)*0.9;
+        put(z.faction, z.cx + Math.cos(a)*r, 5, z.cz + Math.sin(a)*r, 'front');
+        guard++;
+      }
+      continue;
+    }
+    // 奇观访客（背对镜头看奇观）
+    put(z.faction, z.wonderPos.x - 3.2, z.wonderY, z.wonderPos.z + 3.8, 'back');
+    put(z.faction, z.wonderPos.x + 3.2, z.wonderY, z.wonderPos.z + 4.4, 'back');
+    // 小径行人（区心与广场中点；湖区中点在陆地上）
+    const mx = (z.cx + PLAZA.x)/2, mz = (z.cz + PLAZA.z)/2;
+    put(z.faction, mx, 0, mz, 'side');
+    // 院落其余（湖区改站湖岸定点：区心环线整圈都压着湖面）
+    let yi = 0;
+    const SHORE = [[-16,-20],[-17,-33],[-13,-36],[-19,-26],[-20,-19]];
+    while(pools[z.faction] && pools[z.faction].length){
+      if(z.kind === 'lake'){
+        const [px, pz] = SHORE[yi % SHORE.length];
+        put(z.faction, px, groundY, pz, 'front');
+      }else{
+        const a = (yardAngles[z.faction] || [0.9])[yi % (yardAngles[z.faction] || [0.9]).length] + yi*0.8;
+        const px = z.cx + Math.cos(a)*6.2, pz = z.cz + Math.sin(a)*6.2;
+        put(z.faction, px, groundY, pz, 'front');
+      }
+      yi++;
+      if(yi > 8) break;
+    }
+  }
+  // 兜底清扫：任何没分到位置的角色，一律到广场边集合（保证 69 人全员到场）
+  let sweep = 0;
+  for(const f of Object.keys(pools)){
+    while(pools[f] && pools[f].length){
+      const a = 0.8 + sweep*2.4;
+      put(f, PLAZA.x + Math.cos(a)*9.6, 0, PLAZA.z + Math.sin(a)*9.6, 'front');
+      sweep++;
+    }
+  }
+  if(loadedCount >= totalCount) finishLoad();
   render();
 }).catch(()=>{
-  document.getElementById('fallback').style.display='flex';
-  loadingEl.style.display='none';
+  loadingEl.querySelector('p').textContent = '世界没捏成，刷新再试试';
 });
-
 /* ---------- 阶段五：静态网格按材质合并（draw call 大幅下降） ---------- */
 function mergeStatic(){
   try{
