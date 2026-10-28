@@ -2,9 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>评论区粘土世界 · 地图 — 72 号人物资产库</title>
-<meta name="description" content="72 号评论区人物资产库的粘土世界地图：一块捏出来的大陆、一条带刺长桥与桥尽头的城堡岛，整张图按黏土材质生成，指纹、按压痕与泥块接缝都在。">
+<meta name="description" content="72 号评论区人物资产库的粘土世界地图：一块捏出来的大陆、一条带刺长桥与桥尽头的城堡岛。可平移缩放，并带深度视差的微微倾斜。">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{background:#060607}
@@ -15,14 +15,23 @@
   #titleBox{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:20;text-align:center;pointer-events:none;width:max-content;max-width:92vw}
   #titleBox h1{font-size:clamp(19px,3.4vw,30px);letter-spacing:.04em;text-shadow:0 2px 0 #000,0 0 22px rgba(0,0,0,.9)}
   #titleBox p{font-size:12.5px;opacity:.9;margin-top:3px;text-shadow:0 1px 0 #000}
-  .mapScroll{overflow-x:hidden;padding:64px 0 40px}
+  #hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(20,16,10,.78);border:2px solid rgba(243,234,216,.35);
+    border-radius:99px;padding:7px 16px;font-size:12.5px;white-space:nowrap;pointer-events:none}
+  .mapScroll{padding:64px 0 58px}
   .mapWrap{position:relative;width:min(1500px,100%);margin:0 auto;line-height:0}
   .mapWrap>img.base{width:100%;height:auto;display:block}
+  #gl{position:absolute;inset:0;width:100%;height:100%;display:none;touch-action:none;cursor:grab}
+  #gl.on{display:block}
+  #gl.grabbing{cursor:grabbing}
+  .viewBtns{position:absolute;right:12px;bottom:12px;z-index:10;display:flex;gap:8px}
+  .viewBtns button{width:42px;height:42px;border-radius:50%;border:3px solid #26221c;background:#fdf6e3;color:#26221c;
+    font-size:19px;font-weight:900;box-shadow:3px 3px 0 rgba(0,0,0,.55);cursor:pointer;line-height:1}
+  .viewBtns button:active{transform:translate(2px,2px);box-shadow:1px 1px 0 rgba(0,0,0,.55)}
   .footNote{max-width:900px;margin:10px auto 0;padding:0 18px;text-align:center;font-size:12.5px;line-height:1.8;opacity:.65}
   @media(max-width:640px){
     #titleBox{top:60px}
-    .mapScroll{overflow-x:auto;padding-top:104px}
-    .mapWrap{width:235%}
+    .mapScroll{padding-top:104px}
+    #hint{font-size:11px;bottom:10px}
   }
 </style>
 </head>
@@ -34,11 +43,233 @@
 </div>
 
 <div class="mapScroll">
-  <div class="mapWrap">
-    <img class="base" src="/img/world-map.webp" alt="黏土世界地图：有机大陆、带刺长桥与城堡岛" width="2048" height="1152">
+  <div class="mapWrap" id="mapWrap">
+    <img class="base" id="baseImg" src="/img/world-map.webp" alt="黏土世界地图：有机大陆、带刺长桥与城堡岛" width="2048" height="1152">
+    <canvas id="gl" width="2048" height="1152"></canvas>
+    <div class="viewBtns" id="viewBtns" hidden>
+      <button id="btnOut" aria-label="缩小">−</button>
+      <button id="btnReset" aria-label="复位">⟲</button>
+      <button id="btnIn" aria-label="放大">＋</button>
+    </div>
   </div>
-  <p class="footNote">这张世界图是按黏土世界的材质整张「捏」出来的（指纹、按压痕、泥块接缝都在），建筑造型为原创。角色们都在选人画面里，这张图就只看世界本身。</p>
+  <p class="footNote">这张世界图是按黏土世界的材质整张「捏」出来的（指纹、按压痕、泥块接缝都在），建筑造型为原创。倾斜是深度视差做出来的伪 3D——图本身仍是 2D，转到背面是变不出来的。角色们都在选人画面里。</p>
 </div>
 
+<div id="hint">🖱️ 拖动平移 · 滚轮 / 双指缩放 · 移动鼠标让世界微微倾斜 · 双击复位</div>
+
+<script>
+(function(){
+  const QS = new URLSearchParams(location.search);
+  const canvas = document.getElementById('gl');
+  const wrap = document.getElementById('mapWrap');
+  const MIN_ZOOM = 1.08, MAX_ZOOM = 4.0, STRENGTH = 0.026;
+  const state  = {zoom: MIN_ZOOM, panX: 0, panY: 0, tiltX: 0, tiltY: 0};
+  const target = {...state};
+  if(QS.has('zoom')) target.zoom = state.zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, +QS.get('zoom')));
+  if(QS.has('pan')){ const [x, y] = QS.get('pan').split(',').map(Number); target.panX = state.panX = x||0; target.panY = state.panY = y||0; }
+  if(QS.has('tilt')){ const [x, y] = QS.get('tilt').split(',').map(Number); target.tiltX = state.tiltX = x||0; target.tiltY = state.tiltY = y||0; }
+  window.__view = state;
+
+  function clampPan(t){
+    const m = 0.5 - 0.5/t.zoom;
+    t.panX = Math.max(-m, Math.min(m, t.panX));
+    t.panY = Math.max(-m, Math.min(m, t.panY));
+  }
+  function loadImage(src){
+    return new Promise((res, rej)=>{
+      const im = new Image();
+      im.onload = ()=>res(im);
+      im.onerror = rej;
+      im.src = src;
+    });
+  }
+  Promise.all([loadImage('/img/world-map.webp'), loadImage('/img/world-depth.webp').catch(()=>null)])
+  .then(([colorImg, depthImg])=>init(colorImg, depthImg))
+  .catch(()=>{ /* 底图加载失败就保留静态 img */ });
+
+  function init(colorImg, depthImg){
+    let gl;
+    try{ gl = canvas.getContext('webgl', {antialias:false, depth:false, stencil:false}); }catch(e){}
+    if(!gl) return; // WebGL 不可用：保留静态图
+    const vs = `attribute vec2 p; varying vec2 vUv;
+      void main(){ vUv = vec2(p.x*0.5+0.5, 0.5-p.y*0.5); gl_Position = vec4(p, 0.0, 1.0); }`;
+    const fs = `precision mediump float; varying vec2 vUv;
+      uniform sampler2D uColor; uniform sampler2D uDepth;
+      uniform vec2 uTilt; uniform float uZoom; uniform vec2 uPan; uniform float uStrength;
+      void main(){
+        vec2 w = (vUv - 0.5) / uZoom + 0.5 + uPan;
+        float d = texture2D(uDepth, w).r;
+        vec2 cuv = w + uTilt * (d - 0.45) * uStrength;
+        gl_FragColor = vec4(texture2D(uColor, cuv).rgb, 1.0);
+      }`;
+    function shader(type, src){
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src); gl.compileShader(s);
+      return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null;
+    }
+    const prog = gl.createProgram();
+    const vsh = shader(gl.VERTEX_SHADER, vs), fsh = shader(gl.FRAGMENT_SHADER, fs);
+    if(!vsh || !fsh) return;
+    gl.attachShader(prog, vsh); gl.attachShader(prog, fsh); gl.linkProgram(prog);
+    if(!gl.getProgramParameter(prog, gl.LINK_STATUS)) return;
+    gl.useProgram(prog);
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(prog, 'p');
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    function makeTex(img, unit, slot){
+      const t = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      if(img) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+      else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([115,115,115,255]));
+      gl.uniform1i(gl.getUniformLocation(prog, slot), unit);
+    }
+    makeTex(colorImg, 0, 'uColor');
+    makeTex(depthImg, 1, 'uDepth');
+    const U = {
+      tilt: gl.getUniformLocation(prog, 'uTilt'),
+      zoom: gl.getUniformLocation(prog, 'uZoom'),
+      pan: gl.getUniformLocation(prog, 'uPan'),
+      strength: gl.getUniformLocation(prog, 'uStrength'),
+    };
+    gl.uniform1f(U.strength, depthImg ? STRENGTH : 0.0);
+
+    function fitCanvas(){
+      const r = wrap.getBoundingClientRect();
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      canvas.width = Math.round(r.width * dpr);
+      canvas.height = Math.round(r.width * (1152/2048) * dpr);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      dirty = true;
+    }
+
+    /* ---------- 交互 ---------- */
+    let dirty = true;
+    const pointers = new Map();
+    let dragMode = null, lastX = 0, lastY = 0, tiltAnchorX = 0, tiltAnchorY = 0, pinchD0 = 0, pinchZoom0 = 1;
+    const rect = ()=>canvas.getBoundingClientRect();
+    function screenUv(e){
+      const r = rect();
+      return [(e.clientX - r.left)/r.width, (e.clientY - r.top)/r.height];
+    }
+    function zoomAt(u, v, factor){
+      const wX = (u - 0.5)/target.zoom + 0.5 + target.panX;
+      const wY = (v - 0.5)/target.zoom + 0.5 + target.panY;
+      target.zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, target.zoom * factor));
+      target.panX = wX - (u - 0.5)/target.zoom - 0.5;
+      target.panY = wY - (v - 0.5)/target.zoom - 0.5;
+      clampPan(target);
+      dirty = true;
+    }
+    canvas.addEventListener('wheel', e=>{
+      e.preventDefault();
+      const [u, v] = screenUv(e);
+      zoomAt(u, v, Math.exp(-e.deltaY * 0.0016));
+    }, {passive:false});
+    canvas.addEventListener('pointerdown', e=>{
+      canvas.setPointerCapture(e.pointerId);
+      pointers.set(e.pointerId, [e.clientX, e.clientY]);
+      lastX = e.clientX; lastY = e.clientY;
+      if(pointers.size === 2){
+        const pts = [...pointers.values()];
+        pinchD0 = Math.hypot(pts[0][0]-pts[1][0], pts[0][1]-pts[1][1]);
+        pinchZoom0 = target.zoom;
+        dragMode = 'pinch';
+      }else{
+        dragMode = target.zoom > MIN_ZOOM + 0.02 ? 'pan' : 'tilt';
+        tiltAnchorX = target.tiltX; tiltAnchorY = target.tiltY;
+      }
+      canvas.classList.add('grabbing');
+    });
+    canvas.addEventListener('pointermove', e=>{
+      if(!pointers.has(e.pointerId)){
+        if(e.pointerType === 'mouse'){
+          const [u, v] = screenUv(e);
+          target.tiltX = Math.max(-1, Math.min(1, (u - 0.5) * 2)) * 0.8;
+          target.tiltY = Math.max(-1, Math.min(1, (v - 0.5) * 2)) * 0.8;
+          dirty = true;
+        }
+        return;
+      }
+      pointers.set(e.pointerId, [e.clientX, e.clientY]);
+      if(dragMode === 'pinch' && pointers.size === 2){
+        const pts = [...pointers.values()];
+        const d = Math.hypot(pts[0][0]-pts[1][0], pts[0][1]-pts[1][1]);
+        if(pinchD0 > 0){
+          const r = rect();
+          const mu = ((pts[0][0]+pts[1][0])/2 - r.left)/r.width;
+          const mv = ((pts[0][1]+pts[1][1])/2 - r.top)/r.height;
+          const wX = (mu - 0.5)/target.zoom + 0.5 + target.panX;
+          const wY = (mv - 0.5)/target.zoom + 0.5 + target.panY;
+          target.zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinchZoom0 * d / pinchD0));
+          target.panX = wX - (mu - 0.5)/target.zoom - 0.5;
+          target.panY = wY - (mv - 0.5)/target.zoom - 0.5;
+          clampPan(target);
+        }
+      }else if(dragMode === 'pan'){
+        const r = rect();
+        target.panX -= (e.clientX - lastX) / r.width / target.zoom;
+        target.panY -= (e.clientY - lastY) / r.height / target.zoom;
+        clampPan(target);
+      }else if(dragMode === 'tilt'){
+        target.tiltX = Math.max(-1, Math.min(1, tiltAnchorX + (e.clientX - lastX)/160));
+        target.tiltY = Math.max(-1, Math.min(1, tiltAnchorY + (e.clientY - lastY)/160));
+      }
+      lastX = e.clientX; lastY = e.clientY;
+      dirty = true;
+    });
+    function endPointer(e){
+      pointers.delete(e.pointerId);
+      if(pointers.size === 0){ dragMode = null; canvas.classList.remove('grabbing'); }
+      else if(pointers.size === 1){
+        const [px, py] = [...pointers.values()][0];
+        lastX = px; lastY = py;
+        dragMode = target.zoom > MIN_ZOOM + 0.02 ? 'pan' : 'tilt';
+        tiltAnchorX = target.tiltX; tiltAnchorY = target.tiltY;
+      }
+    }
+    canvas.addEventListener('pointerup', endPointer);
+    canvas.addEventListener('pointercancel', endPointer);
+    function resetView(){
+      target.zoom = MIN_ZOOM; target.panX = 0; target.panY = 0; target.tiltX = 0; target.tiltY = 0;
+      dirty = true;
+    }
+    canvas.addEventListener('dblclick', resetView);
+    document.getElementById('viewBtns').hidden = false;
+    document.getElementById('btnIn').onclick = ()=>zoomAt(0.5, 0.5, 1.4);
+    document.getElementById('btnOut').onclick = ()=>zoomAt(0.5, 0.5, 1/1.4);
+    document.getElementById('btnReset').onclick = resetView;
+    addEventListener('resize', fitCanvas);
+    fitCanvas();
+    canvas.classList.add('on');
+    window.__glReady = true;
+
+    /* ---------- 渲染循环（静止时不重绘，省电） ---------- */
+    function frame(){
+      requestAnimationFrame(frame);
+      let moving = false;
+      for(const k of ['zoom','panX','panY','tiltX','tiltY']){
+        const d = target[k] - state[k];
+        if(Math.abs(d) > 0.0004){ state[k] += d * 0.14; moving = true; }
+        else state[k] = target[k];
+      }
+      if(!dirty && !moving) return;
+      dirty = moving;
+      gl.uniform2f(U.tilt, state.tiltX, state.tiltY);
+      gl.uniform1f(U.zoom, state.zoom);
+      gl.uniform2f(U.pan, state.panX, state.panY);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+    requestAnimationFrame(frame);
+  }
+})();
+</script>
 </body>
 </html>
