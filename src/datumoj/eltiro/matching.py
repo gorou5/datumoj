@@ -18,6 +18,8 @@ from pydantic import TypeAdapter
 
 from datumoj.eltiro.contracts import ProfileStore
 from datumoj.eltiro.match_store import MatchResult, SQLiteMatchStore, series_key
+from datumoj.eltiro.model_match import _context, _model_config, _run_inputs, judge_candidates
+from datumoj.eltiro.concept_notes import list_concept_notes
 from datumoj.eltiro.models import (
     Compatibility, ConsumerConfig, DemandSpec, Generation, MatchEvidence, MatchRecord,
     SeriesIdentity, SeriesProfile, content_hash,
@@ -195,6 +197,8 @@ def match_demand(
     observations: ObservationStore, catalog: CatalogStore, chunks: ChunkStore,
     store: SQLiteMatchStore, embedder: Embedder | None = None,
     deterministic: bool = True, vector: bool = True, k: int = 10,
+    model: bool = False, router=None, cache=None, licenses=None, policy=None,
+    generation_token=None, providers=None,
 ) -> MatchResult:
     """Persist one complete run; errors leave previous matches intact.
 
@@ -205,9 +209,16 @@ def match_demand(
     demand = DemandSpec.model_validate(demand.model_dump())
     consumer = ConsumerConfig.model_validate(consumer.model_dump())
     TypeAdapter(Generation).validate_python(generation)
-    config, model = _matching_config(demand, consumer, deterministic, vector, embedder, k)
+    config, vector_model = _matching_config(demand, consumer, deterministic, vector, embedder, k)
+    config = _model_config(config, model, policy, generation_token)
+    if model:
+        _context(demand, consumer, generation, generation_token, router, cache, licenses, policy)
     cached = store.load_result(demand.id, demand.version, generation, config)
     if cached is not None:
+        if model:
+            _run_inputs("match_judge", demand, generation, data_root=store.path.parent.parent,
+                        consumer=consumer, router=router, cache=cache, licenses=licenses, policy=policy,
+                        generation_token=generation_token, providers=providers or {})
         return cached
     candidates = []
     seen = set()
@@ -223,13 +234,13 @@ def match_demand(
     history = {}
     # Deliberately do not carry decisions across demand versions: concepts may change.
     for record in sorted(store.for_demand(demand.id, demand.version), key=lambda r: r.generation):
-        if record.generation < generation:
+        if record.generation < generation or (model and record.generation == generation):
             history[(record.indicator_key, series_key(record.series))] = record.confirmation
     reader = _EvidenceReader(generation, observations, catalog, chunks)
     texts = [_profile_text(p) for p in candidates]
     queries = ["\n".join([i.concept, *i.examples.positive]) for i in demand.indicators]
     vectors = None
-    if model is not None:
+    if vector_model is not None:
         vectors = _vectors(store.path.parent.parent, generation, embedder, texts + queries)
     records, missing, evidence_cache = [], {}, {}
     for index, indicator in enumerate(demand.indicators):
@@ -291,6 +302,12 @@ def match_demand(
                 series=profile.series, tier=tier, confidence=confidence, reason="; ".join(reasons),
                 evidence=evidence, generation=generation, confirmation=prior,
                 compatibility=compatibility, auto_bind=auto_bind))
+    if model:
+        records = judge_candidates(demand, generation, records, profiles=candidates, consumer=consumer,
+                                   data_root=store.path.parent.parent, router=router, cache=cache,
+                                   licenses=licenses, policy=policy, generation_token=generation_token,
+                                   providers=providers or {}, concept_notes=list_concept_notes(
+                                       generation, data_root=store.path.parent.parent, consumer=consumer.id))
     records.sort(key=lambda r: ({"confirmed": 0, "pending": 1, "rejected": 2}[r.confirmation],
                                 r.indicator_key, -r.confidence, series_key(r.series)))
     return store.save_result(demand.id, demand.version, generation, config, records,

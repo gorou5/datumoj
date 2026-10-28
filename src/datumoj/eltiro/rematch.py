@@ -16,6 +16,7 @@ from datumoj.eltiro.matching import (
     _codes, _EvidenceReader, _keywords, _matching_config, _profile_text,
     _recall_scores, _vectors, match_demand,
 )
+from datumoj.eltiro.model_match import _context, _model_config
 from datumoj.eltiro.models import ConsumerConfig, DemandSpec, Generation, SeriesProfile, content_hash
 from datumoj.rikolto.core.contracts import CatalogStore, ChunkStore, Embedder, ObservationStore
 
@@ -132,10 +133,13 @@ def refresh(
     alerts: SQLiteAlertStore, observations: ObservationStore, catalog: CatalogStore, chunks: ChunkStore,
     as_of: date, embedder: Embedder | None = None, deterministic: bool = True,
     vector: bool = True, k: int = 10,
+    model: bool = False, router=None, cache=None, licenses=None, policy=None,
+    generation_token=None, providers=None,
 ) -> RefreshCounts:
     """Refresh active demands only; all Rikolto views must be frozen to new_generation.
 
-    No publication-state discovery, model calls, execution, outbox writes or push.
+    No publication-state discovery, execution, outbox writes or push.
+    Optional model judgments use the same frozen plan/cache rules as full matching.
     Completed per-demand runs and alert identities make interrupted retries safe.
     """
     for generation in (new_generation, previous_generation):
@@ -149,7 +153,10 @@ def refresh(
     index = _ReverseIndex()
     for demand in demands:
         consumer = ConsumerConfig.model_validate(consumers[demand.consumer].model_dump())
-        config, model = _matching_config(demand, consumer, deterministic, vector, embedder, k)
+        config, vector_model = _matching_config(demand, consumer, deterministic, vector, embedder, k)
+        config = _model_config(config, model, policy, generation_token)
+        if model:
+            _context(demand, consumer, new_generation, generation_token, router, cache, licenses, policy)
         try:
             previous = store.load_result(demand.id, demand.version, previous_generation, config)
         except ValueError:
@@ -157,7 +164,7 @@ def refresh(
         history = [r for r in store.for_demand(demand.id, demand.version) if r.generation < new_generation]
         baseline = previous or MatchResult(store.for_demand(demand.id, demand.version, previous_generation), [], False)
         index.add(demand, history, baseline)
-        contexts[demand.id] = (consumer, config, model, previous, baseline, history)
+        contexts[demand.id] = (consumer, config, vector_model, previous, baseline, history)
     old, new = _profiles(profiles, previous_generation), _profiles(profiles, new_generation)
     added, deleted = new.keys() - old.keys(), old.keys() - new.keys()
     modified = {key for key in old.keys() & new.keys() if _digest(old[key]) != _digest(new[key])}
@@ -171,15 +178,21 @@ def refresh(
     reader = _EvidenceReader(new_generation, observations, catalog, chunks)
     rematched = carried = alert_count = 0
     for demand in demands:
-        consumer, config, model, previous, baseline, history = contexts[demand.id]
+        consumer, config, vector_model, previous, baseline, history = contexts[demand.id]
         current = store.load_result(demand.id, demand.version, new_generation, config)
+        if current is not None and model:
+            current = match_demand(demand, new_generation, profiles=profiles, consumer=consumer,
+                                   observations=observations, catalog=catalog, chunks=chunks, store=store,
+                                   embedder=embedder, deterministic=deterministic, vector=vector, k=k,
+                                   model=model, router=router, cache=cache, licenses=licenses, policy=policy,
+                                   generation_token=generation_token, providers=providers)
         if current is None:
-            selected = demand.id in affected or previous is None
+            selected = model or demand.id in affected or previous is None
             vector_changes = any(
                 (new.get(key) or old[key]).series.source_id in consumer.allowed_sources
                 and (key not in old or key not in new or _profile_text(old[key]) != _profile_text(new[key]))
                 for key in added | deleted | modified)
-            if not selected and model is not None and vector_changes:
+            if not selected and vector_model is not None and vector_changes:
                 selected = _vector_affected(demand, old, new, consumer.allowed_sources,
                                             new_generation, store, embedder, k)
             if not selected:
@@ -188,7 +201,10 @@ def refresh(
             if selected:
                 current = match_demand(demand, new_generation, profiles=profiles, consumer=consumer,
                                        observations=observations, catalog=catalog, chunks=chunks,
-                                       store=store, embedder=embedder, deterministic=deterministic, vector=vector, k=k)
+                                       store=store, embedder=embedder, deterministic=deterministic, vector=vector, k=k,
+                                       **(dict(model=model, router=router, cache=cache, licenses=licenses,
+                                               policy=policy, generation_token=generation_token, providers=providers)
+                                          if model else {}))
                 rematched += 1
             else:
                 records = [r.model_copy(update={"generation": new_generation}) for r in previous.records]
