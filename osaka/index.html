@@ -177,9 +177,9 @@ footer{margin-top:60px;border-top:1px solid var(--line);padding-top:22px;color:v
 
   <!-- CONSTELLATIONS -->
   <section class="view" id="v-constel">
-    <h2>脉络 · 话题星图<span class="sub">话题不是文件夹，是星群：由一个个瞬间连成的线。点一颗星，只看这条脉络里的瞬间，并看它从第一句话到今天产物的演化。</span></h2>
-    <div class="constel"><svg viewBox="0 0 900 430" id="constelSvg" role="img" aria-label="话题星图"></svg></div>
-    <div id="constelDetail" class="note">点星图上的任意话题，这里会显示它的演化链。</div>
+    <h2>脉络 · 话题星图<span class="sub">话题不是文件夹，是星群：由一个个瞬间连成的线。这张图是<b>力导向</b>的——相连的话题互相牵引、无关的话题彼此推开，位置是自己长出来的；你也可以<b>按住任意一颗星拖着玩</b>，松手后它会重新找平衡。点一颗星（轻点，别拖），看这条脉络的演化。</span></h2>
+    <div class="constel"><svg viewBox="0 0 900 460" id="constelSvg" role="img" aria-label="话题星图（力导向，可拖拽）"></svg></div>
+    <div id="constelDetail" class="note">拖动星点可以重排这张图；轻点任意话题，这里会显示它的演化链。</div>
   </section>
 
   <!-- RIVER -->
@@ -237,7 +237,7 @@ footer{margin-top:60px;border-top:1px solid var(--line);padding-top:22px;color:v
   </section>
 
   <footer>
-    <div>一瞬间 ISSHUNKAN · Sample v0.2（2026-10-28）· 独立项目。本页全部人物、数字与引文均为虚构样本，用于验证信息架构与展示方式，不含任何真实聊天记录。</div>
+    <div>一瞬间 ISSHUNKAN · Sample v0.3（2026-10-28）· 独立项目。本页全部人物、数字与引文均为虚构样本，用于验证信息架构与展示方式，不含任何真实聊天记录。</div>
     <div>下一步（待拍板）：① 这套展示是否成立 → ② 按「接入顺序」页的次序接信息来源 → ③ 再议提炼管线（自研，还是改造 Beever Atlas 一类开源提炼层）。</div>
   </footer>
 </div>
@@ -358,15 +358,39 @@ function openMoment(id){
 }
 function closeDrawer(){document.getElementById('drawer').classList.remove('on')}
 document.addEventListener('keydown',e=>{if(e.key==="Escape")closeDrawer()});
-/* constellations */
+/* constellations — force-directed & draggable */
 (function(){
  const svg=document.getElementById('constelSvg');
- const lines=[[0,7],[0,2],[0,6],[7,6],[1,6],[3,7],[4,7],[5,7],[2,7]];
- let h=lines.map(l=>{const a=TOPICS[l[0]],b=TOPICS[l[1]];return '<line x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'" stroke="rgba(94,99,84,.3)" stroke-width="1.5" stroke-dasharray="4 5"/>'}).join('');
- h+=TOPICS.map((t,i)=>'<g class="tnode" data-i="'+i+'"><circle cx="'+t.x+'" cy="'+t.y+'" r="'+t.r+'" fill="'+t.color+'1f" stroke="'+t.color+'"/><circle cx="'+t.x+'" cy="'+t.y+'" r="5" fill="'+t.color+'"/><text x="'+t.x+'" y="'+(t.y-t.r-12)+'" text-anchor="middle">'+t.name+'</text><text class="cnt" x="'+t.x+'" y="'+(t.y+t.r+22)+'" text-anchor="middle">'+t.cnt+'</text></g>').join('');
+ const W=900,H=460;
+ const LINKS=[[0,7],[0,2],[0,6],[7,6],[1,6],[3,7],[4,7],[5,7],[2,7]];
+ const nodes=TOPICS.map((t,i)=>{const a=(i/TOPICS.length)*Math.PI*2;return {t:t,x:450+Math.cos(a)*200,y:230+Math.sin(a)*115,vx:0,vy:0,r:t.r};});
+ let h=LINKS.map(()=>'<line class="lk" stroke="rgba(94,99,84,.35)" stroke-width="1.5" stroke-dasharray="4 5"/>').join('');
+ h+=nodes.map(n=>'<g class="tnode" style="cursor:grab"><circle class="halo" r="'+n.r+'" fill="'+n.t.color+'1f" stroke="'+n.t.color+'"/><circle class="core" r="5" fill="'+n.t.color+'"/><text class="nm" text-anchor="middle">'+n.t.name+'</text><text class="cnt" text-anchor="middle">'+n.t.cnt+'</text></g>').join('');
  svg.innerHTML=h;
- svg.addEventListener('click',e=>{const g=e.target.closest('.tnode');if(!g)return;const t=TOPICS[+g.dataset.i];
-  document.getElementById('constelDetail').innerHTML='<b style="color:var(--ink)">脉络「'+t.name+'」</b> · '+t.cnt+'<br>'+t.desc+'<br><br><a href="#" onclick="goMoments(\''+t.name+'\');return false">只看这条脉络的瞬间 →</a>';});
+ const lineEls=Array.from(svg.querySelectorAll('.lk'));
+ const gEls=Array.from(svg.querySelectorAll('.tnode'));
+ function render(){
+  LINKS.forEach((l,i)=>{const a=nodes[l[0]],b=nodes[l[1]];lineEls[i].setAttribute('x1',a.x);lineEls[i].setAttribute('y1',a.y);lineEls[i].setAttribute('x2',b.x);lineEls[i].setAttribute('y2',b.y);});
+  nodes.forEach((n,i)=>{const g=gEls[i];g.querySelector('.halo').setAttribute('cx',n.x);g.querySelector('.halo').setAttribute('cy',n.y);g.querySelector('.core').setAttribute('cx',n.x);g.querySelector('.core').setAttribute('cy',n.y);const nm=g.querySelector('.nm');nm.setAttribute('x',n.x);nm.setAttribute('y',n.y-n.r-12);const ct=g.querySelector('.cnt');ct.setAttribute('x',n.x);ct.setAttribute('y',n.y+n.r+22);});
+ }
+ let running=false,dragNode=null,dragMoved=0,lastPt=null;
+ function step(){
+  for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){const a=nodes[i],b=nodes[j];let dx=a.x-b.x,dy=a.y-b.y;let d2=dx*dx+dy*dy;if(d2<1){dx=Math.random()-.5;dy=Math.random()-.5;d2=1;}const d=Math.sqrt(d2);const f=Math.min(2600/d2,3);a.vx+=dx/d*f;a.vy+=dy/d*f;b.vx-=dx/d*f;b.vy-=dy/d*f;}
+  LINKS.forEach(l=>{const a=nodes[l[0]],b=nodes[l[1]];const dx=b.x-a.x,dy=b.y-a.y;const d=Math.max(Math.sqrt(dx*dx+dy*dy),1);const diff=(d-215)/d*0.012;a.vx+=dx*diff;a.vy+=dy*diff;b.vx-=dx*diff;b.vy-=dy*diff;});
+  let maxV=0;
+  nodes.forEach(n=>{n.vx+=(450-n.x)*0.0012;n.vy+=(230-n.y)*0.0012;if(n!==dragNode){n.x+=n.vx;n.y+=n.vy;}n.vx*=0.86;n.vy*=0.86;n.x=Math.max(n.r+36,Math.min(W-n.r-36,n.x));n.y=Math.max(n.r+28,Math.min(H-n.r-32,n.y));maxV=Math.max(maxV,Math.abs(n.vx)+Math.abs(n.vy));});
+  render();
+  if(maxV>0.04||dragNode){requestAnimationFrame(step);}else{running=false;}
+ }
+ function wake(){if(!running){running=true;requestAnimationFrame(step);}}
+ function toSVG(evt){const pt=svg.createSVGPoint();pt.x=evt.clientX;pt.y=evt.clientY;const m=svg.getScreenCTM();return m?pt.matrixTransform(m.inverse()):{x:0,y:0};}
+ function selectTopic(i){const t=TOPICS[i];document.getElementById('constelDetail').innerHTML='<b style="color:var(--ink)">脉络「'+t.name+'」</b> · '+t.cnt+'<br>'+t.desc+'<br><br><a href="#" onclick="goMoments(\''+t.name+'\');return false">只看这条脉络的瞬间 →</a>';}
+ gEls.forEach((g,i)=>{g.addEventListener('pointerdown',e=>{dragNode=nodes[i];dragMoved=0;lastPt=toSVG(e);g.style.cursor='grabbing';try{g.setPointerCapture(e.pointerId);}catch(_){}e.preventDefault();wake();});});
+ svg.addEventListener('pointermove',e=>{if(!dragNode)return;const p=toSVG(e);dragMoved+=Math.abs(p.x-lastPt.x)+Math.abs(p.y-lastPt.y);dragNode.x=p.x;dragNode.y=p.y;dragNode.vx=0;dragNode.vy=0;lastPt=p;render();});
+ svg.addEventListener('pointerup',()=>{if(!dragNode)return;const n=dragNode;dragNode=null;gEls.forEach(g=>g.style.cursor='grab');if(dragMoved<6)selectTopic(nodes.indexOf(n));wake();});
+ svg.addEventListener('pointercancel',()=>{dragNode=null;});
+ document.getElementById('tabs').addEventListener('click',()=>setTimeout(wake,60));
+ render();wake();
 })();
 function goMoments(topic){switchView('moments');document.getElementById('q').value=topic;renderMoments();window.scrollTo({top:document.getElementById('tabs').offsetTop,behavior:'smooth'})}
 /* river */
