@@ -81,6 +81,7 @@ from datumoj.rikolto.core.models import (
     Freshness,
     GapState,
     GenerationToken,
+    ReleaseEntry,
     Hit,
     MatchedBy,
     Observation,
@@ -92,6 +93,8 @@ from datumoj.rikolto.core.models import (
     Snapshot,
     SnapshotOrder,
     SourceText,
+    SourceId,
+    Text,
     StateGeneration,
     ToolResult,
     parent_ref,
@@ -1009,9 +1012,54 @@ class FakeObservationStore:
     def _all(self) -> list[Observation]:
         return [o for key in sorted(self._tables) for o in self._tables[key]]
 
+    def _release_generation(self, raw_token):
+        try:
+            token = GenerationToken.parse(raw_token)
+        except (ValueError, TypeError) as exc:
+            raise InvalidGenerationToken("generation_token 格式无效") from exc
+        version = self._generations.get(token.generation)
+        if version is None:
+            raise GenerationUnavailable("指定代次未发布或不可用")
+        if version[0] != token.manifest_sha256:
+            raise InvalidGenerationToken("generation_token 清单哈希不匹配")
+        return token, version
+
+    def list_releases(self, *, generation_token: str, source_id: str,
+                      table_key: str | None = None, timeout_s: float = 10) -> list[ReleaseEntry]:
+        if timeout_s <= 0:
+            raise ValueError("timeout_s 必须 > 0")
+        TypeAdapter(SourceId).validate_python(source_id)
+        if table_key is not None:
+            TypeAdapter(Text).validate_python(table_key)
+        deadline = time.monotonic() + timeout_s
+        _, version = self._release_generation(generation_token)
+        for observation, order in version[1]:
+            if time.monotonic() > deadline:
+                raise QueryTimeout("发布枚举超时")
+            if order is None:
+                raise QueryError("发布感知读取需要持久化 SnapshotOrder")
+            if observation.release_id is not None and observation.released_at is None:
+                raise ReleaseDateUnavailable("显式来源发布缺少 released_at")
+        entries = {}
+        for o, order in version[1]:
+            if time.monotonic() > deadline:
+                raise QueryTimeout("发布枚举超时")
+            if o.source_id != source_id or (table_key is not None and o.table_key != table_key):
+                continue
+            day = o.released_at if o.release_id is not None else o.fetched_at.astimezone(UTC).date()
+            key = (o.release_id or o.snapshot_sha256, day)
+            previous = entries.get(key)
+            if previous is None or previous.order < order:
+                entries[key] = ReleaseEntry(source_id=source_id, table_key=table_key, release_key=key[0],
+                                            released_at=day, order=order.model_copy(deep=True))
+        result = sorted(entries.values(), key=lambda e: (e.released_at, e.order, e.release_key))
+        if time.monotonic() > deadline:
+            raise QueryTimeout("发布枚举超时")
+        return result
+
     @staticmethod
     def _select_releases(history, cutoff):
-        cutoff = TypeAdapter(date | str | None).validate_python(cutoff, strict=True)
+        cutoff = TypeAdapter(date | str | ReleaseEntry | None).validate_python(cutoff, strict=True)
         if isinstance(cutoff, str) and not cutoff.strip():
             raise ValueError("as_of_release 不能是空发布标识")
         ordered = []
@@ -1024,6 +1072,13 @@ class FakeObservationStore:
                    else observation.fetched_at.astimezone(UTC).date())
             ordered.append((observation, day, order))
         boundary = None
+        if isinstance(cutoff, ReleaseEntry):
+            ordered = [(o, day, order) for o, day, order in ordered if o.source_id == cutoff.source_id
+                       and (cutoff.table_key is None or o.table_key == cutoff.table_key)]
+            if not any((o.release_id or o.snapshot_sha256) == cutoff.release_key and day == cutoff.released_at
+                       and order == cutoff.order for o, day, order in ordered):
+                raise ReleaseNotFound("该代次没有指定来源发布项")
+            boundary = (cutoff.released_at, cutoff.order)
         if isinstance(cutoff, str):
             matches = [(o, day, order) for o, day, order in ordered
                        if (o.release_id if o.release_id is not None else o.snapshot_sha256) == cutoff]
@@ -1049,22 +1104,14 @@ class FakeObservationStore:
 
     def query_readonly(
         self, sql: str, max_rows: int = 1000, timeout_s: float = 10, *,
-        generation_token: str | None = None, as_of_release: date | str | None = None,
+        generation_token: str | None = None, as_of_release: date | str | ReleaseEntry | None = None,
     ) -> QueryResult:
         if max_rows < 1 or timeout_s <= 0:
             raise ValueError("max_rows 必须 ≥ 1，timeout_s 必须 > 0")
         token = None
         if generation_token is not None or self._current_generation is not None:
             raw_token = self.pin_generation() if generation_token is None else generation_token
-            try:
-                token = GenerationToken.parse(raw_token)
-            except (ValueError, TypeError) as exc:
-                raise InvalidGenerationToken("generation_token 格式无效") from exc
-            version = self._generations.get(token.generation)
-            if version is None:
-                raise GenerationUnavailable("指定代次未发布或不可用")
-            if version[0] != token.manifest_sha256:
-                raise InvalidGenerationToken("generation_token 清单哈希不匹配")
+            token, version = self._release_generation(raw_token)
             history = version[1]
             if as_of_release is None:
                 history = [(o, order) for o, order in history if (o.source_id, o.table_key, o.obs_id) in version[2]]
@@ -1138,6 +1185,7 @@ class FakeObservationStore:
             generation_token=str(token), row_evidence=row_evidence, evidence_state=state,
             evidence_inputs={"sql": sql, "generation": token.generation,
                              "as_of_release": as_of_release.isoformat() if isinstance(as_of_release, date)
+                             else as_of_release.model_dump(mode="json") if isinstance(as_of_release, ReleaseEntry)
                              else as_of_release},
         )
 

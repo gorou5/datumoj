@@ -1598,6 +1598,73 @@ class ObservationReleaseSuite:
             observations.append(obs)
         return observations
 
+    def test_enumerated_releases_are_exact_cutoffs(self, store, releases, publish):
+        token = publish(store, make_state_generation())
+        entries = store.list_releases(generation_token=token, source_id="jp-stat")
+        assert [e.release_key for e in entries] == ["first", "second", "third"]
+        assert [e.order.seq for e in entries] == [1, 2, 3]
+        assert entries[0].released_at == entries[1].released_at
+        for entry, expected in zip(entries, releases, strict=True):
+            result = store.query_readonly(RELEASE_SELECT, generation_token=token, as_of_release=entry)
+            assert result.provenance == [expected]
+            assert result.evidence_inputs["as_of_release"] == entry.model_dump(mode="json")
+        scoped = store.list_releases(generation_token=token, source_id="jp-stat", table_key="t1")
+        assert [e.release_key for e in scoped] == [e.release_key for e in entries]
+        assert all(e.table_key == "t1" for e in scoped)
+        assert store.list_releases(generation_token=token, source_id="jp-stat", table_key="absent") == []
+        assert store.list_releases(generation_token=token, source_id="jp-other") == []
+
+    def test_release_entries_disambiguate_sources_and_tables(self, store, publish):
+        for seq, (source, table) in enumerate([("jp-stat", "t1"), ("jp-other", "t1"), ("jp-stat", "t2")], 1):
+            obs = make_observation("same", str(seq), source_id=source, dataset_key=f"{source}:pop", table_key=table,
+                                   release_id="shared", released_at=date(2026, 4, 1),
+                                   snapshot_sha256=sha(f"{source}/{table}".encode()))
+            store.write_table(source, table, [obs], order=SnapshotOrder(fetched_at=T0, seq=seq))
+        token = publish(store, make_state_generation())
+        with pytest.raises(AmbiguousRelease):
+            store.query_readonly(RELEASE_SELECT, generation_token=token, as_of_release="shared")
+        for source in ["jp-stat", "jp-other"]:
+            for table in [None, "t1"]:
+                entries = store.list_releases(generation_token=token, source_id=source, table_key=table)
+                assert len(entries) == 1
+                result = store.query_readonly(RELEASE_SELECT, generation_token=token, as_of_release=entries[0])
+                assert {o.source_id for o in result.provenance} == {source}
+                assert {o.table_key for o in result.provenance} == ({table} if table else {"t1", "t2"} if source == "jp-stat" else {"t1"})
+                invalid = entries[0].model_copy(update={"release_key": "absent"})
+                with pytest.raises(ReleaseNotFound):
+                    store.query_readonly(RELEASE_SELECT, generation_token=token, as_of_release=invalid)
+
+    def test_enumeration_table_scope_does_not_inherit_other_table_conflicts(self, store, publish):
+        good = make_observation("same", "3", release_id="good", released_at=date(2026, 4, 1))
+        conflicting = [good.model_copy(update={"table_key": "other", "release_id": key}) for key in ["a", "b"]]
+        store.write_table("jp-stat", "other", conflicting, order=SnapshotOrder(fetched_at=T0, seq=1))
+        store.write_table("jp-stat", "t1", [good], order=SnapshotOrder(fetched_at=T0, seq=2))
+        token = publish(store, make_state_generation())
+        entries = store.list_releases(generation_token=token, source_id="jp-stat", table_key="t1")
+        assert len(entries) == 1
+        assert store.query_readonly(RELEASE_SELECT, generation_token=token,
+                                    as_of_release=entries[0]).provenance == [good]
+        other = store.list_releases(generation_token=token, source_id="jp-stat", table_key="other")
+        with pytest.raises(AmbiguousRelease):
+            store.query_readonly(RELEASE_SELECT, generation_token=token, as_of_release=other[0])
+
+    def test_enumeration_validates_tokens_and_stays_pinned(self, store, releases, publish, discard):
+        token = publish(store, make_state_generation())
+        entries = store.list_releases(generation_token=token, source_id="jp-stat")
+        newer = releases[-1].model_copy(update={"release_id": "fourth", "released_at": date(2027, 1, 1)})
+        store.write_table("jp-stat", "t1", [newer], order=SnapshotOrder(fetched_at=T0, seq=4))
+        publish(store, make_state_generation(2))
+        assert store.list_releases(generation_token=token, source_id="jp-stat") == entries
+        for bad in [None, "broken", str(GenerationToken(generation=1, manifest_sha256="0" * 64))]:
+            with pytest.raises(InvalidGenerationToken):
+                store.list_releases(generation_token=bad, source_id="jp-stat")
+        with pytest.raises(GenerationUnavailable):
+            store.list_releases(generation_token=str(GenerationToken(generation=99, manifest_sha256="0" * 64)),
+                                source_id="jp-stat")
+        discard(store, 1)
+        with pytest.raises(GenerationUnavailable):
+            store.list_releases(generation_token=token, source_id="jp-stat")
+
     def test_as_of_date_and_release_keep_history(self, store, releases, publish):
         publish(store, make_state_generation())
         for cutoff, expected in [("first", releases[0]), ("second", releases[1]),

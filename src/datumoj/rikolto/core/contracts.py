@@ -42,6 +42,7 @@ from datumoj.rikolto.core.models import (
     FetchOutcome,
     Freshness,
     GenerationToken,
+    ReleaseEntry,
     Hit,
     LicenseInfo,
     Observation,
@@ -992,7 +993,7 @@ class ObservationStore(Protocol):
 
     def query_readonly(
         self, sql: str, max_rows: int = 1000, timeout_s: float = 10, *,
-        generation_token: str | None = None, as_of_release: date | str | None = None,
+        generation_token: str | None = None, as_of_release: date | str | ReleaseEntry | None = None,
     ) -> QueryResult:
         """在只读视图 ``observations`` 上执行单条 SELECT/WITH。
 
@@ -1008,7 +1009,8 @@ class ObservationStore(Protocol):
         同标识的重复抓取取最大 SnapshotOrder；同日多次发布同样依 SnapshotOrder 排序。
         无 release_id 时按快照 SHA 和 fetched_at 的 UTC 日排序，即使 released_at 非空也不替代。
         有 release_id 无 released_at → ReleaseDateUnavailable；不把抓取时间伪装成发布日期。
-        as_of_release 与 token 可同时用，具体规则见 ADR 0007。
+        ReleaseEntry 按其来源、可选表和精确排序位置限定闭区间；不存在的项 → ReleaseNotFound。
+        不受同名发布跨来源歧义影响。as_of_release 与 token 可同时用，具体规则见 ADR 0007。
         每行附 row_evidence，聚合沿用 EvidenceState 并记录截至条件；不能证明关联时为空身份。
 
         写操作、多语句、ATTACH、COPY、PRAGMA、SET、读文件的函数 → QueryRejected；
@@ -1032,6 +1034,21 @@ class ObservationReleaseStore(ObservationStore, Protocol):
         token 不保证永久保留；每次查询仍须检查该代次清单与全部依赖可用。
         """
         ...
+
+    def list_releases(
+        self, *, generation_token: str, source_id: str, table_key: str | None = None,
+        timeout_s: float = 10,
+    ) -> list[ReleaseEntry]:
+        """枚举固定代次内来源（可选限定表）的发布，按 (发布日期, SnapshotOrder) 升序。
+
+        同来源/发布键/日合并重复抓取，取最大 SnapshotOrder；同日不同发布各自成项。
+        旧数据以 snapshot_sha256 为发布键，fetched_at 的 UTC 日为兼容日。
+        每项可原样用于同 token 的 as_of_release，限定该来源和可选表。
+        token 必传且与 query_readonly 同样校验，不可用时不回退；空范围返回 []。
+        超时、缺发布日期、缺顺序等错误与发布感知查询一致。
+        """
+        ...
+
 
 # ---------- 出处 ----------
 

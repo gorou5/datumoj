@@ -667,7 +667,7 @@ def test_export_schemas_matches_committed(tmp_path):
     for model in ["Source", "Dataset", "Resource", "Snapshot", "FetchOutcome", "Document", "Chunk",
                   "Observation", "Citation", "UsageScope", "Redistribution", "TimeBasis", "Hit", "GapState",
                   "Freshness", "ToolResult", "SourceText", "StateGeneration", "ObservationIdentity",
-                  "GenerationToken", "ObservationRowEvidence"]:
+                  "GenerationToken", "ObservationRowEvidence", "ReleaseEntry"]:
         assert f"{model}.schema.json" in names
     committed = {p.name for p in SCHEMAS_DIR.glob("*.schema.json")}
     assert committed == names, "schemas/ 与模型不一致，请重新执行 export_schemas('schemas')"
@@ -728,3 +728,16 @@ def test_generation_token_roundtrip_and_validation():
                  '["rikolto-generation-v1",7,"BAD"]']:
         with pytest.raises(ValueError):
             m.GenerationToken.parse(text)
+
+
+def test_release_entry_model_roundtrip_and_validation():
+    from datumoj.rikolto.core.models import ReleaseEntry, SnapshotOrder
+    from datumoj.rikolto.testing.samples import T0
+
+    entry = ReleaseEntry(source_id="jp-stat", release_key="A", released_at=date(2026, 4, 1),
+                         order=SnapshotOrder(fetched_at=T0, seq=1))
+    assert ReleaseEntry.model_validate_json(entry.model_dump_json()) == entry
+    for change in [{"release_key": ""}, {"source_id": "../bad"}, {"order": {"fetched_at": T0, "seq": 0}},
+                   {"unexpected": "value"}]:
+        with pytest.raises(ValueError):
+            ReleaseEntry.model_validate({**entry.model_dump(), **change})

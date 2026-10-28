@@ -47,6 +47,7 @@ class SqliteChunkStore:
     def __init__(self, path: str | Path, timeout: float = 30.0) -> None:
         if timeout <= 0:
             raise ValueError("timeout 必须 > 0")
+        self._readonly = False
         db_path = str(path)
         if db_path != ":memory:":
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -56,6 +57,31 @@ class SqliteChunkStore:
         except BaseException:
             self._db.close()
             raise
+
+    @classmethod
+    def open_readonly(cls, path: str | Path, timeout: float = 30.0):
+        """Open a standalone snapshot without initialization, migration or sidecars."""
+        if timeout <= 0:
+            raise ValueError("timeout 必须 > 0")
+        path = Path(path).resolve(strict=True)
+        store = cls.__new__(cls)
+        store._readonly = True
+        store._db = sqlite3.connect(path.as_uri() + "?mode=ro&immutable=1", uri=True,
+                                    timeout=timeout, isolation_level=None)
+        try:
+            store._db.execute("PRAGMA query_only = ON")
+            tables = {r[0] for r in store._db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            rows = store._db.execute("SELECT version FROM schema_version").fetchall() if "schema_version" in tables else []
+            if rows != [(SCHEMA_VERSION,)]:
+                raise ValueError("chunk store schema 版本不符")
+        except BaseException:
+            store.close()
+            raise
+        return store
+
+    def _require_writable(self) -> None:
+        if self._readonly:
+            raise PermissionError("只读视图禁止写入")
 
     def close(self) -> None:
         self._db.close()
@@ -77,6 +103,7 @@ class SqliteChunkStore:
 
     @contextmanager
     def _tx(self) -> Iterator[sqlite3.Connection]:
+        self._require_writable()
         self._db.execute("BEGIN IMMEDIATE")
         try:
             yield self._db
@@ -87,6 +114,7 @@ class SqliteChunkStore:
             self._db.execute("COMMIT")
 
     def put_document(self, document: Document, chunks: Sequence[Chunk], *, publish: bool = True) -> None:
+        self._require_writable()
         ids: set[str] = set()
         for c in chunks:
             if c.doc_key != document.doc_key or c.snapshot_sha256 != document.snapshot_sha256:

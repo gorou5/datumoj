@@ -5,6 +5,8 @@ from __future__ import annotations
 import importlib
 import json
 import os
+import sqlite3
+import threading
 import uuid
 from dataclasses import dataclass, field, replace
 from functools import wraps
@@ -103,6 +105,138 @@ class _CatalogQueries(SqliteCatalogStore):
                 scores[key] = scores.get(key, 0.0) + 1 / (60 + rank)
         keys = sorted(hits, key=lambda key: (-scores[key], key))[:k]
         return [hits[key].model_copy(update={"score": scores[key]}) for key in keys]
+
+
+class _PinnedObservations:
+    """Release queries always revalidate the same token, including metadata reads."""
+
+    def __init__(self, store, token):
+        self._store = store
+        self._generation_token = token
+        self._closed = False
+
+    @property
+    def generation_token(self):
+        return self._generation_token
+
+    def _check(self, token=None):
+        if self._closed:
+            raise RuntimeError("代次视图已关闭")
+        if token is not None and token != self.generation_token:
+            from datumoj.rikolto.core.contracts import InvalidGenerationToken
+
+            raise InvalidGenerationToken("只读视图不能切换代次")
+
+    def pin_generation(self):
+        self._check()
+
+        self._store._generation(self.generation_token, float('inf'), 10, threading.Event())
+        return self.generation_token
+
+    def query_readonly(self, sql, max_rows=1000, timeout_s=10, *, generation_token=None, as_of_release=None):
+        self._check(generation_token)
+        return self._store.query_readonly(sql, max_rows, timeout_s,
+                                         generation_token=self.generation_token, as_of_release=as_of_release)
+
+    def list_releases(self, *, generation_token=None, source_id, table_key=None, timeout_s=10):
+        self._check(generation_token)
+        return self._store.list_releases(generation_token=self.generation_token, source_id=source_id,
+                                         table_key=table_key, timeout_s=timeout_s)
+
+    def describe(self, timeout_s=10):
+        from datumoj.rikolto.core.contracts import OBSERVATION_RELEASE_COLUMNS, ObservationCatalog, TableSummary
+
+        result = self.query_readonly(
+            "SELECT source_id,table_key,list(DISTINCT dataset_key),list(DISTINCT survey),"
+            "list(DISTINCT indicator),count(DISTINCT area_code),min(time_start),max(time_end),count(*) "
+            "FROM observations GROUP BY source_id,table_key ORDER BY source_id,table_key",
+            max_rows=2**63 - 2, timeout_s=timeout_s)
+        return ObservationCatalog(columns=dict(OBSERVATION_RELEASE_COLUMNS), tables=[
+            TableSummary(source_id=sid, table_key=key, dataset_keys=sorted(dks), surveys=sorted(surveys),
+                         indicators=sorted(inds), area_count=areas, time_start=start, time_end=end, rows=n)
+            for sid, key, dks, surveys, inds, areas, start, end, n in result.rows])
+
+    def write_table(self, *args, **kwargs):
+        raise PermissionError("只读视图禁止写入")
+
+    def import_release(self, *args, **kwargs):
+        raise PermissionError("只读视图禁止写入")
+
+    def table_order(self, source_id, table_key):
+        from hashlib import sha256
+        import pyarrow.parquet as pq
+        from pydantic import TypeAdapter
+        from datumoj.rikolto.core.models import SnapshotOrder, SourceId, Text
+        from datumoj.rikolto.store.observations import _ORDER_KEY
+
+        self._check()
+        TypeAdapter(SourceId).validate_python(source_id)
+        TypeAdapter(Text).validate_python(table_key)
+        _, (root, _) = self._store._generation(self.generation_token, float('inf'), 10, threading.Event())
+        path = root / 'parquet' / source_id / (sha256(table_key.encode()).hexdigest()[:32] + '.parquet')
+        if not path.exists():
+            return None
+        value = (pq.read_schema(path).metadata or {}).get(_ORDER_KEY)
+        return SnapshotOrder.model_validate_json(value) if value is not None else None
+
+    def close(self):
+        self._closed = True  # Query connections are closed within every call.
+
+
+@dataclass(frozen=True)
+class GenerationViews:
+    """Three owned, read-only stores at one published boundary; close after use."""
+
+    generation_token: str
+    observations: _PinnedObservations
+    catalog: SqliteCatalogStore
+    chunks: Any
+
+    def close(self):
+        try:
+            self.observations.close()
+        finally:
+            try:
+                self.catalog.close()
+            finally:
+                self.chunks.close()
+
+    def __enter__(self):
+        self.observations._check()
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+
+def open_generation_views(data_dir: str | Path, generation_token: str | None = None) -> GenerationViews:
+    """Pin once and open only verified retained files. Never initialize live stores."""
+    from datumoj.rikolto.core.contracts import GenerationUnavailable
+    from datumoj.rikolto.store.chunks import SqliteChunkStore
+    from datumoj.rikolto.store.observations import DuckDBObservationStore, _dependency
+
+    store = DuckDBObservationStore(data_dir, readonly=True)
+    token = store.pin_generation() if generation_token is None else generation_token
+    parsed, (root, _) = store._generation(token, float('inf'), 10, threading.Event())
+    catalog = chunks = None
+    try:
+        record = json.loads((root.parent / 'verified.json').read_bytes())
+        for name in ('catalog.sqlite', 'chunks.sqlite'):
+            path = _dependency(root, name)
+            stat = path.stat()
+            if record['files'].get(name) != [stat.st_size, stat.st_mtime_ns]:
+                raise GenerationUnavailable("代次库文件缺少校验记录或已改变")
+        catalog = _CatalogQueries.open_readonly(root / 'catalog.sqlite')
+        chunks = SqliteChunkStore.open_readonly(root / 'chunks.sqlite')
+        return GenerationViews(str(parsed), _PinnedObservations(store, str(parsed)), catalog, chunks)
+    except BaseException as exc:
+        if chunks is not None:
+            chunks.close()
+        if catalog is not None:
+            catalog.close()
+        if isinstance(exc, (OSError, ValueError, KeyError, sqlite3.Error)):
+            raise GenerationUnavailable("代次目录库或文档块库不可用") from exc
+        raise
 
 
 class FeatureNotConnected(RuntimeError):
