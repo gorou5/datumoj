@@ -18,6 +18,8 @@ from datumoj.eltiro.models import SeriesIdentity
 from datumoj.eltiro.registry_store import SQLiteDemandRegistry
 from datumoj.eltiro.executor import run_registered
 from datumoj.eltiro.runs import RunStore
+from datumoj.eltiro.package import package_run
+from datumoj.eltiro.license_gate import LicenseGateError
 from datumoj.rikolto.core.contracts import SourceSpec
 
 app = typer.Typer(no_args_is_help=True, help="Eltiro local demand intake.")
@@ -244,3 +246,20 @@ def show_run(ctx: typer.Context, run_id: str):
         typer.echo(json.dumps(RunStore(ctx.obj["data_dir"]).show(run_id)))
     except Exception:
         _error()
+
+
+@app.command("package")
+def package_command(ctx: typer.Context, run_id: str):
+    try:
+        consumers = load_consumers(ctx.obj["data_dir"])
+        with _registry(ctx) as demands:
+            result = package_run(run_id, data_root=ctx.obj["data_dir"],
+                                 registry=SourceDirectory(ctx.obj["sources_dir"]),
+                                 consumers=consumers, demands=demands)
+        typer.echo(json.dumps({**result, "path": str(result["path"])}))
+    except LicenseGateError as exc:
+        typer.echo(json.dumps({"code": exc.code, "sources": exc.sources}), err=True)
+        raise typer.Exit(1)
+    except Exception:
+        typer.echo(json.dumps({"code": "package_failed", "sources": []}), err=True)
+        raise typer.Exit(1)
