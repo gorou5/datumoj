@@ -76,7 +76,7 @@
 本版本没有来源撤回/删除事件模型。
 
 找不到标识抛 `ReleaseNotFound`；标识跨来源或对应多个发布日期抛 `AmbiguousRelease`。
-此时调用方可改用明确日期；当前接口不提供跨来源标识消歧选择器。
+此时调用方可改用明确日期；WISTERIA-308 新增的 ReleaseEntry 消歧选择器见末节。
 解析日期字符串不会自动进行：`"2026-04-01"` 是标识，日期应传 `date(2026, 4, 1)`。
 带时间的 datetime、空标识及其他类型是非法参数。
 边界定位和版本选择先于 SQL；SQL 的 WHERE 不能用来消除发布标识歧义，
@@ -265,3 +265,67 @@ MCP 日期用 `as_of_release={"date":"YYYY-MM-DD"}`，字符串始终表示发�
 不传新参数的 analysis/MCP 调用保持旧响应形状和三列引用的兼容出处；内部回查固定同一个
 隐式 token，避免请求内代次漂移。显式使用新参数时才暴露 generation_token、row_evidence
 和来源发布字段，并采用五列完整身份的严格证据规则；聚合和不完整身份不猜测出处。
+
+## WISTERIA-308：发布枚举和同代次只读视图
+
+新增模型 `ReleaseEntry(source_id, release_key, released_at, order, table_key=None)`。
+`release_key` 有来源发布标识时取 `release_id`，旧数据取 `snapshot_sha256`；
+`released_at` 在此模型里表示排序日，旧数据使用 fetched_at 的 UTC 兼容日，
+不表示补出了未知的来源发布日期。`order` 是原始持久化 `SnapshotOrder`。
+JSON Schema 通过现有 `export_schemas` 导出到 `schemas/ReleaseEntry.schema.json`。
+
+新增契约：
+
+```python
+list_releases(*, generation_token: str, source_id: str,
+              table_key: str | None = None, timeout_s: float = 10) -> list[ReleaseEntry]
+```
+
+必须显式传固定 token；无效或不可用的错误与 `query_readonly` 相同，不回退最新。
+空范围返回空列表，但仍先核对 token 和代次依赖。来源范围枚举读取该代次已保留的
+发布索引；表范围只再扫描该表的历史段，SQL 聚合后才把发布项取入 Python，
+不加载全部历史观测行。超时预算覆盖校验、扫描、排序和结果构造；缺发布日期、缺顺序
+沿用发布感知查询的明确错误。
+
+同来源、同发布键、同排序日的重复抓取合并，取该枚举范围内最大的 SnapshotOrder，
+与原字符串截至边界一致。同日不同发布分别成项，同键跨日也分别成项。
+按 `(released_at, order.fetched_at, order.seq)` 从早到晚；键完全相同时再按发布键
+稳定排列，该稳定顺序不决定观测值的版本冲突。同日 A、B 的示例：
+
+| source_id | release_key | released_at | order.fetched_at | order.seq |
+| --- | --- | --- | --- | --- |
+| jp-stat | A | 2026-04-01 | 2026-04-02T00:00:00Z | 1 |
+| jp-stat | B | 2026-04-01 | 2026-04-02T00:00:00Z | 2 |
+
+`query_readonly(as_of_release=entry, generation_token=token)` 新增接受枚举项。
+先核对该项的来源、可选表、发布键、日和顺序在该代次内存在，再把该来源（以及可选表）
+限定为闭区间 `(排序日, SnapshotOrder) <= entry`，最后才执行 SQL。
+两个来源都叫 A 时也能各自截至；同一个 SHA 跨日重复时也能准确定位日期。
+未知项报 `ReleaseNotFound`。枚举项不是认证凭据或代次租约，调用方应保存并传回枚举时
+使用的 token；不能用其他代次重新解释它。原有 `None`、`date`、`str` 语义不变，
+字符串跨来源或跨日期仍报 `AmbiguousRelease`，同一引用真实的排序冲突也仍报错。
+
+新增组合入口：
+
+```python
+with open_generation_views(data_dir, generation_token=None) as views:
+    token = views.generation_token
+    entries = views.observations.list_releases(source_id="jp-stat", table_key="t1")
+    result = views.observations.query_readonly(
+        "SELECT value FROM observations", as_of_release=entries[0])
+```
+
+不传 token 时只固定一次当前发布；显式 token 严格使用该代次。观测查询、枚举、describe
+和水位读取都绑定并重新核对同一 token，禁止切换。目录库和块库仅打开保留目录
+`.observation-generations/<generation>/data/` 的 `catalog.sqlite`、`chunks.sqlite`；
+打开前沿用 `verified.json` 的逐文件大小及 mtime_ns 校验，明确要求这两个文件有记录。
+缺失、改变、schema 不符或无法打开均报 `GenerationUnavailable`，不访问在线库。
+
+两个 SQLite 存储新增 `open_readonly(path, timeout=30.0)`，使用已发布的独立完整库文件，
+以正确转义的 `file:` URI、`mode=ro&immutable=1` 打开，并设置连接的 query_only。
+immutable 表示该连接读取保留快照；不用于带未合并 WAL 的活动写库。
+不创建目录、文件或旁文件，不建表、不修复、不迁移、不更新版本，也不进入写事务；
+只接受当前精确 schema 版本。所有公共写方法先抛 `PermissionError`。
+读方法复用原实现，目录视图保留入口的多词 RRF 搜索。
+上下文退出或显式 close 关闭两个 SQLite 连接；观测查询的 DuckDB 连接每次调用后关闭。
+打开中途失败也关闭已经打开的连接。本接口不修改状态格式、代次保留机制或清理策略。

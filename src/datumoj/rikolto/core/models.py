@@ -398,6 +398,17 @@ class SnapshotOrder(_Model):
         return (self.fetched_at, self.seq) < (other.fetched_at, other.seq)
 
 
+class ReleaseEntry(_Model):
+    """一次来源发布的截至边界；released_at 对旧数据是 fetched_at 的 UTC 兼容日。"""
+
+    source_id: SourceId
+    release_key: Text
+    released_at: date
+    order: SnapshotOrder
+    table_key: Text | None = None
+    """None 表示来源范围；非空表示该表范围内的最后一次发布观察。"""
+
+
 class ObservationRef(_Model):
     """表内观测值的全局引用键。字符串是三个字段的紧凑 JSON 数组。"""
 
@@ -998,6 +1009,7 @@ SCHEMA_TYPES: dict[str, Any] = {
     "ObservationRef": ObservationRef,
     "ObservationIdentity": ObservationIdentity,
     "GenerationToken": GenerationToken,
+    "ReleaseEntry": ReleaseEntry,
     "ObservationRowEvidence": ObservationRowEvidence,
     "PublishState": PublishState,
     "EvidenceState": EvidenceState,

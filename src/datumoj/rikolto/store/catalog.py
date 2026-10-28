@@ -83,12 +83,38 @@ class SqliteCatalogStore:
     def __init__(self, path: str | Path, timeout: float = 30.0) -> None:
         if timeout <= 0:
             raise ValueError("timeout 必须 > 0")
+        self._readonly = False
         db_path = str(path)
         if db_path != ":memory:":
             Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         self._db = sqlite3.connect(db_path, timeout=timeout, isolation_level=None)
         self._db.execute("PRAGMA foreign_keys = ON")
         self._init_schema()
+
+    @classmethod
+    def open_readonly(cls, path: str | Path, timeout: float = 30.0):
+        """Open a standalone snapshot without initialization, migration or sidecars."""
+        if timeout <= 0:
+            raise ValueError("timeout 必须 > 0")
+        path = Path(path).resolve(strict=True)
+        store = cls.__new__(cls)
+        store._readonly = True
+        store._db = sqlite3.connect(path.as_uri() + "?mode=ro&immutable=1", uri=True,
+                                    timeout=timeout, isolation_level=None)
+        try:
+            store._db.execute("PRAGMA query_only = ON")
+            tables = {r[0] for r in store._db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            rows = store._db.execute("SELECT version FROM schema_version").fetchall() if "schema_version" in tables else []
+            if rows != [(SCHEMA_VERSION,)]:
+                raise ValueError("catalog schema 版本不符")
+        except BaseException:
+            store.close()
+            raise
+        return store
+
+    def _require_writable(self) -> None:
+        if self._readonly:
+            raise PermissionError("只读视图禁止写入")
 
     def close(self) -> None:
         self._db.close()
@@ -108,6 +134,7 @@ class SqliteCatalogStore:
 
     @contextmanager
     def _tx(self) -> Iterator[sqlite3.Connection]:
+        self._require_writable()
         self._db.execute("BEGIN IMMEDIATE")
         try:
             yield self._db
@@ -137,6 +164,7 @@ class SqliteCatalogStore:
         )
 
     def upsert(self, datasets: Sequence[Dataset] = (), resources: Sequence[Resource] = ()) -> None:
+        self._require_writable()
         incoming = {d.dataset_key for d in datasets}
         with self._tx() as db:
             known = {row[0] for row in db.execute("SELECT dataset_key FROM datasets")} | incoming
@@ -167,6 +195,7 @@ class SqliteCatalogStore:
         return [ResourceEntry(resource=Resource.model_validate_json(raw), state=ContentState(state)) for raw, state in rows]
 
     def set_content_state(self, resource_url: str, state: ContentState) -> int:
+        self._require_writable()
         try:
             state = ContentState(state)
         except ValueError as exc:

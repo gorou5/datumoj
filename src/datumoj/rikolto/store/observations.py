@@ -56,7 +56,7 @@ from datumoj.rikolto.core.contracts import (
 )
 from datumoj.rikolto.core.models import (
     EvidenceState, GenerationToken, Observation, ObservationIdentity, ObservationRowEvidence,
-    SnapshotOrder, SourceId, StateGeneration, Text,
+    ReleaseEntry, SnapshotOrder, SourceId, StateGeneration, Text,
 )
 
 SCALE = 10
@@ -182,8 +182,11 @@ def _install_published_segments(root):
 class DuckDBObservationStore:
     """``ObservationReleaseStore`` 实现；写入保留历史，查询连接一律只读。"""
 
-    def __init__(self, root: str | Path) -> None:
+    def __init__(self, root: str | Path, *, readonly: bool = False) -> None:
         self.root = Path(root).resolve()
+        self._readonly = readonly
+        if readonly:
+            return  # Release reads validate retained files; never initialize the live store.
         self._parquet = self.root / "parquet"
         self._parquet.mkdir(parents=True, exist_ok=True)
         self._db = self.root / "observations.duckdb"
@@ -218,6 +221,8 @@ class DuckDBObservationStore:
     def write_table(
         self, source_id: str, table_key: str, observations: Sequence[Observation], order: SnapshotOrder | None = None,
     ) -> bool:
+        if self._readonly:
+            raise PermissionError("只读视图禁止写入")
         # 同一实例上的比较与替换串行；跨进程写入沿用管线的 local_write 边界。
         with self._describe_lock:
             return self._write_table(source_id, table_key, observations, order)
@@ -344,7 +349,7 @@ class DuckDBObservationStore:
 
     def query_readonly(
         self, sql: str, max_rows: int = 1000, timeout_s: float = 10, *,
-        generation_token: str | None = None, as_of_release: date | str | None = None,
+        generation_token: str | None = None, as_of_release: date | str | ReleaseEntry | None = None,
     ) -> QueryResult:
         if max_rows < 1 or timeout_s <= 0:
             raise ValueError("max_rows 必须 ≥ 1，timeout_s 必须 > 0")
@@ -366,7 +371,7 @@ class DuckDBObservationStore:
         try:
             _guard(sql)
             _check_timeout(deadline, timeout_s, timed_out)
-            cutoff = TypeAdapter(date | str | None).validate_python(as_of_release, strict=True)
+            cutoff = TypeAdapter(date | str | ReleaseEntry | None).validate_python(as_of_release, strict=True)
             if isinstance(cutoff, str) and not cutoff.strip():
                 raise ValueError("as_of_release 不能是空发布标识")
             token, generation_root = self._generation(generation_token, deadline, timeout_s, timed_out)
@@ -415,7 +420,8 @@ class DuckDBObservationStore:
             evidence_state=(EvidenceState.complete if not rows or linked == len(rows) else
                             EvidenceState.partial if linked else EvidenceState.unavailable),
             evidence_inputs={"sql": sql, "generation": token.generation,
-                             "as_of_release": cutoff.isoformat() if isinstance(cutoff, date) else cutoff},
+                             "as_of_release": (cutoff.isoformat() if isinstance(cutoff, date) else
+                                               cutoff.model_dump(mode="json") if isinstance(cutoff, ReleaseEntry) else cutoff)},
         )
 
     def describe(self, timeout_s: float = 10) -> ObservationCatalog:
@@ -664,14 +670,87 @@ class DuckDBObservationStore:
         except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
             raise GenerationUnavailable("代次或其必需依赖不可用") from exc
 
-    def _release_view(self, con, root, cutoff, deadline, timeout_s, timed_out):
-        root, files = root
-        index = root / '.release-index.parquet'
-        con.execute(f"CREATE TEMP VIEW release_index AS SELECT * FROM read_parquet({_quote(str(index))})")
+    @staticmethod
+    def _check_release_index(con):
         if con.execute("SELECT 1 FROM release_index WHERE kind='order' LIMIT 1").fetchone():
             raise QueryError("发布感知读取需要持久化 SnapshotOrder")
         if con.execute("SELECT 1 FROM release_index WHERE kind='date' LIMIT 1").fetchone():
             raise ReleaseDateUnavailable("显式来源发布缺少 released_at")
+
+    @classmethod
+    def _release_scope(cls, con, root, source_id, table_key, check):
+        """Use the compact index, or lazily scan only the requested table's segments."""
+        condition = "source_id=" + _quote(source_id)
+        if table_key is None:
+            return "release_index", condition + " AND kind='release'"
+        data, files = root
+        name = sha256(table_key.encode()).hexdigest()[:32] + '.parquet'
+        selected = [p for p in files if p.parent.name == source_id and p.name == name]
+        scan = cls._scan(selected, data, history=True, check=check)
+        con.execute("CREATE TEMP VIEW scoped_history AS SELECT *, "
+                    "CASE WHEN release_id IS NULL THEN CAST(timezone('UTC', fetched_at) AS DATE) "
+                    "ELSE released_at END AS _day, coalesce(release_id,snapshot_sha256) AS release_key "
+                    f"FROM ({scan})")
+        return "scoped_history", condition + " AND table_key=" + _quote(table_key)
+
+    def list_releases(self, *, generation_token: str, source_id: str,
+                      table_key: str | None = None, timeout_s: float = 10) -> list[ReleaseEntry]:
+        if timeout_s <= 0:
+            raise ValueError("timeout_s 必须 > 0")
+        _source_id.validate_python(source_id)
+        if table_key is not None:
+            _text.validate_python(table_key)
+        # None is not an implicit latest selector in this fixed-generation API.
+        if generation_token is None:
+            raise InvalidGenerationToken("generation_token 必须显式提供")
+        deadline = _monotonic() + timeout_s
+        timed_out = threading.Event()
+        connection = []
+
+        def interrupt():
+            timed_out.set()
+            if connection:
+                try:
+                    connection[0].interrupt()
+                except duckdb.Error:
+                    pass
+
+        timer = threading.Timer(timeout_s, interrupt)
+        timer.start()
+        con = None
+        check = lambda: _check_timeout(deadline, timeout_s, timed_out)
+        try:
+            _, root = self._generation(generation_token, deadline, timeout_s, timed_out)
+            con = duckdb.connect(str(root[0] / 'observations.duckdb'), read_only=True)
+            connection.append(con)
+            index = root[0] / '.release-index.parquet'
+            con.execute(f"CREATE TEMP VIEW release_index AS SELECT * FROM read_parquet({_quote(str(index))})")
+            self._check_release_index(con)
+            relation, condition = self._release_scope(con, root, source_id, table_key, check)
+            _, rows = _fetch(con.sql("SELECT source_id,release_key,_day, "
+                                    "max(struct_pack(t := _order_at,s := _order_seq)) AS ord "
+                                    f"FROM {relation} WHERE {condition} GROUP BY source_id,release_key,_day "
+                                    "ORDER BY _day,ord,release_key"))
+            check()
+            entries = [ReleaseEntry(source_id=sid, release_key=key, released_at=day, table_key=table_key,
+                                    order=SnapshotOrder(fetched_at=order['t'], seq=order['s']))
+                       for sid, key, day, order in rows]
+            check()
+            return entries
+        except duckdb.InterruptException as exc:
+            raise QueryTimeout(f"查询超过 {timeout_s} 秒") from exc
+        except duckdb.Error as exc:
+            raise QueryError(str(exc)) from exc
+        finally:
+            timer.cancel()
+            if con is not None:
+                con.close()
+
+    def _release_view(self, con, root, cutoff, deadline, timeout_s, timed_out):
+        root, files = root
+        index = root / '.release-index.parquet'
+        con.execute(f"CREATE TEMP VIEW release_index AS SELECT * FROM read_parquet({_quote(str(index))})")
+        self._check_release_index(con)
         condition = "true"
         if isinstance(cutoff, date):
             condition = f"_day <= DATE {_quote(cutoff.isoformat())}"
@@ -686,7 +765,32 @@ class DuckDBObservationStore:
             _, day, order = boundary[0]
             condition = (f"(_day, _order_at, _order_seq) <= (DATE {_quote(day.isoformat())}, "
                          f"TIMESTAMPTZ {_quote(order['t'].isoformat())}, {order['s']})")
-        if con.execute(f"SELECT 1 FROM release_index WHERE kind='ambiguous' AND {condition} LIMIT 1").fetchone():
+        if isinstance(cutoff, ReleaseEntry):
+            relation, scope = self._release_scope(
+                con, (root, files), cutoff.source_id, cutoff.table_key,
+                lambda: _check_timeout(deadline, timeout_s, timed_out))
+            exact = (f"release_key={_quote(cutoff.release_key)} AND _day=DATE {_quote(cutoff.released_at.isoformat())} "
+                     f"AND _order_at=TIMESTAMPTZ {_quote(cutoff.order.fetched_at.isoformat())} "
+                     f"AND _order_seq={cutoff.order.seq}")
+            if not con.execute(f"SELECT 1 FROM {relation} WHERE {scope} AND {exact} LIMIT 1").fetchone():
+                raise ReleaseNotFound("该代次没有指定来源发布项")
+            condition = (f"source_id={_quote(cutoff.source_id)} AND "
+                         f"(_day,_order_at,_order_seq) <= (DATE {_quote(cutoff.released_at.isoformat())}, "
+                         f"TIMESTAMPTZ {_quote(cutoff.order.fetched_at.isoformat())}, {cutoff.order.seq})")
+            if cutoff.table_key is not None:
+                files = [p for p in files if p.parent.name == cutoff.source_id and
+                         p.name == sha256(cutoff.table_key.encode()).hexdigest()[:32] + '.parquet']
+            else:
+                files = [p for p in files if p.parent.name == cutoff.source_id]
+        if isinstance(cutoff, ReleaseEntry) and cutoff.table_key is not None:
+            ambiguous = con.execute(
+                f"SELECT 1 FROM scoped_history WHERE {condition} "
+                "GROUP BY source_id,table_key,obs_id,_day,_order_at,_order_seq "
+                "HAVING count(DISTINCT (snapshot_sha256,release_id))>1 LIMIT 1").fetchone()
+        else:
+            ambiguous = con.execute(
+                f"SELECT 1 FROM release_index WHERE kind='ambiguous' AND {condition} LIMIT 1").fetchone()
+        if ambiguous:
             raise AmbiguousRelease("同一引用的不同身份具有相同发布排序键")
         if cutoff is None:
             # Latest rows are derived once at retention. Legacy tool metadata
@@ -744,6 +848,8 @@ class DuckDBObservationStore:
 
     def import_release(self, source_id, table_key, observations, order):
         """Archive an explicitly labelled release; advance current only if newer."""
+        if self._readonly:
+            raise PermissionError("只读视图禁止写入")
         with self._describe_lock:
             if self._needs_install:
                 _install_published_segments(self.root)
