@@ -78,7 +78,7 @@ def generate_concept_notes(generation, *, demand, profiles, consumer, data_root,
                    "output_contract": {"note": "one sentence"},
                    "candidate": profile.model_dump(mode="json")}
         inputs.append(ModelInput(id=f"note_{len(inputs)}", step="concept_note", difficulty="medium",
-                                 prompt_version="v1", parts=[{"source_id": profile.series.source_id,
+                                 prompt_version="v2", parts=[{"source_id": profile.series.source_id,
                                  "content": json.dumps(payload, sort_keys=True, ensure_ascii=False)}]))
         selected.append(profile)
     if not inputs:
