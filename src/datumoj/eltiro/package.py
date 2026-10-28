@@ -25,7 +25,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from datumoj.eltiro.license_gate import (
-    IDENTIFIERS, NUMBERS, RAW_TEXT, LicenseGateError, check_rows, source_level,
+    IDENTIFIERS, NUMBERS, RAW_TEXT, UNITS, LicenseGateError, check_rows, source_level,
 )
 from datumoj.eltiro.models import ConsumerConfig, DemandSpec, LicenseSummary, OutputManifest
 from datumoj.eltiro.runs import RunStore
@@ -43,7 +43,8 @@ _RUN_REASONS = frozenset({
 })
 _REPORT_REASONS = frozenset({"missing", "catalog_only", "document_only", "pending_confirmation",
                              "below_min_sources", "rejected_only"})
-_KEY = ("symbol", "country", "region_scheme", "region", "period", "source", "release_id")
+_LEGACY_KEY = ("symbol", "country", "region_scheme", "region", "period", "source", "release_id")
+_KEY = (*_LEGACY_KEY, "series_sha256")
 
 
 def _json(value):
@@ -197,26 +198,48 @@ def _previous(root, consumer, demand):
 
 
 def _difference(rows, previous):
+    def grouped(items):
+        result = {}
+        for row in items:
+            key = tuple(str(row.get(k) or "") for k in _LEGACY_KEY)
+            result.setdefault(key, []).append(row)
+        return result
+    old = grouped(previous[2]) if previous else {}
+    new = grouped(rows)
+    def entry(row):
+        return {key: row.get(key) for key in ("citation_id", *_KEY, *NUMBERS)}
     def keyed(items):
         result = {}
         for row in items:
-            key = tuple(str(row.get(k) or "") for k in _KEY)
-            if key in result:
+            digest = row["series_sha256"]
+            if digest in result:
                 raise ValueError("ambiguous difference identity")
-            result[key] = row
+            result[digest] = row
         return result
-    old = keyed(previous[2]) if previous else {}
-    new = keyed(rows)
-    def entry(row):
-        return {key: row.get(key) for key in ("citation_id", *_KEY, *NUMBERS)}
-    changes = []
-    for key in sorted(old.keys() & new.keys()):
-        before, after = old[key], new[key]
-        if any((None if before.get(n) is None else Decimal(str(before[n]))) != after.get(n) for n in NUMBERS):
-            changes.append({"before": entry(before), "after": entry(after)})
-    return {"previous_run_id": previous[1] if previous else None, "comparable": previous is not None,
-            "added": [entry(new[k]) for k in sorted(new.keys() - old.keys())],
-            "deleted": [entry(old[k]) for k in sorted(old.keys() - new.keys())], "changed": changes}
+    added, deleted, changes, incomparable = [], [], [], []
+    for key in sorted(old.keys() | new.keys()):
+        before_rows, after_rows = old.get(key, []), new.get(key, [])
+        after = keyed(after_rows)
+        if any(row.get("series_sha256") is None for row in before_rows):
+            # 805 had no series identity: only a one-to-one legacy key is safe.
+            if len(before_rows) > 1 or len(after_rows) > 1:
+                incomparable.append({**{k: before_rows[0].get(k) for k in _LEGACY_KEY},
+                                     "reason": "previous_delivery_not_comparable_by_series",
+                                     "message": "上次交付无法逐序列比较"})
+                continue
+            before = {"legacy": before_rows[0]}
+            after = {"legacy": after_rows[0]} if after_rows else {}
+        else:
+            before = keyed(before_rows)
+        added.extend(entry(after[k]) for k in sorted(after.keys() - before.keys()))
+        deleted.extend(entry(before[k]) for k in sorted(before.keys() - after.keys()))
+        for digest in sorted(before.keys() & after.keys()):
+            first, last = before[digest], after[digest]
+            if any((None if first.get(n) is None else Decimal(str(first[n]))) != last.get(n) for n in NUMBERS):
+                changes.append({"before": entry(first), "after": entry(last)})
+    return {"previous_run_id": previous[1] if previous else None,
+            "comparable": previous is not None and not incomparable,
+            "added": added, "deleted": deleted, "changed": changes, "incomparable": incomparable}
 
 
 def _data_table(rows, source_table, demand):
@@ -229,7 +252,7 @@ def _data_table(rows, source_table, demand):
             fields.append(pa.field(name, source_table.schema.field("value").type))
         elif name == "year":
             fields.append(pa.field(name, pa.int64()))
-        elif name in IDENTIFIERS + NUMBERS + RAW_TEXT:
+        elif name in IDENTIFIERS + NUMBERS + UNITS + RAW_TEXT:
             fields.append(source_table.schema.field(name))
         else:
             raise ValueError("unsupported output field")
@@ -323,15 +346,19 @@ def package_run(run_id, *, data_root, registry, consumers, demands):
         gaps = json.loads(_read(directory, "gaps.json"))
     finally:
         os.close(directory)
+    # Hash the exact UTF-8 series cell before restricted source text is removed.
+    digests = [sha256((row.get("series") or "").encode("utf-8")).hexdigest()[:16] for row in rows]
+    sanitizations = []
     try:
-        rows, index, summary = check_rows(rows, citations, registry=registry, demand=demand, consumer=consumer)
+        rows, index, summary = check_rows(rows, citations, registry=registry, demand=demand, consumer=consumer,
+                                          audit=sanitizations)
     except LicenseGateError as exc:
         _audit(root, run_id, {"status": "blocked", "code": exc.code, "sources": exc.sources})
         raise
     # Executor ids contain hyphens; OutputManifest keys are Symbol identifiers.
     # Assign stable bundle-local references without changing the input run format.
     index = {f"row_{n}": index[row["citation_id"]] for n, row in enumerate(rows)}
-    rows = [{**row, "citation_id": f"row_{n}"} for n, row in enumerate(rows)]
+    rows = [{**row, "citation_id": f"row_{n}", "series_sha256": digests[n]} for n, row in enumerate(rows)]
     path = root / consumer.outbox / demand.id / f"v{demand.version}" / run_id
     lock_dir = _open_dir(root, root / "eltiro/runs")
     lock = None
@@ -361,7 +388,8 @@ def package_run(run_id, *, data_root, registry, consumers, demands):
                            if manifest.license_summary.by_source.get(source) != level}
                 if changed:
                     raise LicenseGateError("license_changed", changed)
-                _audit(root, run_id, {"status": "allowed", "license_summary": current.model_dump(mode="json")})
+                _audit(root, run_id, {"status": "allowed", "license_summary": current.model_dump(mode="json"),
+                                     "sanitizations": sanitizations})
                 return {"path": path, **delivery["counts"]}
             finally:
                 os.close(child)
@@ -404,7 +432,8 @@ def package_run(run_id, *, data_root, registry, consumers, demands):
         )
         # The provenance sidecar provides row alignment even for CSV-only bundles,
         # and stores only identifiers/numbers; source text never enters diffs.
-        contents["provenance.json"] = _json([{k: v for k, v in row.items() if k in IDENTIFIERS + NUMBERS} for row in rows])
+        contents["provenance.json"] = _json([{k: v for k, v in row.items()
+                                             if k in IDENTIFIERS + NUMBERS + ("series_sha256",)} for row in rows])
         contents["manifest.json"] = _json(manifest.model_dump(mode="json"))
         contents["gaps.json"] = _json(merged_gaps)
         contents["diff.json"] = _json(difference)
@@ -412,7 +441,8 @@ def package_run(run_id, *, data_root, registry, consumers, demands):
                   "gap_count": len(merged_gaps["run"]) + sum(bool(i["gaps"]) for i in merged_gaps["report"])}
         contents["delivery.json"] = _json({"consumer": consumer.id, "run_id": run_id,
                                             "sequence": previous[0] + 1 if previous else 1, "counts": counts})
-        _audit(root, run_id, {"status": "allowed", "license_summary": summary.model_dump(mode="json")})
+        _audit(root, run_id, {"status": "allowed", "license_summary": summary.model_dump(mode="json"),
+                             "sanitizations": sanitizations})
         _publish(root, path.parent, run_id, contents)
         return {"path": path, **counts}
     except LicenseGateError as exc:

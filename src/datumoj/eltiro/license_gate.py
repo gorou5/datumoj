@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from decimal import Decimal
+import unicodedata
 
-from datumoj.eltiro.models import CitationEntry, LicenseSummary
+from datumoj.eltiro.models import MAX_LABEL_LENGTH, CitationEntry, LicenseSummary
 from datumoj.rikolto.core.contracts import SourceSpec
 from datumoj.rikolto.core.models import Outflow
 
@@ -15,7 +16,8 @@ IDENTIFIERS = (
     "release_id", "released_at", "release_position",
 )
 NUMBERS = ("value", "spread_range")
-RAW_TEXT = ("series", "unit", "note")
+UNITS = ("unit",)
+RAW_TEXT = ("series", "note")
 
 
 class LicenseGateError(ValueError):
@@ -35,7 +37,7 @@ def source_level(registry, source_id):
     return Outflow.no_outflow if spec.id != source_id else Outflow(spec.license.outflow)
 
 
-def check_rows(rows, citations, *, registry, demand, consumer):
+def check_rows(rows, citations, *, registry, demand, consumer, audit=None):
     """Validate complete lineage and sanitize every selected cell before any write.
 
     Citations retain only the typed identity and operation chain, never executor
@@ -72,8 +74,16 @@ def check_rows(rows, citations, *, registry, demand, consumer):
         if any(row.get(column) is not None and (
                 not isinstance(row[column], Decimal) or not row[column].is_finite()) for column in NUMBERS):
             raise LicenseGateError("invalid_numeric_type", row_levels)
-        columns = IDENTIFIERS + NUMBERS + (RAW_TEXT if level == Outflow.raw_ok else ())
-        clean.append({column: row.get(column) for column in columns if column in row})
+        columns = IDENTIFIERS + NUMBERS + UNITS + (RAW_TEXT if level == Outflow.raw_ok else ())
+        selected = {column: row.get(column) for column in columns if column in row}
+        unit = selected.get("unit")
+        if unit is not None and (
+                not isinstance(unit, str) or not unit.strip() or len(unit) > MAX_LABEL_LENGTH
+                or any(unicodedata.category(c) in {"Cc", "Cf", "Cs", "Zl", "Zp"} for c in unit)):
+            selected["unit"] = None
+            if audit is not None:
+                audit.append({"citation_id": key, "column": "unit", "code": "invalid_unit"})
+        clean.append(selected)
         index[key] = citation
     summary = LicenseSummary(outflow=max(levels.values(), key=_RANK.__getitem__) if levels else Outflow.no_outflow,
                              by_source=dict(sorted(levels.items())))
