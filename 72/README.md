@@ -24,3 +24,7 @@ Cloudflare Pages 项目 `datumoj-72`（Datumoj 帐户，Direct Upload），自�
 python3 src/build.py   # 在含 data.py 的目录生成 dist/
 wrangler pages deploy dist --project-name=datumoj-72 --branch main
 ```
+
+## 世界全景（/world）
+
+Three.js 渲染的评论区粘土世界：六大阵营是六座漂浮在漆黑虚空中的粘土岛（原创布局，只借「浮岛＋虚空」的结构），69 个角色以圆形令牌（`src/make_tokens.py` 由头像生成，角色本色描边）站在各自岛上，中央是 No.70–72 隐藏岛。点角色跳回选人页并直达其资产卡（`/#c<编号>` 深链）。性能口径：按需渲染（无持续动画循环）、DPR 上限 1.5、Three.js 自托管于 `vendor/`（MIT），WebGL 不可用时回退静态全景图。入口是首页的缩略图卡片（缩略图为实景渲染截图 `img/world-thumb.webp`）。

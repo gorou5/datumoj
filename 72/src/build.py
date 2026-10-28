@@ -92,7 +92,18 @@ h1 .n72{color:var(--rust);text-shadow:3px 3px 0 var(--gold)}
  background:radial-gradient(circle at 30% 28%,transparent 9px,rgba(59,45,32,.14) 10px,transparent 12px),radial-gradient(circle at 68% 62%,transparent 7px,rgba(59,45,32,.12) 8px,transparent 10px),radial-gradient(circle at 52% 82%,transparent 5px,rgba(59,45,32,.12) 6px,transparent 8px)}
 .slot .nm{font-size:19px;font-weight:900;line-height:1.2}
 .slot .tt{font-size:12.5px;color:#6d5741;margin-top:3px;line-height:1.35}
-.slot .fc{font-size:11px;font-weight:700;display:inline-block;margin-top:4px;padding:2px 8px;border-radius:99px;border:2px solid var(--ink)}
+.slot .fc{font-size:11px;font-weight:700;display:inline-block;margin-top:4px;padding:2px 8px;border-radius:99px;border:2px solid var(--ink);white-space:nowrap}
+.detail .fc{white-space:nowrap}
+@media(max-width:640px){
+  .slotHead{flex-direction:column;align-items:stretch;gap:9px}
+  .slotHead .avatarImg,.slotHead .avatar{width:100%;height:158px;font-size:52px}
+  .slotHead .avatar{border-radius:16px}
+  .slot .nm{font-size:20px}
+  .detailHead{gap:12px}
+  .bigAvatarImg{width:96px;height:120px}
+  .detail .bigAvatar{width:96px;height:120px;font-size:44px}
+  .detail h2{font-size:25px}
+}
 .slot.locked{cursor:not-allowed;background:#d9cbaa;color:#8a7a5f;box-shadow:5px 5px 0 rgba(59,45,32,.4)}
 .slot.locked .avatar{background:#c9b98f!important;font-size:36px;color:#8a7a5f}
 .pager{display:flex;align-items:center;gap:10px;margin-top:16px;flex-wrap:wrap}
@@ -123,6 +134,13 @@ h1 .n72{color:var(--rust);text-shadow:3px 3px 0 var(--gold)}
 .bible h3{font-size:12.5px;letter-spacing:.16em;color:var(--rust);margin:16px 0 6px;font-family:ui-monospace,Menlo,monospace}
 footer{margin-top:26px;text-align:center;font-size:12.5px;color:#77644c;line-height:1.9}
 .empty{grid-column:1/-1;text-align:center;padding:44px 10px;font-weight:800;color:#77644c;border:3px dashed var(--mud);border-radius:14px}
+.worldEntry{display:flex;gap:16px;align-items:center;margin-top:18px;background:var(--card);border:4px solid var(--ink);border-radius:20px;box-shadow:8px 8px 0 var(--ink);padding:14px 16px;text-decoration:none;color:var(--ink)}
+.worldEntry img{width:212px;height:119px;object-fit:cover;border:3px solid var(--ink);border-radius:12px;background:#060607;flex:none}
+.worldEntry .weTxt{display:flex;flex-direction:column;gap:5px;flex:1}
+.worldEntry .weTxt b{font-size:19px}
+.worldEntry .weTxt small{font-size:13px;line-height:1.55;opacity:.85}
+.worldEntry .weGo{font-weight:900;background:var(--gold);border:3px solid var(--ink);border-radius:99px;padding:9px 16px;white-space:nowrap}
+@media(max-width:640px){.worldEntry{flex-direction:column;align-items:stretch}.worldEntry img{width:100%;height:172px}.worldEntry .weGo{text-align:center}}
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(80px);background:var(--ink);color:var(--paper);padding:10px 20px;border-radius:99px;font-weight:800;font-size:14px;transition:transform .25s;z-index:50}
 .toast.show{transform:translateX(-50%) translateY(0)}
 </style>
@@ -132,13 +150,19 @@ footer{margin-top:26px;text-align:center;font-size:12.5px;color:#77644c;line-hei
 <header class="hero">
   <div class="kicker">DATUMOJ ASSET LIBRARY · CHARACTER SELECT</div>
   <h1><span class="n72">72</span> 号选人画面 · 评论区人物资产库</h1>
-  <p class="sub">自媒体评论区的 <b>69 个角色</b>，全部起了人名，排成游戏开场的选人网格：<b>每页 6 个、共 12 页</b>。点开任意角色，右边就是他的完整资产卡——人设、招牌台词、手感参数（示意），一套粘土三视图生成 Prompt（新版全局风格 + 本角色视觉设定，一键复制），以及 Prompt 下方生成的三视图本体。三视图已生成 <b>__IMG_COUNT__ / 69</b>，分批补齐中。</p>
+  <p class="sub">自媒体评论区的 <b>69 个角色</b>，全部起了人名，排成游戏开场的选人网格：<b>每页 6 个、共 12 页</b>。点开任意角色，右边就是他的完整资产卡——人设、招牌台词、手感参数（示意），一套粘土三视图生成 Prompt（新版全局风格 + 本角色视觉设定，一键复制），以及 Prompt 下方生成的三视图本体。三视图已生成 <b>__IMG_COUNT__ / 69</b>。</p>
   <div class="progressRow">
     <span class="progressTxt">UNLOCKED 69 / 72</span>
     <div class="progressBar"><div class="progressFill"></div></div>
     <span class="blink">▶ PRESS A CHARACTER</span>
   </div>
 </header>
+
+<a class="worldEntry" href="/world">
+  <img src="/img/world-thumb.webp" alt="评论区粘土世界全景缩略图">
+  <span class="weTxt"><b>🌍 进入粘土世界全景</b><small>六大阵营化作六座漂浮在漆黑虚空里的粘土岛，69 个角色都站在各自的岛上，中央还藏着没揭晓的隐藏岛。拖动旋转、滚轮缩放，点任意角色直达他的资产卡——像逛 Google 地球一样逛评论区。</small></span>
+  <span class="weGo">进入世界 →</span>
+</a>
 
 <div class="controls">
   <input id="q" type="search" placeholder="搜人名 / 角色 / 台词，如：半瓶、抬杠、收藏了…">
@@ -154,7 +178,7 @@ footer{margin-top:26px;text-align:center;font-size:12.5px;color:#77644c;line-hei
 
 <section class="bible bibleWrap">
   <h2>🎨 视觉圣经 · 粘土世界全局风格（v2）</h2>
-  <p>全部 69 个角色共用这一套全局 Prompt。v2 据 Doug TenNapel 与 The Neverhood 制作资料调研迭代：原作主角本体是泡沫乳胶＋球窝骨架、外糊一层泥皮，刻意保留指纹与按压痕；造型按「几块大色块粘土＋细长四肢＋小泥珠眼睛」收紧，专治 v1 生成偏 Q 版大眼的问题。生成时拼上角色卡里的「视觉设定」即可；三视图逐个生成后回填到各卡 Prompt 下方，头像取三视图的正面，绰号前的图标是该角色的徽章。</p>
+  <p>全部 69 个角色共用这一套全局 Prompt。v2 据 Doug TenNapel 与 The Neverhood 制作资料调研迭代：原作主角本体是泡沫乳胶＋球窝骨架、外糊一层泥皮，刻意保留指纹与按压痕；造型按「几块大色块粘土＋细长四肢＋小泥珠眼睛」收紧，专治 v1 生成偏 Q 版大眼的问题。生成时拼上角色卡里的「视觉设定」即可；三视图逐个生成后回填到各卡 Prompt 下方，头像是三视图正面的头部大头照，绰号前的图标是该角色的徽章。</p>
   <h3>GLOBAL STYLE · 中文</h3>
   <div class="promptBox" id="gCn"></div>
   <button class="copyBtn" data-copy="cn">📋 复制中文全局 Prompt</button>
@@ -290,6 +314,8 @@ $("#gCn").textContent = GLOBALS.cn;
 $("#gEn").textContent = GLOBALS.en;
 $("#gNeg").textContent = GLOBALS.neg;
 document.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>copyText(GLOBALS[b.dataset.copy]));
+const hm = location.hash.match(/#c(\d+)/);
+if(hm){ const idx = CHARS.findIndex(c=>c.id===+hm[1]); if(idx>=0){ selectedId = +hm[1]; page = Math.floor(idx/PAGE_SIZE); } }
 render();
 </script>
 </body>
@@ -299,6 +325,10 @@ render();
 html_out = HTML.replace("__DATA__", data_json).replace("__GLOBALS__", globals_json).replace("__IMG_COUNT__", str(IMG_COUNT))
 with open("dist/index.html","w",encoding="utf-8") as f: f.write(html_out)
 with open("dist/characters.json","w",encoding="utf-8") as f: json.dump(out, f, ensure_ascii=False, indent=1)
+if os.path.exists("world.html"): shutil.copy("world.html", "dist/world.html")
+if os.path.isdir("vendor"):
+    os.makedirs("dist/vendor", exist_ok=True)
+    for fn in os.listdir("vendor"): shutil.copy(os.path.join("vendor",fn), os.path.join("dist/vendor",fn))
 if os.path.isdir("img"):
     os.makedirs("dist/img", exist_ok=True)
     for fn in os.listdir("img"):
