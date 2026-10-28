@@ -23,7 +23,7 @@ def test_placeholders_mark_each_source_and_cannot_close_data_region(step):
 
 def test_unknown_version_or_step_is_rejected_and_version_changes_cache_key():
     decision = make_route_decision()
-    for request in (make_model_input(prompt_version="v2"), make_model_input(step="unknown")):
+    for request in (make_model_input(prompt_version="unknown"), make_model_input(step="unknown")):
         with pytest.raises(ValueError, match="unsupported prompt"):
             build_prompt(request)
     changed = decision.model_copy(update={"request": make_model_input(prompt_version="v2")})

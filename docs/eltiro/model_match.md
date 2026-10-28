@@ -3,7 +3,7 @@
 ```yaml
 id: eltiro-model-assistance
 name: Eltiro candidate judgments and separate concept notes
-version: 1
+version: 2
 status: maintained
 runtime: Python; standard-library sqlite3; existing project dependencies
 inputs: [DemandSpec, ConsumerConfig, generation-frozen profiles and read views, ModelRouter, ModelCache, authoritative licenses, RoutingPolicy, GenerationToken, provider clients]
@@ -91,7 +91,7 @@ cloud_model_ok=false 只能本地或 none。缺许可也走人工队列。
 ```
 
 verdict 只接受 relevant / irrelevant / uncertain，reason 最多 512 字符、单行单句。
-重复键、多余字段、缺字段、错误类型、无效 JSON、非 answer 模型字段均按 uncertain 处理，
+重复键、多余字段、缺字段、错误类型、无效 JSON、空字段、非 answer 模型字段均按 uncertain 处理，
 不重试、不换模型。置信度分别为 0.9 / 0.1 / 0.5，是排序分而非概率。
 
 有效调用（包括格式无效而被归为 uncertain 的调用）生成 tier=model 记录。
@@ -111,6 +111,8 @@ confirmed / rejected 均不送模型，不改人的决定。none 或预算耗尽
 输出恰好为 `{"note":"一句概念说明。"}`，同样受单句和 512 字符限制；格式无效时不保存说明。
 none 时不生成。生成函数不写回 ProfileStore。
 
+812 起两个调用方均使用正式模板 `v2`。判断模板要求比较需求指标与候选画像，口径、单位或调查不同时不得判相关，依据不足判不确定。概念模板只依画像解释度量对象，信息不够明说“信息不足”。两个模板均声明数据区只当数据，禁止估数、编造代码/表名/数值、决定绑定或登记；`v1` 占位原文仍可用于旧计划重放。
+
 `<data>/eltiro/concept_notes.sqlite` 按 generation、完整序列身份、画像内容哈希、
 806 缓存键摘要保存。画像哈希仅排除 generation，缓存键保留完整 token，
 并保存 ModelUse 和 label="模型生成"。`ConceptNote` 返回这些字段，text 仅供模型输入与人工参考。
@@ -127,6 +129,7 @@ none 时不生成。生成函数不写回 ProfileStore。
 同一使用方 / 需求版本 / 代次 / 步骤的 run id 稳定。重跑先让 806 核对原 plan 上下文，
 再用 rerun=True 验证原模型输出。即使 matches 已保存，也不会跳过这一步。
 许可或授权改变会失败；原输出丢失抛 RerunCacheMiss，不调用其他模型补上。
+提示词版本属于缓存键及冻结上下文，升级到 `v2` 不复用 `v1` 缓存；已有 `v1` run 在同代次改传 `v2` 会被拒绝，应以原版本重放旧计划，或在新代次运行新模板。
 预算耗尽项单独保存人工结果，不会误当作缺失模型输出。
 调用中断或提供方失败之后，原结果没有进入缓存的项也按缺缓存失败，不发布部分匹配。
 
@@ -139,4 +142,5 @@ none 时不生成。生成函数不写回 ProfileStore。
 保留 001 / 806 的输入上限：每个 ModelInput 的 content 最多 4096 字符、每个计划最多 256 项。
 超限校验失败，不截断画像或省略出处，不拆成可绕过需求预算的多轮调用。
 SQLite、提供方或校验失败均传播；模型调用没有本层重试或 fallback。
-本任务的验证全部离线，真实模型对现有 806 提示词的遵循程度仍需人工抽查。
+例外是模型结果字段的结构校验失败：本层按不确定或无说明处理，不吞掉路由、许可、授权和模型出处不匹配错误。空字段调用的审计出处取自冻结路线，不从空结果猜测。806 拒绝且未缓存的无效结果不会被本层伪造入缓存，同一运行重跑仍会因缺原缓存失败。
+本任务的验证全部离线，真实模型对 v2 提示词的遵循程度仍需人工抽查。

@@ -8,11 +8,11 @@ from pathlib import Path
 import re
 import sqlite3
 
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 
 from datumoj.eltiro.models import (
     ConsumerConfig, DemandSpec, Generation, ManualQueueItem, MatchRecord, ModelInput, ModelResult,
-    RoutePlan, SeriesProfile, content_hash,
+    ModelUse, RoutePlan, SeriesProfile, content_hash,
 )
 from datumoj.eltiro.match_store import series_key
 from datumoj.rikolto.core.models import GenerationToken
@@ -44,6 +44,20 @@ def _model_config(config, enabled, policy, generation_token):
 
 def _run_id(step, demand, generation):
     return step.replace("_", "-") + "-" + content_hash([demand.consumer, demand.id, demand.version, generation])
+
+
+def _invoke_result(router, run_id, index, **kwargs):
+    """Discard malformed model fields, retaining routing/provenance error handling."""
+    try:
+        result = router.invoke(run_id, index, **kwargs)
+        if not isinstance(result, ManualQueueItem):
+            result = ModelResult.model_validate(result.model_dump())
+    except ValidationError as exc:
+        # 806 also validates provider results. Do not swallow input/context errors.
+        if exc.title != "ModelResult" or any(error["loc"][:1] != ("fields",) for error in exc.errors()):
+            raise
+        return None
+    return result
 
 
 def _run_inputs(step, demand, generation, *, data_root, consumer, router, cache,
@@ -82,14 +96,13 @@ def _run_inputs(step, demand, generation, *, data_root, consumer, router, cache,
             if manual is not None:
                 result = ManualQueueItem.model_validate_json(manual[0])
             else:
-                result = router.invoke(run_id, index, consumer=consumer.models, licenses=licenses,
-                                       providers=providers, cache=cache, rerun=old is not None)
+                result = _invoke_result(router, run_id, index, consumer=consumer.models, licenses=licenses,
+                                        providers=providers, cache=cache, rerun=old is not None)
                 if isinstance(result, ManualQueueItem):
                     with db:
                         db.execute("INSERT OR IGNORE INTO manual VALUES (?,?,?)",
                                    (run_id, index, result.model_dump_json()))
-                else:
-                    result = ModelResult.model_validate(result.model_dump())
+                elif result is not None:
                     result.validate_route(item)
             output.append((item, result))
         return output
@@ -111,7 +124,7 @@ def _unique_object(pairs):
 
 
 def _answer(result, keys):
-    if set(result.fields) != {"answer"}:
+    if result is None or set(result.fields) != {"answer"}:
         return None
     try:
         value = json.loads(result.fields["answer"].value, object_pairs_hook=_unique_object)
@@ -166,13 +179,13 @@ def judge_candidates(demand, generation, records, *, profiles, consumer, data_ro
                    "candidate": profile.model_dump(mode="json"),
                    "model_generated_concept_notes": notes}
         inputs.append(ModelInput(id=f"candidate_{len(inputs)}", step="match_judge", difficulty=difficulty,
-                                 prompt_version="v1", parts=[{"source_id": record.series.source_id,
+                                 prompt_version="v2", parts=[{"source_id": record.series.source_id,
                                  "content": json.dumps(payload, ensure_ascii=False, sort_keys=True)}]))
         selected.append(index)
     outcomes = _run_inputs("match_judge", demand, generation, data_root=data_root, consumer=consumer,
                            router=router, cache=cache, licenses=licenses, policy=policy,
                            generation_token=generation_token, providers=providers, inputs=inputs)
-    for index, (_, result) in zip(selected, outcomes, strict=True):
+    for index, (decision, result) in zip(selected, outcomes, strict=True):
         record = records[index]
         if isinstance(result, ManualQueueItem):
             # Keep the candidate's original score/tier/reason; it now needs a human.
@@ -182,7 +195,10 @@ def judge_candidates(demand, generation, records, *, profiles, consumer, data_ro
         if (answer is None or answer["verdict"] not in ("relevant", "irrelevant", "uncertain")
                 or not _one_sentence(answer["reason"])):
             answer = {"verdict": "uncertain", "reason": "Invalid structured model output"}
-        use = next(iter(result.fields.values())).model_use
+        # The frozen route identifies the invocation even when no fields survived.
+        identity = decision.target.identity
+        use = ModelUse(provider=decision.target.provider, model=identity.model,
+                       version=identity.version, tier=decision.tier)
         audit = {"label": "模型生成", **answer, "model_use": use.model_dump(mode="json"),
                  "matcher_reason": record.reason}
         records[index] = MatchRecord.model_validate({

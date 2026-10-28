@@ -1,7 +1,7 @@
 ---
 id: eltiro-page-drafts
 name: Eltiro 需求页面草稿
-version: 1
+version: 2
 status: maintained
 runtime: Python 3.12–3.13; standard-library HTMLParser; installed PyYAML/Pydantic
 inputs: caller-provided UTF-8 HTML bytes; kind; trusted host configuration; read-only source Registry
@@ -50,9 +50,11 @@ paths = list_drafts(data_dir)
 
 模型建议需额外传入 `router`（806 实现）、`consumer_config`、`policy`、`budget`、`generation_token`、`run_id`、`providers`、`cache`，以及宿主为页面配置并授权的 `page_source_id`。宿主可传 `page_license: LicenseInfo`；缺省最严 `no_outflow/cloud_model_ok=False`。页面自己的授权身份不从链接推导，也不把链接所指来源的许可当页面许可。
 
-完整案例作为一个不可拆的 `ModelInputPart.content`，标记 `untrusted_source_text`，调用 `plan`，再对可调用项执行 `invoke`，步骤固定 `demand_draft`、请求难度 medium、提示版本 demand-draft-v1。配置缺此步骤时由 806 排入人工队列。提供方、版本、缓存、预算、降档、重跑（`rerun=True`）及许可重验均由 806 管理。路由/提供方失败向上传播，不更换模型。较长案例若超出 806 输入契约会抛校验错误，可不配置模型生成规则草稿。
+完整案例作为一个不可拆的 `ModelInputPart.content`，标记 `untrusted_source_text`，调用 `plan`，再对可调用项执行 `invoke`，步骤固定 `demand_draft`、请求难度 medium、提示版本 `v2`。812 起内置 `build_prompt` 提供正式模板；没有 `demand_draft/v1`。配置缺此步骤时由 806 排入人工队列。提供方、版本、缓存、预算、降档、重跑（`rerun=True`）及许可重验均由 806 管理。提示词版本改变会改变缓存键，同代次同 run 改版本会因冻结上下文不符而失败，不能用新模板覆盖旧计划；旧计划须原版本重放，新版本用新的运行上下文。路由/提供方失败向上传播，不更换模型。较长案例若超出 806 输入契约会抛校验错误，可不配置模型生成规则草稿。
 
-仅接受模型返回的 `entities/indicators/period/operations` 字段，每个建议保留原始文本，带 `model_generated: true` 和 `model_use`（provider/model/version/tier）；不解析为运算或自动补入需求。未知建议字段记人工原因，不采用。建议有了仍需人核对，`pending_human` 保留。缺省页面许可时只能降到许可允许的本地模型或 none，不能进云端。
+正式模板只依据案例建议实体、指标、时间范围和频率、运算；数据区仅作数据，禁止估数、编造代码/表名/数值、决定绑定或登记。内置提供方的 `answer.value` 必须是 JSON 对象，键只能是 `entities/indicators/period/operations` 的子集，值必须是非空字符串；未知项不输出，全部未知输出 `{}`。同时保留 810 的分字段提供方接口，字段也只能为这四项的子集。空字段、混合 answer 与建议字段、未知字段、重复 JSON 键或其他结构无效的结果整份不采用，记人工原因，不重试。模型结果字段校验失败也按无建议处理；路由、许可、授权和模型出处错误仍传播。806 未缓存的无效结果在重跑时仍会缺缓存失败。
+
+每个建议保留原始文本，带 `model_generated: true` 和 `model_use`（provider/model/version/tier）；不解析为运算或自动补入需求。建议有了仍需人核对，`pending_human` 保留。缺省页面许可时只能降到许可允许的本地模型或 none，不能进云端。
 
 文件仅写 `<data>/eltiro/drafts/<编号>-<SHA256前16位>.yaml`。临时文件 fsync 后以同目录硬链接原子发布，拒绝目录/文件符号链接，模式 0600；同内容重复生成返回原文件且不改变时间。相同路径下生成文档与原文件不一致（包括不同 consumer、模型建议或人工编辑）时抛错并保留原件，禁止覆盖。`list_drafts` 只列规则命名的普通文件，不读取 YAML、不跟随链接、不创建目录。
 
@@ -60,4 +62,4 @@ paths = list_drafts(data_dir)
 
 状态库和草稿无自动过期；宿主按自己的保留政策清理旧版本。人工修改后的草稿不会被自动覆盖。此模块不写需求注册表、Rikolto、收件箱或发件箱。
 
-当前依赖的 806 内置 `build_prompt` 仅有 match_judge/concept_note 的占位模板，内置适配器返回通用 answer 字段；本任务不修改这些范围外文件。实际启用建议时，宿主需提供支持 demand_draft 及上述字段的 `ModelProviderClient`，依旧由 806 路由调用。直接使用尚未支持该步骤的内置适配器会明确失败，不降级到绕过路由的调用。本任务只用记录调用的假提供方验证该接口；真实模型能力尚未验收。
+812 的模板及 answer JSON 解析使内置适配器可以按上述协议生成建议，依旧由 806 路由调用。本任务只用记录调用的假提供方验证接口；真实模型能力尚未验收。

@@ -17,6 +17,7 @@ from pydantic import TypeAdapter
 
 from datumoj.eltiro.contracts import ModelCache, ModelProviderClient, ModelRouter
 from datumoj.eltiro.intake import open_directory
+from datumoj.eltiro.model_match import _invoke_result, _unique_object
 from datumoj.eltiro.models import (
     MAX_FILE_BYTES,
     ConsumerModelConfig,
@@ -26,7 +27,6 @@ from datumoj.eltiro.models import (
     ModelInput,
     ModelInputPart,
     ModelProvider,
-    ModelResult,
     RoutingPolicy,
     Version,
 )
@@ -75,7 +75,7 @@ def _suggest(case, *, consumer, router, page_source_id, page_license, consumer_c
     license = LicenseInfo() if page_license is None else LicenseInfo.model_validate(page_license.model_dump())
     # Only the page is model input: linked datasets are neither fetched nor licensed by this page.
     content = json.dumps({"content_role": "untrusted_source_text", "case": asdict(case)}, ensure_ascii=False)
-    request = ModelInput(id="demand_draft", step="demand_draft", difficulty="medium", prompt_version="demand-draft-v1",
+    request = ModelInput(id="demand_draft", step="demand_draft", difficulty="medium", prompt_version="v2",
                          parts=(ModelInputPart(source_id=page_source_id, content=content),))
     licenses = {page_source_id: license}
     plan = router.plan(run_id=run_id, budget=budget, consumer=consumer_config, licenses=licenses,
@@ -85,19 +85,35 @@ def _suggest(case, *, consumer, router, page_source_id, page_license, consumer_c
         if isinstance(decision, ManualQueueItem):
             manual.append(decision.reason)
             continue
-        result = router.invoke(run_id, index, consumer=consumer_config, licenses=licenses,
-                               providers=providers or {}, cache=cache, rerun=rerun)
+        result = _invoke_result(router, run_id, index, consumer=consumer_config, licenses=licenses,
+                                providers=providers or {}, cache=cache, rerun=rerun)
         if isinstance(result, ManualQueueItem):
             manual.append(result.reason)
             continue
-        result = ModelResult.model_validate(result.model_dump())
+        if result is None:
+            manual.append("invalid_model_output")
+            continue
         result.validate_route(decision)
-        for key, field in result.fields.items():
-            if key in SUGGESTED_FIELDS:
-                suggestions[key] = {"model_generated": True, "value": field.value,
-                                    "model_use": field.model_use.model_dump(mode="json")}
-            else:
-                manual.append("unsupported_model_field:" + key)
+        if set(result.fields) == {"answer"}:
+            field = result.fields["answer"]
+            try:
+                values = json.loads(field.value, object_pairs_hook=_unique_object)
+            except (ValueError, RecursionError):
+                values = None
+            if (not isinstance(values, dict) or not set(values) <= SUGGESTED_FIELDS
+                    or any(not isinstance(value, str) or not value.strip() for value in values.values())):
+                manual.append("invalid_model_output")
+                continue
+            fields = {key: (value, field.model_use) for key, value in values.items()}
+        elif set(result.fields) <= SUGGESTED_FIELDS:
+            # Preserve 810's structured provider interface alongside 806's text answer.
+            fields = {key: (field.value, field.model_use) for key, field in result.fields.items()}
+        else:
+            manual.append("invalid_model_output")
+            continue
+        for key, (value, use) in fields.items():
+            suggestions[key] = {"model_generated": True, "value": value,
+                                "model_use": use.model_dump(mode="json")}
     return suggestions, manual
 
 
