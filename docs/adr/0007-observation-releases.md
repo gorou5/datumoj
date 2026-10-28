@@ -1,6 +1,6 @@
 # ADR 0007：观测值来源发布与固定代次读取
 
-- 状态：提议，待人审定
+- 状态：已定（2026-10-28 人审通过，检查点 WISTERIA-901 / m0）
 - 日期：2026-10-27
 - 契约任务：DATUMOJ-WISTERIA-002
 - 相关：[ADR 0004](0004-evidence-identity.md)、[ADR 0005](0005-state-generations.md)
