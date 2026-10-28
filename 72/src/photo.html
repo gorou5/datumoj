@@ -28,8 +28,8 @@ scene.background = new THREE.Color(0x060607);
 scene.fog = new THREE.FogExp2(0x060607, 0.0016);
 
 const camera = new THREE.PerspectiveCamera(40, innerWidth/innerHeight, 0.1, 500);
-camera.position.set(0, 4.8, 20);
-camera.lookAt(0, 3.4, -3);
+camera.position.set(0, 4.6, 17.2);
+camera.lookAt(0, 3.5, -3);
 
 scene.add(new THREE.HemisphereLight(0xfff2dd, 0x3a2c22, 1.05));
 const sun = new THREE.DirectionalLight(0xffe6b8, 1.8); sun.position.set(35, 60, 45); scene.add(sun);

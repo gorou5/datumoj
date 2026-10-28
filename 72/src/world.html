@@ -4,46 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>评论区粘土世界 · 地图 — 72 号人物资产库</title>
-<meta name="description" content="72 号评论区人物资产库的粘土世界地图：一块捏出来的大陆、一条带刺长桥与桥尽头的城堡岛，69 个角色站在各自的地盘上，点任意角色直达他的资产卡。">
+<meta name="description" content="72 号评论区人物资产库的粘土世界地图：一块捏出来的大陆、一条带刺长桥与桥尽头的城堡岛，整张图按黏土材质生成，指纹、按压痕与泥块接缝都在。">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{background:#060607}
-  body{font-family:"Hiragino Maru Gothic ProN","Yu Gothic UI","Noto Sans SC",system-ui,sans-serif;color:#f3ead8;
-    -webkit-user-select:none;user-select:none}
+  body{font-family:"Hiragino Maru Gothic ProN","Yu Gothic UI","Noto Sans SC",system-ui,sans-serif;color:#f3ead8}
   #backBtn{position:fixed;top:14px;left:14px;z-index:20;background:#fdf6e3;color:#26221c;border:3px solid #26221c;border-radius:99px;
     padding:8px 16px;font-weight:800;font-size:14px;text-decoration:none;box-shadow:4px 4px 0 #26221c}
   #backBtn:active{transform:translate(2px,2px);box-shadow:2px 2px 0 #26221c}
   #titleBox{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:20;text-align:center;pointer-events:none;width:max-content;max-width:92vw}
   #titleBox h1{font-size:clamp(19px,3.4vw,30px);letter-spacing:.04em;text-shadow:0 2px 0 #000,0 0 22px rgba(0,0,0,.9)}
   #titleBox p{font-size:12.5px;opacity:.9;margin-top:3px;text-shadow:0 1px 0 #000}
-  #hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(20,16,10,.78);border:2px solid rgba(243,234,216,.35);
-    border-radius:99px;padding:7px 16px;font-size:12.5px;white-space:nowrap;pointer-events:none}
-  .mapScroll{overflow-x:hidden;padding:64px 0 58px}
+  .mapScroll{overflow-x:hidden;padding:64px 0 40px}
   .mapWrap{position:relative;width:min(1500px,100%);margin:0 auto;line-height:0}
   .mapWrap>img.base{width:100%;height:auto;display:block}
-  .char{position:absolute;transform:translate(-50%,-100%);line-height:0;z-index:5;
-    filter:drop-shadow(0 3px 3px rgba(0,0,0,.55));transition:transform .15s}
-  .char img{width:100%;height:auto;display:block}
-  .char:hover,.char:focus-visible{z-index:9;transform:translate(-50%,-100%) scale(1.22)}
-  .zoneTag{position:absolute;transform:translate(-50%,-50%);z-index:4;pointer-events:none;line-height:1;
-    background:rgba(20,14,8,.72);border:2px solid rgba(243,234,216,.5);color:#f3ead8;border-radius:99px;
-    padding:5px 11px;font-size:clamp(10px,1.15vw,14px);font-weight:800;letter-spacing:.05em;white-space:nowrap}
-  .zoneTag small{color:#e9b44c;font-weight:700}
-  .qmark{position:absolute;transform:translate(-50%,-100%);z-index:6;line-height:1;cursor:pointer;
-    background:#5a4a6e;color:#fdf6e3;border:2.5px solid #26221c;border-radius:10px;box-shadow:3px 3px 0 rgba(0,0,0,.6);
-    font-weight:900;font-size:clamp(13px,1.6vw,22px);padding:.28em .42em}
-  .qmark:hover{background:#6e5a86}
-  #hiddenTip{position:fixed;z-index:30;left:50%;bottom:64px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;
-    transition:all .2s;background:#fdf6e3;color:#26221c;border:3px solid #26221c;border-radius:14px;box-shadow:5px 5px 0 rgba(0,0,0,.55);
-    padding:12px 18px;font-size:14px;font-weight:700;text-align:center;line-height:1.5}
-  #hiddenTip.on{opacity:1;transform:translateX(-50%) translateY(0)}
-  #hiddenTip small{display:block;font-weight:500;font-size:12px;opacity:.75}
-  .footNote{max-width:900px;margin:2px auto 0;padding:0 18px;text-align:center;font-size:12.5px;line-height:1.8;opacity:.65}
+  .footNote{max-width:900px;margin:10px auto 0;padding:0 18px;text-align:center;font-size:12.5px;line-height:1.8;opacity:.65}
   @media(max-width:640px){
     #titleBox{top:60px}
     .mapScroll{overflow-x:auto;padding-top:104px}
     .mapWrap{width:235%}
-    #hint{font-size:11px;bottom:10px}
   }
 </style>
 </head>
@@ -51,119 +30,15 @@
 <a id="backBtn" href="/">← 回到选人画面</a>
 <div id="titleBox">
   <h1>🌍 评论区粘土世界 · 地图</h1>
-  <p>大陆 · 带刺长桥 · 城堡岛 — 69 个角色都在图上，点谁看谁的资产卡</p>
+  <p>大陆 · 带刺长桥 · 城堡岛</p>
 </div>
 
 <div class="mapScroll">
-  <div class="mapWrap" id="mapWrap">
+  <div class="mapWrap">
     <img class="base" src="/img/world-map.webp" alt="黏土世界地图：有机大陆、带刺长桥与城堡岛" width="2048" height="1152">
   </div>
-  <p class="footNote">这张世界图是按黏土世界的材质整张「捏」出来的（指纹、按压痕、泥块接缝都在），建筑造型为原创；隐藏角色 No.70–72 躲在粉崖底下的洞口那儿。</p>
+  <p class="footNote">这张世界图是按黏土世界的材质整张「捏」出来的（指纹、按压痕、泥块接缝都在），建筑造型为原创。角色们都在选人画面里，这张图就只看世界本身。</p>
 </div>
 
-<div id="hint">👆 点任意角色看他的资产卡 · 洞口的「?」是隐藏角色</div>
-<div id="hiddenTip">🔒 隐藏角色 No.70–72<small>本人还没被想出来 · 就先在洞口待着</small></div>
-
-<script>
-function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-const rnd = mulberry32(2028);
-/* 区域锚点：x/y 为脚下点（%），cols 列数，dx/dy 网格步距（%） */
-const CLUSTERS = [
-  {faction:'真爱粉丝', ax:13.5, ay:25,  cols:3, dx:3.6, dy:5.5, n:5,  tag:['真爱粉丝', '绿丘', 13.5, 11]},
-  {faction:'挑剔观众', ax:36,   ay:31,  cols:3, dx:3.4, dy:5.0, n:5},
-  {faction:'挑剔观众', ax:20.5, ay:52,  cols:2, dx:3.6, dy:5.0, n:5,  tag:['挑剔观众', '回音湖', 33, 12.5]},
-  {faction:'理性分析', ax:46,   ay:60,  cols:5, dx:3.1, dy:5.2, n:10, tag:['理性分析', '档案馆', 46, 41.5]},
-  {faction:'立场交锋', ax:29,   ay:40,  cols:3, dx:3.6, dy:5.2, n:6,  tag:['立场交锋', '粉崖', 29, 31.5]},
-  {faction:'立场交锋', ax:12.5, ay:57,  cols:2, dx:3.6, dy:5.0, n:4},
-  {faction:'路过乱入', ax:33,   ay:57,  cols:3, dx:3.4, dy:5.2, n:6,  tag:['路过乱入', '广场 · 长桥', 64, 57]},
-  {faction:'路过乱入', ax:53,   ay:61,  cols:2, dx:3.4, dy:5.0, n:4},
-  {faction:'路过乱入', bridge:true, n:5},
-  {faction:'高阶抬杠', ax:75.5, ay:21,  cols:1, dx:3,   dy:5,   n:1,  tag:['高阶抬杠', '城堡岛', 90, 33]},
-  {faction:'高阶抬杠', ax:90,   ay:63,  cols:5, dx:2.9, dy:3.8, n:18},
-];
-const BRIDGE_SPOTS = [[60,64.5],[65.5,65.5],[70.5,66.5],[76,67.5],[81,66.5]];
-const wrap = document.getElementById('mapWrap');
-const tip = document.getElementById('hiddenTip');
-let tipTimer = null;
-function showHiddenTip(){
-  tip.classList.add('on');
-  clearTimeout(tipTimer);
-  tipTimer = setTimeout(()=>tip.classList.remove('on'), 2600);
-}
-fetch('/characters.json').then(r=>r.json()).then(data=>{
-  const pools = {};
-  for(const c of data){ (pools[c.faction] = pools[c.faction] || []).push(c); }
-  for(const f in pools) pools[f].sort((a,b)=>a.id-b.id);
-  const tags = [];
-  function addChar(c, x, y, w){
-    const a = document.createElement('a');
-    a.className = 'char';
-    a.href = '/#c' + c.id;
-    a.title = `No.${c.id} ${c.name} · ${c.title}`;
-    a.style.left = x + '%';
-    a.style.top = y + '%';
-    a.style.width = w + '%';
-    const img = document.createElement('img');
-    img.src = `/img/view-front-${String(c.id).padStart(2,'0')}.webp`;
-    img.alt = c.name;
-    img.loading = 'lazy';
-    a.appendChild(img);
-    wrap.appendChild(a);
-  }
-  for(const cl of CLUSTERS){
-    const pool = pools[cl.faction] || [];
-    if(cl.tag) tags.push(cl.tag);
-    if(cl.bridge){
-      BRIDGE_SPOTS.forEach(([x, y])=>{
-        const c = pool.shift();
-        if(c) addChar(c, x + (rnd()-0.5)*0.8, y + (rnd()-0.5)*0.8, 3.1);
-      });
-      continue;
-    }
-    for(let i=0;i<cl.n;i++){
-      const c = pool.shift();
-      if(!c) break;
-      const col = i % cl.cols, row = Math.floor(i / cl.cols);
-      const x = cl.ax + (col - (cl.cols-1)/2) * cl.dx + (rnd()-0.5)*0.9;
-      const y = cl.ay + row * cl.dy + (rnd()-0.5)*0.7;
-      addChar(c, x, y, 3.4);
-    }
-  }
-  /* 兜底：没分到位置的角色放广场南缘 */
-  let sweep = 0;
-  for(const f in pools){
-    while(pools[f].length){
-      const c = pools[f].shift();
-      addChar(c, 26 + sweep*3.4, 84, 3.4);
-      sweep++;
-    }
-  }
-  for(const [name, sub, x, y] of tags){
-    const t = document.createElement('span');
-    t.className = 'zoneTag';
-    t.innerHTML = `${name} <small>${sub}</small>`;
-    t.style.left = x + '%';
-    t.style.top = y + '%';
-    wrap.appendChild(t);
-  }
-  /* 隐藏角色：崖底洞口的三块「?」 */
-  [[16.5, 69], [19.2, 70.5], [21.9, 69]].forEach(([x, y])=>{
-    const q = document.createElement('button');
-    q.className = 'qmark';
-    q.textContent = '?';
-    q.style.left = x + '%';
-    q.style.top = y + '%';
-    q.setAttribute('aria-label', '隐藏角色');
-    q.addEventListener('click', showHiddenTip);
-    wrap.appendChild(q);
-  });
-  const ht = document.createElement('span');
-  ht.className = 'zoneTag';
-  ht.innerHTML = `隐藏角色 <small>No.70–72 · 崖底洞口</small>`;
-  ht.style.left = '19%';
-  ht.style.top = '79%';
-  wrap.appendChild(ht);
-});
-</script>
 </body>
 </html>
