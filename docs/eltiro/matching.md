@@ -3,7 +3,7 @@
 ```yaml
 id: eltiro-matching
 name: Eltiro deterministic matching and local vector recall
-version: 1
+version: 2
 status: maintained
 runtime: Python with standard-library sqlite3 and existing project dependencies
 inputs: [registered DemandSpec, generation, ProfileStore, ConsumerConfig, frozen Rikolto read views, optional local Embedder]
@@ -44,14 +44,15 @@ with SQLiteMatchStore(data_root) as matches:
 
 deterministic 与 vector 分别开关；同时为 False 抛 ValueError。
 不传 embedder 时跳过向量档，result.vector_skipped 为 True（vector 开启时），不隐式连接任何服务。
-只开向量档却没传 embedder 时仍返回跳过说明，可以是空结果。
+只开向量档却没传 embedder 时抛 ValueError，避免没有任何档位实际运行。
 所有读取为同步调用，无匹配层重试；查询超时沿用 ObservationStore 的默认超时。
 
 ## 确定性算法与置信度
 
 指标输入文本按概念说明、正例顺序用换行连接；画像文本按 names、descriptions 顺序，
 每组按语言键排序后用换行连接。代码比较保持原始大小写。
-提取完整 ASCII 记号：包含数字或 `._:/-` 分隔符，或至少两个字母的全大写记号。
+提取完整 ASCII 记号：必须包含数字或 `._:/-` 分隔符；GDP、CPI 等通用大写缩写只参与关键词召回，
+即使与来源代码相同也不能据此自动绑定。
 只按完整记号与 indicator_code 或 concept_ids.code 精确比较，拒绝子串命中；
 句尾句号不算代码的一部分。被标注 model_generated_fields 的 concept_ids 不作为官方代码依据。
 
@@ -64,7 +65,7 @@ deterministic 与 vector 分别开关；同时为 False 抛 ValueError。
 | 官方 concept_ids.code 精确命中 | 0.85 |
 | 关键词命中 | 0.40 + 0.40 × len(Q ∩ P) / len(Q) |
 | 向量召回 | 0.80 × clamp(cosine, 0, 1) |
-| 仅沿用已有人工决定，无当前召回命中 | 0.00 |
+| 确定性档开启，仅沿用已有人工决定，无当前召回命中 | 0.00 |
 
 若来源在该指标 preferred_sources 内，加 0.02。最终取 min(1, 分数)，四舍五入到六位小数。
 分数是确定性的排序分，不是概率估计。确定性命中优先于同序列的向量命中，只保存一条记录。
@@ -123,7 +124,9 @@ save_result 在一个 SQLite 事务里保存整份需求一个代次的全部匹
 新代次读取同需求版本的历史决定，每个完整身份使用最近旧代次的状态；confirmed 排前，
 rejected 留作审计但从 recommendations 排除。需求版本变化不沿用，因为概念可能变了。
 序列已消失则不复制；仍存在但无法取依据则列为缺依据。人工决定也可在没有当前关键词或向量
-命中的情况下沿用，但仍需当前代次的画像和依据。
+命中的情况下由已开启的确定性档沿用，但仍需当前代次的画像和依据，tier 为 deterministic。
+确定性档关闭时，只有当前向量 top-k 召回的序列能生成记录并沿用人工决定，tier 为 vector；
+未被任何在运行的档位召回的序列不生成记录。序列消失后再出现仍可沿用同需求版本的历史决定。
 记录及缓存保留至宿主显式清理，无自动清理或迁移；不能删除仍需审计或重跑的代次文件。
 
 ## 确认队列 CLI
