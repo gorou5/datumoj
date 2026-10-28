@@ -180,3 +180,30 @@ def test_run_commands_select_registered_version_and_show_private_records(cli):
         assert result.exit_code == 1 and "PRIVATE" not in result.output
         assert "Eltiro operation failed" in result.output
     assert len(json.loads(invoke("runs", "list").output)) == 2
+
+
+def test_package_command_success_and_safe_license_denial(cli):
+    from tests.eltiro.test_package import MARKER, sources, write_run
+    root, invoke = cli
+    demand = make_demand(accept_outflow=["raw_ok", "derived_only"])
+    with SQLiteDemandRegistry(root / "eltiro/demands.sqlite3") as demands:
+        demands.register(demand)
+    config_file = root / "eltiro/consumers.yaml"
+    config = json.loads(config_file.read_bytes())
+    config["consumers"][0]["accept_outflow"] = ["raw_ok", "derived_only"]
+    config_file.write_text(json.dumps(config))
+    source_file = root / "sources/intl-wdi.yaml"
+    source_file.write_text(sources({"intl-wdi": "derived_only"}).get("intl-wdi").model_dump_json())
+    record = write_run(root)
+    result = invoke("package", record["run_id"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["row_count"] == 1
+    assert MARKER not in result.output
+    source_file.write_text(sources({"intl-wdi": "no_outflow"}).get("intl-wdi").model_dump_json())
+    result = invoke("package", record["run_id"])
+    assert result.exit_code == 1
+    assert json.loads(result.output) == {"code": "no_outflow", "sources": ["intl-wdi"]}
+    assert "123456789" not in result.output and MARKER not in result.output
+    result = invoke("package", "PRIVATE CONTENT")
+    assert result.exit_code == 1
+    assert json.loads(result.output) == {"code": "package_failed", "sources": []}
