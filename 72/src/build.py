@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-import json, html
-from data import CHARS, GLOBAL_PROMPT, GLOBAL_PROMPT_EN, NEGATIVE_PROMPT
+import json, html, os, shutil
+from data import CHARS, GLOBAL_PROMPT, GLOBAL_PROMPT_EN, NEGATIVE_PROMPT, SHEET_LAYOUT
 
 PALETTE = [
  ("#c96f4a","#e9b44c"),("#7a8450","#d9c27a"),("#5d7a8c","#c96f4a"),("#a44a3f","#e0a458"),
@@ -22,9 +22,13 @@ out = []
 for c in CHARS:
     bg, ac = PALETTE[(c["id"]-1) % len(PALETTE)]
     d = dict(c); d["color"]=bg; d["accent"]=ac; d["stats"]=stats(c)
-    d["prompt_cn"] = GLOBAL_PROMPT + " " + c["visual"] + "。"
-    d["prompt_en"] = GLOBAL_PROMPT_EN + " Character: " + c["visual"] + "."
+    d["prompt_cn"] = SHEET_LAYOUT + "角色：" + c["visual"] + "。 " + GLOBAL_PROMPT
+    d["prompt_en"] = "Claymation character turnaround sheet: front view, side view, back view of the same character standing side by side, same scale, full body, natural standing pose, pitch-black background, no text, no scenery. Character: " + c["visual"] + ". " + GLOBAL_PROMPT_EN
+    imgf = f"img/char-{c['id']:02d}.webp"; avf = f"img/avatar-{c['id']:02d}.webp"
+    d["img"] = imgf if os.path.exists(imgf) else None
+    d["avatar"] = avf if os.path.exists(avf) else None
     out.append(d)
+IMG_COUNT = sum(1 for d in out if d["img"])
 
 data_json = json.dumps(out, ensure_ascii=False)
 globals_json = json.dumps(dict(cn=GLOBAL_PROMPT, en=GLOBAL_PROMPT_EN, neg=NEGATIVE_PROMPT), ensure_ascii=False)
@@ -64,19 +68,25 @@ h1 .n72{color:var(--rust);text-shadow:3px 3px 0 var(--gold)}
 .main{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(320px,1fr);gap:20px;align-items:start}
 @media(max-width:900px){.main{grid-template-columns:1fr}}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-@media(max-width:520px){.grid{gap:9px}}
-.slot{border:4px solid var(--ink);border-radius:16px;background:var(--card);box-shadow:5px 5px 0 rgba(59,45,32,.85);padding:12px 8px 10px;text-align:center;cursor:pointer;position:relative;transition:transform .08s}
+@media(max-width:640px){.grid{grid-template-columns:repeat(2,1fr);gap:9px}}
+.slot{border:4px solid var(--ink);border-radius:16px;background:var(--card);box-shadow:5px 5px 0 rgba(59,45,32,.85);padding:12px;text-align:left;cursor:pointer;position:relative;transition:transform .08s}
 .slot:hover{transform:translate(-1px,-2px)}
 .slot.sel{background:#fff3cf;outline:4px solid var(--gold);box-shadow:5px 5px 0 var(--rust)}
-.slot .no{position:absolute;top:6px;left:9px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;font-weight:700;opacity:.65}
-.avatar{width:86px;height:86px;margin:8px auto 8px;display:flex;align-items:center;justify-content:center;font-size:42px;position:relative;
+.slotHead{display:flex;gap:12px;align-items:center}
+.slot .no{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;font-weight:700;opacity:.65;display:block}
+.avatarImg{width:78px;height:96px;object-fit:cover;flex:0 0 auto;border:3px solid rgba(59,45,32,.8);border-radius:14px;box-shadow:3px 4px 0 rgba(59,45,32,.35);background:#000}
+.bigAvatarImg{width:118px;height:146px;object-fit:cover;flex:0 0 auto;border:3.5px solid var(--ink);border-radius:16px;box-shadow:4px 5px 0 rgba(59,45,32,.4);background:#000}
+.turnImg{width:100%;border:3.5px solid var(--ink);border-radius:14px;margin-top:6px;background:#000;display:block}
+.turnWait{border:3px dashed var(--mud);border-radius:14px;padding:20px 14px;text-align:center;color:#77644c;font-weight:700;font-size:13.5px;margin-top:6px;background:#00000008}
+.detailHead{display:flex;gap:16px;align-items:center}
+.avatar{width:78px;height:96px;flex:0 0 auto;margin:0;display:flex;align-items:center;justify-content:center;font-size:40px;position:relative;
  border:3px solid rgba(59,45,32,.75);
  border-radius:47% 53% 55% 45%/52% 46% 54% 48%;
  box-shadow:inset -8px -10px 0 rgba(0,0,0,.13),inset 6px 8px 0 rgba(255,255,255,.22),3px 4px 0 rgba(59,45,32,.35)}
 .avatar:after{content:"";position:absolute;inset:0;border-radius:inherit;opacity:.35;
  background:radial-gradient(circle at 30% 28%,transparent 9px,rgba(59,45,32,.14) 10px,transparent 12px),radial-gradient(circle at 68% 62%,transparent 7px,rgba(59,45,32,.12) 8px,transparent 10px),radial-gradient(circle at 52% 82%,transparent 5px,rgba(59,45,32,.12) 6px,transparent 8px)}
-.slot .nm{font-size:17.5px;font-weight:900;line-height:1.2}
-.slot .tt{font-size:12px;color:#6d5741;margin-top:3px;line-height:1.35;min-height:32px}
+.slot .nm{font-size:19px;font-weight:900;line-height:1.2}
+.slot .tt{font-size:12.5px;color:#6d5741;margin-top:3px;line-height:1.35}
 .slot .fc{font-size:11px;font-weight:700;display:inline-block;margin-top:4px;padding:2px 8px;border-radius:99px;border:2px solid var(--ink)}
 .slot.locked{cursor:not-allowed;background:#d9cbaa;color:#8a7a5f;box-shadow:5px 5px 0 rgba(59,45,32,.4)}
 .slot.locked .avatar{background:#c9b98f!important;font-size:36px;color:#8a7a5f}
@@ -87,11 +97,11 @@ h1 .n72{color:var(--rust);text-shadow:3px 3px 0 var(--gold)}
 .pageInfo{font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:700;margin-left:auto}
 .detail{border:4px solid var(--ink);border-radius:18px;background:var(--card);box-shadow:7px 7px 0 var(--ink);padding:20px;position:sticky;top:16px}
 @media(max-width:900px){.detail{position:static}}
-.detail .bigAvatar{width:128px;height:128px;font-size:62px;margin:2px auto 10px}
-.detail h2{text-align:center;font-size:30px;font-weight:900}
-.detail .dtitle{text-align:center;color:var(--rust);font-weight:800;margin-top:2px}
-.detail .dnote{text-align:center;font-size:12.5px;color:#77644c;margin-top:5px}
-.detail .dfc{text-align:center;margin-top:8px}
+.detail .bigAvatar{width:118px;height:146px;font-size:58px;margin:0;border-radius:16px}
+.detail h2{text-align:left;font-size:30px;font-weight:900}
+.detail .dtitle{text-align:left;color:var(--rust);font-weight:800;margin-top:2px}
+.detail .dnote{text-align:left;font-size:12.5px;color:#77644c;margin-top:5px}
+.detail .dfc{text-align:left;margin-top:8px}
 .detail h3{font-size:13px;letter-spacing:.18em;color:var(--rust);margin:18px 0 7px;font-family:ui-monospace,Menlo,monospace}
 .detail p.desc{font-size:14.5px;line-height:1.8}
 .bubble{background:#fffdf6;border:2.5px solid var(--ink);border-radius:13px;padding:8px 12px;font-size:13.5px;line-height:1.6;margin:7px 0;position:relative}
@@ -117,7 +127,7 @@ footer{margin-top:26px;text-align:center;font-size:12.5px;color:#77644c;line-hei
 <header class="hero">
   <div class="kicker">DATUMOJ ASSET LIBRARY · CHARACTER SELECT</div>
   <h1><span class="n72">72</span> 号选人画面 · 评论区人物资产库</h1>
-  <p class="sub">自媒体评论区的 <b>69 个角色</b>，全部起了人名，排成游戏开场的选人网格：<b>每页 9 个、共 8 页</b>。点开任意角色，右边就是他的完整资产卡——人设、招牌台词、手感参数（示意），以及一套可以直接拿去生成粘土三视图的 Prompt（全局风格 + 本角色视觉设定，一键复制）。</p>
+  <p class="sub">自媒体评论区的 <b>69 个角色</b>，全部起了人名，排成游戏开场的选人网格：<b>每页 6 个、共 12 页</b>。点开任意角色，右边就是他的完整资产卡——人设、招牌台词、手感参数（示意），一套粘土三视图生成 Prompt（新版全局风格 + 本角色视觉设定，一键复制），以及 Prompt 下方生成的三视图本体。三视图已生成 <b>__IMG_COUNT__ / 69</b>，分批补齐中。</p>
   <div class="progressRow">
     <span class="progressTxt">UNLOCKED 69 / 72</span>
     <div class="progressBar"><div class="progressFill"></div></div>
@@ -140,7 +150,7 @@ footer{margin-top:26px;text-align:center;font-size:12.5px;color:#77644c;line-hei
 
 <section class="bible">
   <h2>🎨 视觉圣经 · 粘土世界全局风格</h2>
-  <p>全部 69 个角色共用这一套全局 Prompt（The Neverhood 式定格粘土动画美学），生成时拼上角色卡里的「视觉设定」即可。立绘本体待按此 Prompt 逐个生成后回填到选人头像位；现在的头像是按每人标志性道具做的粘土色占位脸。</p>
+  <p>全部 69 个角色共用这一套全局 Prompt（The Neverhood 设计哲学版：捏出来的世界、糖果色派对悬浮于漆黑虚空），生成时拼上角色卡里的「视觉设定」即可。三视图正在按此 Prompt 逐个生成、回填到每个角色卡的 Prompt 下方，头像取自三视图的正面；未生成者暂用按标志性道具做的粘土色占位脸。</p>
   <h3>GLOBAL STYLE · 中文</h3>
   <div class="promptBox" id="gCn"></div>
   <button class="copyBtn" data-copy="cn">📋 复制中文全局 Prompt</button>
@@ -162,7 +172,7 @@ footer{margin-top:26px;text-align:center;font-size:12.5px;color:#77644c;line-hei
 <script>
 const CHARS = __DATA__;
 const GLOBALS = __GLOBALS__;
-const PAGE_SIZE = 9;
+const PAGE_SIZE = 6;
 const FACTIONS = ["全部", ...new Set(CHARS.map(c=>c.faction))];
 let faction = "全部", query = "", page = 0, selectedId = 1;
 
@@ -183,6 +193,7 @@ function renderChips(){
   document.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{faction=b.dataset.f;page=0;render();});
 }
 function avatarHTML(c, big){
+  if(c.avatar) return `<img class="${big?'bigAvatarImg':'avatarImg'}" src="${c.avatar}" alt="${c.name}头像">`;
   return `<div class="avatar ${big?'bigAvatar':''}" style="background:radial-gradient(circle at 32% 28%, ${c.accent}, ${c.color} 72%)">${c.icon}</div>`;
 }
 function renderGrid(){
@@ -192,16 +203,18 @@ function renderGrid(){
   const slice = list.slice(page*PAGE_SIZE, page*PAGE_SIZE+PAGE_SIZE);
   let cells = slice.map(c=>`
     <div class="slot ${c.id===selectedId?'sel':''}" data-id="${c.id}" role="button" tabindex="0" aria-label="${c.name} ${c.title}">
-      <span class="no">No.${String(c.id).padStart(2,'0')}</span>
-      ${avatarHTML(c,false)}
-      <div class="nm">${c.name}</div>
-      <div class="tt">${c.title}</div>
-      <span class="fc" style="background:${c.accent}55">${c.faction}</span>
+      <div class="slotHead">
+        ${avatarHTML(c,false)}
+        <div><span class="no">No.${String(c.id).padStart(2,'0')}</span>
+        <div class="nm">${c.name}</div>
+        <div class="tt">${c.title}</div>
+        <span class="fc" style="background:${c.accent}55">${c.faction}</span></div>
+      </div>
     </div>`).join("");
   // 未筛选、最后一页：补 3 个锁定格凑满 72
   if(faction==="全部" && !query && page===pages-1){
     for(let n=70;n<=72;n++){
-      cells += `<div class="slot locked"><span class="no">No.${n}</span><div class="avatar">🔒</div><div class="nm">？？？</div><div class="tt">未解锁角色</div><span class="fc">COMING SOON</span></div>`;
+      cells += `<div class="slot locked"><div class="slotHead"><div class="avatar">🔒</div><div><span class="no">No.${n}</span><div class="nm">？？？</div><div class="tt">未解锁角色</div><span class="fc">COMING SOON</span></div></div></div>`;
     }
   }
   $("#grid").innerHTML = cells || `<div class="empty">没有找到这个角色——换个关键词试试？</div>`;
@@ -227,11 +240,13 @@ function statRow(label, v){
 function renderDetail(){
   const c = CHARS.find(x=>x.id===selectedId) || CHARS[0];
   $("#detail").innerHTML = `
-    ${avatarHTML(c,true)}
-    <h2>${c.name}</h2>
-    <div class="dtitle">No.${String(c.id).padStart(2,'0')} · ${c.title}</div>
-    <div class="dnote">名字由来：${c.note}</div>
-    <div class="dfc"><span class="fc" style="background:${c.accent}55;border:2px solid var(--ink);padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700">${c.faction}</span></div>
+    <div class="detailHead">
+      ${avatarHTML(c,true)}
+      <div><h2>${c.name}</h2>
+      <div class="dtitle">No.${String(c.id).padStart(2,'0')} · ${c.title}</div>
+      <div class="dnote">名字由来：${c.note}</div>
+      <div class="dfc"><span class="fc" style="background:${c.accent}55;border:2px solid var(--ink);padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700">${c.faction}</span></div></div>
+    </div>
     <h3>人设 PERSONA</h3>
     <p class="desc">${c.desc}</p>
     <h3>招牌台词 LINES</h3>
@@ -244,7 +259,9 @@ function renderDetail(){
     <div class="promptBox">${c.prompt_cn}</div>
     <button class="copyBtn" id="cpCn">📋 复制中文 Prompt</button>
     <button class="copyBtn" id="cpEn">📋 复制英文 Prompt</button>
-    <button class="copyBtn" id="cpNeg">📋 复制 Negative</button>`;
+    <button class="copyBtn" id="cpNeg">📋 复制 Negative</button>
+    <h3>三视图 TURNAROUND</h3>
+    ${c.img ? `<img class="turnImg" src="${c.img}" alt="${c.name} 三视图">` : `<div class="turnWait">⏳ 三视图待生成 · 已完成 ${CHARS.filter(x=>x.img).length} / 69，分批补齐中</div>`}`;
   $("#cpCn").onclick=()=>copyText(c.prompt_cn);
   $("#cpEn").onclick=()=>copyText(c.prompt_en);
   $("#cpNeg").onclick=()=>copyText(GLOBALS.neg);
@@ -272,7 +289,11 @@ render();
 </html>
 """
 
-html_out = HTML.replace("__DATA__", data_json).replace("__GLOBALS__", globals_json)
+html_out = HTML.replace("__DATA__", data_json).replace("__GLOBALS__", globals_json).replace("__IMG_COUNT__", str(IMG_COUNT))
 with open("dist/index.html","w",encoding="utf-8") as f: f.write(html_out)
 with open("dist/characters.json","w",encoding="utf-8") as f: json.dump(out, f, ensure_ascii=False, indent=1)
-print("built", len(html_out), "bytes,", len(out), "chars")
+if os.path.isdir("img"):
+    os.makedirs("dist/img", exist_ok=True)
+    for fn in os.listdir("img"):
+        shutil.copy(os.path.join("img",fn), os.path.join("dist/img",fn))
+print("built", len(html_out), "bytes,", len(out), "chars,", IMG_COUNT, "turnarounds")
