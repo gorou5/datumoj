@@ -165,7 +165,7 @@ footer{margin-top:26px;text-align:center;font-size:12.5px;color:#77644c;line-hei
 
 <a class="worldEntry" href="/world">
   <img src="/img/world-thumb.webp" alt="评论区粘土世界全景缩略图">
-  <span class="weTxt"><b>🌍 进入粘土世界全景</b><small>一整块有机大陆：湖畔、档案馆、回声广场、评论公寓与六大阵营街区都在上面，一条带刺长桥通向桥尽头的城堡岛，69 个角色以不同姿态生活在里面。隐藏角色 No.70–72 躲在大陆外缘的厕所那儿。拖动旋转、滚轮缩放，点任意角色直达他的资产卡——像逛 Google 地球一样逛评论区。</small></span>
+  <span class="weTxt"><b>🌍 进入粘土世界全景</b><small>一整张捏出来的黏土世界地图：一块有机大陆、一条带刺长桥、桥尽头的城堡岛，指纹和按压痕都还在。69 个角色站在各自的地盘上，隐藏角色 No.70–72 躲在粉崖底下的洞口那儿。点任意角色，直达他的资产卡。</small></span>
   <span class="weGo">进入世界 →</span>
 </a>
 
