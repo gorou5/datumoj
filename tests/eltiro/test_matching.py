@@ -154,8 +154,8 @@ def test_decisions_carry_only_within_version_and_existing_series(matching):
     for profile, status in ((first, "rejected"), (second, "confirmed"), (disappeared, "confirmed")):
         store.set_confirmation("example-demand", 1, "gdp", profile.series, 1, status)
     next_profiles = [SeriesProfile.model_validate({**p.model_dump(), "generation": 2}) for p in (first, second)]
-    # Old decisions still apply when the next run has no lexical/code hit.
-    result = matching(profiles=next_profiles, generation=2, deterministic=False, embedder=None)
+    # With deterministic disabled, only the actual vector tier can recall decisions.
+    result = matching(profiles=next_profiles, generation=2, deterministic=False, embedder=HashEmbedder())
     assert [r.confirmation for r in result.records] == ["confirmed", "rejected"]
     assert [r.series for r in result.recommendations] == [second.series]
     assert not result.records[-1].auto_bind
@@ -182,7 +182,8 @@ def test_tier_switches_no_embedder_and_bounded_k(matching):
     for k in (0, MAX_K + 1, True):
         with pytest.raises(ValueError, match="limit"):
             matching(k=k)
-    assert matching(deterministic=False).vector_skipped
+    with pytest.raises(ValueError, match="Embedder"):
+        matching(deterministic=False)
 
 
 def test_vector_model_identity_cache_and_top_k(matching, tmp_path):

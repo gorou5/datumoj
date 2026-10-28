@@ -26,13 +26,13 @@ from datumoj.rikolto.core.contracts import CatalogStore, ChunkStore, Embedder, O
 from datumoj.rikolto.core.models import GenerationToken
 
 MAX_K = 50
-# Codes are whole ASCII tokens: numeric, uppercase abbreviations, or structured IDs.
+# Codes are whole ASCII tokens containing digits or structured separators.
 _CODE = re.compile(r"(?<![\w./:-])[A-Za-z0-9]+(?:[._:/-][A-Za-z0-9]+)*(?!\w|[._:/-][A-Za-z0-9])")
 
 
 def _codes(text: str) -> set[str]:
     return {t for t in _CODE.findall(text)
-            if any(c.isdigit() for c in t) or any(c in "._:/-" for c in t) or (t.isupper() and len(t) >= 2)}
+            if any(c.isdigit() for c in t) or any(c in "._:/-" for c in t)}
 
 
 def _normal(text: str) -> str:
@@ -163,6 +163,33 @@ def _vectors(data_root, generation, embedder, texts):
         db.close()
 
 
+def _recall_scores(candidates, vectors, query, k):
+    scores = [(sum(a * b for a, b in zip(query, v, strict=True)), n)
+              for n, v in enumerate(vectors)]
+    scores.sort(key=lambda item: (-item[0], series_key(candidates[item[1]].series)))
+    return {n: max(0.0, min(1.0, score)) for score, n in scores[:k]}
+
+
+def _matching_config(demand, consumer, deterministic, vector, embedder, k):
+    """Shared validation/fingerprint for full matching and unchanged-result carry."""
+    if not isinstance(deterministic, bool) or not isinstance(vector, bool) or not (deterministic or vector):
+        raise ValueError("at least one matching tier must be enabled")
+    if vector and embedder is None and not deterministic:
+        raise ValueError("vector-only matching requires an Embedder")
+    if type(k) is not int or not 1 <= k <= MAX_K:
+        raise ValueError("invalid vector recall limit")
+    if demand.consumer != consumer.id:
+        raise ValueError("consumer mismatch")
+    model = None
+    if vector and embedder is not None:
+        if (not isinstance(embedder.model, str) or not embedder.model.strip()
+                or type(embedder.dim) is not int or embedder.dim < 1):
+            raise ValueError("invalid embedding model identity")
+        model = [embedder.model, embedder.dim]
+    return content_hash({"demand": demand.model_dump(mode="json"), "consumer": consumer.model_dump(mode="json"),
+                         "deterministic": deterministic, "vector": vector, "model": model, "k": k}), model
+
+
 def match_demand(
     demand: DemandSpec, generation: int, *, profiles: ProfileStore, consumer: ConsumerConfig,
     observations: ObservationStore, catalog: CatalogStore, chunks: ChunkStore,
@@ -178,20 +205,7 @@ def match_demand(
     demand = DemandSpec.model_validate(demand.model_dump())
     consumer = ConsumerConfig.model_validate(consumer.model_dump())
     TypeAdapter(Generation).validate_python(generation)
-    if not isinstance(deterministic, bool) or not isinstance(vector, bool) or not (deterministic or vector):
-        raise ValueError("at least one matching tier must be enabled")
-    if type(k) is not int or not 1 <= k <= MAX_K:
-        raise ValueError("invalid vector recall limit")
-    if demand.consumer != consumer.id:
-        raise ValueError("consumer mismatch")
-    model = None
-    if vector and embedder is not None:
-        if (not isinstance(embedder.model, str) or not embedder.model.strip()
-                or type(embedder.dim) is not int or embedder.dim < 1):
-            raise ValueError("invalid embedding model identity")
-        model = [embedder.model, embedder.dim]
-    config = content_hash({"demand": demand.model_dump(mode="json"), "consumer": consumer.model_dump(mode="json"),
-                           "deterministic": deterministic, "vector": vector, "model": model, "k": k})
+    config, model = _matching_config(demand, consumer, deterministic, vector, embedder, k)
     cached = store.load_result(demand.id, demand.version, generation, config)
     if cached is not None:
         return cached
@@ -224,10 +238,7 @@ def match_demand(
         vector_scores = {}
         if vectors is not None:
             query = vectors[len(candidates) + index]
-            scores = [(sum(a * b for a, b in zip(query, v, strict=True)), n)
-                      for n, v in enumerate(vectors[:len(candidates)])]
-            scores.sort(key=lambda item: (-item[0], series_key(candidates[item[1]].series)))
-            vector_scores = {n: max(0.0, min(1.0, score)) for score, n in scores[:k]}
+            vector_scores = _recall_scores(candidates, vectors[:len(candidates)], query, k)
         for n, profile in enumerate(candidates):
             key = series_key(profile.series)
             indicator_code = bool(profile.series.indicator_code and profile.series.indicator_code in codes)
@@ -239,7 +250,7 @@ def match_demand(
             lexical = bool(overlap)
             prior = history.get((indicator.key, key), "pending")
             det_hit = deterministic and (official or concept or lexical)
-            if not det_hit and n not in vector_scores and prior == "pending":
+            if not det_hit and n not in vector_scores and not (deterministic and prior != "pending"):
                 continue
             if key not in evidence_cache:
                 evidence_cache[key] = reader.for_profile(profile)
