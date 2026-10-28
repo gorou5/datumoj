@@ -6,21 +6,57 @@ import json
 import os
 import sqlite3
 import stat
+from dataclasses import asdict
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Annotated
 
 import typer
 import yaml
+from pydantic import TypeAdapter
+from typer._click.exceptions import UsageError
+from typer.core import TyperCommand, TyperGroup
 
+from datumoj.eltiro.alerts import Alert, SQLiteAlertStore, ack_alert, list_alerts
+from datumoj.eltiro.concept_notes import ConceptNote, list_concept_notes
+from datumoj.eltiro.drafts import draft_for_case, list_drafts
+from datumoj.eltiro.executor import run_registered
+from datumoj.eltiro.gaps import aggregate_gaps, gap_report
 from datumoj.eltiro.intake import IntakeService, load_consumers, open_directory
+from datumoj.eltiro.license_gate import LicenseGateError
 from datumoj.eltiro.match_store import SQLiteMatchStore
 from datumoj.eltiro.models import SeriesIdentity
-from datumoj.eltiro.registry_store import SQLiteDemandRegistry
-from datumoj.eltiro.executor import run_registered
-from datumoj.eltiro.runs import RunStore
 from datumoj.eltiro.package import package_run
-from datumoj.eltiro.license_gate import LicenseGateError
+from datumoj.eltiro.page_cases import MAX_PAGE_BYTES, parse_cases, record_cases
+from datumoj.eltiro.profile_store import SQLiteProfileStore
+from datumoj.eltiro.registry_store import SQLiteDemandRegistry
+from datumoj.eltiro.rematch import refresh
+from datumoj.eltiro.runs import RunStore
 from datumoj.rikolto.core.contracts import SourceSpec
+from datumoj.rikolto.core.models import GenerationToken
+from datumoj.rikolto.wiring import open_generation_views
+
+
+class _FixedErrorCommand(TyperCommand):
+    def parse_args(self, ctx, args):
+        try:
+            return super().parse_args(ctx, args)
+        except UsageError:
+            _error()
+
+
+class _FixedErrorGroup(TyperGroup):
+    def parse_args(self, ctx, args):
+        try:
+            return super().parse_args(ctx, args)
+        except UsageError:
+            _error()
+
+    def invoke(self, ctx):
+        try:
+            return super().invoke(ctx)
+        except UsageError:
+            _error()
 
 app = typer.Typer(no_args_is_help=True, help="Eltiro local demand intake.")
 demands_app = typer.Typer(no_args_is_help=True)
@@ -29,6 +65,16 @@ matches_app = typer.Typer(no_args_is_help=True)
 app.add_typer(matches_app, name="matches")
 runs_app = typer.Typer(no_args_is_help=True)
 app.add_typer(runs_app, name="runs")
+alerts_app = typer.Typer(no_args_is_help=True, cls=_FixedErrorGroup)
+app.add_typer(alerts_app, name="alerts")
+gaps_app = typer.Typer(no_args_is_help=True, cls=_FixedErrorGroup)
+app.add_typer(gaps_app, name="gaps")
+notes_app = typer.Typer(no_args_is_help=True, cls=_FixedErrorGroup)
+app.add_typer(notes_app, name="notes")
+pages_app = typer.Typer(no_args_is_help=True, cls=_FixedErrorGroup)
+app.add_typer(pages_app, name="pages")
+drafts_app = typer.Typer(no_args_is_help=True, cls=_FixedErrorGroup)
+app.add_typer(drafts_app, name="drafts")
 
 
 class SourceDirectory:
@@ -263,3 +309,169 @@ def package_command(ctx: typer.Context, run_id: str):
     except Exception:
         typer.echo(json.dumps({"code": "package_failed", "sources": []}), err=True)
         raise typer.Exit(1)
+
+
+@app.command("refresh", cls=_FixedErrorCommand)
+def refresh_command(
+    ctx: typer.Context,
+    previous: Annotated[int, typer.Option("--previous")],
+    as_of: Annotated[str, typer.Option("--as-of")],
+    generation_token: Annotated[str | None, typer.Option("--generation-token")] = None,
+):
+    try:
+        day = date.fromisoformat(as_of)
+        if day.isoformat() != as_of:
+            raise ValueError("expected ISO date")
+        root = ctx.obj["data_dir"]
+        consumers = {c.id: c for c in load_consumers(root).consumers}
+        for filename in ("profiles.sqlite", "matches.sqlite", "alerts.sqlite"):
+            _state_path(ctx, filename)
+        with open_generation_views(root, generation_token) as views:
+            if generation_token is not None and views.generation_token != generation_token:
+                raise ValueError("generation token mismatch")
+            generation = GenerationToken.parse(views.generation_token).generation
+            with (_registry(ctx) as demands, SQLiteProfileStore(root) as profiles,
+                  _matches(ctx) as matches, SQLiteAlertStore(root) as alerts):
+                counts = refresh(
+                    generation, previous, registry=demands, profiles=profiles, consumers=consumers,
+                    store=matches, alerts=alerts, observations=views.observations,
+                    catalog=views.catalog, chunks=views.chunks, as_of=day, vector=False, model=False,
+                )
+        typer.echo(json.dumps(asdict(counts)))
+    except Exception:  # noqa: BLE001 -- Redact every operation error at the CLI boundary.
+        _error()
+
+
+@alerts_app.command("list")
+def alerts_list(
+    ctx: typer.Context,
+    consumer: Annotated[str | None, typer.Option("--consumer")] = None,
+    demand: Annotated[str | None, typer.Option("--demand")] = None,
+    all_alerts: Annotated[bool, typer.Option("--all")] = False,
+):
+    try:
+        _state_path(ctx, "alerts.sqlite")
+        alerts = list_alerts(ctx.obj["data_dir"], consumer=consumer, demand=demand, include_acked=all_alerts)
+        typer.echo(TypeAdapter(list[Alert]).dump_json(alerts).decode())
+    except Exception:  # noqa: BLE001 -- Redact every operation error at the CLI boundary.
+        _error()
+
+
+@alerts_app.command("ack")
+def alerts_ack(ctx: typer.Context, alert_id: str):
+    try:
+        _state_path(ctx, "alerts.sqlite")
+        ack_alert(alert_id, data_root=ctx.obj["data_dir"])
+        typer.echo(json.dumps({"acked": True}))
+    except Exception:  # noqa: BLE001 -- Redact every operation error at the CLI boundary.
+        _error()
+
+
+@gaps_app.command("show")
+def gaps_show(
+    ctx: typer.Context, demand_id: str,
+    generation: Annotated[int, typer.Option("--generation")],
+    version: Annotated[int | None, typer.Option("--version")] = None,
+):
+    try:
+        root = ctx.obj["data_dir"]
+        consumers = {c.id: c for c in load_consumers(root).consumers}
+        _state_path(ctx, "profiles.sqlite")
+        with (_registry(ctx) as demands, _matches(ctx) as matches,
+              SQLiteProfileStore(root) as profiles):
+            if version is None:
+                versions = [r["version"] for r in demands.list_records() if r["id"] == demand_id]
+                version = max(versions) if versions else None
+            demand = demands.get(demand_id, version) if version is not None else None
+            if demand is None:
+                raise ValueError("unknown demand")
+            report = gap_report(demand, generation, consumer=consumers[demand.consumer],
+                                matches=matches, profiles=profiles, registry=SourceDirectory(ctx.obj["sources_dir"]),
+                                data_dir=root)
+        typer.echo(json.dumps({
+            "path": str(root / "eltiro" / "gaps" / f"{demand.id}-v{demand.version}-g{generation}.json"),
+            "indicator_count": len(report["indicators"]),
+            "gap_count": sum(len(i["gaps"]) for i in report["indicators"]),
+        }))
+    except Exception:  # noqa: BLE001 -- Redact every operation error at the CLI boundary.
+        _error()
+
+
+@gaps_app.command("report")
+def gaps_report(ctx: typer.Context, generation: Annotated[int, typer.Option("--generation")]):
+    try:
+        root = ctx.obj["data_dir"]
+        consumers = {c.id: c for c in load_consumers(root).consumers}
+        _state_path(ctx, "profiles.sqlite")
+        with (_registry(ctx) as demands, _matches(ctx) as matches,
+              SQLiteProfileStore(root) as profiles):
+            aggregate_gaps(generation, demands=demands, consumers=consumers, matches=matches,
+                           profiles=profiles, registry=SourceDirectory(ctx.obj["sources_dir"]), data_dir=root)
+        typer.echo(json.dumps({"path": str(root / "eltiro" / "reports" / f"gaps-g{generation}.json"),
+                               "markdown_path": str(root / "eltiro" / "reports" / f"gaps-g{generation}.md")}))
+    except Exception:  # noqa: BLE001 -- Redact every operation error at the CLI boundary.
+        _error()
+
+
+@notes_app.command("list")
+def notes_list(ctx: typer.Context, generation: Annotated[int, typer.Option("--generation")]):
+    try:
+        _state_path(ctx, "concept_notes.sqlite")
+        notes = list_concept_notes(generation, data_root=ctx.obj["data_dir"])
+        typer.echo(TypeAdapter(list[ConceptNote]).dump_json(notes).decode())
+    except Exception:  # noqa: BLE001 -- Redact every operation error at the CLI boundary.
+        _error()
+
+
+def _read_cases(file: Path, kind: str):
+    # Bound reads before parsing, and reject devices/FIFOs and symlinks.
+    descriptor = os.open(file, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, "rb") as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_PAGE_BYTES:
+            raise ValueError("invalid page file")
+        return parse_cases(stream.read(MAX_PAGE_BYTES + 1), kind)
+
+
+@pages_app.command("record")
+def pages_record(ctx: typer.Context, kind: str, file: Path):
+    try:
+        _state_path(ctx, "page_cases.sqlite")
+        changes = record_cases(_read_cases(file, kind), data_dir=ctx.obj["data_dir"],
+                               seen_at=datetime.now(UTC))
+        typer.echo(json.dumps({key: len(getattr(changes, key))
+                               for key in ("added", "changed", "disappeared", "unchanged", "failures")}))
+    except Exception:  # noqa: BLE001 -- Redact every operation error at the CLI boundary.
+        _error()
+
+
+@drafts_app.command("make")
+def drafts_make(
+    ctx: typer.Context, kind: str, file: Path, case_no: str,
+    consumer: Annotated[str, typer.Option("--consumer")],
+):
+    try:
+        consumers = {c.id: c for c in load_consumers(ctx.obj["data_dir"]).consumers}
+        if consumer not in consumers:
+            raise ValueError("unknown consumer")
+        parsed = _read_cases(file, kind)
+        case = next((c for c in parsed.cases if c.number == case_no), None)
+        if case is None or any(f.number == case_no for f in parsed.failures):
+            raise ValueError("case unavailable")
+        path = draft_for_case(case, consumer=consumer, registry=SourceDirectory(ctx.obj["sources_dir"]),
+                              data_dir=ctx.obj["data_dir"], router=None)
+        typer.echo(json.dumps({"path": str(path), "registered": False,
+                               "next": "Edit the draft, then use eltiro submit to submit the edited file."}))
+    except Exception:  # noqa: BLE001 -- Redact every operation error at the CLI boundary.
+        _error()
+
+
+@drafts_app.command("list")
+def drafts_list(ctx: typer.Context):
+    try:
+        load_consumers(ctx.obj["data_dir"])
+        typer.echo(json.dumps({"paths": [str(path) for path in list_drafts(ctx.obj["data_dir"])],
+                               "registered": False,
+                               "next": "Edit the draft, then use eltiro submit to submit the edited file."}))
+    except Exception:  # noqa: BLE001 -- Redact every operation error at the CLI boundary.
+        _error()

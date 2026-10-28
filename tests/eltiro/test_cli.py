@@ -6,8 +6,8 @@ import pytest
 from typer.testing import CliRunner
 
 from datumoj.eltiro.cli import app
-from datumoj.eltiro.models import MAX_FILE_BYTES
 from datumoj.eltiro.match_store import SQLiteMatchStore
+from datumoj.eltiro.models import MAX_FILE_BYTES
 from datumoj.eltiro.registry_store import SQLiteDemandRegistry
 from datumoj.eltiro.testing.samples import make_demand, make_match, make_series
 from datumoj.rikolto.testing.samples import make_spec
@@ -154,7 +154,7 @@ def test_match_cli_errors_redact_input_and_refuse_symlink(cli):
 
 
 def test_run_commands_select_registered_version_and_show_private_records(cli):
-    from tests.eltiro.test_executor import observation, seed, publish
+    from tests.eltiro.test_executor import observation, publish, seed
 
     root, invoke = cli
     store, _ = seed(root, [[observation()]])
@@ -207,3 +207,66 @@ def test_package_command_success_and_safe_license_denial(cli):
     result = invoke("package", "PRIVATE CONTENT")
     assert result.exit_code == 1
     assert json.loads(result.output) == {"code": "package_failed", "sources": []}
+
+
+@pytest.mark.parametrize("args", [
+    ("refresh", "--previous", "PRIVATE 987654321", "--as-of", "2026-10-28"),
+    ("refresh", "--previous", "1"),
+    ("refresh", "--previous", "1", "--as-of", "2026-10-28", "--model", "PRIVATE"),
+    ("gaps", "show", "example-demand", "--generation", "PRIVATE 987654321"),
+    ("notes", "list"),
+    ("pages", "record", "verify"),
+    ("drafts", "make", "verify", "PRIVATE", "V07"),
+    ("alerts", "ack"),
+    ("alerts", "--unknown", "PRIVATE 987654321"),
+    ("notes", "generate", "PRIVATE 987654321"),
+])
+def test_new_command_argument_errors_are_fixed(cli, args):
+    _, invoke = cli
+    result = invoke(*args)
+    assert result.exit_code == 1
+    assert result.output == "Eltiro operation failed; check configuration and local state.\n"
+
+
+@pytest.mark.parametrize("kind", ["oversized", "symlink", "directory", "fifo", "bad-kind"])
+def test_local_page_input_boundaries(cli, kind):
+    import os
+
+    from datumoj.eltiro.page_cases import MAX_PAGE_BYTES
+    from tests.eltiro.test_page_cases import page
+
+    root, invoke = cli
+    file = root / "page.html"
+    if kind == "oversized":
+        file.write_bytes(b"x" * (MAX_PAGE_BYTES + 1))
+    elif kind == "symlink":
+        target = root / "target.html"
+        target.write_text(page())
+        file.symlink_to(target)
+    elif kind == "directory":
+        file.mkdir()
+    elif kind == "fifo":
+        os.mkfifo(file)
+    else:
+        file.write_text(page())
+    result = invoke("pages", "record", "unknown" if kind == "bad-kind" else "verify", str(file))
+    assert result.exit_code == 1
+    assert result.output == "Eltiro operation failed; check configuration and local state.\n"
+    assert not (root / "eltiro/page_cases.sqlite").exists()
+
+
+@pytest.mark.parametrize("args,filename", [
+    (("alerts", "list"), "alerts.sqlite"),
+    (("notes", "list", "--generation", "1"), "concept_notes.sqlite"),
+    (("gaps", "report", "--generation", "1"), "profiles.sqlite"),
+    (("pages", "record", "verify", "missing.html"), "page_cases.sqlite"),
+])
+def test_new_commands_preserve_state_symlink_targets(cli, args, filename):
+    root, invoke = cli
+    target = root / "sentinel"
+    target.write_text("unchanged")
+    (root / "eltiro" / filename).symlink_to(target)
+    result = invoke(*args)
+    assert result.exit_code == 1
+    assert result.output == "Eltiro operation failed; check configuration and local state.\n"
+    assert target.read_text() == "unchanged"
