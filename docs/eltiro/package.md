@@ -39,7 +39,7 @@ eltiro --data-dir data --sources-dir sources package <run_id>
   data.parquet       # 仅当 output.format 请求
   data.csv           # 仅当 output.format 请求
   manifest.json      # OutputManifest，含数据文件 SHA256 和 citation_index
-  provenance.json    # 按数据文件行序排列：符号、实体、时间、来源、发布、数值、引用编号
+  provenance.json    # 按数据文件行序排列：符号、实体、时间、来源、发布、序列摘要、数值、引用编号
   gaps.json          # 此需求的运行缺口与同版本同代次的 809 报告
   diff.json          # 与同使用方同需求上次交付的新增/删除/数值变化
   delivery.json      # 使用方、run_id、该需求的交付顺序号与计数
@@ -61,13 +61,20 @@ snapshot_sha256 和 release_id；保留契约中的 operation_chain，舍弃执�
 
 | 注册表许可 | 该行允许输出 | 失败条件 |
 | --- | --- | --- |
-| raw_ok | 精确数值、标识；请求了才带注记、序列身份、单位 | 需求或使用方未接受 raw_ok，或来源未获授权 |
-| derived_only | 精确数值和标识；引用索引仅身份与运算链 | 需求或使用方未接受 derived_only，或来源未获授权 |
+| raw_ok | 精确数值、标识；请求了才带单位、注记、序列原文 | 需求或使用方未接受 raw_ok，或来源未获授权 |
+| derived_only | 精确数值、标识和请求的单位；引用索引仅身份与运算链 | 需求或使用方未接受 derived_only，或来源未获授权 |
 | no_outflow（含未注册） | 无；请求行涉及此来源就阻断整包 | 始终阻断，accept_outflow 无法放宽 |
 
+单位是数值的必要说明，2026-10-28 人定可随 derived_only 流出。
+unit 与数值、标识一起进入允许列表；长度上限沿用契约 MAX_LABEL_LENGTH（256 字符）。
+超长、空白或含控制字符（含换行、格式控制及 Unicode 行/段分隔符）的单位逐行置空，
+不阻断整包；宿主闸门审计的 sanitizations 记录原运行 citation_id、column=unit、
+code=invalid_unit，不保存被清除的单位原文。缺失单位仍为空，不记异常。
+
 混合输入按最严格级别决定整行。逐列采用允许列表；derived_only 删除 series、
-unit、note 和未知文字列。在混合包中，原文列只在 raw_ok 行取值，受限行为空；
-全为受限行时删去这些文字列。未请求符号的行不进入包和索引。
+note 和未知文字列。白名单外的列在所有等级都不输出。在混合包中，series、note
+只在 raw_ok 行取值，受限行为空；全为受限行时删去这两列。unit 在两种可输出等级
+都可保留。未请求符号的行不进入包和索引。
 运行记录、画像/缓存、旧清单中的许可副本都不能授权。
 同一来源在需求与使用方两个 acceptance 集合中都必须得到接受，不自动降级以绕过收紧。
 
@@ -85,8 +92,19 @@ manifest.license_summary 汇总当前数据和差异引用涉及的来源及最�
 
 交付顺序由该使用方、该需求目录中的 delivery.sequence 决定，跨需求版本比较；
 不使用其他使用方、其他需求、未交付运行或运行时间先后代替交付顺序。
-以符号、国家/地区、period、来源、release_id 对齐，比较 value 和 spread_range，
-缺值参与比较，重复对齐键拒绝。第一次 comparable=false、previous_run_id=null。
+以 `(symbol, country, region_scheme, region, period, source, release_id, series_sha256)`
+对齐，比较 value 和 spread_range，缺值参与比较。series_sha256 是运行 series 列的
+原始 UTF-8 字节的 SHA256 前 16 个十六进制字符（空值按空字符串计算），在许可闸门
+删除原文前计算，仅作为标识写入 provenance.json 和 diff.json；这些文件不写序列原文。
+相同来源、实体、时间下不同序列逐序列比较；完整对齐键重复仍拒绝。
+第一次 comparable=false、previous_run_id=null。
+
+805 格式的前包 provenance 没有 series_sha256 时，按不含摘要的旧键分组。
+旧组只有一行且本次最多一行时按旧键比较（本次无行则记删除），旧值的摘要为 null，
+不尝试从来源原文恢复身份。旧组或本次对应组多于一行时，跳过该组的新增、删除及变化，
+在 diff.incomparable 中记旧键、固定 reason=previous_delivery_not_comparable_by_series
+和“上次交付无法逐序列比较”；comparable=false，其他唯一可比较的组仍照常列出差异。
+不存在旧组的新行仍记新增。既不报错，也不将无法区分的组误列为全部新增/删除。
 差异的旧值引用使用 `previous_row_N`，完整身份和运算链也写入清单索引。
 前包行也按当前注册表和 acceptance 重新检查，拒绝时整包停止。
 

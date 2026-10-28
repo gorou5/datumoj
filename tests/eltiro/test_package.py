@@ -97,12 +97,17 @@ def test_raw_bundle_exact_decimal_manifest_provenance_and_idempotency(tmp_path):
 
 
 def test_derived_only_never_copies_source_text_anywhere_in_bundle(tmp_path):
-    ctx = context(tmp_path, "derived_only")
+    demand = make_demand(output={"fields": ["country", "year", "source", "gdp", "unit", "series", "note", "citation_id"],
+                                 "format": ["csv", "parquet"]}, accept_outflow=["derived_only"])
+    ctx = context(tmp_path, "derived_only", demand=demand)
     record = write_run(tmp_path, values=(None, "0.000000000000000001"))
     path = package.package_run(record["run_id"], **ctx)["path"]
     assert "note" not in pq.read_table(path / "data.parquet").column_names
+    assert "series" not in pq.read_table(path / "data.parquet").column_names
+    assert pq.read_table(path / "data.parquet").to_pylist()[0]["unit"] == MARKER + " UNIT"
     for file in path.iterdir():
-        assert MARKER.encode() not in file.read_bytes()
+        assert (MARKER + " INDICATOR").encode() not in file.read_bytes()
+        assert (MARKER + " NOTE").encode() not in file.read_bytes()
     assert pq.read_table(path / "data.parquet").to_pylist()[0]["gdp"] is None
     manifest = OutputManifest.model_validate_json((path / "manifest.json").read_bytes())
     assert manifest.license_summary.by_source == {"intl-wdi": "derived_only"}

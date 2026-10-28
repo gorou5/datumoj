@@ -22,7 +22,8 @@ def test_gate_checks_all_inputs_and_allowlists_columns():
     config = consumer(("intl-wdi", "intl-imf-weo"), accept_outflow=["derived_only"])
     rows, index, summary = check_rows(rows, citations, registry=sources({"intl-wdi": "raw_ok", "intl-imf-weo": "derived_only"}),
                                       demand=demand, consumer=config)
-    assert rows[0] == {"citation_id": "row-0", "symbol": "gdp", "period": date(2020, 1, 1), "value": Decimal("1.25")}
+    assert rows[0] == {"citation_id": "row-0", "symbol": "gdp", "period": date(2020, 1, 1),
+                       "value": Decimal("1.25"), "unit": MARKER}
     assert len(index["row-0"].inputs) == 2 and summary.outflow == "derived_only"
     with pytest.raises(LicenseGateError) as exc:
         check_rows(rows, citations, registry=sources({"intl-wdi": "raw_ok"}), demand=demand, consumer=config)
