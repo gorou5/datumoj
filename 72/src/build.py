@@ -24,7 +24,7 @@ for c in CHARS:
     bg, ac = PALETTE[(c["id"]-1) % len(PALETTE)]
     d = dict(c); d["color"]=bg; d["accent"]=ac; d["stats"]=stats(c)
     d["prompt_cn"] = SHEET_LAYOUT + "角色：" + c["visual"] + "。 " + GLOBAL_PROMPT
-    d["prompt_en"] = "Claymation character turnaround sheet: not three characters but one clay puppet turned and photographed from front, side and back, standing side by side on the same ground line, evenly spaced, same scale, full body, natural standing pose, identical outfit and props in all three views, the views never look at or interact with each other, pitch-black background, no text, no scenery. Character: " + c["visual"] + ". " + GLOBAL_PROMPT_EN
+    d["prompt_en"] = "Claymation character turnaround sheet: not three characters but one clay puppet turned and photographed from front, side and back, standing side by side on the same ground line, evenly spaced, same scale, full body, natural standing pose, identical outfit and props in all three views, the views never look at or interact with each other, pitch-black background, no text, no scenery. Character: " + c["visual_en"] + ". " + GLOBAL_PROMPT_EN
     imgf = f"img/char-{c['id']:02d}.webp"; avf = f"img/avatar-{c['id']:02d}.webp"
     d["img"] = imgf if os.path.exists(imgf) else None
     d["avatar"] = avf if os.path.exists(avf) else None
@@ -165,7 +165,7 @@ footer{margin-top:26px;text-align:center;font-size:12.5px;color:#77644c;line-hei
 
 <a class="worldEntry" href="/world">
   <img src="/img/world-thumb.webp" alt="评论区粘土世界全景缩略图">
-  <span class="weTxt"><b>🌍 进入粘土世界全景</b><small>一整张捏出来的黏土世界地图：一块有机大陆、一条带刺长桥、桥尽头的城堡岛，指纹和按压痕都还在。69 个角色站在各自的地盘上，隐藏角色 No.70–72 躲在粉崖底下的洞口那儿。点任意角色，直达他的资产卡。</small></span>
+  <span class="weTxt"><b>🌍 进入粘土世界全景</b><small>一整张捏出来的黏土世界地图：一块有机大陆、一条带刺长桥、桥尽头的城堡岛，指纹和按压痕都还在。就只看世界本身——角色们都在选人画面里。</small></span>
   <span class="weGo">进入世界 →</span>
 </a>
 
@@ -264,7 +264,9 @@ function renderGrid(){
   }
   $("#grid").innerHTML = cells || `<div class="empty">没有找到这个角色——换个关键词试试？</div>`;
   document.querySelectorAll(".slot[data-id]").forEach(el=>{
-    const pick=()=>{selectedId=+el.dataset.id; renderGrid(); renderDetail();};
+    const pick=()=>{selectedId=+el.dataset.id; renderGrid(); renderDetail();
+      const n=document.querySelector(`.slot[data-id="${selectedId}"]`);
+      if(n) n.focus({preventScroll:true});};
     el.onclick=pick;
     el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();pick();}};
   });
@@ -283,7 +285,13 @@ function statRow(label, v){
   return `<div class="stat"><span>${label}</span><div class="statBar"><div class="statFill" style="width:${v}%"></div></div><span>${v}</span></div>`;
 }
 function renderDetail(){
-  const c = CHARS.find(x=>x.id===selectedId) || CHARS[0];
+  const list = filtered();
+  if(!list.length){
+    $("#detail").innerHTML = `<div class="empty">没有匹配的角色——换个关键词或阵营试试，这里会同步显示筛选结果的第一位。</div>`;
+    return;
+  }
+  const c = list.find(x=>x.id===selectedId) || list[0];
+  selectedId = c.id;
   $("#detail").innerHTML = `
     <div class="detailHead">
       ${avatarHTML(c,true)}
@@ -316,8 +324,11 @@ async function copyText(t){
   catch(e){ const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
   const el=$("#toast"); el.classList.add("show"); setTimeout(()=>el.classList.remove("show"),1400);
 }
-function render(){ renderChips(); renderGrid(); renderDetail(); }
-$("#q").addEventListener("input", e=>{query=e.target.value.trim(); page=0; renderGrid();});
+function syncSelMark(){
+  document.querySelectorAll(".slot[data-id]").forEach(el=>el.classList.toggle("sel", +el.dataset.id===selectedId));
+}
+function render(){ renderChips(); renderGrid(); renderDetail(); syncSelMark(); }
+$("#q").addEventListener("input", e=>{query=e.target.value.trim(); page=0; renderGrid(); renderDetail(); syncSelMark();});
 document.addEventListener("keydown", e=>{
   if(e.target.tagName==="INPUT") return;
   const pages = Math.max(1, Math.ceil(filtered().length/PAGE_SIZE));
@@ -336,6 +347,7 @@ render();
 </html>
 """
 
+os.makedirs("dist", exist_ok=True)
 html_out = HTML.replace("__DATA__", data_json).replace("__GLOBALS__", globals_json).replace("__IMG_COUNT__", str(IMG_COUNT))
 with open("dist/index.html","w",encoding="utf-8") as f: f.write(html_out)
 with open("dist/characters.json","w",encoding="utf-8") as f: json.dump(out, f, ensure_ascii=False, indent=1)
