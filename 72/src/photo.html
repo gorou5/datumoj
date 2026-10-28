@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>全体合影 · 评论区粘土世界</title>
+<title>全体合影 · 毕业照 — 评论区粘土世界</title>
 <style>
   html,body{margin:0;height:100%;background:#060607;overflow:hidden}
   #scene{display:block;width:100%;height:100%}
@@ -13,7 +13,7 @@
 </head>
 <body>
 <canvas id="scene"></canvas>
-<div id="loading">正在集合，合影马上就来…</div>
+<div id="loading">正在排队站好，拍毕业照…</div>
 <script type="module">
 import * as THREE from 'three';
 
@@ -28,8 +28,8 @@ scene.background = new THREE.Color(0x060607);
 scene.fog = new THREE.FogExp2(0x060607, 0.0016);
 
 const camera = new THREE.PerspectiveCamera(40, innerWidth/innerHeight, 0.1, 500);
-camera.position.set(0, 8.6, 57);
-camera.lookAt(0, 6.2, -2);
+camera.position.set(0, 5.4, 26.5);
+camera.lookAt(0, 3.6, -3);
 
 scene.add(new THREE.HemisphereLight(0xfff2dd, 0x3a2c22, 1.05));
 const sun = new THREE.DirectionalLight(0xffe6b8, 1.8); sun.position.set(35, 60, 45); scene.add(sun);
@@ -61,20 +61,8 @@ function M(color, opts={}){
   }
   return matCache.get(key);
 }
-function box(w,h,d,color,x,y,z,ry=0,parent=scene){
+function box(w,h,d,color,x,y,z,parent=scene){
   const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), M(color));
-  m.position.set(x,y,z); m.rotation.y = ry; parent.add(m); return m;
-}
-function cyl(rt,rb,h,color,x,y,z,parent=scene,seg=14){
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg), M(color));
-  m.position.set(x,y,z); parent.add(m); return m;
-}
-function cone(r,h,color,x,y,z,parent=scene,seg=14){
-  const m = new THREE.Mesh(new THREE.ConeGeometry(r,h,seg), M(color));
-  m.position.set(x,y,z); parent.add(m); return m;
-}
-function ball(r,color,x,y,z,parent=scene){
-  const m = new THREE.Mesh(new THREE.SphereGeometry(r,12,10), M(color));
   m.position.set(x,y,z); parent.add(m); return m;
 }
 function jitterGeo(geo, amt, seed){
@@ -90,8 +78,7 @@ function jitterGeo(geo, amt, seed){
   geo.computeVertexNormals();
   return geo;
 }
-// 接触阴影
-const shadowTex = (()=>{ 
+const shadowTex = (()=>{
   const cv = document.createElement('canvas'); cv.width = cv.height = 128;
   const g = cv.getContext('2d');
   const gr = g.createRadialGradient(64,64,4, 64,64,62);
@@ -100,115 +87,26 @@ const shadowTex = (()=>{
   return new THREE.CanvasTexture(cv);
 })();
 const SHADOW_MAT = new THREE.MeshBasicMaterial({map:shadowTex, transparent:true, depthWrite:false});
-function shadowDisc(x, y, z, r, parent=scene){
+function shadowDisc(x, y, z, r){
   const m = new THREE.Mesh(new THREE.PlaneGeometry(r*2, r*2), SHADOW_MAT);
-  m.rotation.x = -Math.PI/2; m.position.set(x, y, z); m.renderOrder = 1; parent.add(m); return m;
+  m.rotation.x = -Math.PI/2; m.position.set(x, y, z); m.renderOrder = 1; scene.add(m); return m;
 }
 
-/* ---------- 舞台地面 ---------- */
+/* ---------- 地面 + 合影台阶（6 排，无背景建筑） ---------- */
+const ROWS = [11, 11, 11, 12, 12, 12];  // 前 → 后，共 69
+const STEP_H = 0.82, STEP_D = 1.75, STEP_W = 21.5;
 {
-  const stage = new THREE.Mesh(jitterGeo(new THREE.CylinderGeometry(36, 40, 2.2, 40), 0.3, 31), M('#9c7a56', {bump:0.5}));
-  stage.position.set(0, -1.1, -2); scene.add(stage);
-  const top = new THREE.Mesh(new THREE.CircleGeometry(35.6, 40), new THREE.MeshLambertMaterial({color:'#a37f52', bumpMap:bumpTex, bumpScale:0.4}));
-  top.rotation.x = -Math.PI/2; top.position.set(0, 0.02, -2); scene.add(top);
-  const inner = new THREE.Mesh(new THREE.CircleGeometry(26, 36), new THREE.MeshLambertMaterial({color:'#b8935e', bumpMap:bumpTex, bumpScale:0.35}));
-  inner.rotation.x = -Math.PI/2; inner.position.set(0, 0.035, 0.5); scene.add(inner);
-  // 后排长凳台
-  box(52, 1.15, 3.4, '#8a6d4f', 0, 0.58, -2.2);
-  box(52.6, 0.18, 3.8, '#a08059', 0, 1.22, -2.2);
-}
-
-/* ---------- 背景城堡（原创，粉墙蓝顶） ---------- */
-{
-  const cg = new THREE.Group(); cg.position.set(0, 0, -22); scene.add(cg);
-  cyl(15, 17.5, 3.6, '#9c7a56', 0, 1.8, 0, cg, 30);
-  const wallC = '#c4747f', roofC = '#4a6a9c', darkC = '#5d4250';
-  cyl(2.6, 3.0, 9.6, wallC, -7.6, 3.6+4.8, 3.4, cg, 12);
-  cyl(2.6, 3.0, 9.6, wallC, 7.6, 3.6+4.8, 3.4, cg, 12);
-  cone(3.5, 4.2, roofC, -7.6, 3.6+11.7, 3.4, cg, 12);
-  cone(3.5, 4.2, roofC, 7.6, 3.6+11.7, 3.4, cg, 12);
-  cyl(1.9, 2.2, 7.4, wallC, -7.6, 3.6+3.7, -4.4, cg, 12);
-  cyl(1.9, 2.2, 7.4, wallC, 7.6, 3.6+3.7, -4.4, cg, 12);
-  cone(2.6, 3.2, roofC, -7.6, 3.6+9.0, -4.4, cg, 12);
-  cone(2.6, 3.2, roofC, 7.6, 3.6+9.0, -4.4, cg, 12);
-  box(18.4, 7.6, 11.6, wallC, 0, 3.6+3.8, 0, 0, cg);
-  box(18.8, 1.2, 12.0, '#b4656f', 0, 3.6+8.2, 0, 0, cg);
-  for(let bx=-8.4; bx<=8.4; bx+=2.4){
-    box(1.3, 1.1, 0.7, wallC, bx, 3.6+9.3, 5.7, 0, cg);
-  }
-  box(5.4, 5.8, 0.7, '#3d2c33', 0, 3.6+2.9, 5.85, 0, cg);
-  for(let gi=-2; gi<=2; gi++) box(0.18, 5.0, 0.18, '#2e2a26', gi*1.1, 3.6+2.6, 6.25, 0, cg);
-  for(let wx=-5.4; wx<=5.4; wx+=3.6){
-    if(Math.abs(wx) < 2) continue;
-    const win = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.25), new THREE.MeshBasicMaterial({color:0xffca7a}));
-    win.position.set(wx, 3.6+5.4, 5.83); cg.add(win);
-  }
-  cyl(0.1, 0.1, 4.0, '#5d4a33', 0, 3.6+10.4, 0, cg, 6);
-  const flag = new THREE.Mesh(jitterGeo(new THREE.PlaneGeometry(2.8, 1.7, 4, 2), 0.16, 42), new THREE.MeshBasicMaterial({color:0xe9b44c, side:THREE.DoubleSide}));
-  flag.position.set(1.5, 3.6+11.9, 0); cg.add(flag);
-  // 城堡两侧小树
-  for(const sx of [-14.5, 14.5]){
-    cyl(0.26, 0.4, 1.9, '#6e5138', sx, 4.4, 2, cg, 7);
-    ball(1.5, '#7a8450', sx, 6.4, 2, cg); ball(1.0, '#5e7153', sx+0.9, 5.7, 2.4, cg);
+  const stage = new THREE.Mesh(jitterGeo(new THREE.CylinderGeometry(26, 29, 2.2, 40), 0.3, 31), M('#9c7a56', {bump:0.5}));
+  stage.position.set(0, -1.1, -4); scene.add(stage);
+  const top = new THREE.Mesh(new THREE.CircleGeometry(25.6, 40), new THREE.MeshLambertMaterial({color:'#a37f52', bumpMap:bumpTex, bumpScale:0.4}));
+  top.rotation.x = -Math.PI/2; top.position.set(0, 0.02, -4); scene.add(top);
+  for(let r=1; r<ROWS.length; r++){
+    box(STEP_W, r*STEP_H, 2.3, r%2 ? '#8a6d4f' : '#96795a', 0, r*STEP_H/2, -r*STEP_D);
+    box(STEP_W + 0.5, 0.14, 2.6, '#a8875f', 0, r*STEP_H + 0.07, -r*STEP_D);
   }
 }
 
-/* ---------- 黏土标题牌 ---------- */
-{
-  const cv = document.createElement('canvas'); cv.width = 2048; cv.height = 300;
-  const g = cv.getContext('2d');
-  g.clearRect(0,0,2048,300);
-  const text = '让评论来的更猛烈些吧';
-  const rnd = mulberry32(99);
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  const fs = 168;
-  g.font = `900 ${fs}px "Hiragino Maru Gothic ProN","Yu Gothic UI","Noto Sans CJK SC",sans-serif`;
-  const totalW = g.measureText(text).width;
-  // 逐字测宽排布，逐字微旋转/抖动（手捏感）
-  const widths = [...text].map(ch => g.measureText(ch).width);
-  let cx = 1024 - totalW/2;
-  [...text].forEach((ch, i)=>{
-    const w = widths[i];
-    const x = cx + w/2, y = 152 + (rnd()-0.5)*10;
-    const rot = (rnd()-0.5)*0.055;
-    g.save(); g.translate(x, y); g.rotate(rot);
-    // 黏土字：深色描边（多层偏移）+ 本体 + 高光 + 斑点
-    g.lineJoin = 'round';
-    for(const [ox, oy, col, lw] of [[5,7,'rgba(70,35,20,0.9)',26],[0,0,'#8a4a2a',22]]){
-      g.strokeStyle = col; g.lineWidth = lw;
-      g.strokeText(ch, ox, oy);
-    }
-    const grad = g.createLinearGradient(0, -fs/2, 0, fs/2);
-    grad.addColorStop(0, '#ffe9bd'); grad.addColorStop(0.55, '#f7cf8e'); grad.addColorStop(1, '#e8a860');
-    g.fillStyle = grad;
-    g.fillText(ch, 0, 0);
-    g.fillStyle = 'rgba(255,255,255,0.20)';
-    g.fillText(ch, -2, -5);
-    g.restore();
-    cx += w;
-  });
-  // 指纹斑点
-  for(let i=0;i<130;i++){
-    g.fillStyle = `rgba(120,70,30,${0.04+rnd()*0.07})`;
-    g.beginPath(); g.arc(rnd()*2048, rnd()*300, 1.5+rnd()*3.5, 0, 6.29); g.fill();
-  }
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  const board = new THREE.Group(); board.position.set(0, 20.6, -11); board.rotation.x = -0.04; scene.add(board);
-  const plaque = new THREE.Mesh(jitterGeo(new THREE.BoxGeometry(31, 4.6, 0.9, 12, 2, 1), 0.14, 7), M('#b3543f', {bump:0.45}));
-  board.add(plaque);
-  const face = new THREE.Mesh(new THREE.PlaneGeometry(30, 4.5), new THREE.MeshBasicMaterial({map:tex, transparent:true}));
-  face.position.z = 0.66; board.add(face);
-  // 吊绳
-  for(const sx of [-11.5, 11.5]){
-    const rope = cyl(0.09, 0.09, 3.2, '#5d4a33', sx, 24.4, -11.4, scene, 6);
-    rope.rotation.z = sx > 0 ? 0.18 : -0.18;
-  }
-  ball(0.38, '#e9b44c', -15.2, 20.6, -11); ball(0.38, '#e9b44c', 15.2, 20.6, -11);
-}
-
-/* ---------- 全员集合：前后两排 ---------- */
+/* ---------- 全员集合：6 排毕业照 ---------- */
 const texLoader = new THREE.TextureLoader();
 texLoader.setCrossOrigin('anonymous');
 let loadedCount = 0;
@@ -232,16 +130,16 @@ function charSprite(c, x, y, z, h){
 }
 fetch('/characters.json').then(r=>r.json()).then(data=>{
   const chars = [...data].sort((a,b)=>a.id-b.id);
-  const back = chars.filter((_,i)=>i%2===0);   // 35 人后排
-  const front = chars.filter((_,i)=>i%2===1);  // 34 人前排
-  const rnd = mulberry32(5);
-  back.forEach((c, i)=>{
-    const x = -24.6 + i*(49.2/(back.length-1)) + (rnd()-0.5)*0.14;
-    charSprite(c, x, 1.31, -2.2, 3.05);
-  });
-  front.forEach((c, i)=>{
-    const x = -23.9 + i*(47.8/(front.length-1)) + (rnd()-0.5)*0.14;
-    charSprite(c, x, 0.03, 1.8, 2.95);
+  const rnd = mulberry32(11);
+  let idx = 0;
+  ROWS.forEach((count, r)=>{
+    const y = r === 0 ? 0.03 : r*STEP_H + 0.14;
+    const z = r === 0 ? 0.6 : -r*STEP_D;
+    for(let i=0;i<count;i++){
+      const c = chars[idx++];
+      const x = (i - (count-1)/2) * 1.62 + (rnd()-0.5)*0.12;
+      charSprite(c, x, y, z, 2.9 + rnd()*0.15);
+    }
   });
   renderer.render(scene, camera);
 }).catch(()=>{

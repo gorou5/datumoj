@@ -197,10 +197,10 @@ footer{margin-top:26px;text-align:center;font-size:12.5px;color:#77644c;line-hei
 </div>
 
 <section class="groupPhoto">
-  <h2>📸 全体合影 · 聚会结束</h2>
-  <p>69 个角色，前后两排站好，背景是评论城堡，头顶的标题牌也是黏土捏的——「让评论来的更猛烈些吧」。</p>
+  <h2>📸 全体合影 · 毕业照</h2>
+  <p>69 个角色在合影台阶上排成 6 排，正正经经拍一张毕业照——一个不少，全都看着镜头。</p>
   <a href="/img/group-photo-hi.webp" target="_blank" rel="noopener" title="点击看高清大图（4400 × 2476）">
-    <img src="/img/group-photo-lo.webp" alt="69 个角色在评论城堡前的全体合影" width="760" height="427" loading="lazy" decoding="async">
+    <img src="/img/group-photo-lo.webp" alt="69 个角色排成 6 排的全体合影毕业照" width="760" height="427" loading="lazy" decoding="async">
   </a>
   <small>👆 点击图片看高清大图（4400 × 2476，新窗口打开）· 本图为滚动懒加载，滑到这里才会加载</small>
 </section>
