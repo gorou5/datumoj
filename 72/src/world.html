@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>评论区粘土世界 · 全景 — 72 号人物资产库</title>
-<meta name="description" content="72 号评论区人物资产库的世界全景：六大阵营化作六座漂浮在漆黑虚空里的粘土岛，69 个角色站在各自的岛上，点任意角色直达他的资产卡。">
+<meta name="description" content="72 号评论区人物资产库的粘土世界：城堡、长廊、评论公寓、回声广场与六大阵营街区，69 个角色以不同姿态生活在里面，点任意角色直达他的资产卡。">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{height:100%;overflow:hidden;background:#060607}
@@ -20,13 +20,6 @@
   #titleBox p{font-size:12.5px;opacity:.85;margin-top:3px;text-shadow:0 1px 0 #000}
   #hint{bottom:14px;left:50%;transform:translateX(-50%);background:rgba(20,16,10,.72);border:2px solid rgba(243,234,216,.35);
     border-radius:99px;padding:7px 16px;font-size:12.5px;white-space:nowrap;pointer-events:none}
-  @media(max-width:640px){
-    #titleBox{top:62px}
-    #titleBox h1{font-size:19px}
-    #titleBox p{font-size:11px}
-    #backBtn{font-size:13px;padding:7px 13px}
-    #hint{font-size:11px;bottom:10px}
-  }
   #tip{position:fixed;z-index:6;pointer-events:none;background:#fdf6e3;color:#26221c;border:2.5px solid #26221c;border-radius:12px;
     padding:6px 11px;font-size:13px;font-weight:700;box-shadow:3px 3px 0 rgba(0,0,0,.55);opacity:0;transition:opacity .12s;max-width:70vw}
   #tip small{display:block;font-weight:500;font-size:11.5px;opacity:.75}
@@ -39,12 +32,16 @@
     background:#060607;padding:22px;text-align:center}
   #fallback img{max-width:min(680px,92vw);border:3px solid #f3ead8;border-radius:16px}
   #fallback a{color:#e9b44c;font-weight:800}
+  @media(max-width:640px){
+    #titleBox{top:62px}
+    #titleBox h1{font-size:19px}
+    #titleBox p{font-size:11px}
+    #backBtn{font-size:13px;padding:7px 13px}
+    #hint{font-size:11px;bottom:10px}
+  }
 </style>
 <script type="importmap">
-{"imports":{
-  "three":"/vendor/three.module.min.js",
-  "three/addons/":"/vendor/"
-}}
+{"imports":{"three":"/vendor/three.module.min.js"}}
 </script>
 </head>
 <body>
@@ -53,7 +50,7 @@
 <a class="hud" id="backBtn" href="/">← 回到选人画面</a>
 <div class="hud" id="titleBox">
   <h1>🌍 评论区粘土世界 · 全景</h1>
-  <p>六大阵营 · 六座粘土岛 · 69 个角色都在岛上</p>
+  <p>城堡 · 长廊 · 评论公寓 · 回声广场 · 六大阵营街区 — 69 个角色都在里面</p>
 </div>
 <div class="hud" id="hint">🖱️ 拖动旋转 · 滚轮缩放 · 点任意角色看他的资产卡</div>
 <div id="tip"></div>
@@ -70,8 +67,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from '/vendor/OrbitControls.js';
 
-const STILL = new URLSearchParams(location.search).has('still');
-if(new URLSearchParams(location.search).has('clean')){
+const QS = new URLSearchParams(location.search);
+const STILL = QS.has('still');
+if(QS.has('clean')){
   const st = document.createElement('style');
   st.textContent = '.hud,#hint{display:none!important}';
   document.head.appendChild(st);
@@ -91,29 +89,35 @@ renderer.setSize(innerWidth, innerHeight);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x060607);
-scene.fog = new THREE.FogExp2(0x060607, 0.0026);
+scene.fog = new THREE.FogExp2(0x060607, 0.0015);
 
-const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 600);
+const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 700);
 const _fitK = innerWidth/innerHeight < 1 ? Math.min(1/(innerWidth/innerHeight), 1.9) : 1;
-const CAM_END = new THREE.Vector3(0, 48*_fitK, 78*_fitK);
-const CAM_START = new THREE.Vector3(0, 115, 195);
-camera.position.copy(STILL ? CAM_END : CAM_START);
+const CAM_END = new THREE.Vector3(0, 54*_fitK, 96*_fitK);
+const CAM_START = new THREE.Vector3(0, 130, 225);
+if(QS.has('cam')){
+  const v = QS.get('cam').split(',').map(Number);
+  camera.position.set(v[0], v[1], v[2]);
+}else{
+  camera.position.copy(STILL ? CAM_END : CAM_START);
+}
 
-scene.add(new THREE.HemisphereLight(0xfff2dd, 0x241a33, 0.95));
-const sun = new THREE.DirectionalLight(0xffe6b8, 1.7);
-sun.position.set(34, 55, 22);
+scene.add(new THREE.HemisphereLight(0xfff2dd, 0x241a33, 1.06));
+const sun = new THREE.DirectionalLight(0xffe6b8, 1.85);
+sun.position.set(40, 70, 30);
 scene.add(sun);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 1, 0);
+const LOOK = QS.has('look') ? QS.get('look').split(',').map(Number) : [0, 2, -4];
+controls.target.set(LOOK[0], LOOK[1], LOOK[2]);
 controls.enableDamping = true;
 controls.dampingFactor = 0.06;
-controls.minDistance = 9;
-controls.maxDistance = 150;
-controls.maxPolarAngle = 1.48;
-controls.enabled = STILL;
+controls.minDistance = 5;
+controls.maxDistance = 240;
+controls.maxPolarAngle = 1.52;
+controls.enabled = STILL || QS.has('cam');
+controls.update();
 
-/* ---------- 按需渲染：只在有变化时画一帧，不跑持续循环 ---------- */
 let renderQueued = false;
 function render(){
   if(renderQueued) return;
@@ -128,10 +132,10 @@ addEventListener('resize', ()=>{
   render();
 });
 
-/* ---------- 确定性伪随机（同 id 永远同布局） ---------- */
-function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const pickables = [];
 
-/* ---------- 指纹泥纹：小画布一次生成，全岛共用 ---------- */
+/* ---------- 工具：确定性随机 / 泥纹 / 材质缓存 ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 function clayBumpTexture(){
   const cv = document.createElement('canvas'); cv.width = cv.height = 256;
   const g = cv.getContext('2d');
@@ -141,7 +145,8 @@ function clayBumpTexture(){
     g.beginPath();
     const x = rnd()*256, y = rnd()*256, r = 4+rnd()*16;
     g.arc(x, y, r, rnd()*6.28, rnd()*3+1.2);
-    g.strokeStyle = `rgba(${rnd()>0.5?255:0},${rnd()>0.5?255:0},${rnd()>0.5?255:0},0.10)`;
+    const v = rnd()>0.5?255:0;
+    g.strokeStyle = `rgba(${v},${v},${v},0.10)`;
     g.lineWidth = 1+rnd()*2.2; g.stroke();
   }
   const tx = new THREE.CanvasTexture(cv);
@@ -149,17 +154,45 @@ function clayBumpTexture(){
   return tx;
 }
 const bumpTex = clayBumpTexture();
-
+const matCache = new Map();
+function M(color, opts={}){
+  const key = color + JSON.stringify(opts);
+  if(!matCache.has(key)){
+    if(opts.basic) matCache.set(key, new THREE.MeshBasicMaterial({color, transparent:!!opts.transparent, opacity:opts.opacity??1}));
+    else matCache.set(key, new THREE.MeshLambertMaterial({color, flatShading:true, bumpMap:bumpTex, bumpScale:opts.bump??0.35, emissive:opts.emissive||0x000000, transparent:!!opts.transparent, opacity:opts.opacity??1}));
+  }
+  return matCache.get(key);
+}
 function jitterGeo(geo, amt, seed){
   const rnd = mulberry32(seed);
   const p = geo.attributes.position;
   for(let i=0;i<p.count;i++){
-    p.setXYZ(i, p.getX(i)+(rnd()-0.5)*amt, p.getY(i)+(rnd()-0.5)*amt*0.5, p.getZ(i)+(rnd()-0.5)*amt);
+    p.setXYZ(i, p.getX(i)+(rnd()-0.5)*amt, p.getY(i)+(rnd()-0.5)*amt*0.55, p.getZ(i)+(rnd()-0.5)*amt);
   }
   geo.computeVertexNormals();
   return geo;
 }
-
+let seedCtr = 1000;
+function box(w, h, d, color, x, y, z, ry=0, parent=scene, jitter=0.05){
+  const m = new THREE.Mesh(jitterGeo(new THREE.BoxGeometry(w, h, d), jitter, seedCtr++), M(color));
+  m.position.set(x, y, z); m.rotation.y = ry;
+  parent.add(m); return m;
+}
+function cyl(rt, rb, h, color, x, y, z, parent=scene, seg=14){
+  const m = new THREE.Mesh(jitterGeo(new THREE.CylinderGeometry(rt, rb, h, seg), h*0.02, seedCtr++), M(color));
+  m.position.set(x, y, z);
+  parent.add(m); return m;
+}
+function cone(r, h, color, x, y, z, parent=scene, seg=12){
+  const m = new THREE.Mesh(jitterGeo(new THREE.ConeGeometry(r, h, seg), r*0.04, seedCtr++), M(color));
+  m.position.set(x, y, z);
+  parent.add(m); return m;
+}
+function ball(r, color, x, y, z, parent=scene){
+  const m = new THREE.Mesh(jitterGeo(new THREE.SphereGeometry(r, 14, 11), r*0.05, seedCtr++), M(color));
+  m.position.set(x, y, z);
+  parent.add(m); return m;
+}
 function textSprite(text, sub, scale=1, fg='#fdf6e3'){
   const cv = document.createElement('canvas'); cv.width = 512; cv.height = 160;
   const g = cv.getContext('2d');
@@ -175,120 +208,444 @@ function textSprite(text, sub, scale=1, fg='#fdf6e3'){
   sp.scale.set(11*scale, 3.44*scale, 1);
   return sp;
 }
+const polar = (a, r)=>[Math.cos(a)*r, Math.sin(a)*r];
 
-/* ---------- 岛屿 ---------- */
-function makeIsland(R, colorHex, seed){
-  const grp = new THREE.Group();
-  const color = new THREE.Color(colorHex);
-  const side = new THREE.Mesh(
-    jitterGeo(new THREE.CylinderGeometry(R*0.88, R*0.40, 2.6, 26, 3), R*0.06, seed),
-    new THREE.MeshLambertMaterial({color, flatShading:true, bumpMap:bumpTex, bumpScale:0.6}));
-  grp.add(side);
-  const top = new THREE.Mesh(
-    jitterGeo(new THREE.CircleGeometry(R*0.88, 26), R*0.04, seed+7),
-    new THREE.MeshLambertMaterial({color: color.clone().lerp(new THREE.Color(0xffffff), 0.20), flatShading:true, bumpMap:bumpTex, bumpScale:0.5}));
-  top.rotation.x = -Math.PI/2; top.position.y = 1.31;
-  grp.add(top);
-  const rim = new THREE.Mesh(
-    new THREE.TorusGeometry(R*0.88, 0.20, 8, 42),
-    new THREE.MeshLambertMaterial({color: color.clone().lerp(new THREE.Color(0x000000), 0.18), flatShading:true}));
-  rim.rotation.x = Math.PI/2; rim.position.y = 1.30;
-  grp.add(rim);
-  const tipRock = new THREE.Mesh(
-    jitterGeo(new THREE.ConeGeometry(R*0.40, 3.6, 7), R*0.08, seed+13),
-    new THREE.MeshLambertMaterial({color:0x6f5b74, flatShading:true}));
-  tipRock.rotation.x = Math.PI; tipRock.position.y = -3.05;
-  grp.add(tipRock);
-  return grp;
+/* ---------- 地面：城镇高原 + 环路 + 大道 ---------- */
+{
+  const plateau = cyl(58, 40, 3.2, '#8a6d4f', 0, -1.6, 0, scene, 56);
+  plateau.material = M('#96795a', {bump:0.5});
+  const ground = new THREE.Mesh(jitterGeo(new THREE.CircleGeometry(58, 56), 0.35, 77), M('#a08059', {bump:0.55}));
+  ground.rotation.x = -Math.PI/2; ground.position.y = 0.02;
+  scene.add(ground);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(58, 0.5, 8, 72), M('#7a5f42'));
+  rim.rotation.x = Math.PI/2; rim.position.y = 0.05;
+  scene.add(rim);
+  const tip = cone(40, 16, '#6f5b74', 0, -11.5, 0, scene, 9);
+  tip.rotation.x = Math.PI;
+  const ring = new THREE.Mesh(new THREE.RingGeometry(21.5, 26.8, 56), M('#6e5138', {bump:0.3}));
+  ring.rotation.x = -Math.PI/2; ring.position.y = 0.045;
+  scene.add(ring);
+  for(let i=0;i<6;i++){
+    const a = i*Math.PI/3 + Math.PI/12;
+    const ave = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 34), M('#77573c', {bump:0.3}));
+    ave.rotation.x = -Math.PI/2; ave.rotation.z = -a + Math.PI/2;
+    const [ax, az] = polar(a, 30.5);
+    ave.position.set(ax, 0.04, az);
+    scene.add(ave);
+  }
+  const castleAve = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 27), M('#77573c', {bump:0.3}));
+  castleAve.rotation.x = -Math.PI/2;
+  castleAve.position.set(0, 0.04, -23.5);
+  scene.add(castleAve);
+  const plaza = new THREE.Mesh(jitterGeo(new THREE.CircleGeometry(11.5, 36), 0.2, 55), M('#b08a5e', {bump:0.4}));
+  plaza.rotation.x = -Math.PI/2; plaza.position.y = 0.05;
+  scene.add(plaza);
 }
 
-/* ---------- 星空与漂浮石（静态，一次成型） ---------- */
+/* ---------- 星空与漂浮石 ---------- */
 {
   const n = 480, pos = new Float32Array(n*3), rnd = mulberry32(9);
   for(let i=0;i<n;i++){
-    const th = rnd()*Math.PI*2, ph = Math.acos(rnd()*1.7-0.85), r = 190+rnd()*160;
+    const th = rnd()*Math.PI*2, ph = Math.acos(rnd()*1.7-0.85), r = 230+rnd()*180;
     pos[i*3] = r*Math.sin(ph)*Math.cos(th); pos[i*3+1] = Math.abs(r*Math.cos(ph))*0.7-25; pos[i*3+2] = r*Math.sin(ph)*Math.sin(th);
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   scene.add(new THREE.Points(g, new THREE.PointsMaterial({color:0xaFC4e8, size:1.7, sizeAttenuation:false, transparent:true, opacity:0.85, fog:false})));
   const rockGeo = new THREE.IcosahedronGeometry(1, 0);
-  const rockMat = new THREE.MeshLambertMaterial({color:0x77648a, flatShading:true});
+  const rockMat = M('#77648a');
   const rnd2 = mulberry32(31);
   for(let i=0;i<14;i++){
     const m = new THREE.Mesh(rockGeo, rockMat);
-    const a = rnd2()*Math.PI*2, r = 52+rnd2()*46;
-    m.position.set(Math.cos(a)*r, -8+rnd2()*26, Math.sin(a)*r);
+    const a = rnd2()*Math.PI*2, r = 85+rnd2()*70;
+    m.position.set(Math.cos(a)*r, -10+rnd2()*34, Math.sin(a)*r);
     m.rotation.set(rnd2()*3, rnd2()*3, rnd2()*3);
-    m.scale.setScalar(0.6+rnd2()*1.9);
+    m.scale.setScalar(1+rnd2()*3);
     scene.add(m);
   }
 }
 
-/* ---------- 数据驱动建岛 ---------- */
-const pickables = [];
-let loaded = 0, totalToLoad = 69;
-
-fetch('/characters.json').then(r=>r.json()).then(chars=>{
-  totalToLoad = chars.length;
-  const factions = [];
-  for(const c of chars){ if(!factions.includes(c.faction)) factions.push(c.faction); }
-  const loader = new THREE.TextureLoader();
-  loader.setCrossOrigin('anonymous');
-
-  factions.forEach((f, i)=>{
-    const members = chars.filter(c=>c.faction===f);
-    const R = 4.6 + members.length*0.52;
-    const ang = (i/factions.length)*Math.PI*2 + 0.26;
-    const ix = Math.cos(ang)*37, iz = Math.sin(ang)*37;
-    const island = makeIsland(R, members[0].color, 100+i*17);
-    island.position.set(ix, 0, iz);
-    scene.add(island);
-    const label = textSprite(f, members.length + ' 人', 1);
-    label.position.set(ix, R*0.42 + 5.4, iz);
-    scene.add(label);
-
-    const rnd = mulberry32(500+i*131);
-    members.forEach((c, k)=>{
-      const rad = (R-1.8)*Math.sqrt((k+0.5)/members.length);
-      const th = k*2.399963 + rnd()*0.5;
-      const x = ix + Math.cos(th)*rad, z = iz + Math.sin(th)*rad;
-      loader.load('/'+c.avatar.replace('avatar-','avatar-token-'), tx=>{
-        tx.colorSpace = THREE.SRGBColorSpace;
-        const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:tx, transparent:true}));
-        const h = 2.35, w = h*(tx.image.width/tx.image.height);
-        sp.scale.set(w, h, 1);
-        sp.position.set(x, 1.31 + h/2, z);
-        sp.userData = {id:c.id, name:c.name, title:c.title, baseScale:new THREE.Vector3(w,h,1)};
-        scene.add(sp);
-        pickables.push(sp);
-        if(++loaded >= totalToLoad){ loadingEl.style.opacity='0'; setTimeout(()=>loadingEl.remove(), 550); }
-        render();
-      }, undefined, ()=>{ if(++loaded >= totalToLoad){ loadingEl.style.opacity='0'; setTimeout(()=>loadingEl.remove(), 550); } });
-    });
+/* ---------- 城堡（评论城堡） ---------- */
+const CASTLE = {x:0, z:-36, hillY:5};
+{
+  const {x, z, hillY} = CASTLE;
+  cyl(14.5, 17, hillY, '#7d6248', x, hillY/2, z, scene, 26);
+  const topD = new THREE.Mesh(new THREE.CircleGeometry(14.5, 26), M('#8d6d4e', {bump:0.45}));
+  topD.rotation.x = -Math.PI/2; topD.position.set(x, hillY+0.03, z);
+  scene.add(topD);
+  const wall = '#9c7a56', wallD = '#86664a', roof = '#a44a3f';
+  box(13, 6.5, 1.2, wall, x, hillY+3.25, z+5.4);                 // 前墙
+  box(13, 6.5, 1.2, wallD, x, hillY+3.25, z-5.4);                // 后墙
+  box(1.2, 6.5, 10, wallD, x-6.4, hillY+3.25, z);
+  box(1.2, 6.5, 10, wallD, x+6.4, hillY+3.25, z);
+  for(let i=-5;i<=5;i+=2) box(1.1, 1.1, 1.3, wall, x+i, hillY+7, z+5.4);  // 雉堞
+  [[-6.4,-5.4],[6.4,-5.4],[-6.4,5.4],[6.4,5.4]].forEach(([ox, oz])=>{
+    cyl(1.9, 2.2, 10, wall, x+ox, hillY+5, z+oz, scene, 12);
+    cone(2.9, 3.6, roof, x+ox, hillY+11.8, z+oz, scene, 12);
   });
+  box(4.6, 5, 0.7, '#4a3826', x, hillY+2.5, z+6.05);            // 城门（深色门洞）
+  box(5.6, 0.8, 1.1, wallD, x, hillY+5.3, z+6.0);
+  ball(0.55, '#e9b44c', x, hillY+6.2, z+6.0).material = M('#e9b44c', {emissive:0x664d10});
+  // 露台（前墙外）
+  box(9, 0.5, 2.6, wallD, x, hillY+4.1, z+7.3);
+  for(let i=-4;i<=4;i+=1.33) box(0.28, 1, 0.28, wall, x+i, hillY+4.85, z+8.5);
+  box(9, 0.3, 0.3, wall, x, hillY+5.4, z+8.5);
+  // 旗帜
+  cyl(0.09, 0.09, 5.5, '#5d4a33', x, hillY+12.5, z-5.4, scene, 6);
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.5), new THREE.MeshBasicMaterial({color:0xe9b44c, side:THREE.DoubleSide}));
+  flag.position.set(x+1.35, hillY+14.3, z-5.4);
+  scene.add(flag);
+  const lb = textSprite('评论城堡', 'CASTLE', 0.95);
+  lb.position.set(x, hillY+17.5, z);
+  scene.add(lb);
+}
 
-  /* 中央隐藏岛：No.70–72 */
-  const hidden = makeIsland(5.2, '#4a4157', 999);
-  hidden.position.set(0, -0.4, 0);
-  scene.add(hidden);
-  const hLabel = textSprite('？？？', '隐藏角色 · 尚未揭晓', 0.9, '#cfc4e8');
-  hLabel.position.set(0, 7.4, 0);
-  scene.add(hLabel);
+/* ---------- 长廊（城堡大道回廊） ---------- */
+{
+  for(let z=-13.5; z>=-25; z-=2.9){
+    cyl(0.32, 0.4, 4.4, '#b08a5e', -3.4, 2.2, z, scene, 10);
+    cyl(0.32, 0.4, 4.4, '#b08a5e',  3.4, 2.2, z, scene, 10);
+    ball(0.5, '#8a6d4f', -3.4, 4.55, z); ball(0.5, '#8a6d4f', 3.4, 4.55, z);
+  }
+  const roofSlab = box(8.6, 0.45, 14.5, '#a44a3f', 0, 4.95, -19.2);
+  roofSlab.rotation.x = 0.012;
+  box(8.6, 0.45, 14.5, '#b3543f', 0, 5.35, -19.2).rotation.x = -0.012;
+  for(let z=-14.5; z>=-24; z-=3.2){
+    const t = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.1, 8, 20), M('#e9b44c'));
+    t.position.set(0, 4.35, z); scene.add(t);
+  }
+  const lb = textSprite('回音长廊', '', 0.7);
+  lb.position.set(0, 7.6, -19.2);
+  scene.add(lb);
+}
+
+/* ---------- 回声广场喷泉 ---------- */
+{
+  cyl(3.1, 3.5, 0.85, '#7a9db0', 0, 0.42, 0, scene, 20);
+  cyl(2.5, 2.5, 0.3, '#a8c8d8', 0, 0.95, 0, scene, 20).material = M('#a8c8d8', {emissive:0x11222a});
+  cyl(0.3, 0.42, 2.6, '#7a9db0', 0, 1.9, 0, scene, 10);
+  ball(1.05, '#fdf6e3', -0.9, 3.9, 0.2);
+  ball(0.8, '#fdf6e3', 0.85, 4.3, -0.3);
+  ball(0.62, '#fdf6e3', 0.1, 4.9, 0.55);
+  const lb = textSprite('回声广场', 'PLAZA', 0.8);
+  lb.position.set(0, 8.6, 0);
+  scene.add(lb);
+}
+
+/* ---------- 评论公寓（剖面房间楼） ---------- */
+const APART = {x:22.7, z:25.2, ry: Math.atan2(-22.7, -25.2)};
+{
+  const g = new THREE.Group();
+  g.position.set(APART.x, 0, APART.z);
+  g.rotation.y = APART.ry;
+  scene.add(g);
+  const W = 15, D = 4.6, FH = 3.1;
+  box(W, 0.35, D+1.2, '#6e5138', 0, 0.17, 0, 0, g);                    // 地基
+  box(W, FH*3+0.4, 0.4, '#8d6d4e', 0, (FH*3)/2, -D/2, 0, g);           // 后墙
+  box(0.4, FH*3+0.4, D, '#86664a', -W/2, (FH*3)/2, 0, 0, g);
+  box(0.4, FH*3+0.4, D, '#86664a',  W/2, (FH*3)/2, 0, 0, g);
+  box(W+1.4, 0.5, D+1.6, '#a44a3f', 0, FH*3+0.6, 0, 0, g);             // 屋顶
+  cone(0.1, 0.1, '#000000', 0, -99, 0, g).visible = false;
+  const rugCols = ['#b3543f','#5d7a8c','#7a8450','#c96f4a','#845ec2','#e0a458','#8fa98f','#a44a3f','#5e7153'];
+  for(let f=0; f<3; f++){
+    const y = f*FH;
+    box(W, 0.28, D, '#77573c', 0, y+0.14, 0, 0, g);                   // 楼板
+    for(let rIdx=0; rIdx<3; rIdx++){
+      const cx = -W/3 + rIdx*(W/3) + 0.1;
+      if(rIdx>0) box(0.25, FH, D*0.92, '#9c7a56', cx-W/6, y+FH/2, 0, 0, g);  // 隔墙
+      const rug = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 3.2), M(rugCols[f*3+rIdx], {bump:0.15}));
+      rug.rotation.x = -Math.PI/2; rug.position.set(cx, y+0.3, 0.2);
+      g.add(rug);
+      // 家具三选一：桌 / 床 / 书架
+      const kind = (f*3+rIdx) % 3;
+      if(kind===0){ box(1.7, 0.16, 1, '#5d4a33', cx-0.4, y+1.05, -1.1, 0, g); box(0.16, 0.8, 0.16, '#5d4a33', cx-1.1, y+0.65, -1.4, 0, g); box(0.16, 0.8, 0.16, '#5d4a33', cx+0.3, y+0.65, -1.4, 0, g); ball(0.3, '#e9b44c', cx-0.4, y+1.35, -1.1, g); }
+      if(kind===1){ box(2.4, 0.55, 1.5, '#5d7a8c', cx, y+0.6, -1.2, 0, g); box(0.9, 0.35, 1.4, '#fdf6e3', cx-0.7, y+0.95, -1.2, 0, g); }
+      if(kind===2){ box(2.2, 2.1, 0.5, '#71563f', cx+0.5, y+1.35, -1.9, 0, g); box(1.8, 0.14, 0.55, '#e9b44c', cx+0.5, y+1.6, -1.85, 0, g); box(1.8, 0.14, 0.55, '#b3543f', cx+0.5, y+2.25, -1.85, 0, g); }
+      // 暖光窗（后墙小窗，自发光贴片）
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.2), new THREE.MeshBasicMaterial({color:0xffca7a}));
+      win.position.set(cx-1.1, y+2.1, -D/2+0.22);
+      g.add(win);
+    }
+  }
+  const lb = textSprite('评论公寓', '每人一间房', 0.85);
+  lb.position.set(0, FH*3+3.4, 0);
+  g.add(lb);
+  APART.group = g; APART.W = W; APART.FH = FH;
+}
+
+/* ---------- 市集摊位 ---------- */
+const STALL_ANGLES = [1.85, 3.75, 5.6];
+{
+  for(const a of STALL_ANGLES){
+    const [sx, sz] = polar(a, 15.5);
+    const g = new THREE.Group();
+    g.position.set(sx, 0, sz);
+    g.rotation.y = Math.atan2(-sx, -sz);
+    scene.add(g);
+    box(3.4, 0.9, 1.4, '#71563f', 0, 0.45, 0, 0, g);
+    [[-1.55,-0.6],[1.55,-0.6],[-1.55,0.6],[1.55,0.6]].forEach(([ox,oz])=>cyl(0.09, 0.09, 2.6, '#5d4a33', ox, 1.3, oz, g, 6));
+    box(3.9, 0.14, 2.2, '#b3543f', 0, 2.62, 0, 0, g).rotation.x = 0.1;
+    box(3.9, 0.14, 0.75, '#fdf6e3', 0, 2.68, -0.72, 0, g).rotation.x = 0.1;
+    ball(0.3, '#e9b44c', -0.9, 1.1, 0.2, g); ball(0.26, '#b3543f', -0.2, 1.08, 0.35, g); ball(0.3, '#7a8450', 0.55, 1.1, 0.15, g);
+    g.userData.stallPos = new THREE.Vector3(sx, 0, sz);
+    (window.__stalls ||= []).push(g);
+  }
+}
+
+/* ---------- 路灯与泥树 ---------- */
+{
+  for(let i=0;i<12;i++){
+    const a = i*Math.PI/6 + 0.13;
+    const [lx, lz] = polar(a, 28.6);
+    cyl(0.09, 0.13, 3.1, '#4a3a28', lx, 1.55, lz, scene, 6);
+    const bulb = ball(0.34, '#ffd98a', lx, 3.3, lz);
+    bulb.material = M('#ffd98a', {emissive:0x8a6420});
+  }
+  const rnd = mulberry32(1234);
+  for(let i=0;i<11;i++){
+    const a = rnd()*Math.PI*2, r = 47+rnd()*8;
+    const [tx2, tz2] = polar(a, r);
+    cyl(0.22, 0.34, 1.6, '#6e5138', tx2, 0.8, tz2, scene, 7);
+    ball(1.1+rnd()*0.7, ['#7a8450','#5e7153','#8fa98f'][i%3], tx2, 2.4+rnd()*0.5, tz2);
+    ball(0.8, '#7a8450', tx2+0.8, 1.9, tz2+0.4);
+  }
+}
+
+/* ---------- 六大街区：民居 + 奇观 ---------- */
+const WONDERS = {
+  '真爱粉丝': (g)=>{ // 应援舞台 + 爱心碑
+    cyl(4.6, 5.2, 0.7, '#c96f4a', 0, 0.35, 0, g, 22);
+    cyl(0.5, 0.7, 2.2, '#8d84a0', 0, 1.8, 0, g, 10);
+    ball(1.15, '#e56b8c', -0.85, 4.1, 0, g); ball(1.15, '#e56b8c', 0.85, 4.1, 0, g);
+    const tipH = cone(2.2, 2.8, '#e56b8c', 0, 2.2, 0, g, 4); tipH.rotation.x = Math.PI; tipH.rotation.y = Math.PI/4; tipH.scale.set(1, 1, 0.55);
+  },
+  '挑剔观众': (g)=>{ // 巨型放大镜
+    cyl(3.6, 4.4, 0.7, '#5d7a8c', 0, 0.35, 0, g, 22);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.3, 10, 30), M('#3f4c56'));
+    ring.position.set(0, 4.6, 0); ring.rotation.x = 0.35; g.add(ring);
+    const glass = new THREE.Mesh(new THREE.CircleGeometry(2.45, 30), M('#bcd8e4', {basic:true, transparent:true, opacity:0.30}));
+    glass.position.copy(ring.position); glass.rotation.x = 0.35; g.add(glass);
+    const hd = cyl(0.32, 0.38, 3.6, '#71563f', 1.9, 1.9, 0, g, 8); hd.rotation.z = -0.7;
+  },
+  '理性分析': (g)=>{ // 天平纪念碑
+    cyl(3.6, 4.4, 0.7, '#7a8450', 0, 0.35, 0, g, 22);
+    cyl(0.35, 0.55, 5.4, '#5e7153', 0, 3.4, 0, g, 10);
+    box(7.2, 0.35, 0.35, '#71563f', 0, 6.2, 0, 0, g);
+    [-3.2, 3.2].forEach(ox=>{
+      cyl(0.05, 0.05, 1.6, '#3b2d20', ox, 5.3, 0, g, 5);
+      const pan = cone(1.25, 0.55, '#e9b44c', ox, 4.35, 0, g, 14); pan.rotation.x = Math.PI;
+    });
+    ball(0.5, '#e9b44c', 0, 6.7, 0, g);
+  },
+  '立场交锋': (g)=>{ // 对峙双塔 + 裂谷
+    const t1 = box(2.2, 6.4, 2.2, '#a44a3f', -2.3, 3.2, 0, 0, g); t1.rotation.z = 0.10;
+    const t2 = box(2.2, 6.4, 2.2, '#5d7a8c',  2.3, 3.2, 0, 0, g); t2.rotation.z = -0.10;
+    cone(1.9, 1.8, '#7a3428', -2.3, 7.3, 0, g, 4); cone(1.9, 1.8, '#3f5a68', 2.3, 7.3, 0, g, 4);
+    box(1.1, 0.14, 6.5, '#14100c', 0, 0.10, 0, 0, g, 0);
+  },
+  '路过乱入': (g)=>{ // 传送圆环
+    cyl(3.8, 4.6, 0.7, '#845ec2', 0, 0.35, 0, g, 22);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(2.7, 0.32, 10, 32), M('#6a4ca0'));
+    ring.position.set(0, 3.9, 0); g.add(ring);
+    const inner = new THREE.Mesh(new THREE.CircleGeometry(2.5, 30), M('#c9b8f0', {basic:true, transparent:true, opacity:0.35}));
+    inner.position.copy(ring.position); g.add(inner);
+    box(2.6, 0.35, 1.1, '#8d84a0', 0, 0.85, 1.8, 0, g);
+    box(2.0, 0.35, 1.1, '#8d84a0', 0, 0.5, 2.9, 0, g);
+  },
+  '高阶抬杠': (g)=>{ // 螺旋塔
+    let y = 0, s = 5.2;
+    for(let i=0;i<9;i++){
+      const b = box(s, 0.95, s, i%2 ? '#946b54' : '#a87c5e', 0, y+0.48, 0, 0, g);
+      b.rotation.y = i*0.21;
+      y += 0.95; s *= 0.90;
+    }
+    cone(1.3, 2.0, '#b3543f', 0, y+1, 0, g, 4);
+    ball(0.4, '#e9b44c', 0, y+2.3, 0, g);
+  },
+};
+const districtInfo = []; // {angle, color, name}
+function buildDistrict(faction, colorHex, angle, membersCount){
+  const g = new THREE.Group();
+  scene.add(g);
+  const [cx, cz] = polar(angle, 38);
+  const wg = new THREE.Group();
+  wg.position.set(cx, 0, cz);
+  wg.rotation.y = Math.atan2(-cx, -cz);
+  g.add(wg);
+  const tint = new THREE.Mesh(new THREE.CircleGeometry(14.5, 30), M(colorHex, {bump:0.2, transparent:true, opacity:0.20}));
+  tint.rotation.x = -Math.PI/2; tint.position.set(cx, 0.055, cz);
+  scene.add(tint);
+  (WONDERS[faction] || WONDERS['真爱粉丝'])(wg);
+  const lb = textSprite(faction, membersCount + ' 人', 0.95);
+  lb.position.set(cx, 11.5, cz);
+  scene.add(lb);
+  // 民居 5 栋（弧形排布）
+  const houses = [];
+  const rnd = mulberry32(Math.floor(angle*1000)+7);
+  for(let i=0;i<5;i++){
+    const ha = angle + (i-2)*0.155;
+    const hr = 46.5 + (i%2)*2.5;
+    const [hx, hz] = polar(ha, hr);
+    const hg = new THREE.Group();
+    hg.position.set(hx, 0, hz);
+    hg.rotation.y = Math.atan2(-hx, -hz);
+    scene.add(hg);
+    const bodyC = new THREE.Color(colorHex).lerp(new THREE.Color(0xf3e2c2), 0.35 + rnd()*0.3).getHex();
+    const roofC = ['#a44a3f','#71563f','#5e7153','#845ec2','#c96f4a'][Math.floor(rnd()*5)];
+    box(3.4, 2.5+rnd()*0.7, 3.1, bodyC, 0, 1.45, 0, 0, hg);
+    const roof = cone(3.1, 1.7, roofC, 0, 3.6+rnd()*0.35, 0, hg, 4); roof.rotation.y = Math.PI/4;
+    box(0.95, 1.7, 0.14, '#4a3826', 0, 0.95, 1.6, 0, hg);
+    const win = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), new THREE.MeshBasicMaterial({color:0xffca7a}));
+    win.position.set(1.05, 1.8, 1.58); hg.add(win);
+    houses.push({x:hx, z:hz, a:ha});
+  }
+  districtInfo.push({faction, angle, cx, cz, houses});
+  return g;
+}
+
+/* ---------- 隐藏岛（No.70–72） ---------- */
+{
+  const g = new THREE.Group();
+  g.position.set(46, 8.5, 34);
+  scene.add(g);
+  const isl = cyl(5.4, 2.2, 2.2, '#4a4157', 0, 0, 0, g, 20);
+  const tipR = cone(2.2, 3.4, '#3c3547', 0, -2.8, 0, g, 8); tipR.rotation.x = Math.PI;
   [[-1.9,-0.6],[0.2,1.2],[2.1,-0.9]].forEach((off, i)=>{
-    const mon = new THREE.Mesh(
-      jitterGeo(new THREE.BoxGeometry(1.15, 2.7, 0.55), 0.06, 700+i),
-      new THREE.MeshLambertMaterial({color:0x8d84a0, flatShading:true, bumpMap:bumpTex, bumpScale:0.4}));
-    mon.position.set(off[0], 1.31+1.35-0.4, off[1]);
-    mon.rotation.y = i*0.5 - 0.4;
+    const mon = box(1.15, 2.7, 0.55, '#8d84a0', off[0], 2.4, off[1], i*0.5-0.4, g);
     mon.userData = {hidden:true};
-    scene.add(mon);
     pickables.push(mon);
-    const q = textSprite('？', '', 0.42, '#fdf6e3');
+    const q = textSprite('？', '', 0.42);
     q.position.set(off[0], 4.6, off[1]);
     q.userData = {hidden:true};
-    scene.add(q);
-    pickables.push(q);
+    g.add(q); pickables.push(q);
+  });
+  const lb = textSprite('？？？', '隐藏角色 · 尚未揭晓', 0.85, '#cfc4e8');
+  lb.position.set(0, 7, 0);
+  g.add(lb);
+}
+
+/* ---------- 角色入驻 ---------- */
+const texLoader = new THREE.TextureLoader();
+texLoader.setCrossOrigin('anonymous');
+let loadedCount = 0, totalCount = 69;
+function finishLoad(){
+  if(++loadedCount >= totalCount){
+    loadingEl.style.opacity = '0';
+    setTimeout(()=>loadingEl.remove(), 550);
+  }
+}
+function placeChar(c, view, x, y, z, h=2.3, parent=scene){
+  texLoader.load(`/img/view-${view}-${String(c.id).padStart(2,'0')}.webp`, tx=>{
+    tx.colorSpace = THREE.SRGBColorSpace;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:tx, transparent:true}));
+    const w = h*(tx.image.width/tx.image.height);
+    sp.scale.set(w, h, 1);
+    sp.position.set(x, y + h/2, z);
+    sp.userData = {id:c.id, name:c.name, title:c.title, baseScale:new THREE.Vector3(w, h, 1)};
+    parent.add(sp);
+    pickables.push(sp);
+    finishLoad();
+    render();
+  }, undefined, ()=>{ finishLoad(); });
+}
+
+fetch('/characters.json').then(r=>r.json()).then(chars=>{
+  totalCount = chars.length;
+  const factions = [];
+  for(const c of chars) if(!factions.includes(c.faction)) factions.push(c.faction);
+  const byFaction = factions.map(f=>chars.filter(c=>c.faction===f));
+
+  // 街区先建（需要 houses 坐标给居民定位）
+  byFaction.forEach((members, i)=>{
+    const angle = i*Math.PI/3 + Math.PI/12;
+    buildDistrict(members[0].faction, members[0].color, angle, members.length);
+  });
+
+  /* 分配：公共建筑优先，每阵营至少留 2 人回本区 */
+  const assigned = new Set();
+  const remaining = ()=>chars.filter(c=>!assigned.has(c.id));
+  const homeCount = f=>remaining().filter(c=>c.faction===f).length;
+  function take(filterFn){
+    const pool = remaining();
+    const c = pool.find(x=>(!filterFn || filterFn(x)) && homeCount(x.faction) > 2) || pool.find(x=>!filterFn || filterFn(x));
+    if(c) assigned.add(c.id);
+    return c;
+  }
+  function takeFromFaction(f, skip=0){
+    const pool = remaining().filter(c=>c.faction===f);
+    const c = pool[skip] || pool[0];
+    if(c) assigned.add(c.id);
+    return c;
+  }
+
+  // 城堡班底：每阵营第一人
+  const crew = byFaction.map(m=>takeFromFaction(m[0].faction));
+  const [g1, g2, b1, b2, w1, w2] = crew;
+  if(g1) placeChar(g1, 'front', CASTLE.x-2.4, CASTLE.hillY, CASTLE.z+7.2, 2.3);
+  if(g2) placeChar(g2, 'front', CASTLE.x+2.4, CASTLE.hillY, CASTLE.z+7.2, 2.3);
+  if(b1) placeChar(b1, 'front', CASTLE.x+1.9, CASTLE.hillY+4.35, CASTLE.z+7.3, 2.2);
+  if(b2) placeChar(b2, 'back',  CASTLE.x-1.9, CASTLE.hillY+4.35, CASTLE.z+7.3, 2.2);
+  if(w1) placeChar(w1, 'back',  CASTLE.x-5.2, CASTLE.hillY+7.6, CASTLE.z+5.4, 2.2);
+  if(w2) placeChar(w2, 'back',  CASTLE.x+5.2, CASTLE.hillY+7.6, CASTLE.z+5.4, 2.2);
+
+  // 评论公寓：9 间房
+  const apartChars = [];
+  for(let i=0;i<9;i++) apartChars.push(take());
+  apartChars.forEach((c, i)=>{
+    if(!c) return;
+    const f = Math.floor(i/3), rIdx = i%3;
+    const cx = -APART.W/3 + rIdx*(APART.W/3) + 0.1;
+    placeChar(c, 'front', cx+0.55, f*APART.FH+0.28, 0.75, 2.0, APART.group);
+  });
+
+  // 长廊散步：4 人侧面
+  for(let i=0;i<4;i++){
+    const c = take(); if(!c) break;
+    placeChar(c, 'side', (i%2? -1.7: 1.7), 0, -14.5 - i*2.8, 2.25);
+  }
+  // 广场围观喷泉：6 人
+  for(let i=0;i<6;i++){
+    const c = take(); if(!c) break;
+    const a = i*(Math.PI*2/6) + 0.4;
+    const [px, pz] = polar(a, 6.4);
+    placeChar(c, i%2? 'back':'front', px, 0, pz, 2.5);
+  }
+  // 市集摊主：3 人
+  (window.__stalls||[]).forEach((sg, i)=>{
+    const c = take(); if(!c) return;
+    const wp = new THREE.Vector3();
+    sg.getWorldPosition(wp);
+    const inward = wp.clone().normalize().multiplyScalar(-1.15);
+    placeChar(c, 'front', wp.x + inward.x, 0, wp.z + inward.z, 2.2);
+  });
+
+  // 其余回各街区：门口 / 街道 / 奇观前 / 院子 轮换
+  const slotCycle = ['door', 'street', 'wonder', 'yard', 'street', 'door'];
+  byFaction.forEach((members, fi)=>{
+    const info = districtInfo[fi];
+    const rest = members.filter(c=>!assigned.has(c.id));
+    rest.forEach((c, k)=>{
+      const slot = slotCycle[k % slotCycle.length];
+      const rnd = mulberry32(c.id*97+13);
+      if(slot==='door'){
+        const h = info.houses[k % info.houses.length];
+        const inw = polar(Math.atan2(h.z, h.x)+Math.PI, 0); // 朝中心方向
+        const dirx = -h.x/Math.hypot(h.x, h.z), dirz = -h.z/Math.hypot(h.x, h.z);
+        placeChar(c, 'front', h.x + dirx*2.6 + (rnd()-0.5), 0, h.z + dirz*2.6 + (rnd()-0.5), 2.5);
+      }else if(slot==='street'){
+        const a = info.angle + (k%2? 0.16 : -0.14) + (rnd()-0.5)*0.05;
+        const [sx, sz] = polar(a, 24.2);
+        placeChar(c, 'side', sx, 0, sz, 2.5);
+      }else if(slot==='wonder'){
+        const a = info.angle + (rnd()-0.5)*0.3;
+        const [wx, wz] = polar(a, 31.5);
+        placeChar(c, 'back', wx, 0, wz, 2.5);
+      }else{
+        const a = info.angle + (rnd()-0.5)*0.55;
+        const [yx, yz] = polar(a, 50 + rnd()*3);
+        placeChar(c, 'front', yx, 0, yz, 2.5);
+      }
+    });
   });
   render();
 }).catch(()=>{
@@ -347,17 +704,17 @@ renderer.domElement.addEventListener('pointermove', e=>{
   });
 });
 
-/* ---------- 开场巡航（Google 地球式由远及近，可打断） ---------- */
+/* ---------- 开场巡航（可打断） ---------- */
 let intro = null;
 function cancelIntro(){ if(intro){ intro.done = true; controls.enabled = true; } }
-if(!STILL){
-  intro = {t0: performance.now(), dur: 2300, done:false};
+if(!STILL && !QS.has('cam')){
+  intro = {t0: performance.now(), dur: 2400, done:false};
   (function step(){
     if(intro.done) { render(); return; }
     const t = Math.min((performance.now()-intro.t0)/intro.dur, 1);
     const e = 1 - Math.pow(1-t, 3);
     camera.position.lerpVectors(CAM_START, CAM_END, e);
-    camera.lookAt(0, 1, 0);
+    camera.lookAt(LOOK[0], LOOK[1], LOOK[2]);
     renderer.render(scene, camera);
     if(t < 1) requestAnimationFrame(step);
     else { intro.done = true; controls.enabled = true; render(); }
