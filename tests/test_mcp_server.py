@@ -241,10 +241,10 @@ def test_coverage(tools):
 @pytest.mark.parametrize(
     ("name", "args", "needle"),
     [
-        ("query_sql", {"sql": "DELETE FROM observations"}, "QueryRejected"),
-        ("query_sql", {"sql": "   "}, "ValueError"),
-        ("search_docs", {"queries": "x", "k": 0}, "ValueError"),
-        ("cite", {"snapshot_sha256": "xyz", "locator": "row=1"}, "ValueError"),
+        ("query_sql", {"sql": "DELETE FROM observations"}, "QueryRejected: 只允许单条 SELECT / WITH 查询"),
+        ("query_sql", {"sql": "   "}, "ValueError: sql 不能为空白"),
+        ("search_docs", {"queries": "x", "k": 0}, "ValueError: k 必须是 1–50 的整数"),
+        ("cite", {"snapshot_sha256": "xyz", "locator": "row=1"}, "ValueError: snapshot_sha256 必须是 64 位小写十六进制"),
         ("get_chunk", {"chunk_id": 5}, ""),  # 参数类型错误也是错误结果
     ],
 )
