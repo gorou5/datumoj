@@ -4,7 +4,7 @@ compatibility_date = "2025-01-01"
 workers_dev = false
 
 routes = [
-  { pattern = "tel.datumoj.com", custom_domain = true },
+  { pattern = "datumoj.com/tel*", zone_name = "datumoj.com" },
 ]
 
 [[d1_databases]]
@@ -12,3 +12,11 @@ binding = "DB"
 database_name = "tel_datumoj"
 database_id = "508216ec-1d88-454c-9d3a-465b1c29adff"
 migrations_dir = "migrations"
+
+# SSG snapshots of landed Tier 1 number pages (tel/snapshots/<digits>.html).
+# Datumoj account's existing bucket; see src/lib/snapshot.js for the
+# validity contract. The Worker degrades to plain SSR when R2 is absent
+# or failing, so this binding is an optimisation layer, never a dependency.
+[[r2_buckets]]
+binding = "SNAPSHOTS"
+bucket_name = "datumoj"
