@@ -31,7 +31,7 @@
 <script>
 function esc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 var TAGS = {'仓库':['#e3ecf7','#205f9e','#a9c4e2'],'上线':['#e2f2e4','#1e7a34','#a3d3ac'],'调研':['#ece5f7','#5b3ea8','#c4b2e8'],'运维':['#fdf0dc','#9a6206','#ecc887'],'安全':['#fdecea','#a02c2c','#e3a49f'],'同步':['#ddf2f0','#0f766e','#93d5cf']};
-fetch('/feed.json').then(function(r){return r.json();}).then(function(items){
+fetch('/navi/feed.json').then(function(r){return r.json();}).then(function(items){
   var box=document.getElementById('feed');
   if(!items || !items.length){ box.innerHTML='<p class="lede">暂无动态。</p>'; return; }
   box.innerHTML = items.map(function(it){

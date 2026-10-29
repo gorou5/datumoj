@@ -34,7 +34,7 @@
 </div>
 <script>
 function esc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-fetch('/people.json').then(function(r){return r.json();}).then(function(d){
+fetch('/navi/people.json').then(function(r){return r.json();}).then(function(d){
   document.getElementById('gen').textContent = '生成于 ' + (d.generated||'');
   var box = document.getElementById('people');
   if(!d.people || !d.people.length){ box.innerHTML='<p class="lede">暂无数据。</p>'; return; }
