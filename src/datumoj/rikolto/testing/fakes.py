@@ -16,7 +16,7 @@ import unicodedata
 from collections import Counter, deque
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 from threading import Lock
@@ -81,7 +81,6 @@ from datumoj.rikolto.core.models import (
     Freshness,
     GapState,
     GenerationToken,
-    ReleaseEntry,
     Hit,
     MatchedBy,
     Observation,
@@ -89,13 +88,14 @@ from datumoj.rikolto.core.models import (
     ObservationRef,
     ObservationRowEvidence,
     PublishState,
+    ReleaseEntry,
     Resource,
     Snapshot,
     SnapshotOrder,
-    SourceText,
     SourceId,
-    Text,
+    SourceText,
     StateGeneration,
+    Text,
     ToolResult,
     parent_ref,
     parse_context_fingerprint,
@@ -125,7 +125,7 @@ def _norm(text: str) -> str:
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _latest(snaps: Iterable[Snapshot]) -> Snapshot | None:
@@ -436,7 +436,7 @@ class FakeHttpFetcher:
         if red not in self.routes:
             raise UnregisteredUrl(f"假 HTTP 没有登记这个 URL：{red}")
         resp = self.routes[red]
-        base: dict[str, Any] = dict(url=red, fetched_at=self.now())
+        base: dict[str, Any] = {"url": red, "fetched_at": self.now()}
         if resp.network_error:
             return FetchResult(**base, outcome=FetchOutcome.network_error, error=resp.network_error)
         if head_probe and last_modified is not None and size is not None:
@@ -894,9 +894,7 @@ class FakeCatalogStore:
             want = {_norm_format(x) for x in f.formats}
             if not any(_norm_format(e.resource.format) in want for e in self.resources_for(d.dataset_key)):
                 return False
-        if f.modified_since is not None and (d.modified_at is None or d.modified_at < f.modified_since):
-            return False
-        return True
+        return not (f.modified_since is not None and (d.modified_at is None or d.modified_at < f.modified_since))
 
     def search(self, query: str, filters: CatalogFilter | None = None, k: int = 20) -> list[CatalogHit]:
         if k < 1:
@@ -923,18 +921,18 @@ class FakeCatalogStore:
 _DECIMAL_TYPE = "DATUMOJ_FAKE_DECIMAL"
 sqlite3.register_converter(_DECIMAL_TYPE, lambda b: Decimal(b.decode()))
 _STRINGS = re.compile(r"'(?:[^']|'')*'|\"(?:[^\"]|\"\")*\"")
-_COMMENTS = re.compile(r"--[^\n]*|/\*.*?\*/", re.S)
+_COMMENTS = re.compile(r"--[^\n]*|/\*.*?\*/", re.DOTALL)
 _FORBIDDEN = re.compile(
     r"\b(insert|update|delete|drop|create|alter|attach|detach|copy|pragma|set|reset|install|load|export|import"
     r"|call|vacuum|checkpoint)\b|\bread_\w+|\b\w+_scan\s*\(|\bglob\s*\(",
-    re.I,
+    re.IGNORECASE,
 )
 _ALLOWED_ACTIONS = {sqlite3.SQLITE_SELECT, sqlite3.SQLITE_READ, sqlite3.SQLITE_FUNCTION, sqlite3.SQLITE_RECURSIVE}
 
 
 def _guard_sql(sql: str) -> None:
     bare = _COMMENTS.sub(" ", _STRINGS.sub("''", sql)).strip().rstrip(";").strip()
-    if not re.match(r"(select|with)\b", bare, re.I):
+    if not re.match(r"(select|with)\b", bare, re.IGNORECASE):
         raise QueryRejected("只允许单条 SELECT / WITH 查询")
     if ";" in bare:
         raise QueryRejected("不允许多条语句")

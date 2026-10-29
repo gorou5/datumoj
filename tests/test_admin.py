@@ -5,7 +5,6 @@ import re
 import sys
 import threading
 from datetime import timedelta
-from pathlib import Path
 from types import SimpleNamespace
 
 from starlette.testclient import TestClient
@@ -217,7 +216,7 @@ def test_failure_reason_is_shown_and_escaped(tmp_path):
 
 
 def test_admin_cli_binds_only_loopback_and_prints_url(tmp_path, monkeypatch):
-    app, deps, scheduler, _ = _admin(tmp_path)
+    _app, deps, scheduler, _ = _admin(tmp_path)
     monkeypatch.setattr(cli, "_scheduler_at", lambda root: (deps, scheduler))
     called = {}
 

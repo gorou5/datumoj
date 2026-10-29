@@ -6,12 +6,12 @@ fall back after a failed token. A checked adapter also covers 802/803 SQL calls.
 
 from __future__ import annotations
 
+import json
 from calendar import monthrange
 from collections import defaultdict
 from dataclasses import dataclass, replace
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
-import json
 from pathlib import Path
 
 from datumoj.eltiro.areas import BY_SCHEME, country, detect_scheme
@@ -23,7 +23,7 @@ from datumoj.eltiro.operations import calculate
 from datumoj.eltiro.profile_store import SQLiteProfileStore
 from datumoj.eltiro.profiles import generate_profiles
 from datumoj.eltiro.runs import RunStore
-from datumoj.rikolto.core.contracts import ObservationCatalog, OBSERVATION_RELEASE_COLUMNS, TableSummary
+from datumoj.rikolto.core.contracts import OBSERVATION_RELEASE_COLUMNS, ObservationCatalog, TableSummary
 from datumoj.rikolto.core.models import GenerationToken
 from datumoj.rikolto.wiring import open_generation_views
 
@@ -365,7 +365,7 @@ def _execute(demand, *, data_root, registry, consumer, generation_token):
         external = (Path(data_root) / path).resolve()
         if external.is_relative_to(internal) or internal.is_relative_to(external):
             raise ExecutionError("consumer directory overlaps internal state")
-    started = datetime.now(timezone.utc).isoformat()
+    started = datetime.now(UTC).isoformat()
     gaps = []
     with open_generation_views(data_root, generation_token) as views:
         token = views.generation_token
@@ -441,7 +441,7 @@ def _execute(demand, *, data_root, registry, consumer, generation_token):
                                       "steps": list(cell.steps)})
             record = {"demand_id": demand.id, "demand_version": demand.version, "generation": generation,
                       "generation_token": token, "started_at": started,
-                      "finished_at": datetime.now(timezone.utc).isoformat(),
+                      "finished_at": datetime.now(UTC).isoformat(),
                       "bindings": [r.model_dump(mode="json") for r in bindings], "layout": "long/v1"}
             return RunStore(data_root).write(record, rows, citations, gaps, validate=reader.validate)
 

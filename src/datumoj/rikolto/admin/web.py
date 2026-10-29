@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import html
 import hmac
+import html
 import secrets
 import threading
 import time

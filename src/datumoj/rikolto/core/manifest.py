@@ -24,7 +24,15 @@ from datumoj.rikolto.core.contracts import (
     ParseStatus,
     SchemaVersionError,
 )
-from datumoj.rikolto.core.models import FetchOutcome, Freshness, PublishState, Snapshot, SnapshotOrder, parse_context_fingerprint, redact_url
+from datumoj.rikolto.core.models import (
+    FetchOutcome,
+    Freshness,
+    PublishState,
+    Snapshot,
+    SnapshotOrder,
+    parse_context_fingerprint,
+    redact_url,
+)
 
 SCHEMA_VERSION = 4
 _SUCCESS = {FetchOutcome.ok, FetchOutcome.not_modified}

@@ -33,7 +33,7 @@ def normalize_url(url: str, base: str = "") -> str | None:
         authority = f"[{host}]" if ":" in host else host
         if port is not None and (parts.scheme, port) not in {("http", 80), ("https", 443)}:
             authority += f":{port}"
-        if re.search(r"%2f|%5c", parts.path, re.I):
+        if re.search(r"%2f|%5c", parts.path, re.IGNORECASE):
             return None
 
         def unreserved(match: re.Match[str]) -> str:
@@ -64,10 +64,10 @@ def _page(data: bytes) -> etree._Element | None:
             text = data.decode("utf-8-sig")
         except UnicodeDecodeError:
             text = data.decode("cp932", errors="replace")
-    if not re.search(r"<(?:!doctype\s+html|html|head|body|div|p|a)\b", text[:4096], re.I):
+    if not re.search(r"<(?:!doctype\s+html|html|head|body|div|p|a)\b", text[:4096], re.IGNORECASE):
         return None
     # lxml rejects an encoding declaration on an already decoded Unicode string.
-    text = re.sub(r"^\s*<\?xml\b[^>]*\?>", "", text, count=1, flags=re.I)
+    text = re.sub(r"^\s*<\?xml\b[^>]*\?>", "", text, count=1, flags=re.IGNORECASE)
     try:
         return html.fromstring(text, parser=html.HTMLParser(no_network=True))
     except (etree.ParserError, ValueError):

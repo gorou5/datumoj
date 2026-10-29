@@ -10,7 +10,6 @@ from datumoj.rikolto.core.contracts import SourceSpec
 from datumoj.rikolto.core.models import Redistribution
 from datumoj.rikolto.core.registry import load_registry
 
-
 _ACCESS_METHODS = {
     "ckan": "api",
     "egov_law": "api",

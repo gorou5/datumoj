@@ -4,7 +4,6 @@ import pytest
 
 from datumoj.rikolto.reference import code5_to_code6, code6_to_code5, lookup, normalize_area_label
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 

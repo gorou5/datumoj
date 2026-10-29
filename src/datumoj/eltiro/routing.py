@@ -3,17 +3,28 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import sqlite3
 import stat
+from pathlib import Path
 
 import yaml
 
 from datumoj.eltiro.contracts import ProviderUnavailable, RerunCacheMiss, RouteInvalid
 from datumoj.eltiro.models import (
-    CLOUD_PROVIDERS, MAX_FILE_BYTES, MODEL_TIERS, ConsumerModelConfig, ConsumersConfig,
-    ManualQueueItem, ModelBudget, ModelInput, ModelResult, RouteDecision, RoutePlan,
-    RouteTarget, RoutingPolicy, content_hash,
+    CLOUD_PROVIDERS,
+    MAX_FILE_BYTES,
+    MODEL_TIERS,
+    ConsumerModelConfig,
+    ConsumersConfig,
+    ManualQueueItem,
+    ModelBudget,
+    ModelInput,
+    ModelResult,
+    RouteDecision,
+    RoutePlan,
+    RouteTarget,
+    RoutingPolicy,
+    content_hash,
 )
 from datumoj.rikolto.core.models import GenerationToken, LicenseInfo, Outflow
 

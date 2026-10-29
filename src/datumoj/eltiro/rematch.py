@@ -13,8 +13,14 @@ from datumoj.eltiro.alerts import SQLiteAlertStore, generate_alerts
 from datumoj.eltiro.contracts import DemandRegistry, ProfileStore
 from datumoj.eltiro.match_store import MatchResult, SQLiteMatchStore, series_key
 from datumoj.eltiro.matching import (
-    _codes, _EvidenceReader, _keywords, _matching_config, _profile_text,
-    _recall_scores, _vectors, match_demand,
+    _codes,
+    _EvidenceReader,
+    _keywords,
+    _matching_config,
+    _profile_text,
+    _recall_scores,
+    _vectors,
+    match_demand,
 )
 from datumoj.eltiro.model_match import _context, _model_config
 from datumoj.eltiro.models import ConsumerConfig, DemandSpec, Generation, SeriesProfile, content_hash
@@ -202,8 +208,8 @@ def refresh(
                 current = match_demand(demand, new_generation, profiles=profiles, consumer=consumer,
                                        observations=observations, catalog=catalog, chunks=chunks,
                                        store=store, embedder=embedder, deterministic=deterministic, vector=vector, k=k,
-                                       **(dict(model=model, router=router, cache=cache, licenses=licenses,
-                                               policy=policy, generation_token=generation_token, providers=providers)
+                                       **({"model": model, "router": router, "cache": cache, "licenses": licenses,
+                                               "policy": policy, "generation_token": generation_token, "providers": providers}
                                           if model else {}))
                 rematched += 1
             else:

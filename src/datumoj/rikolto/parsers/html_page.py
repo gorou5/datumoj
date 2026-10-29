@@ -12,7 +12,7 @@ from lxml import etree, html
 from pydantic import JsonValue
 
 from datumoj.rikolto.core.budget import BudgetChecker, budget_from_meta
-from datumoj.rikolto.core.contracts import ParseError, ParseResult, Parser
+from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult
 from datumoj.rikolto.core.models import (
     META_PARENT_SHA256,
     META_PARENT_URL,
@@ -33,8 +33,8 @@ HTML_REMOVAL_RULES = {
     "tags": frozenset({"script", "style", "noscript", "nav", "header", "footer", "aside", "form"}),
     "roles": frozenset({"navigation"}),
     "id_class_patterns": (
-        re.compile(r"breadcrumb|bread[-_]?crumb|pankuzu|bread|gnav|globalnav|global[-_]?nav|sidebar|side[-_]?menu", re.I),
-        re.compile(r"navigation|nav|navi|menu|footer|header|pagetop|page[-_]?top|skip", re.I),
+        re.compile(r"breadcrumb|bread[-_]?crumb|pankuzu|bread|gnav|globalnav|global[-_]?nav|sidebar|side[-_]?menu", re.IGNORECASE),
+        re.compile(r"navigation|nav|navi|menu|footer|header|pagetop|page[-_]?top|skip", re.IGNORECASE),
     ),
 }
 
@@ -57,9 +57,9 @@ _LABELED_DATE_RE = re.compile(
     rf"(?P<label>{'|'.join(map(re.escape, (*_UPDATE_LABELS, *_OTHER_DATE_LABELS)))})"
     rf"\s*[：:]?\s*(?P<date>{_DATE_TOKEN})"
 )
-_META_CHARSET_RE = re.compile(rb"<meta\b[^>]*\bcharset\s*=\s*['\"]?\s*([A-Za-z0-9._-]+)", re.I)
+_META_CHARSET_RE = re.compile(rb"<meta\b[^>]*\bcharset\s*=\s*['\"]?\s*([A-Za-z0-9._-]+)", re.IGNORECASE)
 _META_CONTENT_CHARSET_RE = re.compile(
-    rb"<meta\b[^>]*\bcontent\s*=\s*['\"][^'\"]*?charset\s*=\s*([A-Za-z0-9._-]+)", re.I
+    rb"<meta\b[^>]*\bcontent\s*=\s*['\"][^'\"]*?charset\s*=\s*([A-Za-z0-9._-]+)", re.IGNORECASE
 )
 
 
@@ -83,7 +83,7 @@ class HtmlPageParser(Parser):
 
         try:
             decoded, _, _ = decode_bytes(data, _declared_encoding(data))
-            decoded = re.sub(r"^\s*<\?xml\b[^>]*\?>", "", decoded, count=1, flags=re.I)
+            decoded = re.sub(r"^\s*<\?xml\b[^>]*\?>", "", decoded, count=1, flags=re.IGNORECASE)
             root = html.document_fromstring(
                 decoded,
                 parser=html.HTMLParser(no_network=True, remove_comments=True, recover=True, huge_tree=False),

@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from datumoj.rikolto.analysis.tools import AnalysisTools
 from datumoj.rikolto.core.models import DocKind, GapState
 from datumoj.rikolto.index.fts import SqliteKeywordIndex
-from datumoj.rikolto.index.hybrid import HybridRetriever, MAX_RECALL_CANDIDATES
+from datumoj.rikolto.index.hybrid import MAX_RECALL_CANDIDATES, HybridRetriever
 from datumoj.rikolto.index.vector import LanceVectorIndex
 from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,

@@ -16,7 +16,10 @@ from typer.testing import CliRunner
 
 from datumoj.rikolto import cli, mcp_server, wiring
 from datumoj.rikolto.core.contracts import (
-    OBSERVATION_COLUMNS, GenerationUnavailable, InvalidGenerationToken, QueryTimeout,
+    OBSERVATION_COLUMNS,
+    GenerationUnavailable,
+    InvalidGenerationToken,
+    QueryTimeout,
 )
 from datumoj.rikolto.core.manifest import SqliteManifest
 from datumoj.rikolto.core.models import GenerationToken, SnapshotOrder, StoreCopy

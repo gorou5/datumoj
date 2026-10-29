@@ -24,9 +24,9 @@ from mcp import Client
 from moto import mock_aws
 from typer.testing import CliRunner
 
+import datumoj.rikolto.core.pull as pull_module
 from datumoj.rikolto import cli, cloud, mcp_server, wiring
 from datumoj.rikolto.core import registry, schedule, state
-import datumoj.rikolto.core.pull as pull_module
 from datumoj.rikolto.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
 from datumoj.rikolto.core.lease import LeaseManager
 from datumoj.rikolto.core.models import SourceText, TimeBasis
@@ -35,7 +35,6 @@ from datumoj.rikolto.core.state_s3 import S3StateObjectStore
 from datumoj.rikolto.core.storage import load_storage_config
 from datumoj.rikolto.testing.fakes import FakeCrawler, FakeEmbedder, FakeParser, FakeRegistry
 from datumoj.rikolto.testing.samples import make_observation, make_spec
-
 
 ENV = {
     "R2_ACCESS_KEY_ID": "synthetic-maple-access",
@@ -56,11 +55,11 @@ class SyntheticParser(FakeParser):
 
     def parse(self, snapshot, data, meta=None):
         parsed = super().parse(snapshot, data, meta)
-        common = dict(
-            source_id=snapshot.source_id, dataset_key=f"{snapshot.source_id}:population",
-            table_key="population", locator="section=2", snapshot_sha256=snapshot.sha256,
-            fetched_at=snapshot.fetched_at,
-        )
+        common = {
+            "source_id": snapshot.source_id, "dataset_key": f"{snapshot.source_id}:population",
+            "table_key": "population", "locator": "section=2", "snapshot_sha256": snapshot.sha256,
+            "fetched_at": snapshot.fetched_at,
+        }
         observations = [
             make_observation("population", data.decode().splitlines()[2], **common),
             make_observation("withheld", None, note="秘匿", **common),

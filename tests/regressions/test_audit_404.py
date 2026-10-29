@@ -2,8 +2,8 @@
 
 from datetime import timedelta
 
-from datumoj.rikolto.core.models import parse_context_fingerprint
 from datumoj.rikolto.core.contracts import ParseRecord, ParseStatus
+from datumoj.rikolto.core.models import parse_context_fingerprint
 from datumoj.rikolto.index.hybrid import HybridRetriever
 from datumoj.rikolto.testing.fakes import FakeChunkStore, FakeKeywordIndex, FakeManifest, FakeRegistry
 from datumoj.rikolto.testing.samples import T0, make_chunk, make_document, make_snapshot, make_spec

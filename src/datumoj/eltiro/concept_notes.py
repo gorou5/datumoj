@@ -1,18 +1,24 @@
 """Model-generated reference notes, stored separately from source-owned profiles."""
 
-from dataclasses import dataclass
 import json
-from pathlib import Path
 import sqlite3
+from dataclasses import dataclass
+from pathlib import Path
 
 from pydantic import TypeAdapter
 
-from datumoj.eltiro.models import (
-    Generation, ManualQueueItem, ModelCacheKey, ModelInput, ModelUse, SeriesIdentity,
-    SeriesProfile, content_hash,
-)
-from datumoj.eltiro.model_match import _answer, _context, _one_sentence, _run_inputs
 from datumoj.eltiro.match_store import series_key
+from datumoj.eltiro.model_match import _answer, _context, _one_sentence, _run_inputs
+from datumoj.eltiro.models import (
+    Generation,
+    ManualQueueItem,
+    ModelCacheKey,
+    ModelInput,
+    ModelUse,
+    SeriesIdentity,
+    SeriesProfile,
+    content_hash,
+)
 
 
 @dataclass(frozen=True)

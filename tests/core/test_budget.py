@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import ClassVar
+
 import pytest
 
 from datumoj.rikolto.core.budget import (
@@ -102,7 +104,7 @@ class _FakePage:
 
 
 class _FakePdf:
-    texts = ["本文" * 30, "資料" * 30]
+    texts: ClassVar[list[str]] = ["本文" * 30, "資料" * 30]
 
     def __len__(self):
         return len(self.texts)

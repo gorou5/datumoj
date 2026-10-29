@@ -1,9 +1,9 @@
 """808 offline audit: selective recall, full-run equivalence, privacy and alerts."""
 
+import json
 from contextlib import ExitStack
 from dataclasses import asdict
 from datetime import date
-import json
 
 import pytest
 
@@ -17,7 +17,6 @@ from datumoj.eltiro.testing.samples import make_demand, make_profile, make_serie
 from datumoj.rikolto.index.embed import HashEmbedder
 from datumoj.rikolto.testing.fakes import FakeCatalogStore, FakeChunkStore, FakeObservationStore
 from datumoj.rikolto.testing.samples import make_chunk, make_dataset, make_document, make_observation
-
 
 KINDS = ["binding_stale", "definition_changed", "new_candidate", "gap_filled"]
 

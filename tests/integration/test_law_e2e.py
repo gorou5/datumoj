@@ -11,7 +11,7 @@ import hashlib
 import json
 import os
 import tempfile
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from functools import partial
 from pathlib import Path
 
@@ -20,9 +20,8 @@ import pytest
 from typer.testing import CliRunner
 
 from datumoj.rikolto import cli, wiring
-from datumoj.rikolto.core.models import parse_context_fingerprint
 from datumoj.rikolto.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
-from datumoj.rikolto.core.models import Citation, FetchOutcome, SourceText, TimeBasis
+from datumoj.rikolto.core.models import Citation, FetchOutcome, SourceText, TimeBasis, parse_context_fingerprint
 from datumoj.rikolto.core.runner import CrawlDeps
 from datumoj.rikolto.crawlers.egov_law import EgovLawCrawler
 from datumoj.rikolto.eval import evaluate, load_questions, write_reports
@@ -36,7 +35,7 @@ FIXTURES = ROOT / "tests/fixtures/egov_law"
 RESULTS = Path(os.environ["DATUMOJ_EVIDENCE_DIR"]) if os.environ.get("DATUMOJ_EVIDENCE_DIR") else Path(tempfile.mkdtemp(prefix="datumoj-901-"))
 SOURCE = "jp-egov-law"
 API = "https://laws.e-gov.go.jp/api/2"
-NOW = datetime(2026, 10, 20, 12, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 20, 12, tzinfo=UTC)
 ASOF = NOW.date().isoformat()
 
 

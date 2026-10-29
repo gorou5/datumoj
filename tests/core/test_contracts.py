@@ -20,7 +20,6 @@ from datumoj.rikolto.core.contracts import (
     PluginConflict,
     PluginError,
     PluginWarning,
-    SourceSpec,
     citation_for_chunk,
     citation_for_observation,
     discover_crawlers,

@@ -24,10 +24,10 @@ def test_note_output_validation_and_cache_only_restart(tmp_path, output, expecte
     profiles, cache, provider = FakeProfileStore(), FakeModelCache(), FakeModelProvider(output)
     profile = make_profile(descriptions={"en": "Earlier generated text"}, model_generated_fields=["descriptions"])
     profiles.write_generation(1, [profile])
-    options = dict(demand=demand, profiles=profiles, consumer=consumer, data_root=tmp_path,
-                   cache=cache, providers={"cloud_api": provider}, licenses={"intl-wdi": make_license()},
-                   policy=make_routing_policy(), generation_token=GenerationToken(
-                       generation=1, manifest_sha256="ab" * 32))
+    options = {"demand": demand, "profiles": profiles, "consumer": consumer, "data_root": tmp_path,
+                   "cache": cache, "providers": {"cloud_api": provider}, "licenses": {"intl-wdi": make_license()},
+                   "policy": make_routing_policy(), "generation_token": GenerationToken(
+                       generation=1, manifest_sha256="ab" * 32)}
     consumers = ConsumersConfig(consumers=[consumer])
     with SQLiteModelRouter(tmp_path, consumers=consumers) as router:
         notes = generate_concept_notes(1, router=router, **options)

@@ -44,19 +44,27 @@ from datumoj.rikolto.core.contracts import (
     AmbiguousRelease,
     GenerationUnavailable,
     InvalidGenerationToken,
-    ReleaseDateUnavailable,
-    ReleaseNotFound,
     ObservationCatalog,
     QueryError,
     QueryRejected,
     QueryResult,
     QueryTimeout,
+    ReleaseDateUnavailable,
+    ReleaseNotFound,
     TableSummary,
     TooManyRows,
 )
 from datumoj.rikolto.core.models import (
-    EvidenceState, GenerationToken, Observation, ObservationIdentity, ObservationRowEvidence,
-    ReleaseEntry, SnapshotOrder, SourceId, StateGeneration, Text,
+    EvidenceState,
+    GenerationToken,
+    Observation,
+    ObservationIdentity,
+    ObservationRowEvidence,
+    ReleaseEntry,
+    SnapshotOrder,
+    SourceId,
+    StateGeneration,
+    Text,
 )
 
 SCALE = 10
@@ -83,7 +91,7 @@ _FORBIDDEN_NAMES = re.compile(
     r"read_\w*|\w*_scan|glob|sniff_csv|parquet_\w+|query|query_table|json_execute_serialized_sql|getenv"
     r"|\w*_attach|iceberg_\w+|delta_\w+|sqlite_\w+|postgres_\w+|mysql_\w+|duckdb_secrets|which_secret"
     r"|load_\w+|install_\w+|checkpoint|force_checkpoint",
-    re.I,
+    re.IGNORECASE,
 )
 _WORD = re.compile(r'"((?:[^"]|"")*)"|(\w+)')
 _WORD_TOKENS = (duckdb.token_type.identifier, duckdb.token_type.keyword)
@@ -816,7 +824,7 @@ class DuckDBObservationStore:
     def _release_evidence(con, sql, columns, rows, generation):
         identity_cols = ("source_id", "table_key", "obs_id", "snapshot_sha256", "release_id")
         # Conservative lineage: computed/aggregate identity aliases are not proof.
-        projection = re.match(r"\s*select\s+(.*?)\s+from\s+observations\b", sql, re.I | re.S)
+        projection = re.match(r"\s*select\s+(.*?)\s+from\s+observations\b", sql, re.IGNORECASE | re.DOTALL)
         simple = False
         if projection:
             fields = [p.strip().lower() for p in projection[1].split(',')]
@@ -827,9 +835,9 @@ class DuckDBObservationStore:
                     raw_fields.append(match[1])
             simple = (any(re.fullmatch(r'(?:[a-z_]\w*\.)?\*', f) for f in fields)
                       or all(c in raw_fields for c in identity_cols))
-            simple = simple and len(re.findall(r'\bselect\b', sql, re.I)) == 1 and not re.search(
+            simple = simple and len(re.findall(r'\bselect\b', sql, re.IGNORECASE)) == 1 and not re.search(
                 r'\b(sum|avg|count|min|max|list|array_agg|string_agg|first|last|any_value)\s*\('
-                r'|\bover\s*\(|\bgroup\s+by\b|\b(union|intersect|except)\b', sql, re.I)
+                r'|\bover\s*\(|\bgroup\s+by\b|\b(union|intersect|except)\b', sql, re.IGNORECASE)
         evidence, found = [], {}
         for row in rows:
             identities = []
@@ -1022,7 +1030,7 @@ def _atomic_parquet(table, path, *, immutable=False):
 
 def _lock_connection(con, files, root=None):
     if files:
-        for path in list(files):
+        for path in files:
             metadata = pq.read_schema(path).metadata or {}
             if root is not None and _SEGMENTS in metadata:
                 files = [*files, *_segment_paths(root, path, metadata)]

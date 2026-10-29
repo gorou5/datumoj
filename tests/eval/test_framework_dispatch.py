@@ -176,7 +176,7 @@ def test_numeric_value_column_and_sql_provenance_are_used():
         [
             make_observation(
                 "population-2020",
-                Decimal("42"),
+                Decimal(42),
                 source_id="jp-stat",
                 dataset_key="jp-stat:population",
                 table_key="population",

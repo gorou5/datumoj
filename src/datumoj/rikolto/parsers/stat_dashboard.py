@@ -13,7 +13,7 @@ from typing import Any
 
 from pydantic import JsonValue
 
-from datumoj.rikolto.core.contracts import ParseError, ParseResult, Parser
+from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult
 from datumoj.rikolto.core.models import Dataset, Observation, Snapshot, TimeGranularity, format_locator
 from datumoj.rikolto.reference.areas import lookup
 

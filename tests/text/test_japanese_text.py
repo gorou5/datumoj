@@ -88,18 +88,18 @@ def test_normalize(source, expected):
 @pytest.mark.parametrize(
     ("source", "expected"),
     [
-        ("０", Decimal("0")),
-        ("１２３", Decimal("123")),
-        ("1,234", Decimal("1234")),
-        ("１２,３４５", Decimal("12345")),
+        ("０", Decimal(0)),
+        ("１２３", Decimal(123)),
+        ("1,234", Decimal(1234)),
+        ("１２,３４５", Decimal(12345)),
         ("1,234.50", Decimal("1234.50")),
-        ("＋１２３", Decimal("123")),
-        ("△１２３", Decimal("-123")),
+        ("＋１２３", Decimal(123)),
+        ("△１２３", Decimal(-123)),
         ("▲1,234.5", Decimal("-1234.5")),
         ("△0", Decimal("-0")),
-        ("  42  ", Decimal("42")),
+        ("  42  ", Decimal(42)),
         ("1.25", Decimal("1.25")),
-        ("９,９９９,９９９", Decimal("9999999")),
+        ("９,９９９,９９９", Decimal(9999999)),
     ],
 )
 def test_parse_number(source, expected):

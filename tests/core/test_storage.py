@@ -138,6 +138,7 @@ def test_all_local_entrypoints_share_config(tmp_path, monkeypatch):
 
 def test_build_tools_uses_loaded_directory(tmp_path, monkeypatch):
     from types import SimpleNamespace
+
     from datumoj.rikolto import wiring
 
     monkeypatch.setenv("DATUMOJ_DATA_DIR", str(tmp_path))

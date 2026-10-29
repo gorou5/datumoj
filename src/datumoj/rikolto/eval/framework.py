@@ -38,7 +38,6 @@ from datumoj.rikolto.core.models import (
     TimeBasis,
 )
 
-
 QuestionKind = Literal["retrieval", "numeric", "gap", "time", "injection", "cross_source", "change"]
 
 

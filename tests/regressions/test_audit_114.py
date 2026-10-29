@@ -15,8 +15,13 @@ from datumoj.rikolto.pipeline import PipelineDeps, parse_pending
 from datumoj.rikolto.store.chunks import SqliteChunkStore
 from datumoj.rikolto.store.observations import DuckDBObservationStore
 from datumoj.rikolto.testing.fakes import (
-    FakeCatalogStore, FakeKeywordIndex, FakeParser, FakeRawStore, FakeRegistry,
-    FakeRetriever, FakeStateObjectStore,
+    FakeCatalogStore,
+    FakeKeywordIndex,
+    FakeParser,
+    FakeRawStore,
+    FakeRegistry,
+    FakeRetriever,
+    FakeStateObjectStore,
 )
 from datumoj.rikolto.testing.samples import T0, make_observation, make_snapshot, make_spec
 

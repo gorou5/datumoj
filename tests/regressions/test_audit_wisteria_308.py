@@ -9,7 +9,11 @@ import pytest
 
 from datumoj.rikolto import wiring
 from datumoj.rikolto.core.contracts import (
-    AmbiguousRelease, ContentState, GenerationUnavailable, InvalidGenerationToken, QueryTimeout,
+    AmbiguousRelease,
+    ContentState,
+    GenerationUnavailable,
+    InvalidGenerationToken,
+    QueryTimeout,
 )
 from datumoj.rikolto.core.models import GenerationToken, SnapshotOrder, StoreCopy
 from datumoj.rikolto.store import observations as module
@@ -17,10 +21,20 @@ from datumoj.rikolto.store.catalog import SqliteCatalogStore
 from datumoj.rikolto.store.chunks import SqliteChunkStore
 from datumoj.rikolto.store.observations import DuckDBObservationStore, retain_generation
 from datumoj.rikolto.testing.samples import (
-    T0, make_chunk, make_dataset, make_document, make_observation, make_resource, make_state_generation, sha,
+    T0,
+    make_chunk,
+    make_dataset,
+    make_document,
+    make_observation,
+    make_resource,
+    make_state_generation,
+    sha,
 )
 from tests.core.test_contracts import (
-    TestDuckDBObservationReleases as _DuckReleases, TestFakeObservationReleases as _FakeReleases,
+    TestDuckDBObservationReleases as _DuckReleases,
+)
+from tests.core.test_contracts import (
+    TestFakeObservationReleases as _FakeReleases,
 )
 
 

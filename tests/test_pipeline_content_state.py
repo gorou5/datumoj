@@ -6,10 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from datumoj.rikolto.core.models import parse_context_fingerprint
 from datumoj.rikolto.core.contracts import ContentState, ParseResult
 from datumoj.rikolto.core.manifest import SqliteManifest
-from datumoj.rikolto.core.models import Dataset, FetchOutcome, Resource, Snapshot
+from datumoj.rikolto.core.models import Dataset, FetchOutcome, Resource, Snapshot, parse_context_fingerprint
 from datumoj.rikolto.core.rawstore import FileRawStore
 from datumoj.rikolto.pipeline import PipelineDeps, parse_pending, reindex
 from datumoj.rikolto.store.catalog import SqliteCatalogStore

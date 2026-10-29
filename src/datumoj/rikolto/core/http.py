@@ -15,7 +15,7 @@ import time
 import zlib
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
@@ -42,7 +42,7 @@ log = logging.getLogger(__name__)
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 # ---------- 去 Key ----------
@@ -385,10 +385,10 @@ class PoliteHttpFetcher:
                 log.info("重定向 %s → %s", here, redact_url(str(hop)))
                 current, redirected = hop, True
                 continue
-            meta = dict(
-                http_status=reply.status, etag=reply.headers.get("etag"),
-                last_modified=reply.headers.get("last-modified"),
-            )
+            meta = {
+                "http_status": reply.status, "etag": reply.headers.get("etag"),
+                "last_modified": reply.headers.get("last-modified"),
+            }
             if method == "GET" and reply.status == 304:
                 return result(FetchOutcome.not_modified, **meta)
             if not 200 <= reply.status < 300:
@@ -493,7 +493,7 @@ class PoliteHttpFetcher:
         except (TypeError, ValueError):
             return None
         if when.tzinfo is None:
-            when = when.replace(tzinfo=timezone.utc)
+            when = when.replace(tzinfo=UTC)
         return max(0.0, (when - self._now()).total_seconds())
 
     def _request(

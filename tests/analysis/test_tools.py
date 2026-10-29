@@ -155,10 +155,10 @@ def env(tmp_path) -> Env:
         make_spec("jp-broken", kind="fake"),
         make_spec("jp-empty", kind="fake"),
     ]
-    parts: dict[str, Any] = dict(
-        raw=FakeRawStore(tmp_path), manifest=FakeManifest(), chunks=FakeChunkStore(),
-        catalog=FakeCatalogStore(), observations=FakeObservationStore(),
-    )
+    parts: dict[str, Any] = {
+        "raw": FakeRawStore(tmp_path), "manifest": FakeManifest(), "chunks": FakeChunkStore(),
+        "catalog": FakeCatalogStore(), "observations": FakeObservationStore(),
+    }
     registry = FakeRegistry(specs)
     law = _ingest(parts, "jp-law", "https://example.go.jp/law/LAW1", LAW_TEXT, LAW_META, T0, LawTextParser)
     notice = _ingest(parts, "jp-open", "https://example.go.jp/notice.txt", NOTICE_TEXT, {}, T0 + H, FakeParser)

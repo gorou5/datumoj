@@ -59,5 +59,5 @@ def test_zero_denominators_unconfirmed_scale_and_spread_details():
         calculate(operation("ratio"), [1.0, Decimal(2)])
     with localcontext() as context:
         context.prec = 4  # Library precision is independent of callers' context.
-        result = calculate(operation("diff"), [Decimal("123456789.0001"), Decimal("123456789")])
+        result = calculate(operation("diff"), [Decimal("123456789.0001"), Decimal(123456789)])
         assert result.value == Decimal("0.0001")

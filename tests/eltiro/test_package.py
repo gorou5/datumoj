@@ -1,9 +1,9 @@
 """Synthetic bundles exercise real RunStore bytes and all export surfaces offline."""
 
+import json
 from datetime import date
 from decimal import Decimal
 from hashlib import sha256
-import json
 
 import pyarrow.parquet as pq
 import pytest

@@ -8,9 +8,9 @@ instead of silently discarding source information. No translation, unit
 conversion, or scale inference is performed.
 """
 
+import json
 from collections import defaultdict
 from hashlib import sha256
-import json
 
 from pydantic import TypeAdapter
 

@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import sqlite3
 import unicodedata
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
 
 from datumoj.rikolto.core.contracts import (
     CatalogFilter,
@@ -19,7 +17,6 @@ from datumoj.rikolto.core.contracts import (
     max_state,
 )
 from datumoj.rikolto.core.models import Dataset, Resource
-
 
 SCHEMA_VERSION = 1
 

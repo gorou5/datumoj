@@ -940,9 +940,9 @@ class Freshness(_Model):
 
     @model_validator(mode="after")
     def _ordered(self) -> Freshness:
-        if self.oldest_fetched_at is not None:
-            if self.as_of is None or self.oldest_fetched_at > self.as_of:
-                raise ValueError("oldest_fetched_at 不能晚于 as_of，且有 oldest_fetched_at 时 as_of 必填")
+        if (self.oldest_fetched_at is not None
+                and (self.as_of is None or self.oldest_fetched_at > self.as_of)):
+            raise ValueError("oldest_fetched_at 不能晚于 as_of，且有 oldest_fetched_at 时 as_of 必填")
         return self
 
 

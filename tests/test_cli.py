@@ -18,11 +18,10 @@ from datumoj.rikolto.testing.fakes import (
     FakeParser,
     FakeRawStore,
     FakeRegistry,
-    FakeRetriever,
     FakeResponse,
+    FakeRetriever,
 )
 from datumoj.rikolto.testing.samples import T0, make_spec
-
 
 URL = "https://example.go.jp/a.txt"
 BODY = "お知らせ\n\n人口統計の公開について。".encode()

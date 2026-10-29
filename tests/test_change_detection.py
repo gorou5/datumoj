@@ -3,15 +3,21 @@ from datetime import timedelta
 
 import pytest
 
-from datumoj.rikolto.core.models import parse_context_fingerprint
 from datumoj.rikolto.changes import detect, normalize_text
 from datumoj.rikolto.core.contracts import ParseResult, ParseStatus
-from datumoj.rikolto.core.models import ChangeKind, DocKind, FetchOutcome
+from datumoj.rikolto.core.models import ChangeKind, DocKind, FetchOutcome, parse_context_fingerprint
 from datumoj.rikolto.pipeline import PipelineDeps, parse_pending
 from datumoj.rikolto.store.changes import SqliteChangeLog
 from datumoj.rikolto.testing.fakes import (
-    FakeCatalogStore, FakeChangeLog, FakeChunkStore, FakeKeywordIndex, FakeManifest,
-    FakeObservationStore, FakeParser, FakeRawStore, FakeRegistry,
+    FakeCatalogStore,
+    FakeChangeLog,
+    FakeChunkStore,
+    FakeKeywordIndex,
+    FakeManifest,
+    FakeObservationStore,
+    FakeParser,
+    FakeRawStore,
+    FakeRegistry,
 )
 from datumoj.rikolto.testing.samples import T0, make_document, make_snapshot, make_spec, sha
 

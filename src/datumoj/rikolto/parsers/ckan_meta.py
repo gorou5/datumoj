@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Mapping
 
 from pydantic import JsonValue
 
-from datumoj.rikolto.core.contracts import ParseError, ParseResult, Parser
+from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult
 from datumoj.rikolto.core.models import Dataset, Resource, Snapshot, redact_url
 
 

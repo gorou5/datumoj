@@ -2,7 +2,7 @@
 
 import gzip
 import logging
-from datetime import timedelta, timezone
+from datetime import UTC, timedelta
 from email.utils import format_datetime
 from pathlib import Path
 from urllib import robotparser
@@ -211,7 +211,7 @@ def test_retry_after_seconds_is_respected():
 
 def test_retry_after_http_date_is_respected():
     clock = FakeClock()
-    when = format_datetime((T0 + timedelta(seconds=30)).astimezone(timezone.utc), usegmt=True)
+    when = format_datetime((T0 + timedelta(seconds=30)).astimezone(UTC), usegmt=True)
     site = Site({f"{BASE}/x": [(503, {"Retry-After": when}, b""), ok()]})
     assert make(site, clock, robots=allow_all()).fetch(f"{BASE}/x").outcome is FetchOutcome.ok
     assert clock.sleeps == [30.0]

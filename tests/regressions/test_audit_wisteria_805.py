@@ -9,23 +9,23 @@ import pytest
 from datumoj.eltiro.models import OutputManifest, load_demand
 from datumoj.eltiro.package import package_run
 from datumoj.eltiro.testing.fakes import FakeDemandRegistry
+from tests.eltiro.test_cli import cli, test_package_command_success_and_safe_license_denial
+from tests.eltiro.test_executor import consumer
 from tests.eltiro.test_package import (
     sources,
-    test_raw_bundle_exact_decimal_manifest_provenance_and_idempotency,
-    test_derived_only_never_copies_source_text_anywhere_in_bundle,
-    test_registry_and_acceptance_deny_whole_bundle_without_values,
     test_complete_multi_input_lineage_strictest_level_and_requested_symbols_only,
-    test_failure_cleans_staging_and_new_outbox_directories,
-    test_symlinks_traversal_and_other_consumer_overlap_are_rejected,
+    test_denial_before_first_delivery_does_not_create_outbox,
+    test_derived_only_never_copies_source_text_anywhere_in_bundle,
     test_diff_tracks_only_same_consumer_demand_across_versions_and_delivery_order,
+    test_failed_new_delivery_preserves_previous_package_even_after_rename,
+    test_failure_cleans_staging_and_new_outbox_directories,
     test_gap_report_merges_only_pinned_demand_and_safe_structures,
     test_license_downgrade_cannot_return_existing_raw_text_bundle,
-    test_failed_new_delivery_preserves_previous_package_even_after_rename,
     test_mixed_rows_remove_only_restricted_text_and_profile_copies_cannot_grant,
-    test_denial_before_first_delivery_does_not_create_outbox,
+    test_raw_bundle_exact_decimal_manifest_provenance_and_idempotency,
+    test_registry_and_acceptance_deny_whole_bundle_without_values,
+    test_symlinks_traversal_and_other_consumer_overlap_are_rejected,
 )
-from tests.eltiro.test_cli import test_package_command_success_and_safe_license_denial, cli
-from tests.eltiro.test_executor import consumer
 from tests.regressions.test_audit_wisteria_804 import sample_result
 
 

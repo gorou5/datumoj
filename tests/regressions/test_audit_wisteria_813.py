@@ -1,9 +1,9 @@
 """813 policy and series alignment checks using only synthetic local runs."""
 
+import json
 from datetime import date
 from decimal import Decimal
 from hashlib import sha256
-import json
 
 import pyarrow as pa
 import pyarrow.parquet as pq

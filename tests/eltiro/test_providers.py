@@ -9,8 +9,13 @@ import pytest
 from datumoj.eltiro.contracts import ProviderUnavailable
 from datumoj.eltiro.models import RouteDecision
 from datumoj.eltiro.providers import (
-    CLAUDE_EXECUTABLE_ENV, CLAUDE_HEADLESS_ARGS, MAX_RESPONSE_BYTES, OLLAMA_URL_ENV,
-    ClaudePlanProvider, CloudAPIProvider, OllamaProvider,
+    CLAUDE_EXECUTABLE_ENV,
+    CLAUDE_HEADLESS_ARGS,
+    MAX_RESPONSE_BYTES,
+    OLLAMA_URL_ENV,
+    ClaudePlanProvider,
+    CloudAPIProvider,
+    OllamaProvider,
 )
 from datumoj.eltiro.testing import contract_suites
 from datumoj.eltiro.testing.contract_suites import ModelProviderSuite
@@ -222,6 +227,7 @@ def test_cloud_transport_response_size_bound(httpserver, monkeypatch):
 
 def test_cloud_timeout(httpserver, monkeypatch):
     import time
+
     from werkzeug.wrappers import Response
 
     monkeypatch.setenv("EXAMPLE_MODEL_API_KEY", uuid4().hex)

@@ -21,11 +21,10 @@ from datumoj.rikolto import cli, mcp_server, wiring
 from datumoj.rikolto.core import contracts, schedule, state
 from datumoj.rikolto.core.http import USER_AGENT
 from datumoj.rikolto.core.lease import LeaseManager
-from datumoj.rikolto.core.models import StateWriter
+from datumoj.rikolto.core.models import StateWriter, export_schemas
+from datumoj.rikolto.store.observations import _ORDER_KEY
 from datumoj.rikolto.testing.fakes import FakeStateObjectStore
 from datumoj.rikolto.testing.samples import T0
-from datumoj.rikolto.core.models import export_schemas
-from datumoj.rikolto.store.observations import _ORDER_KEY
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = ROOT / "src" / "datumoj" / "rikolto"

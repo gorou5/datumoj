@@ -19,7 +19,9 @@ from datumoj.rikolto.core.manifest import SqliteManifest
 from datumoj.rikolto.core.models import SnapshotOrder, StoreCopy
 from datumoj.rikolto.store import observations as module
 from datumoj.rikolto.store.observations import (
-    DuckDBObservationStore, check_history_migration, retain_generation,
+    DuckDBObservationStore,
+    check_history_migration,
+    retain_generation,
 )
 from datumoj.rikolto.testing.fakes import FakeStateObjectStore
 from datumoj.rikolto.testing.samples import T0, make_observation, make_snapshot, make_state_generation
