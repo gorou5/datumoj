@@ -24,27 +24,27 @@ function crumbNav(trail) {
   return `<nav class="datumoj-crumbs" aria-label="面包屑">${parts}</nav>`;
 }
 
-const NAVI = 'https://navi.datumoj.com';
-const PLAN = 'https://plan.datumoj.com';
+const NAVI = 'https://datumoj.com/navi';
+const PLAN = 'https://datumoj.com/plan';
 
 // host: exact hostname; test: pathname predicate; trail: root label links
 // back to the navi hub (absolute URL when on another subdomain).
 const TRAILS = [
   // navi.datumoj.com — hub subpages (same-host, relative links)
-  { host: 'navi.datumoj.com', test: (p) => p.startsWith('/intl-sources/review'), trail: [{ label: '导航', href: '/' }, { label: '七源核验', href: '/intl-sources/' }, { label: '独立评审' }] },
-  { host: 'navi.datumoj.com', test: (p) => p.startsWith('/intl-sources'), trail: [{ label: '导航', href: '/' }, { label: '七源核验' }] },
-  { host: 'navi.datumoj.com', test: (p) => p.startsWith('/nas'), trail: [{ label: '导航', href: '/' }, { label: 'NAS 容量预估' }] },
-  { host: 'navi.datumoj.com', test: (p) => p.startsWith('/news'), trail: [{ label: '导航', href: '/' }, { label: '全部动态' }] },
-  { host: 'navi.datumoj.com', test: (p) => p.startsWith('/people'), trail: [{ label: '导航', href: '/' }, { label: '协作者贡献' }] },
-  { host: 'navi.datumoj.com', test: (p) => p.startsWith('/report'), trail: [{ label: '导航', href: '/' }, { label: '阶段汇报' }] },
+  { host: 'datumoj.com', test: (p) => p.startsWith('/navi/intl-sources/review'), trail: [{ label: '导航', href: '/navi/' }, { label: '七源核验', href: '/navi/intl-sources/' }, { label: '独立评审' }] },
+  { host: 'datumoj.com', test: (p) => p.startsWith('/navi/intl-sources'), trail: [{ label: '导航', href: '/navi/' }, { label: '七源核验' }] },
+  { host: 'datumoj.com', test: (p) => p.startsWith('/navi/nas'), trail: [{ label: '导航', href: '/navi/' }, { label: 'NAS 容量预估' }] },
+  { host: 'datumoj.com', test: (p) => p.startsWith('/navi/news'), trail: [{ label: '导航', href: '/navi/' }, { label: '全部动态' }] },
+  { host: 'datumoj.com', test: (p) => p.startsWith('/navi/people'), trail: [{ label: '导航', href: '/navi/' }, { label: '协作者贡献' }] },
+  { host: 'datumoj.com', test: (p) => p.startsWith('/navi/report'), trail: [{ label: '导航', href: '/navi/' }, { label: '阶段汇报' }] },
   // plan.datumoj.com — plan overview + subpages
-  { host: 'plan.datumoj.com', test: (p) => p.startsWith('/orbis'), trail: [{ label: '导航', href: NAVI + '/' }, { label: '计划', href: PLAN + '/' }, { label: '资源目录' }] },
-  { host: 'plan.datumoj.com', test: (p) => p.startsWith('/cases'), trail: [{ label: '导航', href: NAVI + '/' }, { label: '计划', href: PLAN + '/' }, { label: '融合分析案例' }] },
-  { host: 'plan.datumoj.com', test: (p) => p.startsWith('/verify'), trail: [{ label: '导航', href: NAVI + '/' }, { label: '计划', href: PLAN + '/' }, { label: '失真验证案例' }] },
-  { host: 'plan.datumoj.com', test: (p) => p.startsWith('/hf-gov'), trail: [{ label: '导航', href: NAVI + '/' }, { label: '计划', href: PLAN + '/' }, { label: 'HF 数据集调查' }] },
-  { host: 'plan.datumoj.com', test: (p) => p === '/' || p === '/index.html' || p === '', trail: [{ label: '导航', href: NAVI + '/' }, { label: '计划总览' }] },
+  { host: 'datumoj.com', test: (p) => p.startsWith('/plan/orbis'), trail: [{ label: '导航', href: NAVI + '/' }, { label: '计划', href: PLAN + '/' }, { label: '资源目录' }] },
+  { host: 'datumoj.com', test: (p) => p.startsWith('/plan/cases'), trail: [{ label: '导航', href: NAVI + '/' }, { label: '计划', href: PLAN + '/' }, { label: '融合分析案例' }] },
+  { host: 'datumoj.com', test: (p) => p.startsWith('/plan/verify'), trail: [{ label: '导航', href: NAVI + '/' }, { label: '计划', href: PLAN + '/' }, { label: '失真验证案例' }] },
+  { host: 'datumoj.com', test: (p) => p.startsWith('/plan/hf-gov'), trail: [{ label: '导航', href: NAVI + '/' }, { label: '计划', href: PLAN + '/' }, { label: 'HF 数据集调查' }] },
+  { host: 'datumoj.com', test: (p) => p === '/plan' || p === '/plan/' || p === '/plan/index.html', trail: [{ label: '导航', href: NAVI + '/' }, { label: '计划总览' }] },
   // task.datumoj.com — task center
-  { host: 'task.datumoj.com', test: () => true, trail: [{ label: '导航', href: NAVI + '/' }, { label: '任务中心' }] },
+  { host: 'datumoj.com', test: (p) => p === '/task' || p.startsWith('/task/'), trail: [{ label: '导航', href: NAVI + '/' }, { label: '任务中心' }] },
 ];
 
 export default {
@@ -57,7 +57,7 @@ export default {
     if (!ct.includes('text/html')) return res;
     const nav = crumbNav(match.trail);
     const rw = new HTMLRewriter();
-    if (url.hostname === 'navi.datumoj.com' && url.pathname.startsWith('/nas')) {
+    if (url.hostname === 'datumoj.com' && url.pathname.startsWith('/navi/nas')) {
       // The NAS page omits <head>/<body> tags entirely (valid HTML5):
       // anchor on <html> and prepend; the parser places style/nav sanely.
       rw.on('html', {

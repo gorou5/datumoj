@@ -3,11 +3,11 @@ main = "worker.js"
 compatibility_date = "2025-01-01"
 
 routes = [
-  { pattern = "navi.datumoj.com/nas*", zone_name = "datumoj.com" },
-  { pattern = "navi.datumoj.com/report*", zone_name = "datumoj.com" },
-  { pattern = "navi.datumoj.com/intl-sources*", zone_name = "datumoj.com" },
-  { pattern = "navi.datumoj.com/people*", zone_name = "datumoj.com" },
-  { pattern = "navi.datumoj.com/news*", zone_name = "datumoj.com" },
-  { pattern = "plan.datumoj.com/*", zone_name = "datumoj.com" },
-  { pattern = "task.datumoj.com/*", zone_name = "datumoj.com" },
+  { pattern = "datumoj.com/navi/nas*", zone_name = "datumoj.com" },
+  { pattern = "datumoj.com/navi/report*", zone_name = "datumoj.com" },
+  { pattern = "datumoj.com/navi/intl-sources*", zone_name = "datumoj.com" },
+  { pattern = "datumoj.com/navi/people*", zone_name = "datumoj.com" },
+  { pattern = "datumoj.com/navi/news*", zone_name = "datumoj.com" },
+  { pattern = "datumoj.com/plan*", zone_name = "datumoj.com" },
+  { pattern = "datumoj.com/task*", zone_name = "datumoj.com" },
 ]
