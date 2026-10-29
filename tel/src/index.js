@@ -1,4 +1,4 @@
-// tel.datumoj.com — Japanese phone-number database (Worker entry).
+// datumoj.com/tel — Japanese phone-number database (Worker entry).
 // Pages are composed at request time from sharded range tables in D1
 // (see DESIGN.md / migrations/0001_init.sql). Hub pages are indexable;
 // number pages are tiered (Tier 1 index / Tier 2 noindex / Tier 3 = 404).
@@ -79,24 +79,24 @@ async function mainSitemapUrls(db) {
   const prefs = [...new Set(areas.map((a) => a.prefecture))];
   const types = await listLineTypes(db);
   const govNumbers = await listGovNumbers(db);
-  const popularUrls = ['https://tel.datumoj.com/popular'];
+  const popularUrls = ['https://datumoj.com/tel/popular'];
   for (let p = 2; p <= popularTotalPages(); p++) {
-    popularUrls.push(`https://tel.datumoj.com/popular?page=${p}`);
+    popularUrls.push(`https://datumoj.com/tel/popular?page=${p}`);
   }
   return [
-    'https://tel.datumoj.com/',
-    'https://tel.datumoj.com/about',
-    'https://tel.datumoj.com/history',
-    'https://tel.datumoj.com/gov',
+    'https://datumoj.com/tel/',
+    'https://datumoj.com/tel/about',
+    'https://datumoj.com/tel/history',
+    'https://datumoj.com/tel/gov',
     ...popularUrls,
-    ...types.map((t) => `https://tel.datumoj.com/type/${t.code}`),
-    ...prefs.map((p) => `https://tel.datumoj.com/pref/${encodeURIComponent(p)}`),
-    ...areas.map((a) => `https://tel.datumoj.com/area/${a.area_code}`),
-    ...govNumbers.map((n) => `https://tel.datumoj.com/${n}`),
+    ...types.map((t) => `https://datumoj.com/tel/type/${t.code}`),
+    ...prefs.map((p) => `https://datumoj.com/tel/pref/${encodeURIComponent(p)}`),
+    ...areas.map((a) => `https://datumoj.com/tel/area/${a.area_code}`),
+    ...govNumbers.map((n) => `https://datumoj.com/tel/${n}`),
     // Numbers tracked by the SEO watch (tel/seo/SEO_LOG.md):
     // indexable designated-block pages surfaced for discovery.
-    'https://tel.datumoj.com/08007779633',
-    'https://tel.datumoj.com/0120923499',
+    'https://datumoj.com/tel/08007779633',
+    'https://datumoj.com/tel/0120923499',
   ];
 }
 
@@ -209,6 +209,10 @@ export default {
     } catch {
       path = url.pathname; // malformed %-encoding: route on the raw path (404s)
     }
+    // Subdirectory migration (2026-10-29): the app is mounted at datumoj.com/tel.
+    // Strip the mount prefix before routing; generated links carry /tel themselves.
+    if (path === '/tel') path = '/';
+    else if (path.startsWith('/tel/')) path = path.slice(4);
     const db = env.DB;
 
     try {
@@ -234,11 +238,11 @@ export default {
       if (path === '/search') {
         const digits = normalize(url.searchParams.get('q') || '');
         if (!digits) return html(notFoundPage(url.searchParams.get('q') || ''), 404);
-        return Response.redirect(`https://tel.datumoj.com/${digits}`, 302);
+        return Response.redirect(`https://datumoj.com/tel/${digits}`, 302);
       }
       if (path === '/robots.txt') {
         return new Response(
-          'User-agent: *\nAllow: /\nDisallow: /search\nSitemap: https://tel.datumoj.com/sitemap.xml\n',
+          'User-agent: *\nAllow: /\nDisallow: /search\nSitemap: https://datumoj.com/tel/sitemap.xml\n',
           { headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': CACHE_HUB } }
         );
       }
@@ -247,8 +251,8 @@ export default {
         const digits = await sitemapNumberDigits(db);
         const shards = Math.max(1, Math.ceil(digits.length / SITEMAP_SHARD_SIZE));
         const children = [
-          'https://tel.datumoj.com/sitemap-main.xml',
-          ...Array.from({ length: shards }, (_, i) => `https://tel.datumoj.com/sitemap-numbers-${i + 1}.xml`),
+          'https://datumoj.com/tel/sitemap-main.xml',
+          ...Array.from({ length: shards }, (_, i) => `https://datumoj.com/tel/sitemap-numbers-${i + 1}.xml`),
         ];
         const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${children
           .map((u) => `<sitemap><loc>${u}</loc></sitemap>`)
@@ -264,7 +268,7 @@ export default {
         const shards = Math.max(1, Math.ceil(digits.length / SITEMAP_SHARD_SIZE));
         if (shard < 1 || shard > shards) return html(notFoundPage(path), 404);
         const slice = digits.slice((shard - 1) * SITEMAP_SHARD_SIZE, shard * SITEMAP_SHARD_SIZE);
-        return xmlResponse(urlsetXml(slice.map((d) => `https://tel.datumoj.com/${d}`)));
+        return xmlResponse(urlsetXml(slice.map((d) => `https://datumoj.com/tel/${d}`)));
       }
       if (path === '/popular') {
         const totalPages = popularTotalPages();
@@ -306,7 +310,7 @@ export default {
         // cross-site drive-by trying to inflate the counter — do not count
         // it. Requests without Origin (curl, the ops cleanup job) count.
         const origin = request.headers.get('Origin');
-        if (origin && origin !== 'https://tel.datumoj.com') {
+        if (origin && origin !== 'https://datumoj.com/tel') {
           return new Response(JSON.stringify({ views: 0 }), {
             status: 403,
             headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },

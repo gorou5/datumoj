@@ -1,4 +1,4 @@
-// HTML rendering for tel.datumoj.com. No inline client JS; search is a plain GET form.
+// HTML rendering for datumoj.com/tel. No inline client JS; search is a plain GET form.
 import { formatNumber, splitNumber, anatomySegments } from './number.js';
 
 export function esc(s) {
@@ -131,12 +131,12 @@ ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd).replace(
 <style>${CSS}</style>
 </head>
 <body>
-<header><a class="logo" href="/">tel.datumoj.com</a><span class="meta">日本の電話番号データベース</span></header>
+<header><a class="logo" href="/tel/">datumoj.com/tel</a><span class="meta">日本の電話番号データベース</span></header>
 <main>
 ${body}
 </main>
 <footer>
-<p>データ出典：総務省 電気通信番号計画・番号区画表ほか公開資料（詳細は<a href="/about">データについて</a>）。割当事業者は番号の「指定」情報であり、番号ポータビリティにより現在の契約事業者とは異なる場合があります。本サイトは第三者機関の標識を出典付きで転載するもので、独自に番号の有害性を判定しません。</p>
+<p>データ出典：総務省 電気通信番号計画・番号区画表ほか公開資料（詳細は<a href="/tel/about">データについて</a>）。割当事業者は番号の「指定」情報であり、番号ポータビリティにより現在の契約事業者とは異なる場合があります。本サイトは第三者機関の標識を出典付きで転載するもので、独自に番号の有害性を判定しません。</p>
 <p><a href="https://datumoj.com/">datumoj.com</a> のプロジェクトです。</p>
 </footer>
 </body>
@@ -144,7 +144,7 @@ ${body}
 }
 
 function searchForm(value = '') {
-  return `<form class="searchbox" action="/search" method="get" role="search">
+  return `<form class="searchbox" action="/tel/search" method="get" role="search">
 <input type="tel" name="q" inputmode="tel" autocomplete="off" placeholder="電話番号を入力（例：090-1234-5678）" value="${esc(value)}" aria-label="電話番号">
 <button type="submit">調べる</button>
 </form>`;
@@ -285,19 +285,19 @@ ${segHtml}
 <h2 id="segTitle">${esc(hero.segments[hero.defaultSeg].title)}</h2>
 <p id="segText">${esc(hero.segments[hero.defaultSeg].explain)}</p>
 </div>
-<p class="hero-note">表示される番号は、総務省の指定データにある実在の番号区画から毎回ランダムに選ばれています。色のついた部分を押すと、その部分の意味が表示されます。<button type="button" class="shuffle" id="shuffleBtn">別の番号を表示</button> <a id="heroDetail" href="/${esc(hero.digits)}">この番号（${esc(hero.formatted)}）の詳細ページ</a></p>
-<form class="bigsearch" action="/search" method="get" role="search">
+<p class="hero-note">表示される番号は、総務省の指定データにある実在の番号区画から毎回ランダムに選ばれています。色のついた部分を押すと、その部分の意味が表示されます。<button type="button" class="shuffle" id="shuffleBtn">別の番号を表示</button> <a id="heroDetail" href="/tel/${esc(hero.digits)}">この番号（${esc(hero.formatted)}）の詳細ページ</a></p>
+<form class="bigsearch" action="/tel/search" method="get" role="search">
 <input type="search" name="q" inputmode="numeric" autocomplete="off" placeholder="電話番号を入力（例：090-1234-5678）" aria-label="電話番号">
 <button type="submit">調べる</button>
 </form>
 ${popular && popular.length ? `<section class="card" aria-label="よく調べられている番号">
 <h2>よく調べられている番号</h2>
 <ul class="tight">
-${popular.map((p) => `<li><a href="/${esc(p.digits)}">${esc(p.formatted)}</a> <span class="meta">調べられた回数：${esc(String(p.views))}回</span></li>`).join('\n')}
+${popular.map((p) => `<li><a href="/tel/${esc(p.digits)}">${esc(p.formatted)}</a> <span class="meta">調べられた回数：${esc(String(p.views))}回</span></li>`).join('\n')}
 </ul>
 <p class="meta">このサイトで実際に調べられた回数が多い番号です。</p>
 </section>` : ''}
-<p class="home-links"><a href="/popular">よく検索される電話番号</a> ・ <a href="/gov">政府機関の番号</a> ・ <a href="/history">日本の電話番号の歴史</a> ・ <a href="/about">このサイトについて</a></p>
+<p class="home-links"><a href="/tel/popular">よく検索される電話番号</a> ・ <a href="/tel/gov">政府機関の番号</a> ・ <a href="/tel/history">日本の電話番号の歴史</a> ・ <a href="/tel/about">このサイトについて</a></p>
 </div>
 <script>
 (function(){
@@ -339,7 +339,7 @@ ${popular.map((p) => `<li><a href="/${esc(p.digits)}">${esc(p.formatted)}</a> <s
     for(var k=0;k<btns.length;k++){(function(k){btns[k].addEventListener('click',function(){select(k);});})(k);}
   }
   function load(){
-    fetch('/random.json',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('random');return r.json();}).then(render).catch(function(){
+    fetch('/tel/random.json',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('random');return r.json();}).then(render).catch(function(){
       if(FALLBACKS.length){fbIdx=(fbIdx+1)%FALLBACKS.length;render(FALLBACKS[fbIdx]);}
     });
   }
@@ -348,9 +348,9 @@ ${popular.map((p) => `<li><a href="/${esc(p.digits)}">${esc(p.formatted)}</a> <s
 })();
 </script>`;
   return layout({
-    title: '電話番号検索｜tel.datumoj.com',
+    title: '電話番号検索｜datumoj.com/tel',
     description: '日本の電話番号データベース。番号の種類・地域・単位料金区域（MA）・割当事業者・指定時期を公的データで表示。第三者機関の詐欺標識も出典付きで転載。',
-    canonical: 'https://tel.datumoj.com/',
+    canonical: 'https://datumoj.com/tel/',
     body,
   });
 }
@@ -367,10 +367,10 @@ export function numberPage(facts) {
     )
     .join('');
   const heroJson = JSON.stringify(hero.segments).replace(/<\//g, '<\\/');
-  const crumbs = [{ name: 'ホーム', url: 'https://tel.datumoj.com/' }, { name: f.lineTypeName, url: `https://tel.datumoj.com/type/${f.lineType}` }];
-  if (f.areaCode) crumbs.push({ name: `市外局番 ${f.areaCode}`, url: `https://tel.datumoj.com/area/${f.areaCode}` });
-  crumbs.push({ name: formatted, url: `https://tel.datumoj.com/${f.digits}` });
-  const crumbHtml = crumbs.map((c) => `<a href="${esc(c.url.replace('https://tel.datumoj.com', ''))}">${esc(c.name)}</a>`).join(' › ');
+  const crumbs = [{ name: 'ホーム', url: 'https://datumoj.com/tel/' }, { name: f.lineTypeName, url: `https://datumoj.com/tel/type/${f.lineType}` }];
+  if (f.areaCode) crumbs.push({ name: `市外局番 ${f.areaCode}`, url: `https://datumoj.com/tel/area/${f.areaCode}` });
+  crumbs.push({ name: formatted, url: `https://datumoj.com/tel/${f.digits}` });
+  const crumbHtml = crumbs.map((c) => `<a href="${esc(c.url.replace('https://datumoj.com', ''))}">${esc(c.name)}</a>`).join(' › ');
 
   const rows = [];
   rows.push(`<tr><th>電話番号</th><td>${esc(formatted)}（${esc(f.digits)}）</td></tr>`);
@@ -477,7 +477,7 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
       {
         '@type': 'WebPage',
         name: `${formatted} の電話番号情報`,
-        url: `https://tel.datumoj.com/${f.digits}`,
+        url: `https://datumoj.com/tel/${f.digits}`,
         breadcrumb: {
           '@type': 'BreadcrumbList',
           itemListElement: crumbs.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: c.url })),
@@ -503,17 +503,17 @@ ${f.tpFlags && f.tpFlags.length ? `<div class="flagbadges" role="group" aria-lab
 <script>(function(){
   var D='${f.digits}';
   var vc=document.getElementById('viewCount');
-  fetch('/view/'+D,{method:'POST'}).then(function(r){return r.json();}).then(function(j){if(vc)vc.textContent=(j.views||0)+' 回';}).catch(function(){if(vc)vc.textContent='-';});
+  fetch('/tel/view/'+D,{method:'POST'}).then(function(r){return r.json();}).then(function(j){if(vc)vc.textContent=(j.views||0)+' 回';}).catch(function(){if(vc)vc.textContent='-';});
   var list=document.getElementById('cmtList'),form=document.getElementById('cmtForm'),input=document.getElementById('cmtInput'),msg=document.getElementById('cmtMsg');
   function showComments(cs){
     list.innerHTML='';
     if(!cs.length){var li0=document.createElement('li');li0.className='meta';li0.textContent='まだコメントはありません。';list.appendChild(li0);return;}
     cs.forEach(function(cm){var li=document.createElement('li');li.textContent=cm.body+' ';var s=document.createElement('span');s.className='meta';s.textContent='（'+String(cm.created_at).slice(0,10)+'）';li.appendChild(s);list.appendChild(li);});
   }
-  fetch('/comments.json?n='+D).then(function(r){return r.json();}).then(function(j){showComments(j.comments||[]);}).catch(function(){});
+  fetch('/tel/comments.json?n='+D).then(function(r){return r.json();}).then(function(j){showComments(j.comments||[]);}).catch(function(){});
   form.addEventListener('submit',function(ev){
     ev.preventDefault();
-    fetch('/comment',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({number:D,body:input.value})})
+    fetch('/tel/comment',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({number:D,body:input.value})})
       .then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j};});})
       .then(function(res){
         if(res.ok){input.value='';msg.textContent='投稿しました。';showComments(res.j.comments||[]);}
@@ -545,7 +545,7 @@ ${searchForm()}
     title: `${formatted} の電話番号情報｜${titleBits.join('・')}`,
     description: `${formatted} は${f.lineTypeName}の番号です。${carrier ? `総務省の指定データでは割当事業者は${carrier}です。` : ''}${freeDial ? '通話料は着信側が負担し、かける側は無料です。' : ''}${f.prefecture ? `地域は${f.prefecture}です。` : ''}${flagNote}知らない番号への対処法も掲載しています。`,
     robots: f.tier === 1 ? undefined : 'noindex,follow',
-    canonical: `https://tel.datumoj.com/${f.digits}`,
+    canonical: `https://datumoj.com/tel/${f.digits}`,
     jsonLd,
     body,
   });
@@ -556,7 +556,7 @@ export function areaPage(hub) {
     .map((m) => `<tr><th>${esc(m.charge_area_name)}MA<br><span class="meta">番号区画コード ${esc(m.zone_code)}</span></th><td>${esc(m.region)}</td></tr>`)
     .join('');
   const body = `
-<p class="crumbs"><a href="/">ホーム</a> › <a href="/pref/${encodeURIComponent(hub.prefecture)}">${esc(hub.prefecture)}</a> › 市外局番 ${esc(hub.areaCode)}</p>
+<p class="crumbs"><a href="/tel/">ホーム</a> › <a href="/tel/pref/${encodeURIComponent(hub.prefecture)}">${esc(hub.prefecture)}</a> › 市外局番 ${esc(hub.areaCode)}</p>
 <h1>市外局番 ${esc(hub.areaCode)}（${esc(hub.prefecture)}）</h1>
 <p>市外局番 ${esc(hub.areaCode)} は ${esc(hub.prefecture)} の固定電話で使われます。単位料金区域（MA）は ${hub.mas.length} 件です。</p>
 <div class="card"><table>${rows}</table></div>
@@ -565,22 +565,22 @@ ${searchForm()}
   return layout({
     title: `市外局番 ${hub.areaCode}（${hub.prefecture}）の地域・MA一覧`,
     description: `市外局番 ${hub.areaCode}（${hub.prefecture}）に含まれる単位料金区域（MA）と対象地域の一覧。`,
-    canonical: `https://tel.datumoj.com/area/${hub.areaCode}`,
+    canonical: `https://datumoj.com/tel/area/${hub.areaCode}`,
     body,
   });
 }
 
 export function prefPage(prefecture, areas) {
-  const links = areas.map((a) => `<a href="/area/${esc(a)}">${esc(a)}</a>`).join('');
+  const links = areas.map((a) => `<a href="/tel/area/${esc(a)}">${esc(a)}</a>`).join('');
   const body = `
-<p class="crumbs"><a href="/">ホーム</a> › ${esc(prefecture)}</p>
+<p class="crumbs"><a href="/tel/">ホーム</a> › ${esc(prefecture)}</p>
 <h1>${esc(prefecture)} の市外局番</h1>
 <div class="card"><div class="grid">${links}</div></div>
 ${searchForm()}`;
   return layout({
     title: `${prefecture} の市外局番一覧`,
     description: `${prefecture} の固定電話の市外局番一覧。各市外局番の単位料金区域（MA）と対象地域を確認できます。`,
-    canonical: `https://tel.datumoj.com/pref/${encodeURIComponent(prefecture)}`,
+    canonical: `https://datumoj.com/tel/pref/${encodeURIComponent(prefecture)}`,
     body,
   });
 }
@@ -598,7 +598,7 @@ export function typePage(hub) {
   const featured = FEATURED_NUMBERS[lt.code] || [];
   const featuredHtml = featured.length
     ? `<div class="card"><h2>番号の例</h2><p>この種類で、総務省の指定データに基づく詳細ページがある番号の例です。</p><ul class="tight">${featured
-        .map((f) => `<li><a href="/${f.digits}">${esc(formatNumber(f.digits, { lineType: f.lineType }))}</a></li>`)
+        .map((f) => `<li><a href="/tel/${f.digits}">${esc(formatNumber(f.digits, { lineType: f.lineType }))}</a></li>`)
         .join('')}</ul></div>`
     : '';
   const rows = hub.blocks
@@ -607,7 +607,7 @@ export function typePage(hub) {
     )
     .join('');
   const body = `
-<p class="crumbs"><a href="/">ホーム</a> › ${esc(lt.name_ja)}</p>
+<p class="crumbs"><a href="/tel/">ホーム</a> › ${esc(lt.name_ja)}</p>
 <h1>${esc(lt.name_ja)}</h1>
 <p>${esc(lt.note || '')}（${lt.digits}桁）</p>
 <div class="card"><h2>番号帯</h2><table>${rows}</table>
@@ -618,7 +618,7 @@ ${searchForm()}`;
   return layout({
     title: `${lt.name_ja} の番号帯一覧`,
     description: `${lt.name_ja} の番号帯と指定時期の一覧。`,
-    canonical: `https://tel.datumoj.com/type/${lt.code}`,
+    canonical: `https://datumoj.com/tel/type/${lt.code}`,
     body,
   });
 }
@@ -640,9 +640,9 @@ export function aboutPage(tpSources) {
 <div class="card"><h2>収録方針</h2>
 <p>検索エンジンへの収録は段階的に行います。事業者情報・利用者報告・第三者標識など実データのある番号ページから収録し、区画情報のみのページは当面 noindex としています。未指定の番号帯にはページを作りません。</p></div>`;
   return layout({
-    title: 'データについて｜tel.datumoj.com',
-    description: 'tel.datumoj.com のデータ出典、番号ページの生成方法、第三者標識の転載方針について。',
-    canonical: 'https://tel.datumoj.com/about',
+    title: 'データについて｜datumoj.com/tel',
+    description: 'datumoj.com/tel のデータ出典、番号ページの生成方法、第三者標識の転載方針について。',
+    canonical: 'https://datumoj.com/tel/about',
     body,
   });
 }
@@ -674,24 +674,24 @@ export function historyPage() {
     .map(([y, t]) => `<tr><th style="width:8.5rem;white-space:nowrap">${esc(y)}</th><td>${esc(t)}</td></tr>`)
     .join('\n');
   const body = `
-<p class="crumbs"><a href="/">ホーム</a> › 日本の電話番号の歴史</p>
+<p class="crumbs"><a href="/tel/">ホーム</a> › 日本の電話番号の歴史</p>
 <h1>日本の電話番号の歴史</h1>
 <p>いまの電話番号の形——固定電話は10桁、携帯電話は11桁——は、130年あまりの積み重ねの結果です。桁数が変わるたびに、その背景には「番号が足りなくなる」という問題がありました。</p>
 <div class="card"><table>${rows}</table></div>
 <div class="card"><h2>このサイトで番号を調べる</h2>
 <p>このページは制度の歴史の概説です。個別の番号の割当状況（種類・割当事業者・地域）は、各番号のページで総務省の指定データから確認できます。</p>
 <ul class="tight">
-<li><a href="/type/free0120">0120フリーダイヤルの番号を調べる</a>（1985年開始）</li>
-<li><a href="/type/free0800">0800フリーダイヤルの番号を調べる</a></li>
-<li><a href="/gov">政府機関の電話番号一覧</a>（公式サイトの出典付き）</li>
-<li><a href="/about">データの出典と作り方</a></li>
+<li><a href="/tel/type/free0120">0120フリーダイヤルの番号を調べる</a>（1985年開始）</li>
+<li><a href="/tel/type/free0800">0800フリーダイヤルの番号を調べる</a></li>
+<li><a href="/tel/gov">政府機関の電話番号一覧</a>（公式サイトの出典付き）</li>
+<li><a href="/tel/about">データの出典と作り方</a></li>
 </ul></div>
 <p class="meta">本ページは総務省「電気通信番号制度」関係資料など公的資料に基づく概説です。個別の番号の割当状況は、各番号のページで確認できます。</p>
 ${searchForm()}`;
   return layout({
-    title: '日本の電話番号の歴史｜tel.datumoj.com',
+    title: '日本の電話番号の歴史｜datumoj.com/tel',
     description: '1890年の電話開通から、1999年の携帯11桁化、MNP、020や060の新番号帯まで。日本の電話番号が10桁と11桁に分かれた理由をたどる概説。',
-    canonical: 'https://tel.datumoj.com/history',
+    canonical: 'https://datumoj.com/tel/history',
     body,
   });
 }
@@ -706,22 +706,22 @@ export function govPage(agencies, numbersByAgency) {
     .map((a) => {
       const nums = (byAgency.get(a.name) || [])
         .map(
-          (n) => `<li><a href="/${esc(n.number)}">${esc(n.number)}</a>（${esc(n.number_kind)}）${n.label ? ' — ' + esc(n.label) : ''} <span class="meta">出典：${extLink(n.source_url, '公式ページ', ' rel="noopener"')}</span></li>`
+          (n) => `<li><a href="/tel/${esc(n.number)}">${esc(n.number)}</a>（${esc(n.number_kind)}）${n.label ? ' — ' + esc(n.label) : ''} <span class="meta">出典：${extLink(n.source_url, '公式ページ', ' rel="noopener"')}</span></li>`
         )
         .join('');
       return `<div class="card"><h2>${esc(a.name)}</h2><ul class="tight">${nums || '<li class="meta">番号は確認中です</li>'}</ul></div>`;
     })
     .join('');
   const body = `
-<p class="crumbs"><a href="/">ホーム</a> › 政府機関の電話番号</p>
+<p class="crumbs"><a href="/tel/">ホーム</a> › 政府機関の電話番号</p>
 <h1>政府機関の電話番号</h1>
 <p>中央政府機関が公式サイトで公表している電話番号の一覧です。各番号の出典（公式ページ）へのリンク付きで収録しています。詐欺では政府機関の番号が偽装表示されることがあるため、着信番号の表示だけで判断せず、不審な場合は公式サイトで番号を確認のうえ、かけ直してください。</p>
 ${blocks}
 ${searchForm()}`;
   return layout({
-    title: '政府機関の電話番号一覧｜tel.datumoj.com',
+    title: '政府機関の電話番号一覧｜datumoj.com/tel',
     description: '日本の中央政府機関（省庁・庁・委員会）が公式サイトで公表している代表番号・相談窓口の一覧。出典リンク付き。',
-    canonical: 'https://tel.datumoj.com/gov',
+    canonical: 'https://datumoj.com/tel/gov',
     body,
   });
 }
@@ -729,10 +729,10 @@ ${searchForm()}`;
 export function notAllocatedPage(a, suggestionOk) {
   const sug =
     a.suggestion && suggestionOk
-      ? `<div class="card"><h2>もしかして</h2><p>先頭10桁の <a href="/${esc(a.suggestion)}">${esc(a.suggestion)}</a> であれば、番号情報を表示できます。着信履歴の番号をもう一度ご確認ください。</p></div>`
+      ? `<div class="card"><h2>もしかして</h2><p>先頭10桁の <a href="/tel/${esc(a.suggestion)}">${esc(a.suggestion)}</a> であれば、番号情報を表示できます。着信履歴の番号をもう一度ご確認ください。</p></div>`
       : '';
   const areaLink = a.areaCode
-    ? `<p><a href="/area/${esc(a.areaCode)}">市外局番 ${esc(a.areaCode)} の地域・MA情報を見る</a></p>`
+    ? `<p><a href="/tel/area/${esc(a.areaCode)}">市外局番 ${esc(a.areaCode)} の地域・MA情報を見る</a></p>`
     : '';
   const body = `
 <h1>${esc(a.digits)}</h1>
@@ -749,7 +749,7 @@ ${sug}
 ${areaLink}
 ${searchForm(a.digits)}`;
   return layout({
-    title: `${a.digits} は割り当てが確認できません｜tel.datumoj.com`,
+    title: `${a.digits} は割り当てが確認できません｜datumoj.com/tel`,
     robots: 'noindex',
     body,
   });
@@ -765,7 +765,7 @@ export function popularPage(entries, page, totalPages) {
     .map((e) => {
       const formatted = formatNumber(e.digits, { lineType: e.lineType, areaCode: e.areaCode });
       const meta = [e.lineTypeName, e.carrierName].filter(Boolean).join('・');
-      return `<li><a href="/${esc(e.digits)}">${esc(formatted)}</a>${meta ? ` <span class="meta">${esc(meta)}</span>` : ''}</li>`;
+      return `<li><a href="/tel/${esc(e.digits)}">${esc(formatted)}</a>${meta ? ` <span class="meta">${esc(meta)}</span>` : ''}</li>`;
     })
     .join('\n');
   const nav = [];
@@ -773,7 +773,7 @@ export function popularPage(entries, page, totalPages) {
   nav.push(`<span class="meta">${page} / ${totalPages} ページ</span>`);
   if (page < totalPages) nav.push(`<a href="${pageUrl(page + 1)}">次の100件 →</a>`);
   const body = `
-<p class="crumbs"><a href="/">トップ</a> ＞ よく検索される電話番号</p>
+<p class="crumbs"><a href="/tel/">トップ</a> ＞ よく検索される電話番号</p>
 <h1>よく検索される電話番号</h1>
 <p class="meta">公開統計で検索需要が高いと確認できた番号を、需要の高い順に並べた一覧です（${(page - 1) * 100 + 1}〜${(page - 1) * 100 + entries.length}件目）。各番号の詳細ページでは、総務省の指定データに基づく番号の種類・割当事業者を表示します。</p>
 <section class="card" aria-label="よく検索される電話番号">
@@ -783,9 +783,9 @@ ${items}
 </section>
 <p>${nav.join('　')}</p>`;
   return layout({
-    title: 'よく検索される電話番号｜tel.datumoj.com',
+    title: 'よく検索される電話番号｜datumoj.com/tel',
     description: '検索需要の高い日本の電話番号の一覧。各番号の種類・割当事業者を総務省の指定データで確認できます。',
-    canonical: `https://tel.datumoj.com${pageUrl(page)}`,
+    canonical: `https://datumoj.com/tel${pageUrl(page)}`,
     body,
   });
 }
@@ -796,16 +796,16 @@ export function notFoundPage(query) {
 <p>${query ? `「${esc(query)}」は、日本の電話番号として確認できませんでした。` : 'お探しのページは見つかりませんでした。'}番号が未指定の帯域であるか、桁数が異なる可能性があります。</p>
 ${searchForm(query || '')}
 <p class="meta">入力形式：市外局番から始まる国内番号（例：03-XXXX-XXXX、090-XXXX-XXXX）。国際番号（+81…）も入力できます。</p>`;
-  return layout({ title: '見つかりませんでした｜tel.datumoj.com', robots: 'noindex', body });
+  return layout({ title: '見つかりませんでした｜datumoj.com/tel', robots: 'noindex', body });
 }
 
 export function unavailablePage() {
   return layout({
-    title: '一時的に利用できません｜tel.datumoj.com',
+    title: '一時的に利用できません｜datumoj.com/tel',
     robots: 'noindex',
     body: `<h1>一時的に利用できません</h1>
 <p>現在、データベースへのアクセスが集中しているため、このページを表示できません。しばらくしてから再度お試しください。</p>
-<p class="meta">電話番号データベース tel.datumoj.com は総務省の指定データをもとに構成されています。時間をおいてアクセスすると表示できます。</p>
-<p><a href="/">トップページへ</a></p>`,
+<p class="meta">電話番号データベース datumoj.com/tel は総務省の指定データをもとに構成されています。時間をおいてアクセスすると表示できます。</p>
+<p><a href="/tel/">トップページへ</a></p>`,
   });
 }

@@ -5,6 +5,7 @@ workers_dev = false
 
 routes = [
   { pattern = "tel.datumoj.com", custom_domain = true },
+  { pattern = "datumoj.com/tel*", zone_name = "datumoj.com" },
 ]
 
 [[d1_databases]]
