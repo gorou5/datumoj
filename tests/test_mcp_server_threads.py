@@ -174,7 +174,11 @@ def test_worker_exceptions_return_errors_and_session_survives(corpus, name, args
         async with Client(mcp_server.create_server(factory)) as client:
             bad = await client.call_tool(name, args)
             assert bad.is_error
-            assert "ValueError" in bad.content[0].text
+            expected = (
+                "ValueError: k 必须是 1–50 的整数" if name == "search_docs"
+                else "ValueError: snapshot_sha256 必须是 64 位小写十六进制"
+            )
+            assert expected in bad.content[0].text
             assert _data(await client.call_tool("cite", CITE))["data"]["status"] == "ok"
 
     asyncio.run(run())
