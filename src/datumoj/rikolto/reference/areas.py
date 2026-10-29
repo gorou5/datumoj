@@ -10,7 +10,6 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 
-
 _DATA_FILE = Path(__file__).with_name("data") / "000925835_dantai_code_R060101.xlsx"
 _WEIGHTS = (6, 5, 4, 3, 2)
 

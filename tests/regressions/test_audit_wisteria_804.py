@@ -11,23 +11,34 @@ from datumoj.eltiro.match_store import SQLiteMatchStore
 from datumoj.eltiro.models import load_demand
 from datumoj.eltiro.testing.samples import make_match, make_series
 from datumoj.rikolto.core.models import GenerationToken
+from tests.eltiro.test_areas import (
+    test_crosswalk_complete_bijective_and_leading_zeroes,
+    test_scheme_detection_never_guesses_unknown_mixed_or_conflicting_codes,
+)
 from tests.eltiro.test_executor import (
-    consumer, observation, outputs, publish, run, seed,
-    test_large_window_fails_without_dropping_required_citations,
-    test_temporal_operations_calendar_windows_forward_references_and_binary_chains,
-    test_latest_revision_diff_still_uses_first_release_as_baseline,
-    test_declared_iso_schemes_align_to_demand_alpha3,
-    test_model_suggested_scale_is_not_source_confirmation,
+    consumer,
+    observation,
+    outputs,
+    publish,
+    run,
+    seed,
     test_all_releases_exact_same_day_dedup_and_revision_against_first,
+    test_declared_iso_schemes_align_to_demand_alpha3,
     test_end_to_end_numeric_values_come_only_from_checked_sql_and_no_write_interfaces,
     test_explicit_rescale_and_source_spread_with_full_citations,
     test_full_series_identity_filters_same_obs_id_across_tables_indicators_and_dimensions,
+    test_large_window_fails_without_dropping_required_citations,
+    test_latest_revision_diff_still_uses_first_release_as_baseline,
+    test_model_suggested_scale_is_not_source_confirmation,
     test_pending_and_rejected_never_compute_confirmed_can_compute,
     test_safe_gaps,
+    test_temporal_operations_calendar_windows_forward_references_and_binary_chains,
     test_units_not_aligned_and_source_notes_retained,
 )
-from tests.eltiro.test_operations import test_every_operation_and_missing, test_zero_denominators_unconfirmed_scale_and_spread_details
-from tests.eltiro.test_areas import test_crosswalk_complete_bijective_and_leading_zeroes, test_scheme_detection_never_guesses_unknown_mixed_or_conflicting_codes
+from tests.eltiro.test_operations import (
+    test_every_operation_and_missing,
+    test_zero_denominators_unconfirmed_scale_and_spread_details,
+)
 from tests.eltiro.test_runs import test_atomic_failure_removes_staging_and_preserves_other_runs
 
 

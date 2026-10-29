@@ -187,4 +187,4 @@ def test_numeric_sql_returns_one_fixture_value_for_each_question(tmp_path):
     assert legacy_sql != estat.expect.value.sql
     legacy_rows = store.query_readonly(legacy_sql).rows
     assert len(legacy_rows) == 6
-    assert any(Decimal(str(row[1])) == Decimal("849374") for row in legacy_rows)
+    assert any(Decimal(str(row[1])) == Decimal(849374) for row in legacy_rows)

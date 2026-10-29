@@ -1,9 +1,9 @@
 """807 audit: all providers are synthetic and record every invocation."""
 
-from contextlib import ExitStack
-from datetime import date
 import json
 import sqlite3
+from contextlib import ExitStack
+from datetime import date
 
 import pytest
 

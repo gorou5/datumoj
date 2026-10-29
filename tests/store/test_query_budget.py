@@ -103,9 +103,7 @@ def test_query_sql_has_one_budget_and_later_request_succeeds(query_tools, monkey
     if slow_stage in ("query", "metadata"):
         def slow_query(sql, *args, **kwargs):
             result = query(sql, *args, **kwargs)
-            if slow_stage == "query" and sql.startswith("SELECT source_id, table_key, obs_id"):
-                advance_once()
-            elif slow_stage == "metadata" and sql.startswith("SELECT source_id, table_key, snapshot_sha256,"):
+            if slow_stage == "query" and sql.startswith("SELECT source_id, table_key, obs_id") or slow_stage == "metadata" and sql.startswith("SELECT source_id, table_key, snapshot_sha256,"):
                 advance_once()
             return result
 

@@ -6,7 +6,7 @@ failures are returned in reports. See eval/eltiro/README.md for the row/gate ada
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import date
-from decimal import Decimal, ROUND_HALF_EVEN
+from decimal import ROUND_HALF_EVEN, Decimal
 from pathlib import Path
 from typing import Annotated, Any, Literal
 

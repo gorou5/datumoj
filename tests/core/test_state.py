@@ -212,9 +212,8 @@ def test_tampered_object_is_never_handed_out(state, corpus, tmp_path, part):
 
 def test_active_source_lock_refuses_snapshot_stale_file_is_ok(state):
     manager, _ = state
-    with _locked(manager.data_dir / "locks" / "jp-test.lock"):
-        with pytest.raises(StateError, match="正在运行的抓取"):
-            manager.push()
+    with _locked(manager.data_dir / "locks" / "jp-test.lock"), pytest.raises(StateError, match="正在运行的抓取"):
+        manager.push()
     assert manager.push().generation == 1
 
 

@@ -33,9 +33,9 @@ def _check_plaintext_keys(data: Any, path: Path, field: str = "") -> None:
         for key, value in data.items():
             name = str(key)
             field_path = f"{field}.{name}" if field else name
-            if any(part in name.casefold() for part in ("key", "token", "secret")):
-                if value is not None and (not isinstance(value, str) or not value.startswith("env:")):
-                    raise RegistryError(f"{path}: {field_path}: 凭据必须写成 env:NAME")
+            if (any(part in name.casefold() for part in ("key", "token", "secret"))
+                    and value is not None and (not isinstance(value, str) or not value.startswith("env:"))):
+                raise RegistryError(f"{path}: {field_path}: 凭据必须写成 env:NAME")
             _check_plaintext_keys(value, path, field_path)
     elif isinstance(data, list):
         for index, value in enumerate(data):

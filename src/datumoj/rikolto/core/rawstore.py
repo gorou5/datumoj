@@ -15,7 +15,6 @@ from typing import IO
 from datumoj.rikolto.core.contracts import CorruptedBlob, NotFoundError
 from datumoj.rikolto.core.storage import load_storage_config
 
-
 _CHUNK_SIZE = 1 << 20
 _SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 

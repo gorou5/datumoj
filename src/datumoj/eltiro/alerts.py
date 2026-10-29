@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import json
+import sqlite3
 from calendar import monthrange
 from dataclasses import dataclass
 from datetime import date, timedelta
-import json
 from pathlib import Path
-import sqlite3
 
 from datumoj.eltiro.match_store import MatchResult, series_key
 from datumoj.eltiro.models import DemandSpec, SeriesIdentity, content_hash
@@ -50,9 +50,9 @@ class SQLiteAlertStore:
     def _add(self, demand, indicator, series, kind, generation, details):
         if kind not in demand.run.notify_on:
             return 0
-        identity = dict(consumer=demand.consumer, demand=demand.id, demand_version=demand.version,
-                        indicator_key=indicator, series=series.model_dump(mode="json"),
-                        kind=kind, generation=generation)
+        identity = {"consumer": demand.consumer, "demand": demand.id, "demand_version": demand.version,
+                        "indicator_key": indicator, "series": series.model_dump(mode="json"),
+                        "kind": kind, "generation": generation}
         alert_id = content_hash(identity)
         # Only opaque demand identifiers and fixed rule/field names, never concept,
         # purpose, examples, matching reasons or source prose.

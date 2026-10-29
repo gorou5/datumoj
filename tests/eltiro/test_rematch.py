@@ -1,7 +1,7 @@
 """Complete identities and demand-version boundaries in the reverse index."""
 
 from datumoj.eltiro.match_store import MatchResult
-from datumoj.eltiro.rematch import _ReverseIndex, _digest
+from datumoj.eltiro.rematch import _digest, _ReverseIndex
 from datumoj.eltiro.testing.samples import make_demand, make_match, make_profile, make_series
 
 

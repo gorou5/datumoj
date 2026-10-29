@@ -5,8 +5,8 @@ from __future__ import annotations
 import codecs
 import re
 import unicodedata
-from decimal import Decimal, InvalidOperation
 from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 from typing import NamedTuple
 
 
@@ -135,10 +135,8 @@ def parse_number(s: str) -> tuple[Decimal | None, str | None]:
 def kansuji_to_int(text: str) -> int:
     """Convert Japanese digit/unit numerals, optionally wrapped as an article number."""
     token = normalize(text)
-    if token.startswith("第"):
-        token = token[1:]
-    if token.endswith("条"):
-        token = token[:-1]
+    token = token.removeprefix("第")
+    token = token.removesuffix("条")
     token = normalize(token)
     if token == "元":
         return 1

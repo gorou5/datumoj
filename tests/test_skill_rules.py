@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 SKILL = Path(__file__).parents[1] / "skills" / "rikolto" / "SKILL.md"
 
 

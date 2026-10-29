@@ -10,7 +10,6 @@ from datumoj.rikolto.store.catalog import SqliteCatalogStore
 from datumoj.rikolto.testing.contract_suites import CatalogStoreSuite, ParserSuite
 from datumoj.rikolto.testing.samples import ParseSample, make_dataset, make_resource, make_snapshot
 
-
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "ckan_egov"
 PARSER_SOURCE = "jp-ckan-egov"
 

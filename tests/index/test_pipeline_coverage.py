@@ -9,7 +9,7 @@ from datumoj.rikolto import cli, mcp_server
 from datumoj.rikolto.admin import create_app
 from datumoj.rikolto.analysis.tools import AnalysisTools
 from datumoj.rikolto.core.contracts import ParseRecord, ParseStatus
-from datumoj.rikolto.core.models import FetchOutcome, GapState, parse_context_fingerprint
+from datumoj.rikolto.core.models import GapState, parse_context_fingerprint
 from datumoj.rikolto.core.schedule import Scheduler
 from datumoj.rikolto.index.coverage import (
     INDEX_REBUILDING,

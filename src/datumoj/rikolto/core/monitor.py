@@ -6,6 +6,7 @@ import json
 from collections import Counter
 from collections.abc import Iterable, Mapping
 from datetime import datetime, timedelta
+from itertools import pairwise
 from pathlib import Path
 from typing import Literal
 
@@ -13,7 +14,6 @@ from pydantic import BaseModel, ConfigDict, JsonValue
 
 from datumoj.rikolto.core.contracts import Manifest, ParseStatus, SourceSpec
 from datumoj.rikolto.core.models import FailureKind, classify_failure
-
 
 CONSECUTIVE_FAILURES = 3
 PARSE_RECENT_WINDOW = timedelta(hours=24)
@@ -431,7 +431,7 @@ def evaluate_alerts(
 
     short_retention = spec.scope.get("short_retention") is True
     if short_retention:
-        points = list(zip(successful_times, successful_times[1:]))
+        points = list(pairwise(successful_times))
         if enabled and successful_times:
             points.append((successful_times[-1], now))
         for start, end in points:

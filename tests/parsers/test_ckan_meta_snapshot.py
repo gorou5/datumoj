@@ -6,7 +6,6 @@ from datumoj.rikolto.testing.contract_suites import ParserSuite
 from datumoj.rikolto.testing.samples import ParseSample, make_snapshot
 from datumoj.rikolto.wiring import _CkanPages
 
-
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "ckan_egov"
 SOURCE_ID = "jp-ckan-egov"
 SEARCH_URL = "https://data.e-gov.go.jp/data/api/action/package_search?q=%E4%BA%BA%E5%8F%A3"

@@ -8,7 +8,7 @@ import time
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from html.parser import HTMLParser
 from uuid import uuid4
 
@@ -32,7 +32,7 @@ DEFAULT_MAX_RUN_SECONDS = 900.0
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 @dataclass(frozen=True)
@@ -96,7 +96,7 @@ def _default_outcome(data: bytes) -> FetchOutcome:
             text = data.decode("cp932", errors="replace")
     if not text.strip():
         return FetchOutcome.empty_body
-    if re.match(r"\s*<(?:!doctype\s+html\b|html\b|head\b|body\b|div\b|p\b|script\b)", text, re.I):
+    if re.match(r"\s*<(?:!doctype\s+html\b|html\b|head\b|body\b|div\b|p\b|script\b)", text, re.IGNORECASE):
         page = _HtmlText()
         page.feed(text)
         page.close()
@@ -156,7 +156,7 @@ def run_crawl(
 
     def plugin_error(stage: str, exc: Exception) -> None:
         failure(f"{stage}_error")
-        message = re.sub(r"https?://[^\s\"'<>]+", lambda m: redact_url(m.group()), str(exc), flags=re.I)
+        message = re.sub(r"https?://[^\s\"'<>]+", lambda m: redact_url(m.group()), str(exc), flags=re.IGNORECASE)
         reason = f"{stage} 失败：{type(exc).__name__}: {message}"
         report.stop_reason = f"{report.stop_reason}；{reason}" if report.stop_reason else reason
 

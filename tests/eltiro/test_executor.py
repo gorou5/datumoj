@@ -1,15 +1,15 @@
 """Synthetic offline retained generations; execution never reads online stores."""
 
+import json
 from contextlib import contextmanager
 from datetime import date
 from decimal import Decimal
-import json
 
 import pyarrow.parquet as pq
 import pytest
 
 from datumoj.eltiro import executor
-from datumoj.eltiro.executor import execute_demand, ExecutionError
+from datumoj.eltiro.executor import ExecutionError, execute_demand
 from datumoj.eltiro.match_store import SQLiteMatchStore
 from datumoj.eltiro.models import ConsumerConfig
 from datumoj.eltiro.profile_store import SQLiteProfileStore
@@ -19,7 +19,7 @@ from datumoj.rikolto.store.catalog import SqliteCatalogStore
 from datumoj.rikolto.store.chunks import SqliteChunkStore
 from datumoj.rikolto.store.observations import DuckDBObservationStore, retain_generation
 from datumoj.rikolto.testing.fakes import FakeRegistry
-from datumoj.rikolto.testing.samples import make_dataset, make_observation, make_spec, make_state_generation, sha, T0
+from datumoj.rikolto.testing.samples import T0, make_dataset, make_observation, make_spec, make_state_generation, sha
 
 
 def observation(value="10", *, source="intl-wdi", table="gdp", year=2020, release="R1", **changes):
@@ -102,7 +102,7 @@ def test_end_to_end_numeric_values_come_only_from_checked_sql_and_no_write_inter
                 calls.append(sql)
                 result = query(sql, *args, **kwargs)
                 # Poison the metadata/provenance numeric values. Results must use SQL rows.
-                return result.model_copy(update={"provenance": [r.model_copy(update={"value": Decimal("999999")})
+                return result.model_copy(update={"provenance": [r.model_copy(update={"value": Decimal(999999)})
                                                                  for r in result.provenance]})
 
             monkeypatch.setattr(views.observations, "query_readonly", tracked)
@@ -235,7 +235,7 @@ def test_temporal_operations_calendar_windows_forward_references_and_binary_chai
         {"id": "ratio", "op": "ratio", "left": "gdp", "right": "delta"},
     ]
     demand = make_demand(indicators=[{"key": "gdp", "concept": "NY.GDP.MKTP.CD", "unit": "USD"}], operations=operations)
-    rows, citations, gaps = outputs(tmp_path, run(tmp_path, registry, demand))
+    rows, citations, _gaps = outputs(tmp_path, run(tmp_path, registry, demand))
     values = {(r["symbol"], r["period"].year): r["value"] for r in rows}
     assert values["delta", 2020] == 2 and values["growth", 2020] == 100
     assert values["average", 2020] == 3 and values["corr", 2020] == 1

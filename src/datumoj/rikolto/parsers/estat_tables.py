@@ -18,6 +18,7 @@ from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from datetime import date
 from decimal import Decimal
+from itertools import pairwise
 from typing import Annotated, Any, Literal
 from urllib.parse import parse_qs, urlsplit
 
@@ -136,11 +137,11 @@ class _Obs:
     """同一快照、同一清单项的观测值共用的字段。"""
 
     def __init__(self, snapshot: Snapshot, entry: TableEntry):
-        self.base: dict[str, Any] = dict(
-            source_id=snapshot.source_id, dataset_key=f"{snapshot.source_id}:{entry.stat_inf_id}",
-            table_key=entry.stat_inf_id, survey=entry.survey, snapshot_sha256=snapshot.sha256,
-            fetched_at=snapshot.fetched_at,
-        )
+        self.base: dict[str, Any] = {
+            "source_id": snapshot.source_id, "dataset_key": f"{snapshot.source_id}:{entry.stat_inf_id}",
+            "table_key": entry.stat_inf_id, "survey": entry.survey, "snapshot_sha256": snapshot.sha256,
+            "fetched_at": snapshot.fetched_at,
+        }
         self.stat_inf_id = entry.stat_inf_id
 
     def __call__(self, key: str, cell: RawCell, **kw: Any) -> Observation:
@@ -166,7 +167,7 @@ def _years(row: Sequence[RawCell]) -> list[tuple[int, int]]:
         if mt is None:
             return []
         years.append((col, int(mt.group(1))))
-    if any(a[1] >= b[1] for a, b in zip(years, years[1:])):
+    if any(a[1] >= b[1] for a, b in pairwise(years)):
         return []
     return years
 

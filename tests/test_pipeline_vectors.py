@@ -3,8 +3,8 @@ from __future__ import annotations
 from typer.testing import CliRunner
 
 from datumoj.rikolto import cli, wiring
-from datumoj.rikolto.core.models import parse_context_fingerprint
 from datumoj.rikolto.core.contracts import EmbeddingError, ParseStatus
+from datumoj.rikolto.core.models import parse_context_fingerprint
 from datumoj.rikolto.pipeline import PipelineDeps, parse_pending, reindex, vector_status
 from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,

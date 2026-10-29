@@ -23,7 +23,6 @@ from datumoj.rikolto.testing.fakes import (
 )
 from datumoj.rikolto.testing.samples import make_snapshot, make_spec
 
-
 ROOT = Path(__file__).parents[2]
 QUESTION_DIR = ROOT / "eval" / "questions"
 FIXTURES = ROOT / "tests" / "fixtures"

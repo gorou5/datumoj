@@ -9,20 +9,27 @@ from __future__ import annotations
 
 import json
 import math
-from pathlib import Path
 import re
 import sqlite3
 import unicodedata
+from pathlib import Path
 
 from pydantic import TypeAdapter
 
+from datumoj.eltiro.concept_notes import list_concept_notes
 from datumoj.eltiro.contracts import ProfileStore
 from datumoj.eltiro.match_store import MatchResult, SQLiteMatchStore, series_key
 from datumoj.eltiro.model_match import _context, _model_config, _run_inputs, judge_candidates
-from datumoj.eltiro.concept_notes import list_concept_notes
 from datumoj.eltiro.models import (
-    Compatibility, ConsumerConfig, DemandSpec, Generation, MatchEvidence, MatchRecord,
-    SeriesIdentity, SeriesProfile, content_hash,
+    Compatibility,
+    ConsumerConfig,
+    DemandSpec,
+    Generation,
+    MatchEvidence,
+    MatchRecord,
+    SeriesIdentity,
+    SeriesProfile,
+    content_hash,
 )
 from datumoj.rikolto.core.contracts import CatalogStore, ChunkStore, Embedder, ObservationStore
 from datumoj.rikolto.core.models import GenerationToken
@@ -84,9 +91,9 @@ class _EvidenceReader:
                                          for k, v in zip(("source_id", "table_key"), key))
                     result = self.observations.query_readonly(
                         f"SELECT * FROM observations WHERE {where}", max_rows=max(1, summary.rows))
-                    if result.generation_token is not None:
-                        if GenerationToken.parse(result.generation_token).generation != self.generation:
-                            raise ValueError("evidence generation mismatch")
+                    if (result.generation_token is not None
+                            and GenerationToken.parse(result.generation_token).generation != self.generation):
+                        raise ValueError("evidence generation mismatch")
                     self.tables[key] = result.provenance
             for row in self.tables[key]:
                 identity = SeriesIdentity(source_id=row.source_id, table_key=row.table_key, indicator=row.indicator,

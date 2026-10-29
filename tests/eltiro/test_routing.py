@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from datumoj.eltiro.models import ConsumersConfig, MAX_FILE_BYTES
+from datumoj.eltiro.models import MAX_FILE_BYTES, ConsumersConfig
 from datumoj.eltiro.routing import SQLiteModelRouter, load_routing
 from datumoj.eltiro.testing.contract_suites import ModelRouterSuite
 from datumoj.eltiro.testing.samples import make_consumer, make_routing_policy

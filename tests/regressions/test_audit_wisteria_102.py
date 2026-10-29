@@ -13,7 +13,6 @@ from datumoj.rikolto.core.models import LicenseInfo, Outflow
 from datumoj.rikolto.core.registry import load_registry
 from datumoj.rikolto.testing.samples import make_chunk, make_snapshot
 
-
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_DIR = ROOT / "sources"
 

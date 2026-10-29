@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
-from datetime import date, timedelta
+from datetime import UTC, date, timedelta
 from pathlib import Path
 
 import pytest
@@ -216,9 +216,9 @@ def test_meta_is_stored_with_snapshot():
 
 
 def test_asof_uses_jst_date_of_now():
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    now = datetime(2026, 10, 19, 20, 0, tzinfo=timezone.utc)  # JST 已是 10-20 05:00
+    now = datetime(2026, 10, 19, 20, 0, tzinfo=UTC)  # JST 已是 10-20 05:00
     steps, _ = _drive(_routes(), now=now)
     assert {s.task.meta["asof"] for s in steps if s.task.meta["role"] == "law_data"} == {ASOF}
 

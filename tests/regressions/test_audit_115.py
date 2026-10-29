@@ -10,7 +10,6 @@ from datumoj.rikolto.core.rawstore_s3 import S3RawStore
 from datumoj.rikolto.core.state_s3 import S3StateObjectStore
 from datumoj.rikolto.core.storage import load_s3_credentials, load_storage_config
 
-
 S3_VARIABLES = (
     "DATUMOJ_S3_ENDPOINT", "DATUMOJ_S3_ACCESS_KEY_ID", "DATUMOJ_S3_SECRET_ACCESS_KEY",
     "R2_ENDPOINT", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY",

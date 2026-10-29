@@ -299,7 +299,7 @@ def _copy_boundary(root: Path, target: Path) -> tuple[list[StoreCopy], dict[str,
         if coverage is not None:
             try:
                 maintain_vectors(vectors)
-            except Exception:  # noqa: BLE001 — maintenance is best effort; copied coverage is checked below
+            except Exception:  # maintenance is best effort; copied coverage is checked below
                 _LOG.warning("向量维护失败；继续校验并复制已发布状态")
             for source in sorted(vectors.rglob("*")):
                 if source.is_file():

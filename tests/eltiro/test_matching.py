@@ -45,8 +45,8 @@ class ReadCalls:
 def matching(tmp_path):
     observations, catalog, chunks = FakeObservationStore(), FakeCatalogStore(), FakeChunkStore()
     with SQLiteMatchStore(tmp_path) as store:
-        options = dict(profiles=FakeProfileStore(), consumer=consumer(), store=store,
-                       observations=ReadCalls(observations), catalog=ReadCalls(catalog), chunks=ReadCalls(chunks))
+        options = {"profiles": FakeProfileStore(), "consumer": consumer(), "store": store,
+                       "observations": ReadCalls(observations), "catalog": ReadCalls(catalog), "chunks": ReadCalls(chunks)}
 
         def run(request=None, profiles=None, generation=1, **changes):
             if profiles is not None:

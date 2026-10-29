@@ -20,7 +20,6 @@ from datumoj.rikolto.core.models import (
 )
 from datumoj.rikolto.core.monitor import Alert
 
-
 _KINDS = (
     ChangeKind.added,
     ChangeKind.modified,

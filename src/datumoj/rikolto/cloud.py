@@ -19,8 +19,8 @@ from datumoj.rikolto.analysis.reports import previous_week_period, weekly_report
 from datumoj.rikolto.core.budget import ParseBudget
 from datumoj.rikolto.core.contracts import PreconditionFailed
 from datumoj.rikolto.core.lease import LeaseError, LeaseManager
-from datumoj.rikolto.core.monitor import _ledger_first_attempts, evaluate_cloud_alerts
 from datumoj.rikolto.core.models import PublishState
+from datumoj.rikolto.core.monitor import _ledger_first_attempts, evaluate_cloud_alerts
 from datumoj.rikolto.core.schedule import Scheduler, utcnow, workspace_lock, write_control
 from datumoj.rikolto.core.state import StateManager, local_write
 from datumoj.rikolto.core.state_s3 import probe_conditional_writes

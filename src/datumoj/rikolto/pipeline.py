@@ -223,7 +223,7 @@ def _maintain_vectors(deps: PipelineDeps) -> None:
     if deps._vectors_written and callable(maintain):
         try:
             maintain()
-        except Exception:  # noqa: BLE001 — optional maintenance must not undo publication
+        except Exception:  # optional maintenance must not undo publication
             # SDK exceptions may contain paths, configuration or source text.
             _LOG.warning("向量维护失败；已发布的状态保留")
 

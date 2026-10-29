@@ -20,7 +20,6 @@ from datumoj.rikolto.testing.contract_suites import StateObjectStoreSuite
 from datumoj.rikolto.testing.fakes import FakeStateObjectStore
 from datumoj.rikolto.testing.samples import T0
 
-
 SECRETS = ["synthetic-lease-id", "synthetic-lease-secret", "https://s3.amazonaws.com", "synthetic-lease-bucket"]
 
 

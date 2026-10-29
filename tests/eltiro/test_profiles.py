@@ -1,7 +1,7 @@
 """Source metadata is retained, never translated or inferred from numeric values."""
 
-from datetime import date
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -15,8 +15,8 @@ from datumoj.rikolto.testing.samples import make_dataset, make_observation, make
 @pytest.fixture
 def inputs(tmp_path):
     with SQLiteProfileStore(tmp_path) as store:
-        yield dict(observations=FakeObservationStore(), catalog=FakeCatalogStore(), chunks=FakeChunkStore(),
-                   registry=FakeRegistry([make_spec("jp-stat")]), store=store)
+        yield {"observations": FakeObservationStore(), "catalog": FakeCatalogStore(), "chunks": FakeChunkStore(),
+                   "registry": FakeRegistry([make_spec("jp-stat")]), "store": store}
 
 
 def test_series_dimensions_coverage_and_source_scale(inputs):

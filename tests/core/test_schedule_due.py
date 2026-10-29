@@ -13,7 +13,6 @@ from datumoj.rikolto.core.schedule import Scheduler, set_enabled
 from datumoj.rikolto.testing.fakes import FakeRegistry, FakeStateObjectStore
 from datumoj.rikolto.testing.samples import T0, make_spec
 
-
 REMOTE_ENV = {
     "R2_ACCESS_KEY_ID": "synthetic-schedule-id",
     "R2_SECRET_ACCESS_KEY": "synthetic-schedule-secret",

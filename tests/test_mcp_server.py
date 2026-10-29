@@ -45,7 +45,7 @@ def tools(tmp_path) -> AnalysisTools:
         obs_id="jp-open:1", source_id="jp-open", dataset_key="jp-open:pop", table_key="t1", survey="国勢調査",
         indicator="人口", area_code="13000", area_label="東京都", time_start=date(2020, 1, 1),
         time_end=date(2020, 12, 31), time_label="2020年", granularity=TimeGranularity.year, unit="人",
-        value=Decimal("14047594"), snapshot_sha256=snap.sha256, locator="row=1", fetched_at=snap.fetched_at,
+        value=Decimal(14047594), snapshot_sha256=snap.sha256, locator="row=1", fetched_at=snap.fetched_at,
     )])
     catalog.upsert(
         datasets=[make_dataset("jp-open:pop", "人口統計 2020")],

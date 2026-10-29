@@ -19,7 +19,6 @@ from datumoj.rikolto.core.contracts import (
 from datumoj.rikolto.core.models import Freshness, GapState, Hit, MatchedBy, SourceText, ToolResult
 from datumoj.rikolto.index.coverage import gap_state, index_generation, pipeline_status
 
-
 # 向量相似度阈值依嵌入模型而定：不同模型的分数分布差别很大。
 # bge-m3 由 H5（2026-10-21）在 60 题评测语料上校准：无关问题的向量最高分 0.471，相关检索题最低 0.685，
 # 取 0.6 两边各留约 0.1 余量。详见 docs/adr/0001-embedding.md。其他模型（含测试用的 HashEmbedder）用保守的 0.3。

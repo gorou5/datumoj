@@ -45,95 +45,95 @@ SCHEMAS_DIR = Path(__file__).resolve().parents[2] / "schemas"
 
 
 def make_citation(**kw):
-    base = dict(
-        source_id="jp-egov-law",
-        resource_url="https://laws.e-gov.go.jp/api/2/law_data/415AC0000000057",
-        snapshot_sha256=SHA,
-        fetched_at=FETCHED,
-        locator="art=27;para=2",
-        effective_at=date(2024, 4, 1),
-        time_basis=TimeBasis.effective,
-        license="公共データ利用規約（第1.0版）",
-        attribution="出典：e-Gov法令検索",
-        usage_scope=UsageScope.internal_only,
-    )
+    base = {
+        "source_id": "jp-egov-law",
+        "resource_url": "https://laws.e-gov.go.jp/api/2/law_data/415AC0000000057",
+        "snapshot_sha256": SHA,
+        "fetched_at": FETCHED,
+        "locator": "art=27;para=2",
+        "effective_at": date(2024, 4, 1),
+        "time_basis": TimeBasis.effective,
+        "license": "公共データ利用規約（第1.0版）",
+        "attribution": "出典：e-Gov法令検索",
+        "usage_scope": UsageScope.internal_only,
+    }
     base.update(kw)
     return Citation(**base)
 
 
 def make_observation(**kw):
-    base = dict(
-        obs_id="o1",
-        source_id="jp-stat-dashboard",
-        dataset_key="jp-stat-dashboard:0201010000000010000",
-        table_key="0201010000000010000",
-        survey="国勢調査",
-        indicator="総人口",
-        indicator_code="0201010000000010000",
-        area_code="13000",
-        area_label="東京都",
-        time_start=date(2020, 1, 1),
-        time_end=date(2020, 12, 31),
-        time_label="2020年",
-        granularity="year",
-        dims={"sex": "総数"},
-        unit="人",
-        value=Decimal("14047594"),
-        note=None,
-        snapshot_sha256=SHA,
-        locator="row=12",
-        fetched_at=FETCHED,
-    )
+    base = {
+        "obs_id": "o1",
+        "source_id": "jp-stat-dashboard",
+        "dataset_key": "jp-stat-dashboard:0201010000000010000",
+        "table_key": "0201010000000010000",
+        "survey": "国勢調査",
+        "indicator": "総人口",
+        "indicator_code": "0201010000000010000",
+        "area_code": "13000",
+        "area_label": "東京都",
+        "time_start": date(2020, 1, 1),
+        "time_end": date(2020, 12, 31),
+        "time_label": "2020年",
+        "granularity": "year",
+        "dims": {"sex": "総数"},
+        "unit": "人",
+        "value": Decimal(14047594),
+        "note": None,
+        "snapshot_sha256": SHA,
+        "locator": "row=12",
+        "fetched_at": FETCHED,
+    }
     base.update(kw)
     return Observation(**base)
 
 
 def make_snapshot(**kw):
-    base = dict(
-        snapshot_id="s1",
-        source_id="jp-egov-law",
-        resource_url="https://laws.e-gov.go.jp/api/2/law_data/415AC0000000057",
-        fetched_at=FETCHED,
-        http_status=200,
-        outcome=FetchOutcome.ok,
-        sha256=SHA,
-        size=1234,
-        content_type="application/json",
-        etag='"abc"',
-        last_modified="Mon, 19 Oct 2026 00:00:00 GMT",
-        license="公共データ利用規約（第1.0版）",
-        error=None,
-    )
+    base = {
+        "snapshot_id": "s1",
+        "source_id": "jp-egov-law",
+        "resource_url": "https://laws.e-gov.go.jp/api/2/law_data/415AC0000000057",
+        "fetched_at": FETCHED,
+        "http_status": 200,
+        "outcome": FetchOutcome.ok,
+        "sha256": SHA,
+        "size": 1234,
+        "content_type": "application/json",
+        "etag": '"abc"',
+        "last_modified": "Mon, 19 Oct 2026 00:00:00 GMT",
+        "license": "公共データ利用規約（第1.0版）",
+        "error": None,
+    }
     base.update(kw)
     return Snapshot(**base)
 
 
 def make_chunk(**kw):
-    base = dict(
-        chunk_id="c1",
-        doc_key="jp-egov-law:415AC0000000057",
-        locator="art=27;para=1",
-        text="個人情報取扱事業者は、次に掲げる場合を除くほか……",
-        title_path=["個人情報の保護に関する法律", "第四章", "第二十七条"],
-        snapshot_sha256=SHA,
-        lang="ja",
-        published_at=date(2003, 5, 30),
-        effective_at=date(2024, 4, 1),
-    )
+    base = {
+        "chunk_id": "c1",
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=27;para=1",
+        "text": "個人情報取扱事業者は、次に掲げる場合を除くほか……",
+        "title_path": ["個人情報の保護に関する法律", "第四章", "第二十七条"],
+        "snapshot_sha256": SHA,
+        "lang": "ja",
+        "published_at": date(2003, 5, 30),
+        "effective_at": date(2024, 4, 1),
+    }
     base.update(kw)
     return Chunk(**base)
 
 
 def make_hit(**kw):
-    base = dict(
-        chunk_id="c1",
-        doc_key="jp-egov-law:415AC0000000057",
-        locator="art=27;para=2",
-        score=0.42,
-        snippet=SourceText(content="第三者に提供してはならない。"),
-        citation=make_citation(),
-        matched_by=["keyword", "vector"],
-    )
+    base = {
+        "chunk_id": "c1",
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=27;para=2",
+        "score": 0.42,
+        "snippet": SourceText(content="第三者に提供してはならない。"),
+        "citation": make_citation(),
+        "matched_by": ["keyword", "vector"],
+    }
     base.update(kw)
     return Hit(**base)
 
@@ -458,7 +458,7 @@ def test_observation_fields():
         assert not Observation.model_fields[name].is_required()
         assert Observation.model_fields[name].default is None
     o = make_observation()
-    assert o.value == Decimal("14047594")
+    assert o.value == Decimal(14047594)
     assert isinstance(o.value, Decimal)
 
 

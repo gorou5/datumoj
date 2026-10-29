@@ -15,8 +15,17 @@ from datumoj.rikolto.index.fts import SqliteKeywordIndex
 from datumoj.rikolto.pipeline import PipelineDeps, parse_pending, reindex
 from datumoj.rikolto.store.chunks import SqliteChunkStore
 from datumoj.rikolto.testing.fakes import (
-    FakeCatalogStore, FakeChangeLog, FakeChunkStore, FakeEmbedder, FakeKeywordIndex,
-    FakeManifest, FakeObservationStore, FakeParser, FakeRawStore, FakeRegistry, FakeVectorIndex,
+    FakeCatalogStore,
+    FakeChangeLog,
+    FakeChunkStore,
+    FakeEmbedder,
+    FakeKeywordIndex,
+    FakeManifest,
+    FakeObservationStore,
+    FakeParser,
+    FakeRawStore,
+    FakeRegistry,
+    FakeVectorIndex,
 )
 from datumoj.rikolto.testing.samples import T0, make_observation, make_snapshot, make_spec
 

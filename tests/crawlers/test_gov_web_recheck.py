@@ -1,7 +1,7 @@
 """PDF recheck scheduling uses only the injected crawl clock."""
 
-from datetime import timedelta
 import logging
+from datetime import timedelta
 from urllib.parse import urlsplit
 
 import pytest
@@ -48,7 +48,7 @@ def listing(*links):
 
 @pytest.mark.parametrize(("days_ago", "expected"), [(6, False), (8, True)])
 def test_pdf_recheck_interval(days_ago, expected):
-    spec, manifest, ctx = context(pdf_recheck_days=7)
+    _spec, manifest, ctx = context(pdf_recheck_days=7)
     successful_pdf(manifest, days_ago)
     crawler = GovWebCrawler()
     task, = crawler.plan(ctx)

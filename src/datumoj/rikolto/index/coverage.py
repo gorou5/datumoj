@@ -1,18 +1,16 @@
 """按注册表、抓取、解析和已发布块说明检索缺口。"""
 
+import fcntl
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
-
-import fcntl
 
 from datumoj.rikolto.core.contracts import (
     ChunkStore,
     Manifest,
-    ParseStatus,
     Parser,
+    ParseStatus,
     Registry,
     discover_parsers,
     select_parser,

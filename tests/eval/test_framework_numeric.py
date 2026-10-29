@@ -1,11 +1,17 @@
 from decimal import Decimal
 
 from datumoj.rikolto.eval import Question, evaluate
-from datumoj.rikolto.testing.fakes import FakeChunkStore, FakeManifest, FakeObservationStore, FakeRegistry, FakeRetriever
+from datumoj.rikolto.testing.fakes import (
+    FakeChunkStore,
+    FakeManifest,
+    FakeObservationStore,
+    FakeRegistry,
+    FakeRetriever,
+)
 from datumoj.rikolto.testing.samples import make_chunk, make_document, make_observation, make_snapshot, make_spec
 
 
-def _fixture(row_value=Decimal("42")):
+def _fixture(row_value=Decimal(42)):
     manifest = FakeManifest()
     document_snapshot = make_snapshot("jp-stat", "https://example.go.jp/population.txt", b"document")
     observation_snapshot = make_snapshot("jp-stat", "https://example.go.jp/population.csv", b"table")
@@ -117,7 +123,7 @@ def test_numeric_occurrence_rejects_sql_value_when_citation_cannot_restore():
 
 
 def test_numeric_occurrence_rejects_sql_value_mismatch():
-    question, retriever, observations, manifest, _, _, cite = _fixture(Decimal("7"))
+    question, retriever, observations, manifest, _, _, cite = _fixture(Decimal(7))
 
     report = evaluate(
         [question], retriever=retriever, observation_store=observations, cite=cite, manifest=manifest

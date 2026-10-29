@@ -7,11 +7,11 @@ entries. SQLite/I/O errors propagate and failed replacements leave the old gener
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 import json
-from pathlib import Path
 import re
 import sqlite3
+from collections.abc import Mapping, Sequence
+from pathlib import Path
 
 from pydantic import TypeAdapter
 

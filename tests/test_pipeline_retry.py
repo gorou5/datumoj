@@ -1,9 +1,15 @@
-from datumoj.rikolto.core.models import parse_context_fingerprint
 from datumoj.rikolto.core.contracts import ParseError, ParseStatus
+from datumoj.rikolto.core.models import parse_context_fingerprint
 from datumoj.rikolto.pipeline import PipelineDeps, parse_pending
 from datumoj.rikolto.testing.fakes import (
-    FakeCatalogStore, FakeChunkStore, FakeKeywordIndex, FakeManifest, FakeObservationStore,
-    FakeParser, FakeRawStore, FakeRegistry,
+    FakeCatalogStore,
+    FakeChunkStore,
+    FakeKeywordIndex,
+    FakeManifest,
+    FakeObservationStore,
+    FakeParser,
+    FakeRawStore,
+    FakeRegistry,
 )
 from datumoj.rikolto.testing.samples import make_snapshot, make_spec
 

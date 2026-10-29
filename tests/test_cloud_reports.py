@@ -14,11 +14,10 @@ from typer.testing import CliRunner
 from datumoj.rikolto import cli, cloud
 from datumoj.rikolto.analysis.reports import previous_week_period, weekly_report
 from datumoj.rikolto.core.monitor import Alert
-from datumoj.rikolto.core.storage import load_storage_config
 from datumoj.rikolto.core.state_s3 import S3StateObjectStore
+from datumoj.rikolto.core.storage import load_storage_config
 from datumoj.rikolto.testing.fakes import FakeChangeLog, FakeChunkStore, FakeManifest, FakeRegistry
 from datumoj.rikolto.testing.samples import make_spec
-
 
 _ENV = {
     "R2_ACCESS_KEY_ID": "report-test-access",
@@ -131,7 +130,7 @@ def test_cloud_run_only_claims_weekly_key_after_a_successful_round(
     )
     manager = SimpleNamespace(
         store=SimpleNamespace(get=lambda _key: None), writer=SimpleNamespace(kind="nas"),
-        list=lambda: [], push=lambda: generation,
+        list=list, push=lambda: generation,
         before_write=None, before_publish=None,
     )
 

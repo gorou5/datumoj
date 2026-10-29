@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import date, datetime
-from typing import Mapping
 
 from lxml import etree
 from pydantic import JsonValue
 
-from datumoj.rikolto.core.contracts import ParseError, ParseResult, Parser
+from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult
 from datumoj.rikolto.core.models import Chunk, Document, Snapshot, format_locator
 
 

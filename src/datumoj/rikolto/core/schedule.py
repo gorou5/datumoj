@@ -470,7 +470,7 @@ class Scheduler:
                     check_lease()
                 record.update(new=report.new, unchanged=report.unchanged, failures=report.failures,
                               stop_reason=report.stop_reason, exit_status=1 if report.failures else 0)
-            except Exception as exc:  # noqa: BLE001 - Persist failures at the crawl boundary, then continue the tick.
+            except Exception as exc:
                 reason = "远端租约或运行失败，本轮停止" if remote else str(exc)
                 record.update(failures={type(exc).__name__: 1}, stop_reason=reason, exit_status=1)
             record["ended_at"] = self.now().isoformat()

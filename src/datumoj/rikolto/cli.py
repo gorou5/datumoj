@@ -19,13 +19,13 @@ from datumoj.rikolto import wiring
 from datumoj.rikolto.analysis.reports import previous_week_period, weekly_report
 from datumoj.rikolto.core import schedule as scheduling
 from datumoj.rikolto.core.lease import LeaseManager, remote_configured
-from datumoj.rikolto.core.monitor import attach_cloud_status
 from datumoj.rikolto.core.models import Citation
+from datumoj.rikolto.core.monitor import attach_cloud_status
 from datumoj.rikolto.core.pull import data_state
 from datumoj.rikolto.core.pull import pull as _pull_state
 from datumoj.rikolto.core.registry_export import export_registry
-from datumoj.rikolto.core.storage import load_storage_config
 from datumoj.rikolto.core.state import local_write
+from datumoj.rikolto.core.storage import load_storage_config
 from datumoj.rikolto.index.coverage import INDEX_REBUILDING, rebuilding_index
 from datumoj.rikolto.pipeline import vector_status
 
@@ -341,7 +341,7 @@ def diagnose_storage(
 
     try:
         typer.echo(_json(storage(data_dir if data_dir is not None else _data_dir())))
-    except Exception as exc:  # noqa: BLE001 -- sanitize storage/configuration errors at the CLI boundary
+    except Exception as exc:
         # Paths, storage configuration and underlying exception text are private.
         typer.echo(_json({"error": type(exc).__name__}), err=True)
         raise typer.Exit(1) from None

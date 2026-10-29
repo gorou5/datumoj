@@ -14,8 +14,9 @@ from pathlib import Path
 from typing import Any
 
 from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult, discover_parsers
+from datumoj.rikolto.core.state import StateManager as _StateManager
+from datumoj.rikolto.core.state import local_write
 from datumoj.rikolto.core.storage import load_storage_config
-from datumoj.rikolto.core.state import StateManager as _StateManager, local_write
 from datumoj.rikolto.parsers.ckan_meta import CkanMetaParser
 from datumoj.rikolto.store.catalog import SqliteCatalogStore
 
@@ -164,8 +165,10 @@ class _PinnedObservations:
 
     def table_order(self, source_id, table_key):
         from hashlib import sha256
+
         import pyarrow.parquet as pq
         from pydantic import TypeAdapter
+
         from datumoj.rikolto.core.models import SnapshotOrder, SourceId, Text
         from datumoj.rikolto.store.observations import _ORDER_KEY
 
@@ -507,6 +510,7 @@ class _ReleaseStateManager(_StateManager):
 
     def push(self):
         import tempfile
+
         from datumoj.rikolto.store.observations import retain_generation
 
         manifest = super().push()
@@ -538,6 +542,7 @@ def import_observation_release(deps, source_id, file, release_id, released_at):
     """Match local bytes against registered source plans, without fetching URLs."""
     from datetime import UTC, date, datetime
     from itertools import islice
+
     from datumoj.rikolto.core.contracts import CrawlContext, ParseError, select_parser
     from datumoj.rikolto.core.models import FetchOutcome, PublishState, Snapshot
 

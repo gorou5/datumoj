@@ -1,7 +1,7 @@
 """解析缓存按上下文隔离，快照发布按持久化顺序单调推进。"""
 
-from datetime import timedelta
 from dataclasses import replace
+from datetime import timedelta
 from unittest.mock import Mock
 
 import pytest
@@ -13,8 +13,17 @@ from datumoj.rikolto.parsers.xml_law import LawXMLParser
 from datumoj.rikolto.pipeline import PipelineDeps, _record_fetch_changes, parse_pending
 from datumoj.rikolto.store.chunks import SqliteChunkStore
 from datumoj.rikolto.testing.fakes import (
-    FakeCatalogStore, FakeChangeLog, FakeChunkStore, FakeKeywordIndex, FakeManifest,
-    FakeObservationStore, FakeParser, FakeRawStore, FakeRegistry, FakeVectorIndex, FakeEmbedder,
+    FakeCatalogStore,
+    FakeChangeLog,
+    FakeChunkStore,
+    FakeEmbedder,
+    FakeKeywordIndex,
+    FakeManifest,
+    FakeObservationStore,
+    FakeParser,
+    FakeRawStore,
+    FakeRegistry,
+    FakeVectorIndex,
 )
 from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 

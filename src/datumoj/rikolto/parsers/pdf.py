@@ -13,7 +13,7 @@ import pypdfium2 as pdfium
 from pydantic import JsonValue
 
 from datumoj.rikolto.core.budget import BudgetChecker, BudgetExceeded, budget_from_meta
-from datumoj.rikolto.core.contracts import ParseError, ParseResult, Parser
+from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult
 from datumoj.rikolto.core.models import (
     META_PARENT_SHA256,
     META_PARENT_URL,

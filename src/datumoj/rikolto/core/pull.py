@@ -12,9 +12,9 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from datumoj.rikolto.core import schedule as scheduling
 from datumoj.rikolto.core.contracts import ContractError, StateObjectStore
 from datumoj.rikolto.core.models import StateGeneration, VectorCoverage
-from datumoj.rikolto.core import schedule as scheduling
 from datumoj.rikolto.core.state import StateManager
 from datumoj.rikolto.core.state_s3 import S3StateObjectStore
 from datumoj.rikolto.core.storage import load_storage_config
@@ -119,7 +119,7 @@ class _ReadThroughStore:
         if cached is not None:
             return cached, "local-sha256-reuse"
         found = self.store.get(key)
-        if found is not None and (key.startswith("copies/sha256/") or key.startswith("raw/")):
+        if found is not None and key.startswith(("copies/sha256/", "raw/")):
             self.downloaded_objects += 1
             if self._copy_formats.get(key) == "duckdb-empty":
                 cached_path = self.download_cache / key

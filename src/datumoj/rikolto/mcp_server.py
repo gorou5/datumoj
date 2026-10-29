@@ -9,8 +9,6 @@
 
 from __future__ import annotations
 
-from datetime import date
-
 import asyncio
 import functools
 import importlib
@@ -19,6 +17,7 @@ import sys
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
+from datetime import date
 from pathlib import Path
 from typing import Any
 

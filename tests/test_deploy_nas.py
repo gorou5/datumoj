@@ -7,7 +7,6 @@ from urllib.parse import urlsplit
 
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[1]
 NAS = ROOT / "deploy/nas"
 
@@ -19,12 +18,12 @@ def test_dockerfile_uses_locked_dependencies_python_and_nonroot_entrypoint():
     assert f"FROM python:{python}-slim" in dockerfile
     assert "uv sync --frozen" in dockerfile
     assert not re.search(r"(?:pip install|uv add|uv pip install)", dockerfile)
-    user = re.search(r"^USER (.+)$", dockerfile, re.M).group(1)
+    user = re.search(r"^USER (.+)$", dockerfile, re.MULTILINE).group(1)
     assert user == "10001:10001" and "useradd" in dockerfile
     for instruction, expected in (("ENTRYPOINT", ["rikolto"]), ("CMD", ["cloud", "run"])):
-        value = re.search(rf"^{instruction} (.+)$", dockerfile, re.M).group(1)
+        value = re.search(rf"^{instruction} (.+)$", dockerfile, re.MULTILINE).group(1)
         assert json.loads(value) == expected
-    copies = re.findall(r"^COPY (?!-)(.+)$", dockerfile, re.M)
+    copies = re.findall(r"^COPY (?!-)(.+)$", dockerfile, re.MULTILINE)
     assert copies == ["pyproject.toml uv.lock README.md ./", "src/ ./src/", "sources/ ./sources/", "schemas/ ./schemas/"]
 
 

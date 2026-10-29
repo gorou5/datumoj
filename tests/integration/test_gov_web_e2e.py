@@ -10,7 +10,7 @@ import hashlib
 import json
 import os
 import sqlite3
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from functools import partial
 from pathlib import Path
 
@@ -20,10 +20,17 @@ from typer.testing import CliRunner
 from werkzeug.wrappers import Response
 
 from datumoj.rikolto import cli, wiring
-from datumoj.rikolto.core.models import parse_context_fingerprint
 from datumoj.rikolto.core.contracts import ParseStatus, select_parser
 from datumoj.rikolto.core.http import PoliteHttpFetcher
-from datumoj.rikolto.core.models import Citation, DocKind, FetchOutcome, SourceText, TimeBasis, parent_ref
+from datumoj.rikolto.core.models import (
+    Citation,
+    DocKind,
+    FetchOutcome,
+    SourceText,
+    TimeBasis,
+    parent_ref,
+    parse_context_fingerprint,
+)
 from datumoj.rikolto.core.registry import RegistryImpl, load_registry
 from datumoj.rikolto.core.runner import CrawlDeps
 from datumoj.rikolto.core.schedule import read_control
@@ -45,7 +52,7 @@ GUIDE = PREFIX + "guide.pdf"
 CAO = "/cstp/openinnovation/procurement/index.html"
 PDF = "/cstp/openinnovation/procurement/guideline.pdf"
 DATED = "/dated/index.html"
-NOW = datetime(2026, 10, 22, 12, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 22, 12, tzinfo=UTC)
 LAST_MODIFIED = "Wed, 21 Oct 2026 00:00:00 GMT"
 
 

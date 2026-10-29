@@ -179,7 +179,7 @@ def _admin_app(tmp_path, run_now=None):
 
 
 def test_admin_reports_thread_creation_failure_with_escaped_reason(tmp_path, monkeypatch):
-    import datumoj.rikolto.admin.web as web
+    from datumoj.rikolto.admin import web
 
     class BrokenThread:
         def __init__(self, **_):
@@ -201,7 +201,7 @@ def test_admin_reports_thread_creation_failure_with_escaped_reason(tmp_path, mon
 
 
 def test_admin_reports_first_worker_step_failure(tmp_path, monkeypatch):
-    import datumoj.rikolto.admin.web as web
+    from datumoj.rikolto.admin import web
 
     class InlineThread:
         def __init__(self, *, target, **_):

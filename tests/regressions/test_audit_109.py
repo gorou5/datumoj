@@ -1,7 +1,7 @@
 """Regression for audit D-09: valid-looking tampered bytes must not parse as a snapshot."""
 
-from datumoj.rikolto.core.models import parse_context_fingerprint
 from datumoj.rikolto.core.contracts import ParseStatus
+from datumoj.rikolto.core.models import parse_context_fingerprint
 from datumoj.rikolto.core.rawstore import FileRawStore
 from datumoj.rikolto.pipeline import PipelineDeps, parse_pending
 from datumoj.rikolto.testing.fakes import (

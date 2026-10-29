@@ -30,7 +30,7 @@ ENV = {
     "DATUMOJ_S3_REGION": "us-east-1",
     "DATUMOJ_RAW_BACKEND": "s3",
 }
-BODY = "Synthetic private source body\n\nSecond paragraph".encode()
+BODY = b"Synthetic private source body\n\nSecond paragraph"
 
 
 class LocalFetcher:

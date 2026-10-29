@@ -14,7 +14,7 @@ import os
 import shutil
 import threading
 import weakref
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -25,11 +25,18 @@ from mcp import Client
 from typer.testing import CliRunner
 
 from datumoj.rikolto import cli, mcp_server, wiring
-from datumoj.rikolto.core.models import parse_context_fingerprint
 from datumoj.rikolto.analysis.tools import AnalysisTools
-from datumoj.rikolto.core.contracts import ParseError, ParseResult, Parser, ParseStatus, discover_parsers, select_parser
+from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult, ParseStatus, discover_parsers, select_parser
 from datumoj.rikolto.core.manifest import SqliteManifest
-from datumoj.rikolto.core.models import Chunk, Document, FetchOutcome, MatchedBy, Snapshot, SourceText
+from datumoj.rikolto.core.models import (
+    Chunk,
+    Document,
+    FetchOutcome,
+    MatchedBy,
+    Snapshot,
+    SourceText,
+    parse_context_fingerprint,
+)
 from datumoj.rikolto.core.rawstore import FileRawStore
 from datumoj.rikolto.core.registry import RegistryImpl, load_registry
 from datumoj.rikolto.crawlers.egov_law import pending_amendments
@@ -47,7 +54,7 @@ ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "tests/fixtures"
 IVY_BANKS = ("law.yaml", "stats.yaml", "catalog.yaml", "behavior.yaml")
 EXTRA = FIXTURES / "eval_extra"
-NOW = datetime(2026, 10, 21, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 21, tzinfo=UTC)
 
 
 class AnnouncementParser(Parser):

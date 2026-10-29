@@ -14,8 +14,14 @@ from datumoj.eltiro.prompts import TEMPLATES, build_prompt
 from datumoj.eltiro.routing import SQLiteModelRouter
 from datumoj.eltiro.testing.fakes import FakeModelCache, FakeModelProvider, FakeProfileStore
 from datumoj.eltiro.testing.samples import (
-    make_consumer, make_demand, make_license, make_match, make_model_input,
-    make_profile, make_route_decision, make_routing_policy,
+    make_consumer,
+    make_demand,
+    make_license,
+    make_match,
+    make_model_input,
+    make_profile,
+    make_route_decision,
+    make_routing_policy,
 )
 from datumoj.rikolto.core.models import GenerationToken
 from tests.eltiro.test_drafts import model_context, registry, sample_case

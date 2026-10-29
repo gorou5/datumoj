@@ -8,12 +8,12 @@ import json
 import re
 from collections.abc import Mapping
 from datetime import date
-from xml.parsers import expat
 from xml.etree import ElementTree as ET
+from xml.parsers import expat
 
 from pydantic import JsonValue
 
-from datumoj.rikolto.core.contracts import ParseError, ParseResult, Parser
+from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult
 from datumoj.rikolto.core.models import Chunk, Document, Snapshot, format_locator
 from datumoj.rikolto.text import article_number
 

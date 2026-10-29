@@ -25,11 +25,8 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import datumoj
-from datumoj.rikolto.core.storage import load_storage_config
 from datumoj.rikolto.analysis.glossary import expand_terms, normalize
 from datumoj.rikolto.core.citations import document_snapshot, select_snapshot
-from datumoj.rikolto.index.coverage import gap_state as pipeline_gap_state
-from datumoj.rikolto.index.coverage import index_generation, pipeline_status
 from datumoj.rikolto.core.contracts import (
     AmbiguousCitation,
     CatalogFilter,
@@ -56,9 +53,9 @@ from datumoj.rikolto.core.contracts import (
     select_parser,
 )
 from datumoj.rikolto.core.models import (
-    Chunk,
     ChangeEvent,
     ChangeKind,
+    Chunk,
     Citation,
     DocKind,
     Document,
@@ -79,6 +76,9 @@ from datumoj.rikolto.core.models import (
     parse_locator,
     redact_url,
 )
+from datumoj.rikolto.core.storage import load_storage_config
+from datumoj.rikolto.index.coverage import gap_state as pipeline_gap_state
+from datumoj.rikolto.index.coverage import index_generation, pipeline_status
 
 __all__ = ["INTERNAL_ONLY", "AnalysisTools", "expand_terms"]
 
@@ -288,7 +288,7 @@ _SIMPLE_FILTER = re.compile(
     rf"^\s*(source_id|table_key|time_start|time_end|time_label|area_code|area_label|value)\s+"
     rf"(?:IN\s*\(\s*{_SIMPLE_LITERAL}(?:\s*,\s*{_SIMPLE_LITERAL})*\s*\)|"
     rf"BETWEEN\s+{_SIMPLE_LITERAL}\s+AND\s+{_SIMPLE_LITERAL})\s*$",
-    re.I,
+    re.IGNORECASE,
 )
 
 
@@ -304,9 +304,7 @@ def _sql_tokens(sql: str) -> list[tuple[str, int, int, int]]:
             tokens.append((word.lower(), match.start(1), match.end(1), depth))
         elif punctuation == "(":
             depth += 1
-        elif punctuation == ")":
-            tokens.append((punctuation, match.start(2), match.end(2), depth))
-        elif punctuation == ",":
+        elif punctuation == ")" or punctuation == ",":
             tokens.append((punctuation, match.start(2), match.end(2), depth))
     return tokens
 

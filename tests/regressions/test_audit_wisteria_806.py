@@ -1,7 +1,7 @@
 """806 security audit: durable contracts plus offline provider/storage integration."""
 
-from concurrent.futures import ThreadPoolExecutor
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 import pytest
@@ -10,14 +10,22 @@ from datumoj.eltiro.contracts import ProviderUnavailable, RerunCacheMiss, RouteI
 from datumoj.eltiro.model_cache import SQLiteModelCache
 from datumoj.eltiro.models import ConsumersConfig, ManualQueueItem, ModelResult, RouteDecision
 from datumoj.eltiro.providers import (
-    CLAUDE_EXECUTABLE_ENV, CLAUDE_HEADLESS_ARGS, OLLAMA_URL_ENV,
-    ClaudePlanProvider, CloudAPIProvider, OllamaProvider,
+    CLAUDE_EXECUTABLE_ENV,
+    CLAUDE_HEADLESS_ARGS,
+    OLLAMA_URL_ENV,
+    ClaudePlanProvider,
+    CloudAPIProvider,
+    OllamaProvider,
 )
 from datumoj.eltiro.routing import SQLiteModelRouter
 from datumoj.eltiro.testing.contract_suites import ModelCacheSuite, ModelRouterSuite
 from datumoj.eltiro.testing.fakes import FakeModelCache, FakeModelProvider
 from datumoj.eltiro.testing.samples import (
-    make_consumer, make_model_input, make_route_decision, make_routing_context, make_routing_policy,
+    make_consumer,
+    make_model_input,
+    make_route_decision,
+    make_routing_context,
+    make_routing_policy,
 )
 
 

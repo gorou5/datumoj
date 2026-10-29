@@ -5,14 +5,19 @@ import json
 import pytest
 
 from datumoj.eltiro.model_match import _answer, _model_config, _one_sentence, judge_candidates
-from datumoj.eltiro.models import ConsumersConfig, ModelResult
+from datumoj.eltiro.models import ConsumerConfig, ConsumersConfig, ModelResult
 from datumoj.eltiro.routing import SQLiteModelRouter
 from datumoj.eltiro.testing.fakes import FakeModelCache, FakeModelProvider
 from datumoj.eltiro.testing.samples import (
-    make_consumer, make_demand, make_license, make_match, make_profile, make_route_decision,
-    make_routing_policy, make_series,
+    make_consumer,
+    make_demand,
+    make_license,
+    make_match,
+    make_profile,
+    make_route_decision,
+    make_routing_policy,
+    make_series,
 )
-from datumoj.eltiro.models import ConsumerConfig
 from datumoj.rikolto.core.models import GenerationToken
 
 

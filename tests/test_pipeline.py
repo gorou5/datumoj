@@ -1,16 +1,30 @@
 from __future__ import annotations
 
-from datumoj.rikolto.core.models import parse_context_fingerprint
+from datetime import timedelta
+
 from datumoj.rikolto.core.contracts import NO_PARSER, ContentState, ParseResult, ParseStatus
+from datumoj.rikolto.core.models import parse_context_fingerprint
 from datumoj.rikolto.pipeline import PipelineDeps, parse_pending, reindex
 from datumoj.rikolto.testing.fakes import (
-    FakeCatalogStore, FakeChunkStore, FakeKeywordIndex, FakeManifest, FakeObservationStore, FakeParser,
-    FakeRawStore, FakeRegistry, FakeVectorIndex, FakeEmbedder,
+    FakeCatalogStore,
+    FakeChunkStore,
+    FakeEmbedder,
+    FakeKeywordIndex,
+    FakeManifest,
+    FakeObservationStore,
+    FakeParser,
+    FakeRawStore,
+    FakeRegistry,
+    FakeVectorIndex,
 )
 from datumoj.rikolto.testing.samples import (
-    T0, make_dataset, make_observation, make_resource, make_snapshot, sha,
+    T0,
+    make_dataset,
+    make_observation,
+    make_resource,
+    make_snapshot,
+    sha,
 )
-from datetime import timedelta
 
 
 class CsvParser(FakeParser):

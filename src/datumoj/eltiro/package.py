@@ -8,24 +8,30 @@ raises ValueError/OSError; license denials raise LicenseGateError with safe code
 from __future__ import annotations
 
 import csv
-from datetime import date, datetime
-from decimal import Decimal
 import fcntl
-from hashlib import sha256
 import io
 import json
 import os
-from pathlib import Path
 import re
 import shutil
 import stat
+from datetime import date, datetime
+from decimal import Decimal
+from hashlib import sha256
+from pathlib import Path
 from uuid import uuid4
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 
 from datumoj.eltiro.license_gate import (
-    IDENTIFIERS, NUMBERS, RAW_TEXT, UNITS, LicenseGateError, check_rows, source_level,
+    IDENTIFIERS,
+    NUMBERS,
+    RAW_TEXT,
+    UNITS,
+    LicenseGateError,
+    check_rows,
+    source_level,
 )
 from datumoj.eltiro.models import ConsumerConfig, DemandSpec, LicenseSummary, OutputManifest
 from datumoj.eltiro.runs import RunStore

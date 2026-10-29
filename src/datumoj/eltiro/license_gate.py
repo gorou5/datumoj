@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
 import unicodedata
+from decimal import Decimal
 
 from datumoj.eltiro.models import MAX_LABEL_LENGTH, CitationEntry, LicenseSummary
 from datumoj.rikolto.core.contracts import SourceSpec

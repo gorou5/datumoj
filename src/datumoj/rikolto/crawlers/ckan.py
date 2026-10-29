@@ -6,7 +6,8 @@ import json
 import logging
 import unicodedata
 from collections.abc import Iterable, Mapping
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from itertools import pairwise
 from typing import Any
 from urllib.parse import quote, urlencode, urlsplit
 
@@ -75,7 +76,7 @@ def _utc(text: str) -> datetime | None:
         parsed = datetime.fromisoformat(text)
     except (TypeError, ValueError):
         return None
-    return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed
+    return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed
 
 
 class CkanCrawler(Crawler):
@@ -171,7 +172,7 @@ class CkanCrawler(Crawler):
 
     @staticmethod
     def _started(ctx: CrawlContext) -> str:
-        return ctx.now.astimezone(timezone.utc).isoformat()
+        return ctx.now.astimezone(UTC).isoformat()
 
     def _search_task(
         self, ctx: CrawlContext, start: int, fallback: str | None = None,
@@ -302,7 +303,7 @@ class CkanCrawler(Crawler):
         ordered = sorted(pages, key=lambda item: item[1]["start"])
         if len(ordered) < 2 or ordered[0][1]["start"] != 0:
             return False
-        for (_, previous_meta), (_, current_meta) in zip(ordered, ordered[1:]):
+        for (_, previous_meta), (_, current_meta) in pairwise(ordered):
             previous_start, previous_count = current_meta.get("previous_start"), current_meta.get("previous_count")
             if (not isinstance(previous_start, int) or isinstance(previous_start, bool)
                     or not isinstance(previous_count, int) or isinstance(previous_count, bool)

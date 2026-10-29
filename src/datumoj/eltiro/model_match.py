@@ -2,19 +2,28 @@
 
 from __future__ import annotations
 
-from contextlib import closing
 import json
-from pathlib import Path
 import re
 import sqlite3
+from contextlib import closing
+from pathlib import Path
 
 from pydantic import TypeAdapter, ValidationError
 
-from datumoj.eltiro.models import (
-    ConsumerConfig, DemandSpec, Generation, ManualQueueItem, MatchRecord, ModelInput, ModelResult,
-    ModelUse, RoutePlan, SeriesProfile, content_hash,
-)
 from datumoj.eltiro.match_store import series_key
+from datumoj.eltiro.models import (
+    ConsumerConfig,
+    DemandSpec,
+    Generation,
+    ManualQueueItem,
+    MatchRecord,
+    ModelInput,
+    ModelResult,
+    ModelUse,
+    RoutePlan,
+    SeriesProfile,
+    content_hash,
+)
 from datumoj.rikolto.core.models import GenerationToken
 
 
