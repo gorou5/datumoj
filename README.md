@@ -69,7 +69,7 @@ python tests/validate_schemas.py
 
 ## 当前阶段
 
-0.1（代号 IVY）开发中：已实现日本官方数据源的抓取、解析、索引与检索（eGov 法令、e-Stat 文件、JMA 订阅、政府统计门户），含 MCP Server、本机抓取管理页面与评测集。数据源注册层的三个统一标准（描述 / 调用 / 证据）已并入仓库，正在与内部数据契约对齐。许可证待定（见下）。
+各版本的状态见 [docs/PLAN.md](docs/PLAN.md) 第 8.2 节版本表，进度总览见 https://plan.datumoj.com/ 。许可证待定（见下）。
 
 ## 许可证
 
