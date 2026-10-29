@@ -7,7 +7,7 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const key = url.pathname === '/feed.json' ? 'items' : url.pathname === '/people.json' ? 'people' : null;
+    const key = url.pathname.endsWith('/feed.json') ? 'items' : url.pathname.endsWith('/people.json') ? 'people' : null;
     if (!key) return new Response('not found', { status: 404 });
     let raw = null;
     try {
