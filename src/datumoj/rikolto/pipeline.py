@@ -38,6 +38,7 @@ from datumoj.rikolto.core.contracts import (
     max_state,
     select_parser,
 )
+from datumoj.rikolto.core.errors import safe_reason
 from datumoj.rikolto.core.models import (
     ChangeEvent,
     ChangeKind,
@@ -179,8 +180,8 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
                     vector_errors.extend(_publish_document(deps, key, snap, rewritten=not reusable, event=events.get(key)))
                 if needs_publish:
                     deps.manifest.record_publish_state(snap.snapshot_id, PublishState.published)
-            except Exception as exc:  # 一个坏快照不影响其他
-                reason = str(exc) if isinstance(exc, BudgetExceeded) else f"{type(exc).__name__}: {exc}"
+            except Exception as exc:  # noqa: BLE001 -- 坏快照必须隔离，不能影响其他快照。
+                reason = safe_reason(exc)
                 current_written = staged and any(
                     (current := deps.chunks.get_document(key)) is not None and current.snapshot_sha256 == snap.sha256
                     for key in doc_keys
@@ -204,8 +205,8 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
         if deps.change_log is not None:
             try:
                 _record_fetch_changes(deps, snapshots)
-            except Exception:
-                _LOG.warning("抓取变化检测失败：%s", spec.id, exc_info=True)
+            except Exception as exc:  # noqa: BLE001 -- 可选抓取变化检测失败不能撤销解析结果。
+                _LOG.warning("抓取变化检测失败：%s（%s）", spec.id, safe_reason(exc))
     summary.vector_remaining = deps._vector_remaining
     _maintain_vectors(deps)
     return summary
@@ -223,7 +224,7 @@ def _maintain_vectors(deps: PipelineDeps) -> None:
     if deps._vectors_written and callable(maintain):
         try:
             maintain()
-        except Exception:  # optional maintenance must not undo publication
+        except Exception:  # noqa: BLE001 -- 可选向量维护失败不能撤销已发布状态。
             # SDK exceptions may contain paths, configuration or source text.
             _LOG.warning("向量维护失败；已发布的状态保留")
 
@@ -277,11 +278,11 @@ def _recover_staged(
                         summary.vectors_missing[snapshot_id] = error
             deps.manifest.record_publish_state(snapshot_id, PublishState.published)
             pending.remove(snapshot_id)
-        except Exception as exc:
-            reason = f"{type(exc).__name__}: {exc}"
+        except Exception as exc:  # noqa: BLE001 -- 单快照发布恢复失败不能阻止其他快照恢复。
+            reason = safe_reason(exc)
             summary.failed[snapshot_id] = reason
             deps.manifest.record_publish_state(snapshot_id, PublishState.staged, reason)
-            _LOG.warning("发布恢复失败：%s", snapshot_id, exc_info=True)
+            _LOG.warning("发布恢复失败：%s（%s）", snapshot_id, safe_reason(exc))
     return pending
 
 
@@ -305,8 +306,8 @@ def _record_parse_failure(deps: PipelineDeps, snap: Snapshot, reason: str) -> No
             new_sha256=snap.sha256, detected_at=datetime.now(UTC),
             summary=" ".join(f"解析失败 [{kind.value}]；快照 {snap.snapshot_id}：{reason}".split()),
         )])
-    except Exception:
-        _LOG.warning("解析失败事件写入失败：%s", snap.snapshot_id, exc_info=True)
+    except Exception as exc:  # noqa: BLE001 -- 失败事件写入失败不能覆盖原解析错误。
+        _LOG.warning("解析失败事件写入失败：%s（%s）", snap.snapshot_id, safe_reason(exc))
 
 
 def _record_fetch_changes(deps: PipelineDeps, snapshots: list[Snapshot]) -> None:
@@ -420,9 +421,9 @@ def _dispatch(deps: PipelineDeps, result: ParseResult, snap: Snapshot) -> dict[s
             try:
                 old_doc = deps.chunks.get_document(doc.doc_key)
                 old_text = "\n".join(c.text for c in deps.chunks.chunks_for(doc.doc_key))
-            except Exception:
+            except Exception as exc:  # noqa: BLE001 -- 旧文档读取失败时按 manifest 顺序保护已发布内容。
                 compare = False
-                _LOG.warning("读取旧文档供变化检测失败：%s", doc.doc_key, exc_info=True)
+                _LOG.warning("读取旧文档供变化检测失败：%s（%s）", doc.doc_key, safe_reason(exc))
         deps.chunks.put_document(doc, chunks, publish=False)
         if compare:
             try:
@@ -431,8 +432,8 @@ def _dispatch(deps: PipelineDeps, result: ParseResult, snap: Snapshot) -> dict[s
                     events[doc.doc_key] = ChangeEvent.make(
                         **event.model_dump(exclude={"event_id", "resource_url"}), resource_url=snap.resource_url,
                     )
-            except Exception:
-                _LOG.warning("文档变化检测失败：%s", doc.doc_key, exc_info=True)
+            except Exception as exc:  # noqa: BLE001 -- 可选文档变化检测失败不能撤销发布。
+                _LOG.warning("文档变化检测失败：%s（%s）", doc.doc_key, safe_reason(exc))
     return events
 
 
@@ -456,9 +457,9 @@ def _write_observation_table(
                     f"SELECT source_id, table_key, obs_id FROM observations WHERE {where}", max_rows=count,
                 ).provenance
                 lookup_failed = len(current) != count
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 -- 旧观测读取失败时按 manifest 顺序避免数据回退。
             lookup_failed = True
-            _LOG.warning("读取旧观测值表失败；按 manifest 顺序保护写入：%s/%s", source_id, table_key, exc_info=True)
+            _LOG.warning("读取旧观测值表失败；按 manifest 顺序保护写入：%s/%s（%s）", source_id, table_key, safe_reason(exc))
         if current or lookup_failed:
             current_orders = []
             for sha in {o.snapshot_sha256 for o in current}:
@@ -496,9 +497,9 @@ def _publish_document(
     if current_order is None:
         try:
             current = deps.chunks.get_document(doc_key)
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 -- 当前文档读取失败时按 manifest 顺序避免发布回退。
             current_lookup_failed = True
-            _LOG.warning("读取当前文档失败；按 manifest 顺序保护发布：%s", doc_key, exc_info=True)
+            _LOG.warning("读取当前文档失败；按 manifest 顺序保护发布：%s（%s）", doc_key, safe_reason(exc))
     if current_order is None and (current is not None or current_lookup_failed):
         current_orders = []
         if current is not None:
@@ -530,8 +531,8 @@ def _publish_document(
     if published and event is not None:
         try:
             deps.change_log.append([event])
-        except Exception:
-            _LOG.warning("文档变化写入失败：%s", doc_key, exc_info=True)
+        except Exception as exc:  # noqa: BLE001 -- 可选变化日志写入失败不能撤销发布。
+            _LOG.warning("文档变化写入失败：%s（%s）", doc_key, safe_reason(exc))
     chunks = deps.chunks.chunks_for(doc_key, snap.sha256)
     if deps.vectors is not None:
         # 关键词中断或进程退出后，恢复扫描也能定位尚未写完的可选向量。
@@ -609,9 +610,9 @@ def reindex(deps: PipelineDeps, source_id: str | None = None, *, vectors_only: b
     elif deps.vectors is not None and not vectors_only and source_id is None:
         try:
             deps.vectors.clear()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 -- 向量清理失败须标记待重试并保留关键词索引。
             vector_clear_failed = True
-            reason = f"{type(exc).__name__}: {exc}"
+            reason = safe_reason(exc)
             for chunk in deps.chunks.iter_chunks(source_ids):
                 doc_chunks = deps.chunks.chunks_for(chunk.doc_key)
                 _mark_vector_missing(deps, state, chunk.doc_key, doc_chunks or [chunk], reason,
@@ -635,10 +636,10 @@ def reindex(deps: PipelineDeps, source_id: str | None = None, *, vectors_only: b
             for doc_key in selected:
                 try:
                     deps.vectors.delete(doc_key)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 -- 向量 SDK 单文档失败须记录并隔离。
                     doc_chunks = deps.chunks.chunks_for(doc_key)
                     _mark_vector_missing(
-                        deps, state, doc_key, doc_chunks, f"{type(exc).__name__}: {exc}",
+                        deps, state, doc_key, doc_chunks, safe_reason(exc),
                         _snapshot_id(deps, doc_chunks),
                     )
                     vector_failed.add(doc_key)
@@ -668,8 +669,8 @@ def reindex(deps: PipelineDeps, source_id: str | None = None, *, vectors_only: b
                             vector_deleted.add(chunk.doc_key)
                 deps._vectors_written = True
                 embedded += deps.vectors.add(vector_batch)
-            except Exception as exc:
-                reason = f"{type(exc).__name__}: {exc}"
+            except Exception as exc:  # 候选向量写入失败须保留待补列表，staged 模式继续抛出。
+                reason = safe_reason(exc)
                 failed_docs = {chunk.doc_key for chunk in vector_batch}
                 for doc_key in failed_docs:
                     doc_chunks = deps.chunks.chunks_for(doc_key)
@@ -685,7 +686,7 @@ def reindex(deps: PipelineDeps, source_id: str | None = None, *, vectors_only: b
         if state is not None:
             successful = (selected if vectors_only else vector_seen) - vector_failed
             _clear_vector_missing_many(deps, state, successful)
-    except Exception:
+    except Exception:  # 候选代失败须先回滚清理，再原样抛出，不能发布半成品。
         if generation_started:
             abort_generation()
         raise
@@ -731,7 +732,7 @@ def _limited_reindex(deps: PipelineDeps, source_id: str | None, *, vectors_only:
                 raise RuntimeError("候选向量代写入失败")
         if staged:
             deps.vectors.finish_generation(deps.vectors.count_rows())
-    except Exception:
+    except Exception:  # 候选代失败须先回滚清理，再原样抛出，不能发布半成品。
         if staged:
             deps.vectors.abort_generation()
         # A candidate may have consumed the pending list before being aborted.
@@ -840,7 +841,7 @@ def _mark_vector_missing(
     try:
         _save_vector_state(deps, state)
     except OSError as exc:
-        state["last_error"] = f"{reason}; 状态文件写入失败：{type(exc).__name__}: {exc}"
+        state["last_error"] = f"{reason}; 状态文件写入失败：{safe_reason(exc)}"
         deps.vector_state = state
         deps.vector_state_dirty = True
 
@@ -880,8 +881,8 @@ def _write_vector_document(
         if batch:
             deps._vectors_written = True
             deps.vectors.add(batch)
-    except Exception as exc:
-        reason = f"{type(exc).__name__}: {exc}"
+    except Exception as exc:  # noqa: BLE001 -- 向量 SDK 单文档失败须保留待补状态。
+        reason = safe_reason(exc)
     else:
         pending = pending[len(batch):]
         reason = "vector_limit" if pending else None

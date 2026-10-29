@@ -411,7 +411,7 @@ def test_runaway_pagination_including_duplicate_urls_is_bounded(site, monkeypatc
     h = site()
     report = run_crawl(h.spec, Runaway(), h.deps)
     assert report.new == 1 and report.failures == {f"{stage}_error": 1}
-    assert "分页可能没有终止" in report.stop_reason
+    assert report.stop_reason == f"{stage} 失败：ValueError"
     assert len(h.manifest.snapshots_for(h.spec.id)) == 1
 
 

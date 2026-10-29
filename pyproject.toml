@@ -112,42 +112,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# BLE001: 由 WISTERIA-104 逐处处理。
-"src/datumoj/eltiro/cli.py" = ["BLE001"]
-# BLE001: 由 WISTERIA-104 逐处处理。
-"src/datumoj/eltiro/eval.py" = ["BLE001"]
-# BLE001: 由 WISTERIA-104 逐处处理。
-"src/datumoj/eltiro/executor.py" = ["BLE001"]
-# BLE001: 由 WISTERIA-104 逐处处理。
-"src/datumoj/eltiro/providers.py" = ["BLE001"]
-# BLE001: 由 WISTERIA-104 逐处处理。
 # B008: Typer 通过 Option/Argument 默认值声明命令行参数。
-"src/datumoj/rikolto/cli.py" = ["BLE001", "B008"]
-# BLE001: 由 WISTERIA-104 逐处处理。
-"src/datumoj/rikolto/cloud.py" = ["BLE001"]
-# BLE001: 由 WISTERIA-104 逐处处理。
+"src/datumoj/rikolto/cli.py" = ["B008"]
+# BLE001: 契约文件受任务保护；仅保留插件发现的聚合捕获，调用方出口脱敏。
 "src/datumoj/rikolto/core/contracts.py" = ["BLE001"]
-# BLE001: 由 WISTERIA-104 逐处处理。
-"src/datumoj/rikolto/core/lease.py" = ["BLE001"]
-# BLE001: 由 WISTERIA-104 逐处处理。
-"src/datumoj/rikolto/core/pull.py" = ["BLE001"]
-# BLE001: 由 WISTERIA-104 逐处处理。
-"src/datumoj/rikolto/core/runner.py" = ["BLE001"]
-# BLE001: 由 WISTERIA-104 逐处处理。
-# S110: 与 blind-except 同属异常处理策略，由 WISTERIA-104 逐处处理。
-"src/datumoj/rikolto/core/schedule.py" = ["BLE001", "S110"]
-# BLE001: 由 WISTERIA-104 逐处处理。
-"src/datumoj/rikolto/core/state.py" = ["BLE001"]
-# BLE001: 由 WISTERIA-104 逐处处理。
-"src/datumoj/rikolto/core/state_s3.py" = ["BLE001"]
-# BLE001: 由 WISTERIA-104 逐处处理。
-# S112: 与 blind-except 同属异常处理策略，由 WISTERIA-104 逐处处理。
-"src/datumoj/rikolto/eval/framework.py" = ["BLE001", "S112"]
-# BLE001: 由 WISTERIA-104 逐处处理。
-# S110: 与 blind-except 同属异常处理策略，由 WISTERIA-104 逐处处理。
-"src/datumoj/rikolto/parsers/pdf.py" = ["BLE001", "S110"]
-# BLE001: 由 WISTERIA-104 逐处处理。
-"src/datumoj/rikolto/pipeline.py" = ["BLE001"]
 # F841: 保留回归测试的构造调用及局部变量，避免改变测试主体。
 # RUF012: 保留回归假实现的可变类属性，避免改变测试主体。
 "tests/regressions/test_audit_114.py" = ["F841", "RUF012"]

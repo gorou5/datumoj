@@ -26,6 +26,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from datumoj.rikolto.analysis.tools import AnalysisTools
 from datumoj.rikolto.core import schedule as scheduling
+from datumoj.rikolto.core.errors import safe_reason
 from datumoj.rikolto.core.pull import data_state
 
 FACTORY_ENV = "DATUMOJ_TOOLS_FACTORY"
@@ -60,8 +61,8 @@ def _guarded(fn: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]
     def wrapper(*args: Any, **kwargs: Any) -> dict[str, Any]:
         try:
             return fn(*args, **kwargs)
-        except Exception as exc:
-            raise ToolError(f"{type(exc).__name__}: {exc}") from exc
+        except Exception as exc:  # noqa: BLE001 -- MCP 边界必须隐藏任意插件或 SDK 失败的原文。
+            raise ToolError(safe_reason(exc)) from None
 
     return wrapper
 

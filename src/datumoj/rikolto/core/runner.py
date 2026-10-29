@@ -23,7 +23,8 @@ from datumoj.rikolto.core.contracts import (
     SourceSpec,
     UrlNotAllowed,
 )
-from datumoj.rikolto.core.models import FAILED_OUTCOMES, FetchOutcome, redact_url
+from datumoj.rikolto.core.errors import safe_reason
+from datumoj.rikolto.core.models import FAILED_OUTCOMES, FetchOutcome
 
 SPA_MIN_TEXT = 100
 MAX_PLAN_STEPS = 10_000
@@ -156,8 +157,7 @@ def run_crawl(
 
     def plugin_error(stage: str, exc: Exception) -> None:
         failure(f"{stage}_error")
-        message = re.sub(r"https?://[^\s\"'<>]+", lambda m: redact_url(m.group()), str(exc), flags=re.IGNORECASE)
-        reason = f"{stage} 失败：{type(exc).__name__}: {message}"
+        reason = f"{stage} 失败：{safe_reason(exc)}"
         report.stop_reason = f"{report.stop_reason}；{reason}" if report.stop_reason else reason
 
     def count_task() -> None:
@@ -169,7 +169,7 @@ def run_crawl(
     try:
         try:
             plan = iter(crawler.plan(ctx))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 -- 插件计划可抛任意异常，必须返回脱敏停止原因。
             plugin_error("plan", exc)
             return report
         while True:
@@ -187,7 +187,7 @@ def run_crawl(
                     if task is None:
                         break
                     count_task()
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 -- 惰性插件计划可在迭代中抛任意异常。
                 plugin_error("plan", exc)
                 break
             url = task.redacted_url
@@ -221,7 +221,7 @@ def run_crawl(
                 )
             except UrlNotAllowed as exc:
                 result = FetchResult(
-                    url=url, outcome=FetchOutcome.network_error, fetched_at=deps.now(), error=str(exc),
+                    url=url, outcome=FetchOutcome.network_error, fetched_at=deps.now(), error=safe_reason(exc),
                 )
             fetched += 1
             fetcher_too_large = result.outcome is FetchOutcome.too_large
@@ -270,7 +270,7 @@ def run_crawl(
                         count_task()
                         if report.stop_reason is None:
                             queue.append(extra)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 -- 插件回调失败不能丢失已经落库的快照。
                     plugin_error("after_fetch", exc)
             if report.stop_reason is not None:
                 break

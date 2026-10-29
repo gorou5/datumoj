@@ -68,7 +68,7 @@ def test_embedding_failure_keeps_parse_and_keyword_index_and_can_be_retried(tmp_
     assert summary.parsed == [snapshot.snapshot_id]
     assert not summary.failed
     assert snapshot.snapshot_id in summary.vectors_missing
-    assert "EmbeddingError: Ollama 返回 404" in summary.vectors_missing[snapshot.snapshot_id]
+    assert "EmbeddingError" in summary.vectors_missing[snapshot.snapshot_id]
     assert deps.manifest.get_parse(
         snapshot.sha256, "fake-text", "1",
         parse_context_fingerprint(snapshot, deps.manifest.snapshot_meta(snapshot.snapshot_id)),
@@ -77,7 +77,7 @@ def test_embedding_failure_keeps_parse_and_keyword_index_and_can_be_retried(tmp_
     assert deps.keyword.search("本文を収録").items
     assert path.exists()
     assert vector_status(deps) == {
-        "state": "missing", "missing_blocks": 2, "error": "EmbeddingError: Ollama 返回 404：模型不存在"
+        "state": "missing", "missing_blocks": 2, "error": "EmbeddingError"
     }
 
     # 新的依赖实例读取同一状态文件后，仍可定位缺失文档并补做。
@@ -159,7 +159,7 @@ def test_status_prints_missing_vector_count_and_error(tmp_path, monkeypatch):
 
     assert result.exit_code == 0
     assert "向量索引：暂缺 2 个块" in result.output
-    assert "Ollama 返回 404：模型不存在" in result.output
+    assert "EmbeddingError" in result.output
 
 
 def test_parse_command_lists_vector_missing_snapshot_and_cause(tmp_path, monkeypatch):
@@ -177,4 +177,4 @@ def test_parse_command_lists_vector_missing_snapshot_and_cause(tmp_path, monkeyp
     assert result.exit_code == 0
     assert snapshot.snapshot_id in result.output
     assert "向量暂缺" in result.output
-    assert "Ollama 返回 404：模型不存在" in result.output
+    assert "EmbeddingError" in result.output

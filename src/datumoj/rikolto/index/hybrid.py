@@ -16,6 +16,7 @@ from datumoj.rikolto.core.contracts import (
     VectorIndex,
     citation_for_chunk,
 )
+from datumoj.rikolto.core.errors import safe_reason
 from datumoj.rikolto.core.models import Freshness, GapState, Hit, MatchedBy, SourceText, ToolResult
 from datumoj.rikolto.index.coverage import gap_state, index_generation, pipeline_status
 
@@ -109,7 +110,7 @@ class HybridRetriever:
                         # 一条子查询失败即舍弃本轮全部向量结果，保持纯关键词的排序。
                         vector_available = False
                         vector_results = [IndexResult() for _ in qs]
-                        warnings.append(f"degraded=true：向量检索不可用（{type(exc).__name__}），退回纯关键词")
+                        warnings.append(f"degraded=true：向量检索不可用（{safe_reason(exc)}），退回纯关键词")
                     else:
                         vector_results[i] = result
                         warnings.extend(result.warnings)
@@ -145,7 +146,7 @@ class HybridRetriever:
                         capacity_by_lane = {lane[:2]: capacities[n] for n, lane in enumerate(lanes)}
                         limits = {key: min(k, capacity) for key, capacity in capacity_by_lane.items()}
                         pending = set(limits)
-                        warnings.append(f"degraded=true：向量检索不可用（{type(exc).__name__}），退回纯关键词")
+                        warnings.append(f"degraded=true：向量检索不可用（{safe_reason(exc)}），退回纯关键词")
                         reconfigured = True
                         break
                     lane_results[key] = result

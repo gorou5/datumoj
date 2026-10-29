@@ -272,7 +272,7 @@ def run_demand(
                                     data_root=ctx.obj["data_dir"], registry=SourceDirectory(ctx.obj["sources_dir"]),
                                     demands=demands)
         typer.echo(json.dumps({k: record[k] for k in ("run_id", "row_count", "gap_count")}))
-    except Exception:
+    except Exception:  # noqa: BLE001 -- 固定错误出口必须兜住任意操作失败，避免终端泄露输入或凭据。
         _error()
 
 
@@ -281,7 +281,7 @@ def list_runs(ctx: typer.Context):
     try:
         load_consumers(ctx.obj["data_dir"])
         typer.echo(json.dumps(RunStore(ctx.obj["data_dir"]).list()))
-    except Exception:
+    except Exception:  # noqa: BLE001 -- 固定错误出口必须兜住任意操作失败，避免终端泄露输入或凭据。
         _error()
 
 
@@ -290,7 +290,7 @@ def show_run(ctx: typer.Context, run_id: str):
     try:
         load_consumers(ctx.obj["data_dir"])
         typer.echo(json.dumps(RunStore(ctx.obj["data_dir"]).show(run_id)))
-    except Exception:
+    except Exception:  # noqa: BLE001 -- 固定错误出口必须兜住任意操作失败，避免终端泄露输入或凭据。
         _error()
 
 
@@ -306,7 +306,7 @@ def package_command(ctx: typer.Context, run_id: str):
     except LicenseGateError as exc:
         typer.echo(json.dumps({"code": exc.code, "sources": exc.sources}), err=True)
         raise typer.Exit(1)
-    except Exception:
+    except Exception:  # noqa: BLE001 -- 固定错误出口必须兜住任意操作失败，避免终端泄露输入或凭据。
         typer.echo(json.dumps({"code": "package_failed", "sources": []}), err=True)
         raise typer.Exit(1)
 
@@ -338,7 +338,7 @@ def refresh_command(
                     catalog=views.catalog, chunks=views.chunks, as_of=day, vector=False, model=False,
                 )
         typer.echo(json.dumps(asdict(counts)))
-    except Exception:  # Redact every operation error at the CLI boundary.
+    except Exception:  # noqa: BLE001 -- 固定错误出口必须兜住任意操作失败，避免终端泄露输入或凭据。
         _error()
 
 
@@ -353,7 +353,7 @@ def alerts_list(
         _state_path(ctx, "alerts.sqlite")
         alerts = list_alerts(ctx.obj["data_dir"], consumer=consumer, demand=demand, include_acked=all_alerts)
         typer.echo(TypeAdapter(list[Alert]).dump_json(alerts).decode())
-    except Exception:  # Redact every operation error at the CLI boundary.
+    except Exception:  # noqa: BLE001 -- 固定错误出口必须兜住任意操作失败，避免终端泄露输入或凭据。
         _error()
 
 
@@ -363,7 +363,7 @@ def alerts_ack(ctx: typer.Context, alert_id: str):
         _state_path(ctx, "alerts.sqlite")
         ack_alert(alert_id, data_root=ctx.obj["data_dir"])
         typer.echo(json.dumps({"acked": True}))
-    except Exception:  # Redact every operation error at the CLI boundary.
+    except Exception:  # noqa: BLE001 -- 固定错误出口必须兜住任意操作失败，避免终端泄露输入或凭据。
         _error()
 
 
@@ -393,7 +393,7 @@ def gaps_show(
             "indicator_count": len(report["indicators"]),
             "gap_count": sum(len(i["gaps"]) for i in report["indicators"]),
         }))
-    except Exception:  # Redact every operation error at the CLI boundary.
+    except Exception:  # noqa: BLE001 -- 固定错误出口必须兜住任意操作失败，避免终端泄露输入或凭据。
         _error()
 
 
@@ -409,7 +409,7 @@ def gaps_report(ctx: typer.Context, generation: Annotated[int, typer.Option("--g
                            profiles=profiles, registry=SourceDirectory(ctx.obj["sources_dir"]), data_dir=root)
         typer.echo(json.dumps({"path": str(root / "eltiro" / "reports" / f"gaps-g{generation}.json"),
                                "markdown_path": str(root / "eltiro" / "reports" / f"gaps-g{generation}.md")}))
-    except Exception:  # Redact every operation error at the CLI boundary.
+    except Exception:  # noqa: BLE001 -- 固定错误出口必须兜住任意操作失败，避免终端泄露输入或凭据。
         _error()
 
 
@@ -419,7 +419,7 @@ def notes_list(ctx: typer.Context, generation: Annotated[int, typer.Option("--ge
         _state_path(ctx, "concept_notes.sqlite")
         notes = list_concept_notes(generation, data_root=ctx.obj["data_dir"])
         typer.echo(TypeAdapter(list[ConceptNote]).dump_json(notes).decode())
-    except Exception:  # Redact every operation error at the CLI boundary.
+    except Exception:  # noqa: BLE001 -- 固定错误出口必须兜住任意操作失败，避免终端泄露输入或凭据。
         _error()
 
 
@@ -441,7 +441,7 @@ def pages_record(ctx: typer.Context, kind: str, file: Path):
                                seen_at=datetime.now(UTC))
         typer.echo(json.dumps({key: len(getattr(changes, key))
                                for key in ("added", "changed", "disappeared", "unchanged", "failures")}))
-    except Exception:  # Redact every operation error at the CLI boundary.
+    except Exception:  # noqa: BLE001 -- 固定错误出口必须兜住任意操作失败，避免终端泄露输入或凭据。
         _error()
 
 
@@ -462,7 +462,7 @@ def drafts_make(
                               data_dir=ctx.obj["data_dir"], router=None)
         typer.echo(json.dumps({"path": str(path), "registered": False,
                                "next": "Edit the draft, then use eltiro submit to submit the edited file."}))
-    except Exception:  # Redact every operation error at the CLI boundary.
+    except Exception:  # noqa: BLE001 -- 固定错误出口必须兜住任意操作失败，避免终端泄露输入或凭据。
         _error()
 
 
@@ -473,5 +473,5 @@ def drafts_list(ctx: typer.Context):
         typer.echo(json.dumps({"paths": [str(path) for path in list_drafts(ctx.obj["data_dir"])],
                                "registered": False,
                                "next": "Edit the draft, then use eltiro submit to submit the edited file."}))
-    except Exception:  # Redact every operation error at the CLI boundary.
+    except Exception:  # noqa: BLE001 -- 固定错误出口必须兜住任意操作失败，避免终端泄露输入或凭据。
         _error()

@@ -170,7 +170,7 @@ class OllamaProvider:
             if body.get("model") != identity.model or body.get("done") is not True:
                 raise ValueError("model response mismatch")
             return _result(decision, body["response"])
-        except Exception:
+        except Exception:  # noqa: BLE001 -- 供应商边界统一隐藏网络、进程及响应校验异常中的凭据。
             raise ProviderUnavailable("ollama unavailable or response rejected") from None
 
 
@@ -210,7 +210,7 @@ class ClaudePlanProvider:
             if body.get("is_error") is not False:
                 raise ValueError("provider reported failure")
             return _result(decision, body["result"], credential)
-        except Exception:
+        except Exception:  # noqa: BLE001 -- 供应商边界统一隐藏网络、进程及响应校验异常中的凭据。
             raise ProviderUnavailable("claude_plan unavailable or response rejected") from None
 
 
@@ -238,5 +238,5 @@ class CloudAPIProvider:
             if not isinstance(blocks, list) or any(block.get("type") != "text" for block in blocks):
                 raise ValueError("only text responses are accepted")
             return _result(decision, "\n".join(block["text"] for block in blocks), credential)
-        except Exception:
+        except Exception:  # noqa: BLE001 -- 供应商边界统一隐藏网络、进程及响应校验异常中的凭据。
             raise ProviderUnavailable("cloud_api unavailable or response rejected") from None

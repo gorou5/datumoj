@@ -52,7 +52,7 @@ class LeaseManager:
             lease = WriteLease.model_validate_json(found[0])
             self._holder(lease.holder)
             return lease, found[1]
-        except Exception:
+        except Exception:  # noqa: BLE001 -- 不可信租约的解析和持有者校验均须失败关闭。
             raise LeaseError("租约格式无效") from None
 
     @staticmethod
@@ -141,7 +141,7 @@ class LeaseManager:
             while not stopped.wait(self.ttl.total_seconds() / 3):
                 try:
                     self.renew(lease.holder, lease.token)
-                except Exception:
+                except Exception:  # noqa: BLE001 -- 任意 SDK 续期失败都必须立即标记租约失效。
                     lost.set()
                     return
 

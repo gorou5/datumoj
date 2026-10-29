@@ -195,7 +195,7 @@ def test_admin_reports_thread_creation_failure_with_escaped_reason(tmp_path, mon
         })
 
     assert response.status_code == 500
-    assert "后台运行失败：RuntimeError: &lt;thread failed&gt;" in response.text
+    assert "后台运行失败：RuntimeError" in response.text
     assert "<thread failed>" not in response.text
     assert "已开始" not in response.text
 
@@ -223,7 +223,7 @@ def test_admin_reports_first_worker_step_failure(tmp_path, monkeypatch):
         }, follow_redirects=False)
 
     assert response.status_code == 500
-    assert "后台运行失败：RuntimeError: &lt;worker failed&gt;" in response.text
+    assert "后台运行失败：RuntimeError" in response.text
     assert "<worker failed>" not in response.text
     assert "已开始" not in response.text
 

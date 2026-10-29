@@ -19,6 +19,7 @@ from threading import local
 from typing import Any
 
 from datumoj.rikolto.core.contracts import Manifest, SourceSpec
+from datumoj.rikolto.core.errors import safe_reason
 from datumoj.rikolto.core.lease import LeaseManager, remote_configured
 from datumoj.rikolto.core.monitor import evaluate_alerts
 
@@ -440,12 +441,12 @@ class Scheduler:
                     def release() -> None:
                         try:
                             manager.release(lease.holder, lease.token)
-                        except Exception:
+                        except Exception:  # noqa: BLE001, S110 -- 释放失败不能删除后继租约，也不能覆盖原运行结果。
                             pass  # Never delete a successor's lease or expose SDK details.
 
                     stack.callback(release)
                     check_lease = stack.enter_context(manager.maintain(lease))
-                except Exception:
+                except Exception:  # noqa: BLE001 -- 任意租约取得或维护初始化失败均须跳过本轮。
                     result = {**skip("远端写入租约不可用，本轮跳过"),
                               "reason_code": "write_lease_unavailable", "exit_status": 0,
                               "started_at": started.isoformat()}
@@ -470,8 +471,8 @@ class Scheduler:
                     check_lease()
                 record.update(new=report.new, unchanged=report.unchanged, failures=report.failures,
                               stop_reason=report.stop_reason, exit_status=1 if report.failures else 0)
-            except Exception as exc:
-                reason = "远端租约或运行失败，本轮停止" if remote else str(exc)
+            except Exception as exc:  # noqa: BLE001 -- 调度边界记录任意执行失败，继续隔离其他来源。
+                reason = safe_reason(exc)
                 record.update(failures={type(exc).__name__: 1}, stop_reason=reason, exit_status=1)
             record["ended_at"] = self.now().isoformat()
             record["status"] = "completed"

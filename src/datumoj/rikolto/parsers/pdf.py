@@ -92,7 +92,7 @@ def _close(resource: object | None) -> None:
     if resource is not None:
         try:
             resource.close()  # type: ignore[attr-defined]
-        except Exception:
+        except Exception:  # noqa: BLE001, S110 -- 资源关闭不能覆盖原解析或预算异常。
             pass
 
 
@@ -110,7 +110,7 @@ class PdfParser(Parser):
 
         try:
             pdf = pdfium.PdfDocument(data)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 -- 第三方 PDF 读取器对损坏输入可抛多种异常。
             _raise_pdf_error(exc)
 
         page_texts: list[str] = []
@@ -136,14 +136,14 @@ class PdfParser(Parser):
                     page_texts.append(normalized_text)
                 except BudgetExceeded:
                     raise
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 -- 第三方页面和文本读取失败统一转成解析失败。
                     _raise_pdf_error(exc)
                 finally:
                     _close(textpage)
                     _close(page)
         except ParseError:
             raise
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 -- 第三方元数据或页面迭代失败统一转成解析失败。
             _raise_pdf_error(exc)
         finally:
             _close(pdf)

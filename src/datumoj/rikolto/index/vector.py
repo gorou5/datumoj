@@ -15,6 +15,7 @@ import lancedb
 import pyarrow as pa
 
 from datumoj.rikolto.core.contracts import Embedder, IndexResult, ModelMismatch, ScoredChunk
+from datumoj.rikolto.core.errors import safe_reason
 from datumoj.rikolto.core.models import Chunk
 
 _TABLE = "chunks"
@@ -218,7 +219,7 @@ class LanceVectorIndex:
             batches = self._table.search().select(self._table.schema.names).to_batches(batch_size=_COPY_BATCH_SIZE)
             for batch in batches:
                 candidate.add(batch)
-        except Exception:
+        except Exception:  # 复制候选代失败须先撤销候选代，再原样抛出。
             self.abort_generation()
             raise
 
@@ -252,8 +253,8 @@ class LanceVectorIndex:
         self._candidate_has_date_fields = False
         try:
             self._cleanup_generations()
-        except Exception:  # noqa: BLE001 — generation switch is already committed
-            _LOG.warning("向量代已切换，但旧代清理失败", exc_info=True)
+        except Exception as exc:  # noqa: BLE001 -- generation switch is already committed
+            _LOG.warning("向量代已切换，但旧代清理失败：%s", safe_reason(exc))
 
     def abort_generation(self) -> None:
         if self._candidate_table is None:
