@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from datumoj.rikolto import wiring
 from datumoj.rikolto.analysis.reports import previous_week_period, weekly_report
 from datumoj.rikolto.core import schedule as scheduling
+from datumoj.rikolto.core.errors import safe_reason
 from datumoj.rikolto.core.lease import LeaseManager, remote_configured
 from datumoj.rikolto.core.models import Citation
 from datumoj.rikolto.core.monitor import attach_cloud_status
@@ -105,7 +106,7 @@ def _run(feature: str, action: Callable[[Any], Any], *, allow_pulled: bool = Fal
             except wiring.FeatureNotConnected as exc:
                 typer.echo(str(exc), err=True)
                 raise typer.Exit(1) from exc
-            except Exception as exc:
+            except Exception as exc:  # 本机终端保留完整运行错误；保持既有退出码。
                 typer.echo(f"运行失败：{type(exc).__name__}: {exc}", err=True)
                 raise typer.Exit(1) from exc
             try:
@@ -118,12 +119,12 @@ def _run(feature: str, action: Callable[[Any], Any], *, allow_pulled: bool = Fal
             except ValueError as exc:
                 typer.echo(f"参数错误：{exc}", err=True)
                 raise typer.Exit(2) from exc
-            except Exception as exc:
+            except Exception as exc:  # 本机终端保留完整运行错误；保持既有退出码。
                 typer.echo(f"运行失败：{type(exc).__name__}: {exc}", err=True)
                 raise typer.Exit(1) from exc
     except typer.Exit:
         raise
-    except Exception as exc:
+    except Exception as exc:  # 本机终端保留完整运行错误；保持既有退出码。
         typer.echo(f"运行失败：{type(exc).__name__}: {exc}", err=True)
         raise typer.Exit(1) from exc
 
@@ -137,7 +138,7 @@ def _json(value: Any) -> str:
 def _state_call(action: Callable[[], Any]) -> None:
     try:
         typer.echo(_json(action()))
-    except Exception:
+    except Exception:  # noqa: BLE001 -- 状态操作边界隐藏任意配置或 SDK 失败。
         # Even configuration/SDK/validation exceptions can contain secrets.
         typer.echo(_json({"error": "状态操作失败，请检查配置、代次完整性和写入状态"}))
         raise typer.Exit(1) from None
@@ -327,7 +328,7 @@ def diagnose_evidence(
     try:
         # Deliberately bypass _run/wiring.build: their constructors migrate stores.
         typer.echo(_json(evidence(data_dir if data_dir is not None else _data_dir(), verify_raw=verify_raw)))
-    except Exception as exc:
+    except Exception as exc:  # 本机终端保留完整运行错误；保持既有退出码。
         typer.echo(f"诊断失败：{type(exc).__name__}: {exc}", err=True)
         raise typer.Exit(1) from exc
 
@@ -341,9 +342,9 @@ def diagnose_storage(
 
     try:
         typer.echo(_json(storage(data_dir if data_dir is not None else _data_dir())))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- 诊断边界隐藏任意 SDK 异常中的路径或配置。
         # Paths, storage configuration and underlying exception text are private.
-        typer.echo(_json({"error": type(exc).__name__}), err=True)
+        typer.echo(_json({"error": safe_reason(exc)}), err=True)
         raise typer.Exit(1) from None
 
 
@@ -362,7 +363,7 @@ def replay_evidence(
     except ValueError as exc:
         typer.echo(f"参数错误：{exc}", err=True)
         raise typer.Exit(2) from exc
-    except Exception as exc:
+    except Exception as exc:  # 本机终端保留完整运行错误；保持既有退出码。
         typer.echo(f"重放失败：{type(exc).__name__}: {exc}", err=True)
         raise typer.Exit(1) from exc
     if result["status"] != "complete":
@@ -429,7 +430,7 @@ def registry_export(
     sources = Path(__file__).resolve().parents[3] / "sources"
     try:
         paths = export_registry(sources, out)
-    except Exception as exc:
+    except Exception as exc:  # 本机终端保留完整运行错误；保持既有退出码。
         typer.echo(f"导出失败：{type(exc).__name__}: {exc}", err=True)
         raise typer.Exit(1) from exc
     typer.echo(f"已导出 {len(paths)} 个来源描述到 {out}")
@@ -597,7 +598,7 @@ def _schedule_call(action: Callable[[], Any]) -> None:
     except ValueError as exc:
         typer.echo(f"参数错误：{exc}", err=True)
         raise typer.Exit(2) from exc
-    except Exception as exc:
+    except Exception as exc:  # 本机终端保留完整运行错误；保持既有退出码。
         typer.echo(f"运行失败：{type(exc).__name__}: {exc}", err=True)
         raise typer.Exit(1) from exc
 
@@ -726,7 +727,7 @@ def admin(
     except wiring.FeatureNotConnected as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from exc
-    except Exception as exc:
+    except Exception as exc:  # 本机终端保留完整运行错误；保持既有退出码。
         typer.echo(f"运行失败：{type(exc).__name__}: {exc}", err=True)
         raise typer.Exit(1) from exc
 

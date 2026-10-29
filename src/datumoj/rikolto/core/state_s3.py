@@ -69,12 +69,12 @@ def probe_conditional_writes(store: S3StateObjectStore) -> dict:
             return result
         result.update(supported=True, check="complete")
         return result
-    except Exception:
+    except Exception:  # noqa: BLE001 -- 能力探测必须将任意 SDK 失败转成不支持。
         return result
     finally:
         try:
             store._client.delete_object(Bucket=store._bucket, Key=store._key(key))
-        except Exception:
+        except Exception:  # noqa: BLE001 -- 探测清理失败也必须阻止误报条件写入可用。
             # Preserve the original failing check. A successful probe whose
             # cleanup failed must also refuse the run.
             if result["supported"]:

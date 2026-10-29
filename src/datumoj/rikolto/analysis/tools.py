@@ -52,6 +52,7 @@ from datumoj.rikolto.core.contracts import (
     discover_parsers,
     select_parser,
 )
+from datumoj.rikolto.core.errors import safe_reason
 from datumoj.rikolto.core.models import (
     ChangeEvent,
     ChangeKind,
@@ -1155,7 +1156,7 @@ class AnalysisTools:
             return _result(
                 {"status": "ambiguous", "snapshot_sha256": snapshot_sha256, "locator": locator,
                  "passages": [], "candidates": candidates},
-                GapState.zero_hits, warnings=[str(exc)], gap_detail=str(exc),
+                GapState.zero_hits, warnings=[safe_reason(exc)], gap_detail=safe_reason(exc),
             )
         if snap is None:
             return not_found("manifest 里没有内容是这个 sha256 的成功抓取")

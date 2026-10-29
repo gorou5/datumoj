@@ -24,6 +24,7 @@ from datumoj.rikolto.core.contracts import (
     Retriever,
     citation_for_observation,
 )
+from datumoj.rikolto.core.errors import safe_reason
 from datumoj.rikolto.core.models import (
     ChangeKind,
     Citation,
@@ -229,7 +230,7 @@ def load_questions(directory: str | Path) -> list[Question]:
     for path in files:
         try:
             raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except Exception as exc:
+        except Exception as exc:  # 读取和解码失败均加上题库位置后继续抛出。
             raise ValueError(f"{path}: question #1: 无法读取题库：{exc}") from exc
         if isinstance(raw, Mapping) and "questions" in raw:
             entries = raw["questions"]
@@ -245,7 +246,7 @@ def load_questions(directory: str | Path) -> list[Question]:
             label = entry.get("id", f"#{index}") if isinstance(entry, Mapping) else f"#{index}"
             try:
                 question = Question.model_validate(entry)
-            except Exception as exc:
+            except Exception as exc:  # 模型校验失败加上题号后继续抛出。
                 raise ValueError(f"{path}: question {label}: 格式错误：{exc}") from exc
             if question.id in ids:
                 raise ValueError(f"{path}: question {question.id}: id 重复")
@@ -303,9 +304,9 @@ def evaluate(
                 metrics["change_hit_rate"] = score
                 if score < 1.0:
                     reasons.append("预期变化事件未全部命中，或零变化窗口返回了事件")
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 -- 单题变化评测失败不能中断其他题。
                 metrics["change_hit_rate"] = 0.0
-                reasons.append(f"变化评测失败：{type(exc).__name__}: {exc}")
+                reasons.append(f"变化评测失败：{safe_reason(exc)}")
             all_metrics.append((metrics, 0))
             languages[question.lang].add(metrics)
             question_sources = {item.source_id for item in expected} or set(question.source_ids or ["unknown"])
@@ -339,7 +340,7 @@ def evaluate(
         for hit in attempts:
             try:
                 evidence = cite(hit.citation) if cite is not None else None
-            except Exception:
+            except Exception:  # noqa: BLE001 -- 出处插件可抛任意异常，该引用应记为无法还原。
                 evidence = None
             resolved.append((hit, evidence))
         metrics["citation_recoverability"] = (
@@ -372,10 +373,10 @@ def evaluate(
                 metrics["numeric_occurrence"] = float(occurrence)
                 if not occurrence:
                     reasons.append("文档检索前 3 条引用与 SQL 出处行中均未找到可还原的期望数值")
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 -- 单题 SQL 评测失败不能中断其他题。
                 metrics["numeric_precision"] = 0.0
                 metrics["numeric_occurrence"] = 0.0
-                reasons.append(f"只读 SQL 评测失败：{type(exc).__name__}: {exc}")
+                reasons.append(f"只读 SQL 评测失败：{safe_reason(exc)}")
 
         if question.expect.gap_state is not None:
             gap_ok = result.gap_state is question.expect.gap_state
@@ -563,7 +564,7 @@ def _has_sql_number(
                 and snapshot.outcome is FetchOutcome.ok
             )
             evidence = cite(citation_for_observation(obs, snapshot))
-        except Exception:
+        except Exception:  # noqa: BLE001, S112 -- 单条出处还原失败不影响检查其他出处。
             continue
         if _has_evidence(evidence):
             return True

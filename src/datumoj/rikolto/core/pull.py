@@ -187,12 +187,12 @@ def _install(stage: Path, target: Path, temporary: Path) -> None:
             _exchange_directories(stage, target)
             try:
                 os.replace(stage, previous)
-            except Exception:
+            except Exception:  # 交换目录后失败须还原原目录，再原样抛出。
                 _exchange_directories(stage, target)
                 raise
         else:
             os.replace(stage, target)
-    except Exception:
+    except Exception:  # 安装失败须还原 previous 目录，再原样抛出。
         if moved_previous and (held_previous.exists() or held_previous.is_symlink()):
             os.replace(held_previous, previous)
         raise
@@ -301,5 +301,5 @@ def pull(
             }
     except PullError:
         raise
-    except Exception:
+    except Exception:  # noqa: BLE001 -- 拉取边界兜住任意 SDK 或校验失败并保全原目录。
         raise PullError("拉取或校验失败，原数据目录保持不变") from None

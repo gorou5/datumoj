@@ -346,7 +346,7 @@ def check_license_cases(cases: LicenseCases, gate: Callable[[LicenseCase], bool]
             allowed = gate(case.model_copy(deep=True))
             passed = type(allowed) is bool and allowed is case.expected_allowed
             reason = "denied as required" if passed else "expected explicit deny (False)"
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 -- 单个外部门禁失败不能中断其他评测项。
             passed, reason = False, f"gate raised {type(exc).__name__}"
         checks.append(CheckResult(id=case.id, passed=passed, reason=f"{case.description}: {reason}"))
     return CheckReport(checks=checks)

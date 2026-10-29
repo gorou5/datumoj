@@ -82,7 +82,7 @@ def _source(deps, spec, scheduler, remaining):
                       for snapshot_id, reason in summary.vectors_missing.items())
         if missing:
             record["failures"]["embedding_failed"] = missing
-    except Exception:
+    except Exception:  # noqa: BLE001 -- 单来源失败需隔离，保留本轮其他来源的执行。
         record["failures"][f"{phase}_failed"] = record["failures"].get(f"{phase}_failed", 0) + 1
         # An interrupted parser cannot report its remaining allowance. Reserve
         # the rest so later sources cannot exceed the round's embedding budget.
@@ -149,7 +149,7 @@ def check() -> dict:
     with _quiet(), tempfile.TemporaryDirectory(prefix="datumoj-check-") as directory:
         try:
             manager = wiring.build_state(Path(directory))
-        except Exception:
+        except Exception:  # noqa: BLE001 -- 任意配置失败均返回固定检查结果。
             return {"status": "failed", "exit_status": 1,
                     "reason": "configuration_failed", "phase": "configuration"}
         probe = probe_conditional_writes(manager.store)
@@ -261,7 +261,7 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
                         )
                     result.update(status="failed" if failed else "completed", exit_status=int(failed),
                                   reason="source_failed" if failed else None)
-        except Exception:
+        except Exception:  # noqa: BLE001 -- 云端运行边界必须把任意 SDK 或插件失败记为本轮失败。
             result.update(status="failed", exit_status=1, reason=f"{phase}_failed")
         finally:
             if deps is not None:
@@ -273,6 +273,6 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
             if lease is not None:
                 try:
                     leases.release(lease.holder, lease.token)
-                except Exception:
+                except Exception:  # noqa: BLE001 -- 任意租约释放失败均须阻止本轮被误报成功。
                     result.update(status="failed", exit_status=1, reason="lease_release_failed")
     return result

@@ -234,7 +234,7 @@ def test_network_error_retried_then_reported():
 
     site = Site({f"{BASE}/x": down})
     r = make(site, clock, robots=allow_all(), max_retries=2).fetch(f"{BASE}/x")
-    assert r.outcome is FetchOutcome.network_error and "connection refused" in r.error
+    assert r.outcome is FetchOutcome.network_error and "ConnectError" in r.error
     assert len(site.log) == 3 and clock.sleeps == [1.0, 2.0]
 
 
@@ -437,12 +437,12 @@ def test_gzip_bomb_aborts_while_decoding():
 def test_broken_gzip_is_network_error(body):
     site = Site({f"{BASE}/x": ok(body, **{"Content-Encoding": "gzip"})})
     r = make(site).fetch(f"{BASE}/x")
-    assert r.outcome is FetchOutcome.network_error and "gzip" in r.error and r.content is None
+    assert r.outcome is FetchOutcome.network_error and "_BodyError" in r.error and r.content is None
 
 
 def test_unsupported_content_encoding():
     r = make(Site({f"{BASE}/x": ok(b"...", **{"Content-Encoding": "br"})})).fetch(f"{BASE}/x")
-    assert r.outcome is FetchOutcome.network_error and "Content-Encoding" in r.error
+    assert r.outcome is FetchOutcome.network_error and "_BodyError" in r.error
 
 
 # ---------- 7、13. URL 去 Key ----------

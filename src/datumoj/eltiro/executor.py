@@ -455,7 +455,7 @@ def execute_demand(demand, *, data_root, registry, consumer, generation_token=No
     try:
         return _execute(demand, data_root=data_root, registry=registry, consumer=consumer,
                         generation_token=generation_token)
-    except Exception:
+    except Exception:  # noqa: BLE001 -- 执行边界统一隐藏任意存储或插件异常中的输入。
         raise ExecutionError("Eltiro execution failed; check fixed generation and local configuration.") from None
 
 

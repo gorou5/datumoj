@@ -299,7 +299,7 @@ def _copy_boundary(root: Path, target: Path) -> tuple[list[StoreCopy], dict[str,
         if coverage is not None:
             try:
                 maintain_vectors(vectors)
-            except Exception:  # maintenance is best effort; copied coverage is checked below
+            except Exception:  # noqa: BLE001 -- 可选向量维护失败后仍须校验已发布覆盖率。
                 _LOG.warning("向量维护失败；继续校验并复制已发布状态")
             for source in sorted(vectors.rglob("*")):
                 if source.is_file():
@@ -515,7 +515,7 @@ class StateManager:
                 self.store.put_if_match("current.json", data, etag)
         except PreconditionFailed:
             raise
-        except Exception:
+        except Exception:  # noqa: BLE001 -- SDK 的 CAS 异常可能发生在成功切换之后，必须回查指针。
             # An ambiguous transport failure can occur after a successful CAS.
             if self._current()[0] != candidate.generation:
                 raise StateError("代次发布失败，指针未切换") from None
@@ -539,7 +539,7 @@ class StateManager:
             raise PreconditionFailed("状态发布竞争失败，本轮作废") from None
         except StateError:
             raise
-        except Exception:
+        except Exception:  # noqa: BLE001 -- 状态推送边界统一隐藏任意 SDK 或存储错误。
             raise StateError("状态推送失败") from None
 
     def _push(self) -> StateGeneration:
@@ -621,7 +621,7 @@ class StateManager:
                 generations.append(generation)
                 number = generation.previous_generation or 0
             return generations
-        except Exception:
+        except Exception:  # noqa: BLE001 -- 代次列表校验边界必须隐藏任意 SDK 错误。
             raise StateError("状态代次列表校验失败") from None
 
     def _materialize(self, candidate: StateGeneration, stage: Path, *, raw: str,
@@ -714,5 +714,5 @@ class StateManager:
             return report
         except StateError:
             raise
-        except Exception:
+        except Exception:  # noqa: BLE001 -- 恢复边界兜住任意 SDK 或校验失败，不交出未验证目录。
             raise StateError("状态恢复校验失败，未交出可用目录") from None

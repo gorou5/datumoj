@@ -24,6 +24,7 @@ from urllib.parse import quote
 import httpx
 
 from datumoj.rikolto.core.contracts import FetchResult, SourceSpec, UrlNotAllowed
+from datumoj.rikolto.core.errors import safe_reason
 from datumoj.rikolto.core.models import FetchOutcome, redact_url
 from datumoj.rikolto.testing.fakes import UnregisteredUrl
 
@@ -507,7 +508,7 @@ class PoliteHttpFetcher:
             try:
                 reply = self._attempt(url, headers, limit, truncate, method)
             except httpx.TransportError as exc:
-                reply = _Reply(None, error=_redact_text(f"{type(exc).__name__}: {exc}"))
+                reply = _Reply(None, error=safe_reason(exc))
                 wait = backoff
             else:
                 if reply.status != 429 and reply.status < 500:
@@ -534,7 +535,7 @@ class PoliteHttpFetcher:
                 try:
                     reply.body, reply.too_large = _read_body(response, limit, truncate)
                 except _BodyError as exc:
-                    reply.error = str(exc)
+                    reply.error = safe_reason(exc)
             return reply
         finally:
             response.close()

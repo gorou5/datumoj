@@ -24,6 +24,7 @@ import pyarrow.parquet as pq
 
 from datumoj.rikolto.core.citations import document_snapshot
 from datumoj.rikolto.core.contracts import AmbiguousCitation
+from datumoj.rikolto.core.errors import safe_reason
 from datumoj.rikolto.core.models import Document, FetchOutcome, Snapshot, parse_context_fingerprint
 
 DESCRIPTION = {
@@ -127,7 +128,7 @@ def storage(data_dir: str | Path) -> dict:
                 retained_bytes_estimate=report["bytes"] - saving if saving is not None else None,
             )
         except Exception as exc:  # noqa: BLE001 -- isolate corrupt tables without exposing their data
-            report.update(status="unavailable", error=type(exc).__name__)
+            report.update(status="unavailable", error=safe_reason(exc))
         tables.append(report)
     return {"read_only": True, "lancedb_version": lancedb.__version__,
             "total_bytes": directories["."], "entries": entries,
@@ -261,7 +262,7 @@ def _raw_failures(root, view):
         except FileNotFoundError:
             failures.append({"sha256": digest, "reason": "missing"})
         except OSError as exc:
-            failures.append({"sha256": digest, "reason": "read_error", "error": type(exc).__name__})
+            failures.append({"sha256": digest, "reason": "read_error", "error": safe_reason(exc)})
         else:
             if actual != digest:
                 failures.append({"sha256": digest, "reason": "hash_mismatch", "actual": actual})

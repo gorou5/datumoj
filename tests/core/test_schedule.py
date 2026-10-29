@@ -166,7 +166,7 @@ def test_failure_counts_stop_reason_end_time_and_continue(tmp_path):
     assert records[0]["stop_reason"] == "max_files"
     assert records[0]["exit_status"] == records[1]["exit_status"] == 1
     assert records[1]["failures"] == {"OSError": 1}
-    assert records[1]["stop_reason"] == "storage failed"
+    assert records[1]["stop_reason"] == "OSError"
     assert records[1]["new"] is None and records[1]["unchanged"] is None
     assert records[0]["ended_at"] == clock[0].isoformat()
     assert scheduler.status()["sources"][0]["next_due"] == (T0 + timedelta(hours=1)).isoformat()

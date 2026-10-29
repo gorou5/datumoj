@@ -17,6 +17,7 @@ from starlette.responses import HTMLResponse, PlainTextResponse, RedirectRespons
 from starlette.routing import Route
 
 from datumoj.rikolto.core import schedule
+from datumoj.rikolto.core.errors import safe_reason
 from datumoj.rikolto.core.models import PipelineStatus
 from datumoj.rikolto.core.monitor import attach_cloud_status
 from datumoj.rikolto.index.coverage import INDEX_REBUILDING, index_generation, pipeline_status
@@ -363,7 +364,7 @@ def create_app(
                 try:
                     target(source_id)
                 except Exception as exc:  # noqa: BLE001 - report worker setup failures on the next page load.
-                    run_failures[source_id] = f"{type(exc).__name__}: {exc}"
+                    run_failures[source_id] = safe_reason(exc)
                 finally:
                     worker_done.set()
 
@@ -371,7 +372,7 @@ def create_app(
                 thread = threading.Thread(target=execute, name=f"datumoj-admin-{source_id}", daemon=True)
                 thread.start()
             except Exception as exc:  # noqa: BLE001 - thread creation/start failures happen in this request.
-                run_failures[source_id] = f"{type(exc).__name__}: {exc}"
+                run_failures[source_id] = safe_reason(exc)
                 return HTMLResponse(
                     _page(deps, scheduler, csrf_token, f"后台运行失败：{run_failures[source_id]}"),
                     status_code=500,

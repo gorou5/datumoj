@@ -192,7 +192,7 @@ def test_factory_exception_is_an_error_result():
             for _ in range(2):
                 result = await client.call_tool("version", {})
                 assert result.is_error
-                assert "RuntimeError: factory failed" in result.content[0].text
+                assert "RuntimeError" in result.content[0].text
 
     asyncio.run(run())
     assert len(calls) == 2
