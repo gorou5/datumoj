@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-307
 title: 聚合的证据状态（D-05）：evidence_state 和输入的表、快照、过滤范围
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-306"]
 runner: codex

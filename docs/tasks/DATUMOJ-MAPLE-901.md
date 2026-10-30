@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-901
 title: 检查点 m1：云端运行端到端（moto 上两轮云端运行 + 本机拉取 + MCP 回答一致）；真实运行由人记录
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-900", "DATUMOJ-MAPLE-103", "DATUMOJ-MAPLE-105", "DATUMOJ-MAPLE-106", "DATUMOJ-MAPLE-601", "DATUMOJ-MAPLE-112"]
 runner: claude

@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-101
 title: 向量库上 R2 的验证：本机向量库体积构成（只读诊断）；LanceDB 读写对象存储的可行性；结论写进 ADR 0002
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: []
 runner: claude

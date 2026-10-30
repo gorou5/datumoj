@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-601
 title: 监控和报告上云：运行记录与提醒随代次保存；按“预期频率内没有成功运行”提醒云端缺口；周报写到 R2
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-102", "DATUMOJ-MAPLE-105", "DATUMOJ-MAPLE-108"]
 runner: codex

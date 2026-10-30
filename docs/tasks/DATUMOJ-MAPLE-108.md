@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-108
 title: 运行账本（D-08）：run_id、运行中 / 结束 / 中断状态、坏尾行隔离、管理页显示启动失败
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-002"]
 runner: codex

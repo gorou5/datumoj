@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-602
 title: 0.2 遗留修复（CodeRabbit #15）：短保留来源改为显式标记；去掉 MCP version 的残留后缀
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: []
 runner: codex

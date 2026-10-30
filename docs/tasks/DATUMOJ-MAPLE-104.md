@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-104
 title: 写入租约（条件写入取得、续期、释放，--force 只接管过期租约）、条件发布、到期来源选择
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-001", "DATUMOJ-MAPLE-102"]
 runner: codex

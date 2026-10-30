@@ -2,14 +2,14 @@
 id: DATUMOJ-MAPLE-900
 title: 检查点 m0：证据正确性（回归全部通过；本机数据只读诊断与重放迁移工具）
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-002", "DATUMOJ-MAPLE-107", "DATUMOJ-MAPLE-108", "DATUMOJ-MAPLE-109", "DATUMOJ-MAPLE-110", "DATUMOJ-MAPLE-111", "DATUMOJ-MAPLE-202", "DATUMOJ-MAPLE-203", "DATUMOJ-MAPLE-306", "DATUMOJ-MAPLE-307", "DATUMOJ-MAPLE-308", "DATUMOJ-MAPLE-404", "DATUMOJ-MAPLE-502", "DATUMOJ-MAPLE-503", "DATUMOJ-MAPLE-602"]
 runner: claude
 model: null
 tier: high
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/diagnose.py", "src/datumoj/cli.py", "src/datumoj/wiring.py", "src/datumoj/mcp_server.py", "tests/integration/test_maple_m0.py", "tests/test_evidence_regressions.py", "tests/regressions/test_audit_900.py", "tests/test_diagnose.py", "results/DATUMOJ-MAPLE-900/**"]
+scope: ["src/datumoj/diagnose.py", "src/datumoj/cli.py", "src/datumoj/wiring.py", "src/datumoj/mcp_server.py", "tests/integration/test_maple_m0.py", "tests/test_diagnose.py", "results/DATUMOJ-MAPLE-900/**"]
 out_of_scope: [".orch/**", "docs/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", ".github/**", ".env.example"]
 protected: ["tests/fixtures/**", "src/datumoj/core/models.py", "src/datumoj/core/contracts.py", "src/datumoj/testing/**"]
 acceptance:
@@ -19,7 +19,7 @@ acceptance:
     - cmd: make check T=tests/regressions
     - cmd: make check T=tests
   evidence: ["测试输出日志", "变更文件清单", "results/DATUMOJ-MAPLE-900/summary.md 完成说明"]
-  review: {by: human, checklist: ["10 个审核场景是否都有回归测试并通过", "diagnose 是否真正只读（含不触发迁移）", "replay 是否拒绝非空目标、是否给出对比", "是否只改了接线、CLI、MCP 说明、诊断模块及 scope 列出的测试", "是否越界"]}
+  review: {by: human, checklist: ["10 个审核场景是否都有回归测试并通过", "diagnose 是否真正只读（含不触发迁移）", "replay 是否拒绝非空目标、是否给出对比", "是否只改了接线、CLI 和诊断模块", "是否越界"]}
   human: required
 max_attempts: 2
 ---
@@ -27,7 +27,7 @@ max_attempts: 2
 审核的 13 个问题都有回归测试并全部通过；能对本机已有数据做只读诊断（列出哪些地方受这些问题影响），并能把已有数据按新规则重放到一个新目录，比对后再决定是否切换。
 
 # 背景
-开发线：集成。MAPLE 检查点 m0（计划 6.0 节“顺序”）：修完之后才动真实数据。人会在本机数据的副本上运行诊断和重放（H3 之前），结果记到 `docs/acceptance/v0.3.0-maple-m0.md`。本地数据库的 schema 已由 002 / 107 / 111 升级（各自带迁移）。只允许改接线、CLI、MCP 说明文字、新的诊断模块，以及 scope 列出的诊断测试、`tests/test_evidence_regressions.py` 和新增集成 / 审核回归测试；测试修改须服务于本任务的要求与验收，不扩大到各开发线模块。
+开发线：集成。MAPLE 检查点 m0（计划 6.0 节“顺序”）：修完之后才动真实数据。人会在本机数据的副本上运行诊断和重放（H3 之前），结果记到 `docs/acceptance/v0.3.0-maple-m0.md`。本地数据库的 schema 已由 002 / 107 / 111 升级（各自带迁移）。只允许改接线、CLI、MCP 说明文字和新的诊断模块。
 
 计划见 `docs/plans/0.3-maple.md`（第 6.0 节是本检查点 m0 的问题表，总计划 `docs/PLAN.md`）。本版本在 `feature/0.3` 分支上开发：任务分支从它拉出，合并回它。
 - **只依赖契约**：数据模型在 `src/datumoj/core/models.py`，接口协议在 `src/datumoj/core/contracts.py`，假实现和契约测试在 `src/datumoj/testing/`。身份与状态的约定见 `docs/adr/0004-evidence-identity.md`（由 MAPLE-002 写出）。除契约外，只能 import 已有模块和本任务 `depends_on` 里已合并任务的模块。

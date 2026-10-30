@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-105
 title: 云端运行：datumoj cloud run（租约 → 恢复 → 跑到期来源 → 维护 → 发布 → 释放）和 GitHub Actions 工作流
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-102", "DATUMOJ-MAPLE-103", "DATUMOJ-MAPLE-104"]
 runner: claude

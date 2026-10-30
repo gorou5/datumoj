@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-702
 title: 回答规则：跨国比较口径、多语言出处、数据截止时间写代次时间
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-106"]
 runner: claude
