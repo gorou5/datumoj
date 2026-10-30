@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-701
 title: 评测题：欧美 12、日本新来源 8、多语言与跨语言 6、跨国比较 4，离线在新来源样本上跑
 project: DATUMOJ
-status: ready
+status: doing
 priority: 2
 depends_on: ["DATUMOJ-MAPLE-201", "DATUMOJ-MAPLE-302", "DATUMOJ-MAPLE-303", "DATUMOJ-MAPLE-304", "DATUMOJ-MAPLE-305", "DATUMOJ-MAPLE-402", "DATUMOJ-MAPLE-403", "DATUMOJ-MAPLE-501"]
 runner: claude
@@ -48,3 +48,6 @@ max_attempts: 2
 - 不改已有题目。
 - 不做真实问答（那是 H5）。
 - 不出 e-Stat API 的题。
+
+# 重做要求（第 1 轮，2026-10-31）
+第 1 次尝试的题目和 `test_maple_eval.py` 都通过了（各类 Recall@10 1.000 / 0.875 / 1.000 / 1.000，缺口准确率 1.000），只是全量测试里 `tests/integration/test_tachibana_m3.py::test_all_ivy_and_tachibana_questions_pass` 失败：`load_questions` 会递归读入新题库，而 m3 的语料里没有新来源。这是任务文件没写到，已在 `feature/0.4` 上把那个测试改为只评原有 7 个题库（提交 19c9cc9），本任务不需要、也不许改它。本轮从 `feature/0.4` 重新开始，其余要求不变；第 1 次尝试在 summary 里记下的 NDB 表头漏检、WDI 假库精度问题照样写进 summary，不在本任务修。
