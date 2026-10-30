@@ -73,7 +73,12 @@ def probe_conditional_writes(store: S3StateObjectStore) -> dict:
         return result
     finally:
         try:
-            store._client.delete_object(Bucket=store._bucket, Key=store._key(key))
+            if isinstance(store, S3StateObjectStore):
+                store._client.delete_object(Bucket=store._bucket, Key=store._key(key))
+            else:
+                found = store.get(key)
+                if found is not None:
+                    store.delete_if_match(key, found[1])
         except Exception:  # noqa: BLE001 -- 探测清理失败也必须阻止误报条件写入可用。
             # Preserve the original failing check. A successful probe whose
             # cleanup failed must also refuse the run.

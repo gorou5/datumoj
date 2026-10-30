@@ -16,8 +16,7 @@ from datumoj.rikolto.core import schedule as scheduling
 from datumoj.rikolto.core.contracts import ContractError, StateObjectStore
 from datumoj.rikolto.core.models import StateGeneration, VectorCoverage
 from datumoj.rikolto.core.state import StateManager
-from datumoj.rikolto.core.state_s3 import S3StateObjectStore
-from datumoj.rikolto.core.storage import load_storage_config
+from datumoj.rikolto.core.storage import build_state_store, load_storage_config
 
 PULL_RECORD = "state-pull.json"
 OBJECT_CACHE = ".pull-cache"
@@ -238,7 +237,7 @@ def pull(
             raise PullError("本机数据目录不是可切换的目录")
         target.parent.mkdir(parents=True, exist_ok=True)
         with scheduling.workspace_lock(target):
-            remote = store or S3StateObjectStore(config)
+            remote = store or build_state_store(config)
             listing = StateManager(remote, target).list()
             if not listing:
                 raise PullError("远端没有可用代次")

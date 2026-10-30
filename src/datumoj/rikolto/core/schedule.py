@@ -367,10 +367,9 @@ class Scheduler:
         return sorted(result)
 
     def _remote_lease(self) -> LeaseManager:
-        from datumoj.rikolto.core.state_s3 import S3StateObjectStore
-        from datumoj.rikolto.core.storage import load_storage_config
+        from datumoj.rikolto.core.storage import build_state_store, load_storage_config
 
-        return LeaseManager(S3StateObjectStore(load_storage_config(data_dir=self.data_dir)), now=self.now)
+        return LeaseManager(build_state_store(load_storage_config(data_dir=self.data_dir)), now=self.now)
 
     def status(self) -> dict[str, Any]:
         control = read_control(self.data_dir)

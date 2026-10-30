@@ -16,7 +16,7 @@ from typing import Any
 from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult, discover_parsers
 from datumoj.rikolto.core.state import StateManager as _StateManager
 from datumoj.rikolto.core.state import local_write
-from datumoj.rikolto.core.storage import load_storage_config
+from datumoj.rikolto.core.storage import build_state_store, load_storage_config
 from datumoj.rikolto.parsers.ckan_meta import CkanMetaParser
 from datumoj.rikolto.store.catalog import SqliteCatalogStore
 
@@ -463,13 +463,12 @@ def _build(data_dir: str | Path | None = None, overrides: dict[str, Any] | None 
 def build_state(data_dir: str | Path | None = None):
     """State commands avoid opening or migrating live data stores."""
     from datumoj.rikolto.core.models import StateWriter
-    from datumoj.rikolto.core.state_s3 import S3StateObjectStore
 
     config = load_storage_config(data_dir=data_dir)
     run_id = os.environ.get("GITHUB_RUN_ID")
     kind = state_writer_kind()
     writer = StateWriter(kind=kind, run_id=run_id or uuid.uuid4().hex)
-    return _ReleaseStateManager(S3StateObjectStore(config), config.data_dir, writer=writer)
+    return _ReleaseStateManager(build_state_store(config), config.data_dir, writer=writer)
 
 
 def state_writer_kind() -> str:

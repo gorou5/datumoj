@@ -10,12 +10,16 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from datumoj.rikolto.core.contracts import StateObjectStore
+
 
 class StorageConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
 
     data_dir: Path = Path("./data")
     raw_backend: Literal["local", "s3"] = "local"
+    state_backend: Literal["s3", "dir"] = "s3"
+    state_dir: Path | None = None
     s3_endpoint: str | None = Field(default=None, repr=False)
     s3_bucket: str | None = None
     s3_prefix: str = ""
@@ -23,6 +27,12 @@ class StorageConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_s3(self) -> Self:
+        if self.state_backend == "dir":
+            if self.state_dir is None or not self.state_dir.is_absolute():
+                raise ValueError("DATUMOJ_STATE_DIR 必须是绝对路径")
+            state, data = self.state_dir.resolve(), self.data_dir.resolve()
+            if state.is_relative_to(data) or data.is_relative_to(state):
+                raise ValueError("DATUMOJ_STATE_DIR 不能与 data_dir 重叠")
         if self.raw_backend == "s3":
             if not self.s3_bucket or not self.s3_bucket.strip():
                 raise ValueError("缺少 DATUMOJ_S3_BUCKET")
@@ -64,9 +74,10 @@ def load_s3_credentials(env: Mapping[str, str] = os.environ) -> tuple[str, str]:
 
 
 def s3_remote_configured(env: Mapping[str, str] = os.environ) -> bool:
-    """Whether the process has a partial or complete remote S3 namespace."""
+    """Whether shared state needs a lease, including incomplete configuration."""
     endpoint = _resolve_s3_value(env, "DATUMOJ_S3_ENDPOINT", "R2_ENDPOINT")
-    return bool(endpoint or env.get("DATUMOJ_S3_BUCKET"))
+    return bool(env.get("DATUMOJ_STATE_BACKEND", "s3") != "s3"
+                or endpoint or env.get("DATUMOJ_S3_BUCKET"))
 
 
 def load_storage_config(
@@ -79,8 +90,21 @@ def load_storage_config(
     return StorageConfig(
         data_dir=data_dir if data_dir is not None else env.get("DATUMOJ_DATA_DIR", "./data"),
         raw_backend=env.get("DATUMOJ_RAW_BACKEND", "local"),
+        state_backend=env.get("DATUMOJ_STATE_BACKEND", "s3"),
+        state_dir=env.get("DATUMOJ_STATE_DIR") or None,
         s3_endpoint=_resolve_s3_value(env, "DATUMOJ_S3_ENDPOINT", "R2_ENDPOINT"),
         s3_bucket=env.get("DATUMOJ_S3_BUCKET"),
         s3_prefix=env.get("DATUMOJ_S3_PREFIX", ""),
         s3_region=env.get("DATUMOJ_S3_REGION", "auto"),
     )
+
+
+def build_state_store(config: StorageConfig) -> StateObjectStore:
+    """Select the state backend once for publication, pull and write leases."""
+    if config.state_backend == "dir":
+        from datumoj.rikolto.core.state_fs import DirStateObjectStore
+
+        return DirStateObjectStore(config.state_dir)
+    from datumoj.rikolto.core.state_s3 import S3StateObjectStore
+
+    return S3StateObjectStore(config)
