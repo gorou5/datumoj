@@ -1,0 +1,18 @@
+{
+  "access_method": "other",
+  "auth_required": false,
+  "country_region": "INTL",
+  "id": "intl-wdi",
+  "last_verified": "unknown",
+  "license": {
+    "allows_redistribution": "unknown",
+    "name": "CC BY 4.0 + World Bank 数据集附加条款",
+    "requires_attribution": true,
+    "url": "https://www.worldbank.org/ext/en/legal/terms-conditions/datasets"
+  },
+  "name": "World Development Indicators",
+  "official_url": "https://api.worldbank.org/v2/",
+  "publisher": "The World Bank: World Development Indicators: Data source",
+  "rate_limit": "1 req/s",
+  "status": "experimental"
+}
