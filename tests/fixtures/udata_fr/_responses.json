@@ -1,0 +1,68 @@
+{
+  "datasets_org-insee_page1_size2.json": {
+    "url": "https://www.data.gouv.fr/api/1/datasets/?organization=534fff81a3a7292c64a77e5c&page_size=2&page=1",
+    "status": 200,
+    "fetched_at": "2026-10-26T18:08:20+09:00",
+    "bytes": 12756,
+    "sha256": "fd4227c4a4cee8b7e89782394b5f0c18870a462675514ac89a172fc8a8302b9b",
+    "headers": {
+      "server": "nginx",
+      "date": "Mon, 26 Oct 2026 09:08:20 GMT",
+      "content-type": "application/json",
+      "content-length": "12756",
+      "vary": "Origin, Cookie",
+      "pragma": "public",
+      "cache-control": "public",
+      "x-content-type-options": "nosniff",
+      "x-xss-protection": "1; mode=block",
+      "x-frame-options": "SAMEORIGIN",
+      "strict-transport-security": "max-age=15768000; includeSubDomains; preload;",
+      "connection": "close"
+    },
+    "sample_type": "captured"
+  },
+  "datasets_org-insee_page2_size2.json": {
+    "url": "https://www.data.gouv.fr/api/1/datasets/?organization=534fff81a3a7292c64a77e5c&page_size=2&page=2",
+    "status": 200,
+    "fetched_at": "2026-10-26T18:08:21+09:00",
+    "bytes": 12857,
+    "sha256": "304a8ee025e0c0c0b014bffca05506bbe3db1451ee05063e8719c008d8af98d5",
+    "headers": {
+      "server": "nginx",
+      "date": "Mon, 26 Oct 2026 09:08:21 GMT",
+      "content-type": "application/json",
+      "content-length": "12857",
+      "vary": "Origin, Cookie",
+      "pragma": "public",
+      "cache-control": "public",
+      "x-content-type-options": "nosniff",
+      "x-xss-protection": "1; mode=block",
+      "x-frame-options": "SAMEORIGIN",
+      "strict-transport-security": "max-age=15768000; includeSubDomains; preload;",
+      "connection": "close"
+    },
+    "sample_type": "captured"
+  },
+  "dataset_6ad16a7506eea90157a47a35.json": {
+    "url": "https://www.data.gouv.fr/api/1/datasets/6ad16a7506eea90157a47a35/",
+    "status": 200,
+    "fetched_at": "2026-10-26T18:09:17+09:00",
+    "bytes": 6189,
+    "sha256": "a315daf530f5d68b95f41b45f88b3c6c5adb2c5c20cc65e4672e53183cb363b1",
+    "headers": {
+      "server": "nginx",
+      "date": "Mon, 26 Oct 2026 09:09:17 GMT",
+      "content-type": "application/json",
+      "content-length": "6189",
+      "vary": "Origin, Cookie",
+      "pragma": "public",
+      "cache-control": "public",
+      "x-content-type-options": "nosniff",
+      "x-xss-protection": "1; mode=block",
+      "x-frame-options": "SAMEORIGIN",
+      "strict-transport-security": "max-age=15768000; includeSubDomains; preload;",
+      "connection": "close"
+    },
+    "sample_type": "captured"
+  }
+}

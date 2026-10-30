@@ -1,0 +1,50 @@
+{
+  "repo_catalogue-publ_identifiers_limit5_offset0.json": {
+    "url": "https://data.europa.eu/api/hub/repo/catalogues/publ/datasets?valueType=identifiers&limit=5&offset=0",
+    "status": 200,
+    "fetched_at": "2026-10-26T18:08:23+09:00",
+    "bytes": 168,
+    "sha256": "e0742349260aa55a0697d3e025e55767ce6dedb597624867150e7fb1237898f1",
+    "headers": {
+      "server": "CloudFront",
+      "content-type": "application/json",
+      "content-length": "168",
+      "connection": "close",
+      "vary": "origin",
+      "x-robots-tag": "noindex",
+      "date": "Mon, 26 Oct 2026 09:08:23 GMT",
+      "via": "1.1 6d5c1f4fe1c77be4edb66faa2466ac1e.cloudfront.net (CloudFront)",
+      "strict-transport-security": "max-age=63072000; includeSubdomains; preload",
+      "x-content-type-options": "nosniff",
+      "x-xss-protection": "1; mode=block",
+      "x-cache": "Miss from cloudfront",
+      "x-amz-cf-pop": "KIX56-P5",
+      "x-amz-cf-id": "g1dwGO0GJJLFzteafdpJs9bjx700IPHBVgPr2k8XCFoIUVCPHMlUhQ=="
+    },
+    "sample_type": "captured"
+  },
+  "repo_dataset_combined-nomenclature-2023.jsonld": {
+    "url": "https://data.europa.eu/api/hub/repo/datasets/combined-nomenclature-2023",
+    "status": 200,
+    "fetched_at": "2026-10-26T18:09:19+09:00",
+    "bytes": 98485,
+    "sha256": "b41183e2c47f15e26fb9379ec90f3b843396ec46f3739d5528ab0761d4a76837",
+    "headers": {
+      "server": "CloudFront",
+      "content-type": "application/ld+json; charset=UTF-8",
+      "content-length": "98485",
+      "connection": "close",
+      "vary": "origin",
+      "x-robots-tag": "noindex",
+      "date": "Mon, 26 Oct 2026 09:09:19 GMT",
+      "via": "1.1 a9b103a5e76fc920797c9dba5e1e6ae2.cloudfront.net (CloudFront)",
+      "strict-transport-security": "max-age=63072000; includeSubdomains; preload",
+      "x-content-type-options": "nosniff",
+      "x-xss-protection": "1; mode=block",
+      "x-cache": "Miss from cloudfront",
+      "x-amz-cf-pop": "KIX56-P5",
+      "x-amz-cf-id": "tvOVBc1mpCOuqC5mfKm367DxC7zoor-MAfLgidS1tuW77tY4i40kSw=="
+    },
+    "sample_type": "captured"
+  }
+}
