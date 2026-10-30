@@ -3,17 +3,23 @@ from datetime import timedelta
 
 import pytest
 
-from datumoj.core.models import parse_context_fingerprint
-from datumoj.changes import detect, normalize_text
-from datumoj.core.contracts import ParseResult, ParseStatus
-from datumoj.core.models import ChangeKind, DocKind, FetchOutcome
-from datumoj.pipeline import PipelineDeps, parse_pending
-from datumoj.store.changes import SqliteChangeLog
-from datumoj.testing.fakes import (
-    FakeCatalogStore, FakeChangeLog, FakeChunkStore, FakeKeywordIndex, FakeManifest,
-    FakeObservationStore, FakeParser, FakeRawStore, FakeRegistry,
+from datumoj.rikolto.changes import detect, normalize_text
+from datumoj.rikolto.core.contracts import ParseResult, ParseStatus
+from datumoj.rikolto.core.models import ChangeKind, DocKind, FetchOutcome, parse_context_fingerprint
+from datumoj.rikolto.pipeline import PipelineDeps, parse_pending
+from datumoj.rikolto.store.changes import SqliteChangeLog
+from datumoj.rikolto.testing.fakes import (
+    FakeCatalogStore,
+    FakeChangeLog,
+    FakeChunkStore,
+    FakeKeywordIndex,
+    FakeManifest,
+    FakeObservationStore,
+    FakeParser,
+    FakeRawStore,
+    FakeRegistry,
 )
-from datumoj.testing.samples import T0, make_document, make_snapshot, make_spec, sha
+from datumoj.rikolto.testing.samples import T0, make_document, make_snapshot, make_spec, sha
 
 
 def documents(kind=DocKind.html_page, **kw):
@@ -46,7 +52,7 @@ def test_similarity_threshold_inclusive_boundary(kind, replacements, modified):
 
 
 def test_threshold_constant_can_be_adjusted(monkeypatch):
-    monkeypatch.setattr("datumoj.changes.SIMILARITY_THRESHOLD", 1.0)
+    monkeypatch.setattr("datumoj.rikolto.changes.SIMILARITY_THRESHOLD", 1.0)
     old, new = documents()
     assert detect(old, "a" * 100, new, "a" * 99 + "b") is not None
 
@@ -299,7 +305,7 @@ def test_change_errors_warn_without_failing_parse(monkeypatch, caplog, failure):
         raise RuntimeError("change subsystem failed")
 
     if failure == "detect":
-        monkeypatch.setattr("datumoj.pipeline.detect", broken)
+        monkeypatch.setattr("datumoj.rikolto.pipeline.detect", broken)
     elif failure == "append":
         monkeypatch.setattr(value.change_log, "append", broken)
     elif failure == "old_document":
@@ -320,7 +326,7 @@ def test_change_errors_warn_without_failing_parse(monkeypatch, caplog, failure):
 
 
 def test_wiring_change_log_path_and_override(tmp_path, monkeypatch):
-    from datumoj.wiring import build
+    from datumoj.rikolto.wiring import build
 
     monkeypatch.setenv("DATUMOJ_VECTORS", "off")
     value = deps()

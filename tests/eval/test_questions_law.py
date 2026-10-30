@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 from lxml import etree
 
-from datumoj.core.models import parse_locator
-from datumoj.eval import load_questions
+from datumoj.rikolto.core.models import parse_locator
+from datumoj.rikolto.eval import load_questions
 
 ROOT = Path(__file__).parents[2]
 FIXTURES = ROOT / "tests" / "fixtures" / "egov_law"

@@ -1,0 +1,150 @@
+{
+  "$defs": {
+    "ConsumerModelConfig": {
+      "additionalProperties": false,
+      "description": "Trusted authorization supplied by the host; only tightens registry permissions.",
+      "properties": {
+        "consumer": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "title": "Consumer",
+          "type": "string"
+        },
+        "authorized_sources": {
+          "items": {
+            "maxLength": 128,
+            "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+            "type": "string"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "title": "Authorized Sources",
+          "type": "array"
+        },
+        "max_tier": {
+          "default": "none",
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high"
+          ],
+          "title": "Max Tier",
+          "type": "string"
+        },
+        "allow_cloud": {
+          "default": false,
+          "title": "Allow Cloud",
+          "type": "boolean"
+        },
+        "allowed_providers": {
+          "default": [
+            "none",
+            "ollama"
+          ],
+          "items": {
+            "enum": [
+              "none",
+              "claude_plan",
+              "ollama",
+              "cloud_api"
+            ],
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Allowed Providers",
+          "type": "array"
+        }
+      },
+      "required": [
+        "consumer",
+        "authorized_sources"
+      ],
+      "title": "ConsumerModelConfig",
+      "type": "object"
+    },
+    "Outflow": {
+      "description": "Output permission; absent permissions must be treated as no_outflow.",
+      "enum": [
+        "raw_ok",
+        "derived_only",
+        "no_outflow"
+      ],
+      "title": "Outflow",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Host-owned intake configuration; directory containment is checked against data_dir.",
+  "properties": {
+    "id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "inbox": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Inbox",
+      "type": "string"
+    },
+    "outbox": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Outbox",
+      "type": "string"
+    },
+    "allowed_sources": {
+      "items": {
+        "maxLength": 128,
+        "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+        "type": "string"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "title": "Allowed Sources",
+      "type": "array"
+    },
+    "accept_outflow": {
+      "default": [
+        "no_outflow"
+      ],
+      "items": {
+        "$ref": "#/$defs/Outflow"
+      },
+      "maxItems": 3,
+      "minItems": 1,
+      "title": "Accept Outflow",
+      "type": "array"
+    },
+    "models": {
+      "$ref": "#/$defs/ConsumerModelConfig"
+    },
+    "max_active_demands": {
+      "minimum": 0,
+      "title": "Max Active Demands",
+      "type": "integer"
+    },
+    "max_calls_per_run": {
+      "default": 0,
+      "maximum": 1000,
+      "minimum": 0,
+      "title": "Max Calls Per Run",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "id",
+    "inbox",
+    "outbox",
+    "allowed_sources",
+    "models",
+    "max_active_demands"
+  ],
+  "title": "ConsumerConfig",
+  "type": "object"
+}

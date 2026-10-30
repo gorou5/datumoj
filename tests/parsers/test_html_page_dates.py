@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from datumoj.parsers.html_page import HtmlPageParser
-from datumoj.testing.samples import make_snapshot
+from datumoj.rikolto.parsers.html_page import HtmlPageParser
+from datumoj.rikolto.testing.samples import make_snapshot
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "gov_web" / "html"
 
@@ -81,7 +81,7 @@ def test_wareki_update_date_remains_supported():
 
 
 def test_gov_web_dispatcher_version_tracks_html_parser_version(monkeypatch):
-    from datumoj import wiring
+    from datumoj.rikolto import wiring
 
     original = HtmlPageParser.version
     before = wiring._GovWebContent.version

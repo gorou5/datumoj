@@ -1,11 +1,17 @@
-from datumoj.core.models import parse_context_fingerprint
-from datumoj.core.contracts import ParseError, ParseStatus
-from datumoj.pipeline import PipelineDeps, parse_pending
-from datumoj.testing.fakes import (
-    FakeCatalogStore, FakeChunkStore, FakeKeywordIndex, FakeManifest, FakeObservationStore,
-    FakeParser, FakeRawStore, FakeRegistry,
+from datumoj.rikolto.core.contracts import ParseError, ParseStatus
+from datumoj.rikolto.core.models import parse_context_fingerprint
+from datumoj.rikolto.pipeline import PipelineDeps, parse_pending
+from datumoj.rikolto.testing.fakes import (
+    FakeCatalogStore,
+    FakeChunkStore,
+    FakeKeywordIndex,
+    FakeManifest,
+    FakeObservationStore,
+    FakeParser,
+    FakeRawStore,
+    FakeRegistry,
 )
-from datumoj.testing.samples import make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import make_snapshot, make_spec
 
 
 class BrokenParser(FakeParser):
@@ -52,7 +58,7 @@ def test_failed_snapshot_retries_with_fixed_parser_same_version():
     deps, snap = build(BrokenParser)
 
     first = parse_pending(deps)
-    assert first.failed == {snap.snapshot_id: "ParseError: 暂时无法解析"}
+    assert first.failed == {snap.snapshot_id: "ParseError"}
     assert first.newly_parsed == [] and first.retried == []
     failed = deps.manifest.get_parse(
         snap.sha256, "fake-text", "1",
@@ -80,7 +86,7 @@ def test_persistent_failure_is_reported_each_run():
     first = parse_pending(deps)
     second = parse_pending(deps)
 
-    expected = {snap.snapshot_id: "ParseError: 暂时无法解析"}
+    expected = {snap.snapshot_id: "ParseError"}
     assert first.failed == expected
     assert second.failed == expected
     assert BrokenParser.calls == 2

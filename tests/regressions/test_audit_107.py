@@ -3,14 +3,23 @@
 from datetime import timedelta
 from unittest.mock import Mock
 
-from datumoj.core.contracts import ParseError, ParseStatus
-from datumoj.core.models import ChangeKind, PublishState, parse_context_fingerprint
-from datumoj.pipeline import PipelineDeps, parse_pending
-from datumoj.testing.fakes import (
-    FakeCatalogStore, FakeChangeLog, FakeChunkStore, FakeEmbedder, FakeKeywordIndex,
-    FakeManifest, FakeObservationStore, FakeParser, FakeRawStore, FakeRegistry, FakeVectorIndex,
+from datumoj.rikolto.core.contracts import ParseError, ParseStatus
+from datumoj.rikolto.core.models import ChangeKind, PublishState, parse_context_fingerprint
+from datumoj.rikolto.pipeline import PipelineDeps, parse_pending
+from datumoj.rikolto.testing.fakes import (
+    FakeCatalogStore,
+    FakeChangeLog,
+    FakeChunkStore,
+    FakeEmbedder,
+    FakeKeywordIndex,
+    FakeManifest,
+    FakeObservationStore,
+    FakeParser,
+    FakeRawStore,
+    FakeRegistry,
+    FakeVectorIndex,
 )
-from datumoj.testing.samples import T0, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 
 
 def test_old_failed_snapshot_retry_does_not_reverse_current_or_indexes():

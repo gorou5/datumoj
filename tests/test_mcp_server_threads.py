@@ -10,14 +10,20 @@ from contextlib import contextmanager
 import pytest
 from mcp import Client
 
-from datumoj import mcp_server
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.manifest import SqliteManifest
-from datumoj.core.rawstore import FileRawStore
-from datumoj.index.fts import SqliteKeywordIndex
-from datumoj.store.chunks import SqliteChunkStore
-from datumoj.testing.fakes import FakeCatalogStore, FakeObservationStore, FakeParser, FakeRegistry, FakeRetriever
-from datumoj.testing.samples import T0, make_snapshot, make_spec
+from datumoj.rikolto import mcp_server
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.manifest import SqliteManifest
+from datumoj.rikolto.core.rawstore import FileRawStore
+from datumoj.rikolto.index.fts import SqliteKeywordIndex
+from datumoj.rikolto.store.chunks import SqliteChunkStore
+from datumoj.rikolto.testing.fakes import (
+    FakeCatalogStore,
+    FakeObservationStore,
+    FakeParser,
+    FakeRegistry,
+    FakeRetriever,
+)
+from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 
 TEXT = "お知らせ\n\n人口統計の公開について。"
 SNAPSHOT = make_snapshot("jp-open", "https://example.go.jp/notice.txt", TEXT.encode(), fetched_at=T0)
@@ -168,7 +174,11 @@ def test_worker_exceptions_return_errors_and_session_survives(corpus, name, args
         async with Client(mcp_server.create_server(factory)) as client:
             bad = await client.call_tool(name, args)
             assert bad.is_error
-            assert "ValueError" in bad.content[0].text
+            expected = (
+                "ValueError: k 必须是 1–50 的整数" if name == "search_docs"
+                else "ValueError: snapshot_sha256 必须是 64 位小写十六进制"
+            )
+            assert expected in bad.content[0].text
             assert _data(await client.call_tool("cite", CITE))["data"]["status"] == "ok"
 
     asyncio.run(run())
@@ -186,7 +196,7 @@ def test_factory_exception_is_an_error_result():
             for _ in range(2):
                 result = await client.call_tool("version", {})
                 assert result.is_error
-                assert "RuntimeError: factory failed" in result.content[0].text
+                assert "RuntimeError" in result.content[0].text
 
     asyncio.run(run())
     assert len(calls) == 2

@@ -13,15 +13,15 @@ import pytest
 from moto import mock_aws
 from typer.testing import CliRunner
 
-from datumoj import cli, mcp_server, wiring
-from datumoj.core.models import StateWriter
-from datumoj.core import pull as pull_module
-from datumoj.core.pull import PullError, pull
-from datumoj.core.state import StateManager
-from datumoj.core.state_s3 import S3StateObjectStore
-from datumoj.core.storage import StorageConfig
-from datumoj.testing.fakes import FakeParser, FakeRegistry
-from datumoj.testing.samples import T0, make_snapshot, make_spec
+from datumoj.rikolto import cli, mcp_server, wiring
+from datumoj.rikolto.core import pull as pull_module
+from datumoj.rikolto.core.models import StateWriter
+from datumoj.rikolto.core.pull import PullError, pull
+from datumoj.rikolto.core.state import StateManager
+from datumoj.rikolto.core.state_s3 import S3StateObjectStore
+from datumoj.rikolto.core.storage import StorageConfig
+from datumoj.rikolto.testing.fakes import FakeParser, FakeRegistry
+from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 
 _BUCKET = "synthetic-pull-bucket"
 _ENDPOINT = "https://s3.amazonaws.com"
@@ -232,7 +232,7 @@ def test_mid_pull_and_hash_validation_failures_preserve_current_directory(remote
 
     observed.fail_key = None
     # A different source body creates a new immutable copy key for the next generation.
-    third_deps, snap = _extend_local(source, "https://example.go.jp/jp-a-third.txt", "A 的第三次更新")
+    third_deps, _snap = _extend_local(source, "https://example.go.jp/jp-a-third.txt", "A 的第三次更新")
     third_generation = _push(source, remote)
     _close(third_deps)
     corrupt_key = next(key for key in _content_keys(third_generation) if key not in _content_keys(second_generation))
@@ -342,9 +342,8 @@ def test_writer_waits_for_pull_switch_then_rechecks_read_only_marker(tmp_path, m
 
 
 def test_workspace_lock_allows_nested_local_calls(tmp_path):
-    with cli.scheduling.workspace_lock(tmp_path):
-        with cli.scheduling.workspace_lock(tmp_path):
-            assert not cli.scheduling.is_pulled_replica(tmp_path)
+    with cli.scheduling.workspace_lock(tmp_path), cli.scheduling.workspace_lock(tmp_path):
+        assert not cli.scheduling.is_pulled_replica(tmp_path)
 
 
 def test_failed_pull_command_and_logs_hide_remote_configuration(remote, tmp_path, monkeypatch, caplog):

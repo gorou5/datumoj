@@ -8,7 +8,7 @@ import lancedb
 import pytest
 from typer.testing import CliRunner
 
-from datumoj import cli, diagnose, wiring
+from datumoj.rikolto import cli, diagnose, wiring
 
 
 def fingerprint(root):

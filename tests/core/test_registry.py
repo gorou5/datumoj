@@ -5,10 +5,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-from datumoj.core.contracts import Registry, RegistryError
-from datumoj.core.models import Redistribution, UsageScope
-from datumoj.core.registry import RegistryImpl, load_registry
-from datumoj.testing.contract_suites import RegistrySuite
+from datumoj.rikolto.core.contracts import Registry, RegistryError
+from datumoj.rikolto.core.models import Outflow, Redistribution, UsageScope
+from datumoj.rikolto.core.registry import RegistryImpl, load_registry
+from datumoj.rikolto.testing.contract_suites import RegistrySuite
 
 
 class TestRegistryConformance(RegistrySuite):
@@ -35,6 +35,8 @@ def _source(**overrides):
             "attribution": None,
             "usage_scope": "internal_only",
             "redistribution": "unverified",
+            "outflow": "no_outflow",
+            "cloud_model_ok": False,
             "verified_at": None,
             "notes": "许可尚未核对",
         },
@@ -62,6 +64,8 @@ def test_loads_valid_source_and_uses_safe_license_defaults(tmp_path):
     assert spec is not None
     assert spec.license.usage_scope is UsageScope.internal_only
     assert spec.license.redistribution is Redistribution.unverified
+    assert spec.license.outflow is Outflow.no_outflow
+    assert spec.license.cloud_model_ok is False
     assert registry.all() == [spec]
 
 
@@ -73,6 +77,8 @@ def test_checked_in_egov_source_loads():
     assert spec is not None
     assert spec.license.usage_scope is UsageScope.internal_only
     assert spec.license.redistribution is Redistribution.unverified
+    assert spec.license.outflow is Outflow.no_outflow
+    assert spec.license.cloud_model_ok is False
 
 
 def test_rejects_id_that_does_not_match_filename(tmp_path):
@@ -122,6 +128,7 @@ def test_rejects_redistribution_without_license_verification(tmp_path):
         "attribution": "Source: Example",
         "usage_scope": "redistributable",
         "redistribution": "allowed",
+        "outflow": "raw_ok",
         "verified_at": None,
         "notes": None,
     }
@@ -129,3 +136,78 @@ def test_rejects_redistribution_without_license_verification(tmp_path):
 
     with pytest.raises(RegistryError, match=r"jp-example\.yaml: license\.verified_at:"):
         load_registry(tmp_path)
+
+
+@pytest.mark.parametrize("missing", ["name", "url", "verified_at", "notes"])
+def test_rejects_wider_outflow_without_evidence(tmp_path, missing):
+    license_info = {
+        "name": "Example license",
+        "url": "https://example.go.jp/license",
+        "attribution": None,
+        "usage_scope": "internal_only",
+        "redistribution": "unverified",
+        "outflow": "derived_only",
+        "cloud_model_ok": False,
+        "verified_at": "2026-10-20",
+        "notes": "Official terms checked",
+    }
+    license_info[missing] = None
+    _write(tmp_path, "jp-example.yaml", _source(license=license_info))
+
+    with pytest.raises(RegistryError, match=rf"jp-example\.yaml: license\.{missing}:"):
+        load_registry(tmp_path)
+
+
+def test_rejects_cloud_model_permission_without_evidence(tmp_path):
+    license_info = {
+        "name": "Example license",
+        "url": "https://example.go.jp/license",
+        "attribution": None,
+        "usage_scope": "internal_only",
+        "redistribution": "unverified",
+        "outflow": "no_outflow",
+        "cloud_model_ok": True,
+        "verified_at": "2026-10-20",
+        "notes": "   ",
+    }
+    _write(tmp_path, "jp-example.yaml", _source(license=license_info))
+
+    with pytest.raises(RegistryError, match=r"jp-example\.yaml: license\.notes:"):
+        load_registry(tmp_path)
+
+
+def test_raw_outflow_keeps_attribution_requirement(tmp_path):
+    license_info = {
+        "name": "Example license",
+        "url": "https://example.go.jp/license",
+        "attribution": None,
+        "usage_scope": "redistributable",
+        "redistribution": "allowed",
+        "outflow": "raw_ok",
+        "cloud_model_ok": False,
+        "verified_at": "2026-10-20",
+        "notes": "Official terms checked",
+    }
+    _write(tmp_path, "jp-example.yaml", _source(license=license_info))
+
+    with pytest.raises(RegistryError, match=r"jp-example\.yaml: license\.attribution:"):
+        load_registry(tmp_path)
+
+
+def test_accepts_derived_outflow_with_evidence(tmp_path):
+    license_info = {
+        "name": "Example license",
+        "url": "https://example.go.jp/license",
+        "attribution": None,
+        "usage_scope": "internal_only",
+        "redistribution": "unverified",
+        "outflow": "derived_only",
+        "cloud_model_ok": False,
+        "verified_at": "2026-10-20",
+        "notes": "Official terms checked",
+    }
+    _write(tmp_path, "jp-example.yaml", _source(license=license_info))
+
+    spec = load_registry(tmp_path).get("jp-example")
+
+    assert spec is not None and spec.license.outflow is Outflow.derived_only

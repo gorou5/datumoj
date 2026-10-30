@@ -1,13 +1,13 @@
 """Evidence state and SQL input metadata for read-only observation queries."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 import pytest
 
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.contracts import QueryError, QueryResult
-from datumoj.store.observations import DuckDBObservationStore
-from datumoj.testing.fakes import (
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.contracts import QueryError, QueryResult
+from datumoj.rikolto.store.observations import DuckDBObservationStore
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChunkStore,
     FakeManifest,
@@ -15,7 +15,7 @@ from datumoj.testing.fakes import (
     FakeRegistry,
     FakeRetriever,
 )
-from datumoj.testing.samples import T0, make_observation, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_observation, make_snapshot, make_spec
 
 
 @pytest.fixture
@@ -71,7 +71,8 @@ def test_complete_rows_include_table_snapshot_and_raw_filters(tools):
         "sha256": tools.manifest.snapshots_for("jp-stat")[0].sha256,
         "snapshot_ids": [{"snapshot_id": "snapshot-a", "fetched_at": T0.isoformat()}],
     }]
-    assert table["fetched_at_range"] == {"from": T0.isoformat(), "to": T0.isoformat()}
+    # DuckDB renders TIMESTAMPTZ in the host timezone; compare instants so CI (UTC) and JST agree.
+    assert {k: datetime.fromisoformat(v) for k, v in table["fetched_at_range"].items()} == {"from": T0, "to": T0}
 
 
 def test_partial_and_unavailable_rows(tools):

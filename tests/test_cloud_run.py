@@ -12,14 +12,14 @@ import pytest
 from moto import mock_aws
 from typer.testing import CliRunner
 
-from datumoj import cli, cloud, wiring
-from datumoj.core import schedule
-from datumoj.core.contracts import FetchResult, PreconditionFailed
-from datumoj.core.lease import LeaseError, LeaseManager
-from datumoj.core.models import FetchOutcome, PublishState
-from datumoj.core.state import StateManager
-from datumoj.testing.fakes import FakeCrawler, FakeEmbedder, FakeParser, FakeRegistry
-from datumoj.testing.samples import make_spec
+from datumoj.rikolto import cli, cloud, wiring
+from datumoj.rikolto.core import schedule
+from datumoj.rikolto.core.contracts import FetchResult, PreconditionFailed
+from datumoj.rikolto.core.lease import LeaseError, LeaseManager
+from datumoj.rikolto.core.models import FetchOutcome, PublishState
+from datumoj.rikolto.core.state import StateManager
+from datumoj.rikolto.testing.fakes import FakeCrawler, FakeEmbedder, FakeParser, FakeRegistry
+from datumoj.rikolto.testing.samples import make_spec
 
 ENV = {
     "R2_ACCESS_KEY_ID": "synthetic-cloud-access",
@@ -30,7 +30,7 @@ ENV = {
     "DATUMOJ_S3_REGION": "us-east-1",
     "DATUMOJ_RAW_BACKEND": "s3",
 }
-BODY = "Synthetic private source body\n\nSecond paragraph".encode()
+BODY = b"Synthetic private source body\n\nSecond paragraph"
 
 
 class LocalFetcher:
@@ -133,7 +133,7 @@ def test_cloud_check_only_probes_and_does_not_acquire_lease(world):
 
 
 def test_failed_probe_stops_before_lease_or_state_write(world, monkeypatch):
-    from datumoj.core.state_s3 import S3StateObjectStore
+    from datumoj.rikolto.core.state_s3 import S3StateObjectStore
 
     original = S3StateObjectStore.put_if_match
 

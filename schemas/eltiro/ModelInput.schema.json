@@ -1,0 +1,82 @@
+{
+  "$defs": {
+    "ModelInputPart": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "maxLength": 128,
+          "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "content"
+      ],
+      "title": "ModelInputPart",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "step": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Step",
+      "type": "string"
+    },
+    "difficulty": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Difficulty",
+      "type": "string"
+    },
+    "parts": {
+      "items": {
+        "$ref": "#/$defs/ModelInputPart"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "title": "Parts",
+      "type": "array"
+    },
+    "splittable": {
+      "default": false,
+      "title": "Splittable",
+      "type": "boolean"
+    },
+    "prompt_version": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Prompt Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "step",
+    "difficulty",
+    "parts",
+    "prompt_version"
+  ],
+  "title": "ModelInput",
+  "type": "object"
+}

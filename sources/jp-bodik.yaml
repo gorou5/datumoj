@@ -16,6 +16,8 @@ license:
   attribution: 出典：各自治体の BODIK ODCS データセット（https://data.bodik.jp/）
   usage_scope: internal_only
   redistribution: unverified
+  outflow: no_outflow
+  cloud_model_ok: false
   verified_at: null
   notes: 许可按数据集核对；许可 ID 随快照 meta 保存，逐项确认前仅内部使用
 scope:

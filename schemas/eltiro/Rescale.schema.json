@@ -1,0 +1,37 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "input": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Input",
+      "type": "string"
+    },
+    "op": {
+      "const": "rescale",
+      "title": "Op",
+      "type": "string"
+    },
+    "target_scale": {
+      "exclusiveMinimum": 0,
+      "title": "Target Scale",
+      "type": "number"
+    }
+  },
+  "required": [
+    "id",
+    "input",
+    "op",
+    "target_scale"
+  ],
+  "title": "Rescale",
+  "type": "object"
+}

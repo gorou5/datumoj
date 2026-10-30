@@ -13,7 +13,7 @@ import hashlib
 import json
 import os
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from functools import partial
 from pathlib import Path
@@ -26,24 +26,23 @@ import yaml
 from lxml import etree
 from typer.testing import CliRunner
 
-from datumoj import cli, wiring
-from datumoj.core.models import parse_context_fingerprint
-from datumoj.core.contracts import ParseError, ParseStatus, discover_parsers, select_parser
-from datumoj.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
-from datumoj.core.models import Citation, FetchOutcome, SourceText, TimeBasis
-from datumoj.core.registry import load_registry
-from datumoj.core.runner import CrawlDeps
-from datumoj.crawlers.ckan import CkanCrawler
-from datumoj.crawlers.estat_files import EstatFilesCrawler
-from datumoj.crawlers.jma_feed import FEED_URL, JmaFeedCrawler
-from datumoj.crawlers.stat_dashboard import StatDashboardCrawler, plan_batches
-from datumoj.eval import evaluate, load_questions, write_reports
-from datumoj.testing.contract_suites import CatalogStoreSuite, ParserSuite
-from datumoj.testing.samples import ParseSample, make_snapshot
+from datumoj.rikolto import cli, wiring
+from datumoj.rikolto.core.contracts import ParseError, ParseStatus, discover_parsers, select_parser
+from datumoj.rikolto.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
+from datumoj.rikolto.core.models import Citation, FetchOutcome, SourceText, TimeBasis, parse_context_fingerprint
+from datumoj.rikolto.core.registry import load_registry
+from datumoj.rikolto.core.runner import CrawlDeps
+from datumoj.rikolto.crawlers.ckan import CkanCrawler
+from datumoj.rikolto.crawlers.estat_files import EstatFilesCrawler
+from datumoj.rikolto.crawlers.jma_feed import FEED_URL, JmaFeedCrawler
+from datumoj.rikolto.crawlers.stat_dashboard import StatDashboardCrawler, plan_batches
+from datumoj.rikolto.eval import evaluate, load_questions, write_reports
+from datumoj.rikolto.testing.contract_suites import CatalogStoreSuite, ParserSuite
+from datumoj.rikolto.testing.samples import ParseSample, make_snapshot
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "tests/fixtures"
-NOW = datetime(2026, 10, 21, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 21, 0, tzinfo=UTC)
 ATOM = "http://www.w3.org/2005/Atom"
 SOURCES = {
     "jp-egov-data": CkanCrawler,

@@ -1,0 +1,29 @@
+schema: "eltiro.eval.values/v1"
+demand_id: "japan-monthly-earnings-revisions"
+points:
+  - id: "jpn-2018-01-before"
+    status: "pending_h2"
+    selector: {"demand_id": "japan-monthly-earnings-revisions", "country": "JPN", "period": "2018-01", "indicator_key": "cash_earnings_jpy", "source_id": "jp-estat-files", "release_id": "pending_h2"}
+    unit: "JPY"
+    source_value: null
+    source_note: null
+    source_multiplier: "1"
+    output_multiplier: "1"
+    absolute_tolerance: "0"
+    significant_digits: null
+    evidence: {"reference": "https://www.mhlw.go.jp/toukei/list/30-1.html", "locator": "全国調査 / 現金給与総額 / 5人以上 / 調査産業計 / 重算前", "note": "待核验点，非已录原值；本次只检查仓库证据，未访问页面。若有倍率，H2 必须核对元数据。"}
+    checked_at: null
+    pending_reason: "没有该点的官方原值及发布快照；H2 补原值、来源页/存档、核对日期、真实 release_id、倍率和精度后才能计分。"
+  - id: "jpn-2018-01-after"
+    status: "pending_h2"
+    selector: {"demand_id": "japan-monthly-earnings-revisions", "country": "JPN", "period": "2018-01", "indicator_key": "cash_earnings_jpy", "source_id": "jp-estat-files", "release_id": "pending_h2"}
+    unit: "JPY"
+    source_value: null
+    source_note: null
+    source_multiplier: "1"
+    output_multiplier: "1"
+    absolute_tolerance: "0"
+    significant_digits: null
+    evidence: {"reference": "https://www.mhlw.go.jp/toukei/list/30-1.html", "locator": "全国調査 / 現金給与総額 / 5人以上 / 調査産業計 / 重算後", "note": "待核验点，非已录原值；本次只检查仓库证据，未访问页面。若有倍率，H2 必须核对元数据。"}
+    checked_at: null
+    pending_reason: "没有该点的官方原值及发布快照；H2 补原值、来源页/存档、核对日期、真实 release_id、倍率和精度后才能计分。"

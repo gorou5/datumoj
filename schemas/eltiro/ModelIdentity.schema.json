@@ -1,0 +1,23 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Model",
+      "type": "string"
+    },
+    "version": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "model",
+    "version"
+  ],
+  "title": "ModelIdentity",
+  "type": "object"
+}

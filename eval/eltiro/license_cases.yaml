@@ -1,0 +1,54 @@
+schema: eltiro.eval.license/v1
+cases:
+  - id: no-outflow-raw
+    description: no_outflow 来源原值进入输出
+    inputs: [{source_id: synthetic-restricted, registry_outflow: no_outflow, payload: raw}]
+    consumer_outflow: raw_ok
+    expected_allowed: false
+    evidence: "契约 Outflow.no_outflow；805 必须从权威注册表读取，使用方不得放宽。"
+  - id: no-outflow-derived
+    description: no_outflow 来源的派生结果进入输出
+    inputs: [{source_id: synthetic-restricted, registry_outflow: no_outflow, payload: derived}]
+    consumer_outflow: derived_only
+    expected_allowed: false
+    evidence: "no_outflow 禁止输出，做了运算不等于取得外发许可。"
+  - id: derived-with-raw
+    description: derived_only 来源附带原文或原始观测
+    inputs: [{source_id: synthetic-derived, registry_outflow: derived_only, payload: raw}]
+    consumer_outflow: raw_ok
+    expected_allowed: false
+    evidence: "契约 Outflow.derived_only；只允许派生输出，不能附带原文。"
+  - id: derived-with-snippet
+    description: derived_only 来源通过片段字段夹带原文
+    inputs: [{source_id: synthetic-derived, registry_outflow: derived_only, payload: snippet}]
+    consumer_outflow: raw_ok
+    expected_allowed: false
+    evidence: "片段也是原文；改字段名或截短不能升级到 raw_ok。"
+  - id: mixed-no-outflow
+    description: raw_ok 与 no_outflow 混合派生后试图输出
+    inputs:
+      - {source_id: synthetic-open, registry_outflow: raw_ok, payload: derived}
+      - {source_id: synthetic-restricted, registry_outflow: no_outflow, payload: derived}
+    consumer_outflow: raw_ok
+    expected_allowed: false
+    evidence: "LicenseSummary 的最严约束：raw_ok < derived_only < no_outflow。"
+  - id: mixed-derived-raw
+    description: raw_ok 与 derived_only 混合且附带后者原文
+    inputs:
+      - {source_id: synthetic-open, registry_outflow: raw_ok, payload: raw}
+      - {source_id: synthetic-derived, registry_outflow: derived_only, payload: raw}
+    consumer_outflow: raw_ok
+    expected_allowed: false
+    evidence: "混合来源取最严，开放来源不能替另一来源授予原文输出权。"
+  - id: missing-license
+    description: 来源没有许可记录仍请求派生输出
+    inputs: [{source_id: synthetic-unknown, registry_outflow: null, payload: derived}]
+    consumer_outflow: raw_ok
+    expected_allowed: false
+    evidence: "OutputManifest/LicenseSummary：缺许可按 no_outflow，不可猜测公开即许可。"
+  - id: consumer-relaxes-license
+    description: 使用方配置声明 raw_ok 企图覆盖注册表 no_outflow
+    inputs: [{source_id: synthetic-restricted, registry_outflow: no_outflow, payload: raw}]
+    consumer_outflow: raw_ok
+    expected_allowed: false
+    evidence: "使用方配置只能收紧；registry_outflow 是权威许可，consumer_outflow 无权覆盖。"

@@ -1,0 +1,209 @@
+{
+  "_说明": "plan/index.html 的“版本路线图”和“里程碑”两节由本文件渲染。由主对话在节点上更新，调度器派出的任务 agent 不改本文件。status 只有对应的 PR 已合并进 main 才能写 done（IVY 期间直接推送 main，pr 为 null）。规则见 CLAUDE.md 与 docs/PLAN.md 第 8.1 节。",
+  "updated": "2026-10-28",
+  "versions": [
+    {
+      "version": "0.1",
+      "codename": "IVY（蔦）",
+      "status": "done",
+      "label": "已完成",
+      "summary": "契约 → 法令链路 → 目录与统计 → AI 分析入口（第一阶段）。48 个任务全部完成，检查点 M1–M3 与版本 tag 均已发布。",
+      "tag": "v0.1.0-ivy",
+      "plan": "docs/PLAN.md"
+    },
+    {
+      "version": "0.2",
+      "codename": "TACHIBANA（橘）",
+      "status": "doing",
+      "label": "开发完成，已合并进 main，待 H4 验收",
+      "summary": "日本扩面与持续运营：省厅和自治体政策网页与 PDF、BODIK、抓取监控、每周变化报告、存储适配层（为网络存储做准备）、注册层描述导出，并补上 IVY 遗留的检索缺口。24 个任务完成，feature/0.2 已合并进 main（PR #15）。KKJ 移出本版本；Actions 运行和一周试运行移到 0.3。",
+      "tag": null,
+      "plan": "docs/plans/0.2-tachibana.md"
+    },
+    {
+      "version": "0.3",
+      "codename": "MAPLE（楓）",
+      "status": "planned",
+      "label": "计划 PR 审核中",
+      "summary": "云端运行（GitHub Actions 定时抓取，raw 和索引上 R2、可重建、按来源设频率；一周试运行）、欧美来源、日本新来源（e-Stat API、命名文件）。",
+      "tag": null,
+      "plan": "docs/plans/0.3-maple.md"
+    },
+    {
+      "version": "0.4",
+      "codename": "WISTERIA（藤）",
+      "status": "doing",
+      "label": "开发中（feature/0.4）",
+      "summary": "Eltiro：接受外部需求，匹配序列、固定代次取数运算、按许可闸门输出；观测值按发布时间查询；模型路由。",
+      "tag": null,
+      "plan": "docs/plans/0.4-wisteria.md"
+    }
+  ],
+  "milestones": [
+    {
+      "version": "0.1",
+      "id": "M0",
+      "title": "契约与地基",
+      "status": "done",
+      "date": "2026-10-21",
+      "tag": null,
+      "pr": null,
+      "summary": "契约审查通过；make test 全部通过；用回放样本走通“计划→抓取→存 raw→写 manifest”，失败和超上限都有记录（集成任务 IVY-105）。",
+      "acceptance": null
+    },
+    {
+      "version": "0.1",
+      "id": "M1",
+      "title": "法令链路",
+      "status": "done",
+      "date": "2026-10-21",
+      "tag": "v0.1.0-ivy-m1",
+      "pr": null,
+      "summary": "真实抓取 200 部法令，重复抓取不重复下载；datumoj search 返回条文和出处；法令题 Recall@10 ≥ 0.85。",
+      "acceptance": "docs/acceptance/v0.1.0-ivy-m1.md"
+    },
+    {
+      "version": "0.1",
+      "id": "M2",
+      "title": "目录与统计",
+      "status": "done",
+      "date": "2026-10-21",
+      "tag": "v0.1.0-ivy-m2",
+      "pr": null,
+      "summary": "能搜到 e-Gov 目录的数据集；datumoj sql 查都道府县人口并附出处；JMA 开始每小时轮询。",
+      "acceptance": "docs/acceptance/v0.1.0-ivy.md"
+    },
+    {
+      "version": "0.1",
+      "id": "M3",
+      "title": "AI 分析入口",
+      "status": "done",
+      "date": "2026-10-21",
+      "tag": "v0.1.0-ivy-m3",
+      "pr": null,
+      "summary": "在 Claude 里通过 MCP 提问，得到带出处的回答；评测 60 题全部达标。",
+      "acceptance": "docs/acceptance/v0.1.0-ivy.md"
+    },
+    {
+      "version": "0.1",
+      "id": "完成",
+      "title": "IVY 发布",
+      "status": "done",
+      "date": "2026-10-21",
+      "tag": "v0.1.0-ivy",
+      "pr": null,
+      "summary": "H6 验收（现场问答 + 人工抽查引用支持率）通过，第一阶段完成。",
+      "acceptance": "docs/acceptance/v0.1.0-ivy.md"
+    },
+    {
+      "version": "0.2",
+      "id": "P1",
+      "title": "计划合并",
+      "status": "done",
+      "date": "2026-10-22",
+      "tag": null,
+      "pr": 3,
+      "summary": "TACHIBANA 计划（按 IVY 结果修订）合并进 main。",
+      "acceptance": null
+    },
+    {
+      "version": "0.2",
+      "id": "P2",
+      "title": "计划修订：移出 KKJ、对齐团队规范",
+      "status": "done",
+      "date": "2026-10-23",
+      "tag": null,
+      "pr": 7,
+      "summary": "KKJ 移出 0.2；并入团队初始化包规则；加入存储适配层和注册层描述导出。",
+      "acceptance": null
+    },
+    {
+      "version": "0.2",
+      "id": "P3",
+      "title": "任务拆分",
+      "status": "done",
+      "date": "2026-10-23",
+      "tag": null,
+      "pr": 9,
+      "summary": "24 个任务文件（docs/tasks/DATUMOJ-TACHIBANA-*.md）：原计划 19 个，加上真实抓取后补的 206、207、104、208、209。",
+      "acceptance": null
+    },
+    {
+      "version": "0.2",
+      "id": "开工",
+      "title": "feature/0.2 开发：24 个任务全部完成",
+      "status": "done",
+      "date": "2026-10-22",
+      "tag": null,
+      "pr": 15,
+      "summary": "24 个任务都已合并进 feature/0.2，全量测试 2159 项通过；feature/0.2 已合并进 main（PR #15）。东京都、大阪府、经产省不进 0.2。",
+      "acceptance": null
+    },
+    {
+      "version": "0.2",
+      "id": "M1",
+      "title": "政策网页 + PDF",
+      "status": "done",
+      "date": "2026-10-22",
+      "tag": "v0.2.0-tachibana-m1",
+      "pr": 15,
+      "summary": "政策网页和链接的 PDF 端到端入库；真实抓取 5 次，现场检索 5/5 命中；验收中发现的问题由 206、207、104、208、209 修复并复验。",
+      "acceptance": "docs/acceptance/v0.2.0-tachibana-m1.md"
+    },
+    {
+      "version": "0.2",
+      "id": "M2",
+      "title": "BODIK、目录与检索、存储适配层",
+      "status": "doing",
+      "date": null,
+      "tag": "v0.2.0-tachibana-m2",
+      "pr": null,
+      "summary": "BODIK、e-Stat 表进目录、目录结果可还原、关键词门槛、存储适配层、注册层导出（集成任务 902）。自动化验收已通过，等人工验收和 tag。",
+      "acceptance": null
+    },
+    {
+      "version": "0.2",
+      "id": "M3",
+      "title": "监控与变化报告",
+      "status": "doing",
+      "date": null,
+      "tag": "v0.2.0-tachibana-m3",
+      "pr": null,
+      "summary": "抓取监控、每周变化报告、全部评测门槛、MCP 实机问答（集成任务 903）。自动化验收已通过，等人工验收和 tag。",
+      "acceptance": null
+    },
+    {
+      "version": "0.2",
+      "id": "完成",
+      "title": "TACHIBANA 发布",
+      "status": "pending",
+      "date": null,
+      "tag": "v0.2.0-tachibana",
+      "pr": null,
+      "summary": "feature/0.2 已合并进 main（PR #15）；H4 真实问答验收通过后打 tag。",
+      "acceptance": "docs/acceptance/v0.2.0-tachibana.md"
+    },
+    {
+      "version": "0.3",
+      "id": "P1",
+      "title": "计划合并",
+      "status": "doing",
+      "date": null,
+      "tag": null,
+      "pr": 16,
+      "summary": "MAPLE 计划（云端运行、欧美来源、日本新来源）。",
+      "acceptance": null
+    },
+    {
+      "version": "0.4",
+      "id": "M0",
+      "title": "契约审查",
+      "status": "doing",
+      "date": "2026-10-28",
+      "tag": null,
+      "pr": null,
+      "summary": "Eltiro 契约（ADR 0006）与观测值按发布时间查询（ADR 0007）于 2026-10-28 人审通过（集成任务 WISTERIA-901）；在 feature/0.4 上，合并进 main 后改为 done。",
+      "acceptance": null
+    }
+  ]
+}

@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from datumoj.core import models as m
-from datumoj.core.models import (
+from datumoj.rikolto.core import models as m
+from datumoj.rikolto.core.models import (
     Chunk,
     Citation,
     Dataset,
@@ -20,6 +20,7 @@ from datumoj.core.models import (
     Hit,
     LicenseInfo,
     Observation,
+    Outflow,
     Period,
     Redistribution,
     Resource,
@@ -44,95 +45,95 @@ SCHEMAS_DIR = Path(__file__).resolve().parents[2] / "schemas"
 
 
 def make_citation(**kw):
-    base = dict(
-        source_id="jp-egov-law",
-        resource_url="https://laws.e-gov.go.jp/api/2/law_data/415AC0000000057",
-        snapshot_sha256=SHA,
-        fetched_at=FETCHED,
-        locator="art=27;para=2",
-        effective_at=date(2024, 4, 1),
-        time_basis=TimeBasis.effective,
-        license="公共データ利用規約（第1.0版）",
-        attribution="出典：e-Gov法令検索",
-        usage_scope=UsageScope.internal_only,
-    )
+    base = {
+        "source_id": "jp-egov-law",
+        "resource_url": "https://laws.e-gov.go.jp/api/2/law_data/415AC0000000057",
+        "snapshot_sha256": SHA,
+        "fetched_at": FETCHED,
+        "locator": "art=27;para=2",
+        "effective_at": date(2024, 4, 1),
+        "time_basis": TimeBasis.effective,
+        "license": "公共データ利用規約（第1.0版）",
+        "attribution": "出典：e-Gov法令検索",
+        "usage_scope": UsageScope.internal_only,
+    }
     base.update(kw)
     return Citation(**base)
 
 
 def make_observation(**kw):
-    base = dict(
-        obs_id="o1",
-        source_id="jp-stat-dashboard",
-        dataset_key="jp-stat-dashboard:0201010000000010000",
-        table_key="0201010000000010000",
-        survey="国勢調査",
-        indicator="総人口",
-        indicator_code="0201010000000010000",
-        area_code="13000",
-        area_label="東京都",
-        time_start=date(2020, 1, 1),
-        time_end=date(2020, 12, 31),
-        time_label="2020年",
-        granularity="year",
-        dims={"sex": "総数"},
-        unit="人",
-        value=Decimal("14047594"),
-        note=None,
-        snapshot_sha256=SHA,
-        locator="row=12",
-        fetched_at=FETCHED,
-    )
+    base = {
+        "obs_id": "o1",
+        "source_id": "jp-stat-dashboard",
+        "dataset_key": "jp-stat-dashboard:0201010000000010000",
+        "table_key": "0201010000000010000",
+        "survey": "国勢調査",
+        "indicator": "総人口",
+        "indicator_code": "0201010000000010000",
+        "area_code": "13000",
+        "area_label": "東京都",
+        "time_start": date(2020, 1, 1),
+        "time_end": date(2020, 12, 31),
+        "time_label": "2020年",
+        "granularity": "year",
+        "dims": {"sex": "総数"},
+        "unit": "人",
+        "value": Decimal(14047594),
+        "note": None,
+        "snapshot_sha256": SHA,
+        "locator": "row=12",
+        "fetched_at": FETCHED,
+    }
     base.update(kw)
     return Observation(**base)
 
 
 def make_snapshot(**kw):
-    base = dict(
-        snapshot_id="s1",
-        source_id="jp-egov-law",
-        resource_url="https://laws.e-gov.go.jp/api/2/law_data/415AC0000000057",
-        fetched_at=FETCHED,
-        http_status=200,
-        outcome=FetchOutcome.ok,
-        sha256=SHA,
-        size=1234,
-        content_type="application/json",
-        etag='"abc"',
-        last_modified="Mon, 19 Oct 2026 00:00:00 GMT",
-        license="公共データ利用規約（第1.0版）",
-        error=None,
-    )
+    base = {
+        "snapshot_id": "s1",
+        "source_id": "jp-egov-law",
+        "resource_url": "https://laws.e-gov.go.jp/api/2/law_data/415AC0000000057",
+        "fetched_at": FETCHED,
+        "http_status": 200,
+        "outcome": FetchOutcome.ok,
+        "sha256": SHA,
+        "size": 1234,
+        "content_type": "application/json",
+        "etag": '"abc"',
+        "last_modified": "Mon, 19 Oct 2026 00:00:00 GMT",
+        "license": "公共データ利用規約（第1.0版）",
+        "error": None,
+    }
     base.update(kw)
     return Snapshot(**base)
 
 
 def make_chunk(**kw):
-    base = dict(
-        chunk_id="c1",
-        doc_key="jp-egov-law:415AC0000000057",
-        locator="art=27;para=1",
-        text="個人情報取扱事業者は、次に掲げる場合を除くほか……",
-        title_path=["個人情報の保護に関する法律", "第四章", "第二十七条"],
-        snapshot_sha256=SHA,
-        lang="ja",
-        published_at=date(2003, 5, 30),
-        effective_at=date(2024, 4, 1),
-    )
+    base = {
+        "chunk_id": "c1",
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=27;para=1",
+        "text": "個人情報取扱事業者は、次に掲げる場合を除くほか……",
+        "title_path": ["個人情報の保護に関する法律", "第四章", "第二十七条"],
+        "snapshot_sha256": SHA,
+        "lang": "ja",
+        "published_at": date(2003, 5, 30),
+        "effective_at": date(2024, 4, 1),
+    }
     base.update(kw)
     return Chunk(**base)
 
 
 def make_hit(**kw):
-    base = dict(
-        chunk_id="c1",
-        doc_key="jp-egov-law:415AC0000000057",
-        locator="art=27;para=2",
-        score=0.42,
-        snippet=SourceText(content="第三者に提供してはならない。"),
-        citation=make_citation(),
-        matched_by=["keyword", "vector"],
-    )
+    base = {
+        "chunk_id": "c1",
+        "doc_key": "jp-egov-law:415AC0000000057",
+        "locator": "art=27;para=2",
+        "score": 0.42,
+        "snippet": SourceText(content="第三者に提供してはならない。"),
+        "citation": make_citation(),
+        "matched_by": ["keyword", "vector"],
+    }
     base.update(kw)
     return Hit(**base)
 
@@ -299,6 +300,8 @@ def test_license_defaults_internal_only_unverified():
     lic = LicenseInfo()
     assert lic.usage_scope is UsageScope.internal_only
     assert lic.redistribution is Redistribution.unverified
+    assert lic.outflow is Outflow.no_outflow
+    assert lic.cloud_model_ok is False
 
 
 @pytest.mark.parametrize("redistribution", [Redistribution.unverified, Redistribution.forbidden])
@@ -314,11 +317,33 @@ def test_license_allowed_can_be_redistributable():
         attribution="出典：BODIK",
         usage_scope=UsageScope.redistributable,
         redistribution=Redistribution.allowed,
+        outflow=Outflow.raw_ok,
         verified_at=date(2026, 10, 20),
     )
     assert lic.usage_scope is UsageScope.redistributable
+    assert lic.outflow is Outflow.raw_ok
     # allowed 也可以选择只内部用
     LicenseInfo(usage_scope=UsageScope.internal_only, redistribution=Redistribution.allowed)
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"usage_scope": "internal_only", "redistribution": "allowed", "outflow": "raw_ok"},
+        {"usage_scope": "internal_only", "redistribution": "unverified", "outflow": "raw_ok"},
+        {"usage_scope": "redistributable", "redistribution": "allowed", "outflow": "no_outflow"},
+        {"usage_scope": "redistributable", "redistribution": "allowed", "outflow": "derived_only"},
+    ],
+)
+def test_license_rejects_new_and_legacy_permission_conflicts(values):
+    with pytest.raises(ValidationError, match=r"usage_scope|redistribution|outflow"):
+        LicenseInfo(**values)
+
+
+def test_license_cloud_model_permission_requires_strict_boolean():
+    with pytest.raises(ValidationError):
+        LicenseInfo(cloud_model_ok=1)
+    LicenseInfo(outflow=Outflow.derived_only)
 
 
 def test_source_and_ids():
@@ -427,10 +452,13 @@ def test_chunk_doc_key_format(bad):
 def test_observation_fields():
     expected = {"obs_id", "source_id", "dataset_key", "table_key", "survey", "indicator", "indicator_code",
                 "area_code", "area_label", "time_start", "time_end", "time_label", "granularity", "dims", "unit",
-                "value", "note", "snapshot_sha256", "locator", "fetched_at"}
+                "value", "note", "snapshot_sha256", "locator", "fetched_at", "release_id", "released_at"}
     assert set(Observation.model_fields) == expected
+    for name in ("release_id", "released_at"):
+        assert not Observation.model_fields[name].is_required()
+        assert Observation.model_fields[name].default is None
     o = make_observation()
-    assert o.value == Decimal("14047594")
+    assert o.value == Decimal(14047594)
     assert isinstance(o.value, Decimal)
 
 
@@ -638,7 +666,8 @@ def test_export_schemas_matches_committed(tmp_path):
     names = {p.name for p in written}
     for model in ["Source", "Dataset", "Resource", "Snapshot", "FetchOutcome", "Document", "Chunk",
                   "Observation", "Citation", "UsageScope", "Redistribution", "TimeBasis", "Hit", "GapState",
-                  "Freshness", "ToolResult", "SourceText", "StateGeneration"]:
+                  "Freshness", "ToolResult", "SourceText", "StateGeneration", "ObservationIdentity",
+                  "GenerationToken", "ObservationRowEvidence", "ReleaseEntry"]:
         assert f"{model}.schema.json" in names
     committed = {p.name for p in SCHEMAS_DIR.glob("*.schema.json")}
     assert committed == names, "schemas/ 与模型不一致，请重新执行 export_schemas('schemas')"
@@ -663,3 +692,52 @@ def test_schema_content_reflects_constraints(tmp_path):
     assert cit["properties"]["locator"]["pattern"] == m.LOCATOR_PATTERN
     for name, model in [("Snapshot", Snapshot), ("Chunk", Chunk), ("Hit", Hit), ("Citation", Citation)]:
         assert set(load(name)["properties"]) == set(model.model_fields)
+
+
+@pytest.mark.parametrize("release_id", [None, '发布:;|="\\\n'])
+def test_observation_identity_inherits_reference_and_roundtrips(release_id):
+    identity = m.ObservationIdentity(source_id="jp-test", table_key='表:;|="\\\n', obs_id="same",
+                                     snapshot_sha256="ab" * 32, release_id=release_id)
+    assert isinstance(identity, m.ObservationRef)
+    assert m.ObservationIdentity.parse(str(identity)) == identity
+    assert m.ObservationIdentity.model_validate_json(identity.model_dump_json()) == identity
+    assert len(json.loads(str(identity))) == 5
+
+
+@pytest.mark.parametrize("text", ["{}", "[]", '["jp-test","t","o"]',
+                                  '["jp-test","t","o","bad",null]',
+                                  '["jp-test","t","o","' + "ab" * 32 + '",""]',
+                                  '["jp-test","t",1,"' + "ab" * 32 + '",null]'])
+def test_observation_identity_rejects_malformed_encoding(text):
+    with pytest.raises(ValueError):
+        m.ObservationIdentity.parse(text)
+
+
+@pytest.mark.parametrize("generation", [0, -1, True, "1", 1.0])
+def test_generation_token_rejects_non_strict_positive_generation(generation):
+    with pytest.raises(ValueError):
+        m.GenerationToken(generation=generation, manifest_sha256="ab" * 32)
+
+
+def test_generation_token_roundtrip_and_validation():
+    token = m.GenerationToken(generation=7, manifest_sha256="ab" * 32)
+    assert m.GenerationToken.parse(str(token)) == token
+    assert json.loads(str(token)) == ["rikolto-generation-v1", 7, "ab" * 32]
+    assert m.GenerationToken.model_validate_json(token.model_dump_json()) == token
+    for text in ["not-json", "{}", "[]", '["rikolto-generation-v2",7,"' + "ab" * 32 + '"]',
+                 '["rikolto-generation-v1",7,"BAD"]']:
+        with pytest.raises(ValueError):
+            m.GenerationToken.parse(text)
+
+
+def test_release_entry_model_roundtrip_and_validation():
+    from datumoj.rikolto.core.models import ReleaseEntry, SnapshotOrder
+    from datumoj.rikolto.testing.samples import T0
+
+    entry = ReleaseEntry(source_id="jp-stat", release_key="A", released_at=date(2026, 4, 1),
+                         order=SnapshotOrder(fetched_at=T0, seq=1))
+    assert ReleaseEntry.model_validate_json(entry.model_dump_json()) == entry
+    for change in [{"release_key": ""}, {"source_id": "../bad"}, {"order": {"fetched_at": T0, "seq": 0}},
+                   {"unexpected": "value"}]:
+        with pytest.raises(ValueError):
+            ReleaseEntry.model_validate({**entry.model_dump(), **change})

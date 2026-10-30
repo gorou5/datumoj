@@ -1,9 +1,10 @@
 import json
+from datetime import date
 from pathlib import Path
 
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.models import LicenseInfo, Redistribution, UsageScope
-from datumoj.testing.fakes import (
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.models import LicenseInfo, Redistribution, UsageScope
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChunkStore,
     FakeManifest,
@@ -12,9 +13,8 @@ from datumoj.testing.fakes import (
     FakeRegistry,
     FakeRetriever,
 )
-from datumoj.testing.samples import T0, make_dataset, make_snapshot, make_spec
-from datumoj.wiring import _CkanPages
-
+from datumoj.rikolto.testing.samples import T0, make_dataset, make_snapshot, make_spec
+from datumoj.rikolto.wiring import _CkanPages
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "ckan_egov"
 SOURCE_ID = "jp-ckan-egov"
@@ -29,8 +29,9 @@ def _tools(tmp_path):
     chunks = FakeChunkStore()
     observations = FakeObservationStore()
     license = LicenseInfo(
-        name="CC BY 4.0", attribution="出典：e-Gov", usage_scope=UsageScope.redistributable,
-        redistribution=Redistribution.allowed,
+        name="CC BY 4.0", url="https://example.go.jp/license", attribution="出典：e-Gov",
+        usage_scope=UsageScope.redistributable, redistribution=Redistribution.allowed, outflow="raw_ok",
+        verified_at=date(2026, 10, 20), notes="テスト用の検証根拠",
     )
     registry = FakeRegistry([
         make_spec(SOURCE_ID, kind="ckan", license=license),

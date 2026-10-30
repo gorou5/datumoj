@@ -9,11 +9,11 @@ from datetime import UTC, timedelta
 import pytest
 from typer.testing import CliRunner
 
-from datumoj import cli, diagnose, wiring
-from datumoj.core.models import FetchOutcome
-from datumoj.core.rawstore import FileRawStore
-from datumoj.diagnose import evidence, replay
-from datumoj.testing.samples import T0, make_chunk, make_document, make_snapshot
+from datumoj.rikolto import cli, diagnose, wiring
+from datumoj.rikolto.core.models import FetchOutcome
+from datumoj.rikolto.core.rawstore import FileRawStore
+from datumoj.rikolto.diagnose import evidence, replay
+from datumoj.rikolto.testing.samples import T0, make_chunk, make_document, make_snapshot
 
 LEGACY_MANIFEST = """
 CREATE TABLE schema_version (version INTEGER NOT NULL);
@@ -134,7 +134,7 @@ def test_categories_are_capped_and_order_uses_time_then_sequence(tmp_path):
     old = make_snapshot(snapshot_id="old", data=b"old")
     record(root, new)
     record(root, old)
-    from datumoj.core.contracts import ParseResult
+    from datumoj.rikolto.core.contracts import ParseResult
     for snap in (new, old):
         doc = make_document("jp-test:a.txt", snap.sha256)
         derived(root, ParseResult(documents=[doc], chunks=[make_chunk(doc.doc_key, snap.sha256, "row=1", "body")]))
@@ -181,7 +181,7 @@ def test_http_failure_followed_by_success_is_historical_inventory(tmp_path):
 
 
 def test_parse_failure_does_not_leak_across_same_sha_resources(tmp_path):
-    from datumoj.core.models import parse_context_fingerprint
+    from datumoj.rikolto.core.models import parse_context_fingerprint
 
     root = tmp_path / "old"
     legacy(root)

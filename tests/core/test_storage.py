@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from datumoj.core.storage import StorageConfig, load_storage_config
+from datumoj.rikolto.core.storage import StorageConfig, load_storage_config
 
 
 def test_defaults():
@@ -59,7 +59,7 @@ def test_config_contains_no_credentials():
 
 
 def test_generic_and_legacy_s3_variables_resolve_and_conflicts_hide_values():
-    from datumoj.core.storage import load_s3_credentials
+    from datumoj.rikolto.core.storage import load_s3_credentials
 
     generic = {
         "DATUMOJ_S3_ENDPOINT": "https://generic.example.invalid",
@@ -114,9 +114,9 @@ def test_endpoint_cannot_embed_credentials(endpoint):
 
 
 def test_all_local_entrypoints_share_config(tmp_path, monkeypatch):
-    from datumoj import cli, wiring
-    from datumoj.analysis.tools import AnalysisTools
-    from datumoj.core.rawstore import FileRawStore
+    from datumoj.rikolto import cli, wiring
+    from datumoj.rikolto.analysis.tools import AnalysisTools
+    from datumoj.rikolto.core.rawstore import FileRawStore
 
     monkeypatch.setenv("DATUMOJ_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("DATUMOJ_RAW_BACKEND", "local")
@@ -138,7 +138,8 @@ def test_all_local_entrypoints_share_config(tmp_path, monkeypatch):
 
 def test_build_tools_uses_loaded_directory(tmp_path, monkeypatch):
     from types import SimpleNamespace
-    from datumoj import wiring
+
+    from datumoj.rikolto import wiring
 
     monkeypatch.setenv("DATUMOJ_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("DATUMOJ_RAW_BACKEND", "local")
@@ -150,3 +151,30 @@ def test_build_tools_uses_loaded_directory(tmp_path, monkeypatch):
 
     monkeypatch.setattr(wiring, "build", build)
     assert wiring.build_tools() is sentinel
+
+
+def test_dir_configuration_and_lease_detection(tmp_path):
+    from datumoj.rikolto.core.storage import s3_remote_configured
+
+    env = {"DATUMOJ_STATE_BACKEND": "dir", "DATUMOJ_STATE_DIR": str(tmp_path / "state")}
+    config = load_storage_config(env, tmp_path / "data")
+    assert config.state_backend == "dir" and config.state_dir == tmp_path / "state"
+    assert s3_remote_configured(env)
+    assert not s3_remote_configured({})
+    assert load_storage_config({}).state_backend == "s3"
+    with pytest.raises(ValueError):
+        load_storage_config({"DATUMOJ_STATE_BACKEND": "unknown"})
+
+
+@pytest.mark.parametrize("location", [None, "relative", "data", "data/nested", "."])
+def test_invalid_or_overlapping_state_directory(tmp_path, location):
+    state = None if location is None else (location if location == "relative" else tmp_path / location)
+    with pytest.raises(ValueError, match="DATUMOJ_STATE_DIR"):
+        StorageConfig(data_dir=tmp_path / "data", state_backend="dir", state_dir=state)
+
+
+def test_symlink_overlap_rejected(tmp_path):
+    (tmp_path / "data").mkdir()
+    (tmp_path / "alias").symlink_to(tmp_path / "data")
+    with pytest.raises(ValueError, match="重叠"):
+        StorageConfig(data_dir=tmp_path / "data", state_backend="dir", state_dir=tmp_path / "alias/state")

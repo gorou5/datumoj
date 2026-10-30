@@ -1,0 +1,39 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "left": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Left",
+      "type": "string"
+    },
+    "right": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Right",
+      "type": "string"
+    },
+    "op": {
+      "const": "mirror_diff",
+      "title": "Op",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "left",
+    "right",
+    "op"
+  ],
+  "title": "MirrorDiff",
+  "type": "object"
+}

@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
 import pytest
 from mcp import Client
 
-from datumoj import mcp_server
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.models import ChangeEvent, ChangeKind, Observation, TimeGranularity
-from datumoj.testing.fakes import (
+from datumoj.rikolto import mcp_server
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.models import ChangeEvent, ChangeKind, Observation, TimeGranularity
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChangeLog,
     FakeChunkStore,
@@ -24,7 +24,7 @@ from datumoj.testing.fakes import (
     FakeRegistry,
     FakeRetriever,
 )
-from datumoj.testing.samples import T0, make_dataset, make_resource, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_dataset, make_resource, make_snapshot, make_spec
 
 TEXT = "お知らせ\n\n人口統計の公開について。"
 TOOLS = {"search_docs", "list_changes", "search_catalog", "query_sql", "get_chunk", "cite", "version", "coverage"}
@@ -45,7 +45,7 @@ def tools(tmp_path) -> AnalysisTools:
         obs_id="jp-open:1", source_id="jp-open", dataset_key="jp-open:pop", table_key="t1", survey="国勢調査",
         indicator="人口", area_code="13000", area_label="東京都", time_start=date(2020, 1, 1),
         time_end=date(2020, 12, 31), time_label="2020年", granularity=TimeGranularity.year, unit="人",
-        value=Decimal("14047594"), snapshot_sha256=snap.sha256, locator="row=1", fetched_at=snap.fetched_at,
+        value=Decimal(14047594), snapshot_sha256=snap.sha256, locator="row=1", fetched_at=snap.fetched_at,
     )])
     catalog.upsert(
         datasets=[make_dataset("jp-open:pop", "人口統計 2020")],
@@ -104,7 +104,8 @@ def test_search_docs(tools):
 
 
 def test_list_changes(tools):
-    data = _data(_call(tools, "list_changes"))
+    # 显式 since：默认窗口是“最近 7 天”，固定的 T0 过几天就落在窗口外。
+    data = _data(_call(tools, "list_changes", {"since": (T0 - timedelta(days=1)).isoformat()}))
     assert data["gap_state"] == "ok"
     event = data["data"][0]
     assert event["kind"] == "added"
@@ -240,10 +241,10 @@ def test_coverage(tools):
 @pytest.mark.parametrize(
     ("name", "args", "needle"),
     [
-        ("query_sql", {"sql": "DELETE FROM observations"}, "QueryRejected"),
-        ("query_sql", {"sql": "   "}, "ValueError"),
-        ("search_docs", {"queries": "x", "k": 0}, "ValueError"),
-        ("cite", {"snapshot_sha256": "xyz", "locator": "row=1"}, "ValueError"),
+        ("query_sql", {"sql": "DELETE FROM observations"}, "QueryRejected: 只允许单条 SELECT / WITH 查询"),
+        ("query_sql", {"sql": "   "}, "ValueError: sql 不能为空白"),
+        ("search_docs", {"queries": "x", "k": 0}, "ValueError: k 必须是 1–50 的整数"),
+        ("cite", {"snapshot_sha256": "xyz", "locator": "row=1"}, "ValueError: snapshot_sha256 必须是 64 位小写十六进制"),
         ("get_chunk", {"chunk_id": 5}, ""),  # 参数类型错误也是错误结果
     ],
 )

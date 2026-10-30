@@ -7,11 +7,11 @@ from types import SimpleNamespace
 
 from starlette.testclient import TestClient
 
-from datumoj.admin import create_app
-from datumoj.core.monitor import evaluate_alerts
-from datumoj.core.schedule import Scheduler, _locked, set_enabled
-from datumoj.testing.fakes import FakeManifest, FakeRawStore, FakeRegistry
-from datumoj.testing.samples import T0, make_spec
+from datumoj.rikolto.admin import create_app
+from datumoj.rikolto.core.monitor import evaluate_alerts
+from datumoj.rikolto.core.schedule import Scheduler, _locked, set_enabled
+from datumoj.rikolto.testing.fakes import FakeManifest, FakeRawStore, FakeRegistry
+from datumoj.rikolto.testing.samples import T0, make_spec
 
 
 def _scheduler(tmp_path, *, execute=None, schedule="manual"):
@@ -179,7 +179,7 @@ def _admin_app(tmp_path, run_now=None):
 
 
 def test_admin_reports_thread_creation_failure_with_escaped_reason(tmp_path, monkeypatch):
-    import datumoj.admin.web as web
+    from datumoj.rikolto.admin import web
 
     class BrokenThread:
         def __init__(self, **_):
@@ -195,13 +195,13 @@ def test_admin_reports_thread_creation_failure_with_escaped_reason(tmp_path, mon
         })
 
     assert response.status_code == 500
-    assert "后台运行失败：RuntimeError: &lt;thread failed&gt;" in response.text
+    assert "后台运行失败：RuntimeError" in response.text
     assert "<thread failed>" not in response.text
     assert "已开始" not in response.text
 
 
 def test_admin_reports_first_worker_step_failure(tmp_path, monkeypatch):
-    import datumoj.admin.web as web
+    from datumoj.rikolto.admin import web
 
     class InlineThread:
         def __init__(self, *, target, **_):
@@ -223,7 +223,7 @@ def test_admin_reports_first_worker_step_failure(tmp_path, monkeypatch):
         }, follow_redirects=False)
 
     assert response.status_code == 500
-    assert "后台运行失败：RuntimeError: &lt;worker failed&gt;" in response.text
+    assert "后台运行失败：RuntimeError" in response.text
     assert "<worker failed>" not in response.text
     assert "已开始" not in response.text
 

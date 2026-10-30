@@ -1,0 +1,65 @@
+{
+  "additionalProperties": false,
+  "description": "Trusted authorization supplied by the host; only tightens registry permissions.",
+  "properties": {
+    "consumer": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "title": "Consumer",
+      "type": "string"
+    },
+    "authorized_sources": {
+      "items": {
+        "maxLength": 128,
+        "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+        "type": "string"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "title": "Authorized Sources",
+      "type": "array"
+    },
+    "max_tier": {
+      "default": "none",
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Max Tier",
+      "type": "string"
+    },
+    "allow_cloud": {
+      "default": false,
+      "title": "Allow Cloud",
+      "type": "boolean"
+    },
+    "allowed_providers": {
+      "default": [
+        "none",
+        "ollama"
+      ],
+      "items": {
+        "enum": [
+          "none",
+          "claude_plan",
+          "ollama",
+          "cloud_api"
+        ],
+        "type": "string"
+      },
+      "maxItems": 4,
+      "minItems": 1,
+      "title": "Allowed Providers",
+      "type": "array"
+    }
+  },
+  "required": [
+    "consumer",
+    "authorized_sources"
+  ],
+  "title": "ConsumerModelConfig",
+  "type": "object"
+}

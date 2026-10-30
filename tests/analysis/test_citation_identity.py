@@ -4,17 +4,24 @@ from datetime import timedelta
 
 import pytest
 
-from datumoj.analysis.reports import weekly_report
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.citations import document_snapshot
-from datumoj.core.contracts import ParseRecord, ParseStatus
-from datumoj.core.models import ChangeEvent, ChangeKind, FetchOutcome, parse_context_fingerprint
-from datumoj.index.hybrid import HybridRetriever
-from datumoj.testing.fakes import (
-    FakeCatalogStore, FakeChangeLog, FakeChunkStore, FakeKeywordIndex, FakeManifest,
-    FakeObservationStore, FakeParser, FakeRawStore, FakeRegistry,
+from datumoj.rikolto.analysis.reports import weekly_report
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.citations import document_snapshot
+from datumoj.rikolto.core.contracts import ParseRecord, ParseStatus
+from datumoj.rikolto.core.models import ChangeEvent, ChangeKind, FetchOutcome, parse_context_fingerprint
+from datumoj.rikolto.index.hybrid import HybridRetriever
+from datumoj.rikolto.testing.fakes import (
+    FakeCatalogStore,
+    FakeChangeLog,
+    FakeChunkStore,
+    FakeKeywordIndex,
+    FakeManifest,
+    FakeObservationStore,
+    FakeParser,
+    FakeRawStore,
+    FakeRegistry,
 )
-from datumoj.testing.samples import T0, make_chunk, make_document, make_observation, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_chunk, make_document, make_observation, make_snapshot, make_spec
 
 
 @pytest.fixture
@@ -79,7 +86,7 @@ def test_cite_exact_identity_and_shared_sha_ambiguity(identity_env, monkeypatch)
 
 
 def test_unique_resource_sha_and_exact_old_snapshot(identity_env):
-    tools, snaps = identity_env
+    tools, _snaps = identity_env
     snap = make_snapshot(data=b"unique needle", snapshot_id="unique", fetched_at=T0)
     newer = snap.model_copy(update={"snapshot_id": "unique-new", "fetched_at": T0 + timedelta(days=1)})
     tools.raw.put(b"unique needle")

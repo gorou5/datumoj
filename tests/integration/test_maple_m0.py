@@ -10,13 +10,13 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
-from datumoj import cli, wiring
-from datumoj.core.rawstore import FileRawStore
-from datumoj.diagnose import evidence, replay
-from datumoj.parsers.pdf import PdfParser
-from datumoj.store.observations import DuckDBObservationStore
-from datumoj.testing.fakes import FakeEmbedder, FakeParser, FakeRegistry, FakeVectorIndex
-from datumoj.testing.samples import T0, make_observation, make_snapshot, make_spec
+from datumoj.rikolto import cli, wiring
+from datumoj.rikolto.core.rawstore import FileRawStore
+from datumoj.rikolto.diagnose import evidence, replay
+from datumoj.rikolto.parsers.pdf import PdfParser
+from datumoj.rikolto.store.observations import DuckDBObservationStore
+from datumoj.rikolto.testing.fakes import FakeEmbedder, FakeParser, FakeRegistry, FakeVectorIndex
+from datumoj.rikolto.testing.samples import T0, make_observation, make_snapshot, make_spec
 from tests.test_diagnose import derived, fingerprint, legacy, record
 
 PDF = Path(__file__).parents[1] / "fixtures/gov_web/html/synthetic/site/policy/startup/guide.pdf"
@@ -85,7 +85,7 @@ def seed_old(root):
     # D-01/D-03: the legacy SHA cache omitted the second resource entirely.
     add("shared-one", "one.txt", b"shared notice")
     add("shared-two", "two.txt", b"shared notice", write=False)
-    a, _ = add("cycle-a1", "cycle.txt", b"alpha")
+    _a, _ = add("cycle-a1", "cycle.txt", b"alpha")
     add("cycle-b", "cycle.txt", b"beta")
     last_a, _ = add("cycle-a2", "cycle.txt", b"alpha", write=False)
     # D-02: retrying the older parse after the newer success reversed current.
@@ -98,7 +98,7 @@ def seed_old(root):
     add("table-one", "table-one.txt", b"first table", meta={"table_key": "t1"})
     add("table-two", "table-two.txt", b"second table", meta={"table_key": "t2"})
     # D-06: source date exists on the document but was lost from its chunks.
-    pdf, pdf_result = add("pdf", "guide.pdf", PDF.read_bytes(), meta={"published_at": "2025-04-01"},
+    _pdf, pdf_result = add("pdf", "guide.pdf", PDF.read_bytes(), meta={"published_at": "2025-04-01"},
                           media="application/pdf")
     assert pdf_result.chunks
     # D-09: the old parser published a document despite subsequently corrupt raw.
@@ -110,7 +110,7 @@ def seed_old(root):
 
 def test_legacy_diagnose_and_replay(tmp_path, local_wiring):
     source, target = tmp_path / "old", tmp_path / "new"
-    snapshots, last_a, new, bad, pdf = seed_old(source)
+    _snapshots, last_a, new, bad, pdf = seed_old(source)
     before_files = fingerprint(source)
     old = evidence(source, verify_raw=True)
     assert fingerprint(source) == before_files
@@ -139,7 +139,7 @@ def test_legacy_diagnose_and_replay(tmp_path, local_wiring):
     with sqlite3.connect(source / "manifest.sqlite") as db, sqlite3.connect(target / "manifest.sqlite") as other:
         assert db.execute("SELECT * FROM snapshots ORDER BY seq").fetchall() == other.execute(
             "SELECT * FROM snapshots ORDER BY seq").fetchall()
-    from datumoj.store.chunks import SqliteChunkStore
+    from datumoj.rikolto.store.chunks import SqliteChunkStore
     store = SqliteChunkStore(target / "chunks.sqlite")
     try:
         assert store.get_document("jp-test:cycle.txt").snapshot_sha256 == last_a.sha256

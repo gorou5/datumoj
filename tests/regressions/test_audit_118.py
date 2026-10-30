@@ -4,10 +4,10 @@ from datetime import timedelta
 
 import pytest
 
-from datumoj.admin.web import _schedule_label
-from datumoj.core.monitor import evaluate_cloud_alerts
-from datumoj.core.schedule import next_due
-from datumoj.testing.samples import T0, make_spec
+from datumoj.rikolto.admin.web import _schedule_label
+from datumoj.rikolto.core.monitor import evaluate_cloud_alerts
+from datumoj.rikolto.core.schedule import next_due
+from datumoj.rikolto.testing.samples import T0, make_spec
 
 
 def test_weekly_schedule_is_consistent_across_due_monitoring_and_admin():

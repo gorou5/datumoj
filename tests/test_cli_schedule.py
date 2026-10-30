@@ -8,10 +8,10 @@ from types import SimpleNamespace
 import pytest
 from typer.testing import CliRunner
 
-from datumoj import cli
-from datumoj.core import schedule
-from datumoj.testing.fakes import FakeCrawler, FakeHttpFetcher, FakeManifest, FakeRawStore, FakeRegistry
-from datumoj.testing.samples import T0, make_spec
+from datumoj.rikolto import cli
+from datumoj.rikolto.core import schedule
+from datumoj.rikolto.testing.fakes import FakeCrawler, FakeHttpFetcher, FakeManifest, FakeRawStore, FakeRegistry
+from datumoj.rikolto.testing.samples import T0, make_spec
 
 
 @pytest.fixture
@@ -178,10 +178,10 @@ def test_launchd_cli_show_install_uninstall_use_injected_functions(offline, tmp_
     runner, _, builds, _ = offline
     monkeypatch.setenv("UV", "/custom/uv")
     plist = plistlib.loads(invoke(runner, "launchd", "show").output.encode())
-    assert plist["Label"] == "com.datumoj.schedule"
+    assert plist["Label"] == "com.datumoj.rikolto.schedule"
     assert plist["ProgramArguments"][0] == "/custom/uv"
     assert plist["ProgramArguments"][-4:] == ["--data-dir", str(tmp_path), "schedule", "tick"]
-    assert plist["WorkingDirectory"] == str(Path(cli.__file__).resolve().parents[2])
+    assert plist["WorkingDirectory"] == str(Path(cli.__file__).resolve().parents[3])
     assert not builds and not (tmp_path / "logs").exists()
     path = tmp_path / "LaunchAgents" / "injected.plist"
     calls = []

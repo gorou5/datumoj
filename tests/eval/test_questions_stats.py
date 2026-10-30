@@ -6,11 +6,11 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from datumoj.core.registry import load_registry
-from datumoj.eval import load_questions
-from datumoj.parsers.estat_tables import EstatTableParser
-from datumoj.store.observations import DuckDBObservationStore
-from datumoj.testing.samples import make_observation, make_snapshot
+from datumoj.rikolto.core.registry import load_registry
+from datumoj.rikolto.eval import load_questions
+from datumoj.rikolto.parsers.estat_tables import EstatTableParser
+from datumoj.rikolto.store.observations import DuckDBObservationStore
+from datumoj.rikolto.testing.samples import make_observation, make_snapshot
 
 ROOT = Path(__file__).parents[2]
 FIXTURES = ROOT / "tests" / "fixtures"
@@ -187,4 +187,4 @@ def test_numeric_sql_returns_one_fixture_value_for_each_question(tmp_path):
     assert legacy_sql != estat.expect.value.sql
     legacy_rows = store.query_readonly(legacy_sql).rows
     assert len(legacy_rows) == 6
-    assert any(Decimal(str(row[1])) == Decimal("849374") for row in legacy_rows)
+    assert any(Decimal(str(row[1])) == Decimal(849374) for row in legacy_rows)

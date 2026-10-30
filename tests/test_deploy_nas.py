@@ -7,7 +7,6 @@ from urllib.parse import urlsplit
 
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[1]
 NAS = ROOT / "deploy/nas"
 
@@ -19,12 +18,12 @@ def test_dockerfile_uses_locked_dependencies_python_and_nonroot_entrypoint():
     assert f"FROM python:{python}-slim" in dockerfile
     assert "uv sync --frozen" in dockerfile
     assert not re.search(r"(?:pip install|uv add|uv pip install)", dockerfile)
-    user = re.search(r"^USER (.+)$", dockerfile, re.M).group(1)
+    user = re.search(r"^USER (.+)$", dockerfile, re.MULTILINE).group(1)
     assert user == "10001:10001" and "useradd" in dockerfile
-    for instruction, expected in (("ENTRYPOINT", ["datumoj"]), ("CMD", ["cloud", "run"])):
-        value = re.search(rf"^{instruction} (.+)$", dockerfile, re.M).group(1)
+    for instruction, expected in (("ENTRYPOINT", ["rikolto"]), ("CMD", ["cloud", "run"])):
+        value = re.search(rf"^{instruction} (.+)$", dockerfile, re.MULTILINE).group(1)
         assert json.loads(value) == expected
-    copies = re.findall(r"^COPY (?!-)(.+)$", dockerfile, re.M)
+    copies = re.findall(r"^COPY (?!-)(.+)$", dockerfile, re.MULTILINE)
     assert copies == ["pyproject.toml uv.lock README.md ./", "src/ ./src/", "sources/ ./sources/", "schemas/ ./schemas/"]
 
 
@@ -34,13 +33,13 @@ def test_compose_has_no_ports_or_inline_configuration_and_ollama_is_optional():
     for document in (base, overlay):
         for service in document["services"].values():
             assert "ports" not in service and "environment" not in service
-    datumoj = base["services"]["datumoj"]
+    datumoj = base["services"]["rikolto"]
     assert datumoj["env_file"] == ["./env.local"]
     assert datumoj["command"] == ["cloud", "run", "--max-embed", "0"]
     assert datumoj["restart"] == "no"
     assert "network_mode" not in datumoj and "depends_on" not in datumoj
     assert base["services"]["ollama"]["profiles"] == ["ollama"]
-    enabled = overlay["services"]["datumoj"]
+    enabled = overlay["services"]["rikolto"]
     assert enabled["network_mode"] == "service:ollama"
     assert enabled["depends_on"] == ["ollama"]
     assert enabled["command"] == ["cloud", "run"]

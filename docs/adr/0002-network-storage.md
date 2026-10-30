@@ -208,3 +208,10 @@ Actions 只保留手动触发。S3 endpoint、bucket、prefix、region 和凭证
 `DATUMOJ_S3_*` 变量名；`R2_ENDPOINT`、`R2_ACCESS_KEY_ID` 和
 `R2_SECRET_ACCESS_KEY` 继续作为旧名兼容，成对的新旧变量若同时设置必须一致。
 条件写入能力的检查放在 MAPLE-116。
+
+## 补充（2026-10-30）
+
+运行环境改回 GitHub Actions + R2：`cloud-run.yml` 定时运行 `rikolto cloud run`，状态代次写进 R2。
+本机已有的历史不迁移，第一次运行从空状态开始；本机不放 R2 密钥，凭证只在 Actions secrets。
+NAS 以后改为从 R2 取数据的下游副本，不再是写入方。上面 MAPLE-115 补充里的通用 `DATUMOJ_S3_*`
+变量名和 `R2_*` 旧名兼容不变；条件写入在第一次手动运行时在 R2 上实测。

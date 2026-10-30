@@ -1,9 +1,9 @@
 from datetime import date
 from decimal import Decimal
 
-from datumoj.core.contracts import CatalogFilter
-from datumoj.eval import Question, evaluate
-from datumoj.testing.fakes import (
+from datumoj.rikolto.core.contracts import CatalogFilter
+from datumoj.rikolto.eval import Question, evaluate
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChunkStore,
     FakeManifest,
@@ -11,7 +11,7 @@ from datumoj.testing.fakes import (
     FakeRegistry,
     FakeRetriever,
 )
-from datumoj.testing.samples import (
+from datumoj.rikolto.testing.samples import (
     make_chunk,
     make_dataset,
     make_document,
@@ -176,7 +176,7 @@ def test_numeric_value_column_and_sql_provenance_are_used():
         [
             make_observation(
                 "population-2020",
-                Decimal("42"),
+                Decimal(42),
                 source_id="jp-stat",
                 dataset_key="jp-stat:population",
                 table_key="population",

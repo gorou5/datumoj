@@ -1,0 +1,37 @@
+{
+  "$defs": {
+    "Outflow": {
+      "description": "Output permission; absent permissions must be treated as no_outflow.",
+      "enum": [
+        "raw_ok",
+        "derived_only",
+        "no_outflow"
+      ],
+      "title": "Outflow",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Audit snapshot only; the registry remains authoritative at every gate.",
+  "properties": {
+    "outflow": {
+      "$ref": "#/$defs/Outflow",
+      "default": "no_outflow"
+    },
+    "by_source": {
+      "maxProperties": 256,
+      "patternProperties": {
+        "^[a-z]{2,4}(?:-[a-z0-9]+)+$": {
+          "$ref": "#/$defs/Outflow"
+        }
+      },
+      "propertyNames": {
+        "maxLength": 128
+      },
+      "title": "By Source",
+      "type": "object"
+    }
+  },
+  "title": "LicenseSummary",
+  "type": "object"
+}

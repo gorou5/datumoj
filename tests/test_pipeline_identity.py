@@ -1,22 +1,31 @@
 """解析缓存按上下文隔离，快照发布按持久化顺序单调推进。"""
 
-from datetime import timedelta
 from dataclasses import replace
+from datetime import timedelta
 from unittest.mock import Mock
 
 import pytest
 
-from datumoj.core.contracts import ParseRecord, ParseStatus
-from datumoj.core.manifest import SqliteManifest
-from datumoj.core.models import FetchOutcome, parse_context_fingerprint
-from datumoj.parsers.xml_law import LawXMLParser
-from datumoj.pipeline import PipelineDeps, _record_fetch_changes, parse_pending
-from datumoj.store.chunks import SqliteChunkStore
-from datumoj.testing.fakes import (
-    FakeCatalogStore, FakeChangeLog, FakeChunkStore, FakeKeywordIndex, FakeManifest,
-    FakeObservationStore, FakeParser, FakeRawStore, FakeRegistry, FakeVectorIndex, FakeEmbedder,
+from datumoj.rikolto.core.contracts import ParseRecord, ParseStatus
+from datumoj.rikolto.core.manifest import SqliteManifest
+from datumoj.rikolto.core.models import FetchOutcome, parse_context_fingerprint
+from datumoj.rikolto.parsers.xml_law import LawXMLParser
+from datumoj.rikolto.pipeline import PipelineDeps, _record_fetch_changes, parse_pending
+from datumoj.rikolto.store.chunks import SqliteChunkStore
+from datumoj.rikolto.testing.fakes import (
+    FakeCatalogStore,
+    FakeChangeLog,
+    FakeChunkStore,
+    FakeEmbedder,
+    FakeKeywordIndex,
+    FakeManifest,
+    FakeObservationStore,
+    FakeParser,
+    FakeRawStore,
+    FakeRegistry,
+    FakeVectorIndex,
 )
-from datumoj.testing.samples import T0, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 
 
 @pytest.fixture(params=["fake", "sqlite"])
@@ -183,7 +192,7 @@ def test_dead_link_history_and_chunk_reads_do_not_grow_with_url_count(deps, coun
     deps.chunks.iter_chunks = chunks
     _record_fetch_changes(deps, deps.manifest.snapshots_for("jp-test"))
     assert history.call_count == chunks.call_count == 1
-    from datumoj.core.models import ChangeKind
+    from datumoj.rikolto.core.models import ChangeKind
     assert len(history(kinds=[ChangeKind.removed])) == count
     assert len(history(kinds=[ChangeKind.fetch_failed])) == count
 

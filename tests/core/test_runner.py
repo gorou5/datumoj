@@ -8,15 +8,15 @@ import httpx
 import pytest
 import yaml
 
-from datumoj.core.contracts import Crawler, FetchTask
-from datumoj.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
-from datumoj.core.manifest import SqliteManifest
-from datumoj.core.models import FetchOutcome, redact_url
-from datumoj.core.rawstore import FileRawStore
-from datumoj.core.registry import load_registry
-from datumoj.core.runner import SPA_MIN_TEXT, CrawlDeps, CrawlReport, run_crawl
-from datumoj.testing.contract_suites import CrawlerSuite
-from datumoj.testing.samples import T0, make_spec, sha
+from datumoj.rikolto.core.contracts import Crawler, FetchTask
+from datumoj.rikolto.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
+from datumoj.rikolto.core.manifest import SqliteManifest
+from datumoj.rikolto.core.models import FetchOutcome, redact_url
+from datumoj.rikolto.core.rawstore import FileRawStore
+from datumoj.rikolto.core.registry import load_registry
+from datumoj.rikolto.core.runner import SPA_MIN_TEXT, CrawlDeps, CrawlReport, run_crawl
+from datumoj.rikolto.testing.contract_suites import CrawlerSuite
+from datumoj.rikolto.testing.samples import T0, make_spec, sha
 
 BASE = "https://example.go.jp"
 A, B, C = (f"{BASE}/{name}.txt" for name in "abc")
@@ -192,7 +192,7 @@ def test_http_failure_recorded_and_callback_can_schedule_recovery(site):
 def test_other_fetch_failures_recorded_and_callback_called(site, monkeypatch, reason):
     h = site()
     if reason == "blocked_by_robots":
-        from datumoj.core.http import RobotsRules
+        from datumoj.rikolto.core.http import RobotsRules
 
         h.deps.fetcher.robots.get(f"{BASE}/robots.txt", lambda: RobotsRules.parse("User-agent: *\nDisallow: /", "DATUMOJ"))
     elif reason == "network_error":
@@ -398,7 +398,7 @@ def test_plugin_errors_are_reported_with_partial_progress(site, stage, generator
 
 @pytest.mark.parametrize("stage", ["plan", "after_fetch"])
 def test_runaway_pagination_including_duplicate_urls_is_bounded(site, monkeypatch, stage):
-    monkeypatch.setattr("datumoj.core.runner.MAX_PLAN_STEPS", 5)
+    monkeypatch.setattr("datumoj.rikolto.core.runner.MAX_PLAN_STEPS", 5)
 
     class Runaway(SampleCrawler):
         def plan(self, ctx):
@@ -411,7 +411,7 @@ def test_runaway_pagination_including_duplicate_urls_is_bounded(site, monkeypatc
     h = site()
     report = run_crawl(h.spec, Runaway(), h.deps)
     assert report.new == 1 and report.failures == {f"{stage}_error": 1}
-    assert "分页可能没有终止" in report.stop_reason
+    assert report.stop_reason == f"{stage} 失败：ValueError"
     assert len(h.manifest.snapshots_for(h.spec.id)) == 1
 
 

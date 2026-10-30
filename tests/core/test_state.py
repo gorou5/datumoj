@@ -10,13 +10,13 @@ import duckdb
 import pytest
 from typer.testing import CliRunner
 
-from datumoj import cli, wiring
-from datumoj.core.contracts import PreconditionFailed
-from datumoj.core.models import PublishState, StateWriter
-from datumoj.core.schedule import _locked
-from datumoj.core.state import StateError, StateManager, local_write
-from datumoj.testing.fakes import FakeParser, FakeRegistry, FakeStateObjectStore
-from datumoj.testing.samples import make_snapshot, make_spec
+from datumoj.rikolto import cli, wiring
+from datumoj.rikolto.core.contracts import PreconditionFailed
+from datumoj.rikolto.core.models import PublishState, StateWriter
+from datumoj.rikolto.core.schedule import _locked
+from datumoj.rikolto.core.state import StateError, StateManager, local_write
+from datumoj.rikolto.testing.fakes import FakeParser, FakeRegistry, FakeStateObjectStore
+from datumoj.rikolto.testing.samples import make_snapshot, make_spec
 
 
 class CountingStore(FakeStateObjectStore):
@@ -123,7 +123,7 @@ def test_local_and_remote_restore(state, corpus, tmp_path, monkeypatch):
     monkeypatch.setenv("DATUMOJ_S3_BUCKET", "synthetic-bucket")
     deps = wiring.build(remote, {"vectors": None})
     try:
-        from datumoj.core.rawstore_s3 import S3RawStore
+        from datumoj.rikolto.core.rawstore_s3 import S3RawStore
         assert isinstance(deps.raw, S3RawStore)
     finally:
         close(deps)
@@ -212,9 +212,8 @@ def test_tampered_object_is_never_handed_out(state, corpus, tmp_path, part):
 
 def test_active_source_lock_refuses_snapshot_stale_file_is_ok(state):
     manager, _ = state
-    with _locked(manager.data_dir / "locks" / "jp-test.lock"):
-        with pytest.raises(StateError, match="正在运行的抓取"):
-            manager.push()
+    with _locked(manager.data_dir / "locks" / "jp-test.lock"), pytest.raises(StateError, match="正在运行的抓取"):
+        manager.push()
     assert manager.push().generation == 1
 
 
@@ -257,7 +256,7 @@ def test_backup_includes_uncheckpointed_wal(state, corpus, tmp_path):
 
 def test_all_sqlite_writers_are_reserved_before_first_backup(state, monkeypatch):
     manager, _ = state
-    from datumoj.core import state as module
+    from datumoj.rikolto.core import state as module
     original = module._check_schema
 
     def check(root):

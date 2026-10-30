@@ -4,10 +4,10 @@ import sqlite3
 
 import pytest
 
-from datumoj.core.models import SnapshotOrder
-from datumoj.store.chunks import SqliteChunkStore
-from datumoj.testing.contract_suites import ChunkStoreSuite, _doc_v
-from datumoj.testing.samples import T0, sha
+from datumoj.rikolto.core.models import SnapshotOrder
+from datumoj.rikolto.store.chunks import SqliteChunkStore
+from datumoj.rikolto.testing.contract_suites import ChunkStoreSuite, _doc_v
+from datumoj.rikolto.testing.samples import T0, sha
 
 
 class TestSqliteChunkStore(ChunkStoreSuite):

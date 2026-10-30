@@ -1,6 +1,6 @@
 services:
-  datumoj:
-    image: datumoj-nas:local
+  rikolto:
+    image: rikolto-nas:local
     build:
       context: ../..
       dockerfile: deploy/nas/Dockerfile

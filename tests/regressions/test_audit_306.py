@@ -1,9 +1,9 @@
 """Regression for audit D-04: duplicate obs_id values must keep table provenance."""
 
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.models import ObservationRef
-from datumoj.store.observations import DuckDBObservationStore
-from datumoj.testing.fakes import (
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.models import ObservationRef
+from datumoj.rikolto.store.observations import DuckDBObservationStore
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChunkStore,
     FakeManifest,
@@ -11,7 +11,7 @@ from datumoj.testing.fakes import (
     FakeRegistry,
     FakeRetriever,
 )
-from datumoj.testing.samples import make_observation, make_spec
+from datumoj.rikolto.testing.samples import make_observation, make_spec
 
 
 def test_query_sql_provenance_matches_table_for_duplicate_obs_id(tmp_path):

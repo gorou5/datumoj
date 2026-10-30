@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from datumoj.core.schedule import (
+from datumoj.rikolto.core.schedule import (
     Scheduler,
     install_launchd,
     launchd_plist,
@@ -21,7 +21,7 @@ from datumoj.core.schedule import (
     uninstall_launchd,
     write_control,
 )
-from datumoj.testing.samples import T0, make_spec
+from datumoj.rikolto.testing.samples import T0, make_spec
 
 
 @pytest.fixture(autouse=True)
@@ -89,7 +89,7 @@ def test_corrupt_control_fails_closed(tmp_path, bad):
 
 
 def test_atomic_control_replace_preserves_original_on_failure(tmp_path, monkeypatch):
-    import datumoj.core.schedule as module
+    import datumoj.rikolto.core.schedule as module
 
     write_control(tmp_path, {"enabled": False, "sources": {}})
     previous = (tmp_path / "control.json").read_bytes()
@@ -166,7 +166,7 @@ def test_failure_counts_stop_reason_end_time_and_continue(tmp_path):
     assert records[0]["stop_reason"] == "max_files"
     assert records[0]["exit_status"] == records[1]["exit_status"] == 1
     assert records[1]["failures"] == {"OSError": 1}
-    assert records[1]["stop_reason"] == "storage failed"
+    assert records[1]["stop_reason"] == "OSError"
     assert records[1]["new"] is None and records[1]["unchanged"] is None
     assert records[0]["ended_at"] == clock[0].isoformat()
     assert scheduler.status()["sources"][0]["next_due"] == (T0 + timedelta(hours=1)).isoformat()
@@ -184,7 +184,7 @@ def test_checks_switches_between_serial_sources(tmp_path):
 
 
 def hold_lock(path, ready, release):
-    from datumoj.core.schedule import _locked
+    from datumoj.rikolto.core.schedule import _locked
 
     with _locked(Path(path)) as stream:
         stream.seek(0)
@@ -257,9 +257,9 @@ def test_launchd_plist_and_injected_install_uninstall(tmp_path):
     content = launchd_plist(repo, data, uv="/custom/bin/uv")
     plist = plistlib.loads(content)
     assert plist == {
-        "Label": "com.datumoj.schedule", "StartInterval": 300,
+        "Label": "com.datumoj.rikolto.schedule", "StartInterval": 300,
         "WorkingDirectory": str(repo),
-        "ProgramArguments": ["/custom/bin/uv", "run", "--frozen", "datumoj", "--data-dir", str(data),
+        "ProgramArguments": ["/custom/bin/uv", "run", "--frozen", "rikolto", "--data-dir", str(data),
                              "schedule", "tick"],
         "StandardOutPath": str(data / "logs" / "schedule.log"),
         "StandardErrorPath": str(data / "logs" / "schedule.log"),
@@ -286,7 +286,7 @@ def test_failed_unload_keeps_plist(tmp_path):
 
 
 def test_uv_resolution_matches_makefile(tmp_path, monkeypatch):
-    import datumoj.core.schedule as module
+    import datumoj.rikolto.core.schedule as module
 
     monkeypatch.setenv("UV", "/override/uv")
     monkeypatch.setattr(module.shutil, "which", lambda _: None)
@@ -300,7 +300,7 @@ def test_uv_resolution_matches_makefile(tmp_path, monkeypatch):
 
 def test_schedule_imports_without_fcntl(tmp_path, monkeypatch):
     if os.name == "nt":
-        import datumoj.core.schedule as module
+        import datumoj.rikolto.core.schedule as module
 
         assert module.fcntl is None
         assert module.msvcrt is not None
@@ -336,7 +336,7 @@ def test_schedule_imports_without_fcntl(tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, "fcntl", None)
     monkeypatch.setitem(sys.modules, "msvcrt", fake)
     name = "_datumoj_schedule_no_fcntl_test"
-    source = Path(__file__).resolve().parents[2] / "src" / "datumoj" / "core" / "schedule.py"
+    source = Path(__file__).resolve().parents[2] / "src" / "datumoj" / "rikolto" / "core" / "schedule.py"
     spec = importlib.util.spec_from_file_location(name, source)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)

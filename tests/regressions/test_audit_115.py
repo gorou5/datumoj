@@ -5,11 +5,10 @@ import pytest
 import yaml
 from moto import mock_aws
 
-from datumoj.core.lease import LeaseManager, remote_configured
-from datumoj.core.rawstore_s3 import S3RawStore
-from datumoj.core.state_s3 import S3StateObjectStore
-from datumoj.core.storage import load_s3_credentials, load_storage_config
-
+from datumoj.rikolto.core.lease import LeaseManager, remote_configured
+from datumoj.rikolto.core.rawstore_s3 import S3RawStore
+from datumoj.rikolto.core.state_s3 import S3StateObjectStore
+from datumoj.rikolto.core.storage import load_s3_credentials, load_storage_config
 
 S3_VARIABLES = (
     "DATUMOJ_S3_ENDPOINT", "DATUMOJ_S3_ACCESS_KEY_ID", "DATUMOJ_S3_SECRET_ACCESS_KEY",

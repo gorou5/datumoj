@@ -7,7 +7,7 @@ from datetime import UTC, timedelta
 import pytest
 from pydantic import ValidationError
 
-from datumoj.core.contracts import (
+from datumoj.rikolto.core.contracts import (
     AmbiguousCitation,
     ContractError,
     ParseRecord,
@@ -15,8 +15,8 @@ from datumoj.core.contracts import (
     citation_for_chunk,
     citation_for_observation,
 )
-from datumoj.core.manifest import SCHEMA_VERSION, SqliteManifest
-from datumoj.core.models import (
+from datumoj.rikolto.core.manifest import SCHEMA_VERSION, SqliteManifest
+from datumoj.rikolto.core.models import (
     Citation,
     EvidenceState,
     FetchOutcome,
@@ -29,10 +29,10 @@ from datumoj.core.models import (
     ToolResult,
     parse_context_fingerprint,
 )
-from datumoj.store.chunks import SqliteChunkStore
-from datumoj.testing.contract_suites import ChunkStoreSuite, EvidenceIdentitySuite, ManifestSuite, _doc_v
-from datumoj.testing.fakes import FakeChunkStore, FakeManifest
-from datumoj.testing.samples import T0, make_chunk, make_observation, make_snapshot, sha
+from datumoj.rikolto.store.chunks import SqliteChunkStore
+from datumoj.rikolto.testing.contract_suites import ChunkStoreSuite, EvidenceIdentitySuite, ManifestSuite, _doc_v
+from datumoj.rikolto.testing.fakes import FakeChunkStore, FakeManifest
+from datumoj.rikolto.testing.samples import T0, make_chunk, make_observation, make_snapshot, sha
 
 
 class TestEvidenceIdentity(EvidenceIdentitySuite):

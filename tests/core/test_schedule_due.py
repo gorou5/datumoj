@@ -7,12 +7,11 @@ from types import SimpleNamespace
 import pytest
 from typer.testing import CliRunner
 
-from datumoj import cli
-from datumoj.core.lease import LeaseManager
-from datumoj.core.schedule import Scheduler, set_enabled
-from datumoj.testing.fakes import FakeRegistry, FakeStateObjectStore
-from datumoj.testing.samples import T0, make_spec
-
+from datumoj.rikolto import cli
+from datumoj.rikolto.core.lease import LeaseManager
+from datumoj.rikolto.core.schedule import Scheduler, set_enabled
+from datumoj.rikolto.testing.fakes import FakeRegistry, FakeStateObjectStore
+from datumoj.rikolto.testing.samples import T0, make_spec
 
 REMOTE_ENV = {
     "R2_ACCESS_KEY_ID": "synthetic-schedule-id",
@@ -214,7 +213,7 @@ def test_unconfigured_remote_never_constructed(tmp_path, monkeypatch):
 
 
 def test_cli_due_and_contended_tick_never_open_stores(tmp_path, monkeypatch):
-    import datumoj.core.registry as registry_module
+    import datumoj.rikolto.core.registry as registry_module
 
     scheduler, _, _ = setup(tmp_path, ("hourly",))
     enable(scheduler)

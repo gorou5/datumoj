@@ -4,9 +4,9 @@ from types import SimpleNamespace
 
 from starlette.testclient import TestClient
 
-from datumoj.admin import create_app
-from datumoj.testing.fakes import FakeManifest, FakeRawStore, FakeRegistry
-from datumoj.testing.samples import make_spec
+from datumoj.rikolto.admin import create_app
+from datumoj.rikolto.testing.fakes import FakeManifest, FakeRawStore, FakeRegistry
+from datumoj.rikolto.testing.samples import make_spec
 
 
 def _app(tmp_path, alerts):

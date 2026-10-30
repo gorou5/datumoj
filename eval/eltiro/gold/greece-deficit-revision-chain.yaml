@@ -1,0 +1,67 @@
+schema: "eltiro.eval.gold/v1"
+demand_id: "greece-deficit-revision-chain"
+demand_version: 1
+entries:
+  - id: "eurostat-deficit_pct_gdp"
+    indicator_key: "deficit_pct_gdp"
+    series: {"source_id": "eu-eurostat", "table_key": "gov_10dd_edpt1", "indicator": "Net lending (+) /net borrowing (-)", "indicator_code": "B9", "fixed_dimensions": {"freq": "A", "geo": "EL", "sector": "S13", "unit": "PC_GDP"}}
+    expected: "positive"
+    status: "pending_h2"
+    evidence: {"reference": "https://ec.europa.eu/eurostat/databrowser/view/gov_10dd_edpt1/default/table?lang=en", "locator": "gov_10dd_edpt1; B9; S13; PC_GDP", "note": "样例明确 gov_10dd_edpt1；B9 为净借贷、GD 为总债务，负值表示赤字；维度仍需官方元数据复核。"}
+    pending_reason: "计划已有 Eurostat，但本仓库没有对应表及历史 EDP 通报样本；完整维度、倍率、2009—2010 发布标识和原值待 H2。"
+  - id: "eurostat-debt_eur"
+    indicator_key: "debt_eur"
+    series: {"source_id": "eu-eurostat", "table_key": "gov_10dd_edpt1", "indicator": "Government consolidated gross debt", "indicator_code": "GD", "fixed_dimensions": {"freq": "A", "geo": "EL", "sector": "S13", "unit": "MIO_EUR"}}
+    expected: "positive"
+    status: "pending_h2"
+    evidence: {"reference": "https://ec.europa.eu/eurostat/databrowser/view/gov_10dd_edpt1/default/table?lang=en", "locator": "gov_10dd_edpt1; GD; S13; MIO_EUR", "note": "样例明确 gov_10dd_edpt1；B9 为净借贷、GD 为总债务，负值表示赤字；维度仍需官方元数据复核。"}
+    pending_reason: "计划已有 Eurostat，但本仓库没有对应表及历史 EDP 通报样本；完整维度、倍率、2009—2010 发布标识和原值待 H2。"
+  - id: "eurostat-deficit_eur"
+    indicator_key: "deficit_eur"
+    series: {"source_id": "eu-eurostat", "table_key": "gov_10dd_edpt1", "indicator": "Net lending (+) /net borrowing (-)", "indicator_code": "B9", "fixed_dimensions": {"freq": "A", "geo": "EL", "sector": "S13", "unit": "MIO_EUR"}}
+    expected: "positive"
+    status: "pending_h2"
+    evidence: {"reference": "https://ec.europa.eu/eurostat/databrowser/view/gov_10dd_edpt1/default/table?lang=en", "locator": "gov_10dd_edpt1; B9; S13; MIO_EUR", "note": "样例明确 gov_10dd_edpt1；B9 为净借贷、GD 为总债务，负值表示赤字；维度仍需官方元数据复核。"}
+    pending_reason: "计划已有 Eurostat，但本仓库没有对应表及历史 EDP 通报样本；完整维度、倍率、2009—2010 发布标识和原值待 H2。"
+  - id: "imf-balance"
+    indicator_key: "deficit_pct_gdp"
+    series: {"source_id": "intl-imf-weo", "table_key": "WEO", "indicator": "General government net lending/borrowing", "indicator_code": "GGXCNL_NGDP", "fixed_dimensions": {"observation_status": "historical"}}
+    expected: "positive"
+    status: "pending_h2"
+    evidence: {"reference": "https://www.imf.org/en/Publications/WEO/weo-database", "locator": "GGXCNL_NGDP", "note": "一般政府净借贷占 GDP；历史与预测边界待核验。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"
+  - id: "central-government"
+    indicator_key: "deficit_pct_gdp"
+    series: {"source_id": "eu-eurostat", "table_key": "gov_10a_main", "indicator": "Central government net lending/borrowing", "indicator_code": "B9", "fixed_dimensions": {"sector": "S1311", "unit": "PC_GDP", "geo": "EL", "freq": "A"}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://ec.europa.eu/eurostat/databrowser/view/gov_10a_main/default/table?lang=en", "locator": "gov_10a_main; B9", "note": "范围、单位或交易项目不同；负例维度组合也须 H2 确认实际可查询。"}
+    pending_reason: "计划已有 Eurostat，但本仓库没有对应表及历史 EDP 通报样本；完整维度、倍率、2009—2010 发布标识和原值待 H2。"
+  - id: "debt-ratio"
+    indicator_key: "debt_eur"
+    series: {"source_id": "eu-eurostat", "table_key": "gov_10dd_edpt1", "indicator": "Government consolidated gross debt", "indicator_code": "GD", "fixed_dimensions": {"sector": "S13", "unit": "PC_GDP", "geo": "EL", "freq": "A"}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://ec.europa.eu/eurostat/databrowser/view/gov_10dd_edpt1/default/table?lang=en", "locator": "gov_10dd_edpt1; GD", "note": "范围、单位或交易项目不同；负例维度组合也须 H2 确认实际可查询。"}
+    pending_reason: "计划已有 Eurostat，但本仓库没有对应表及历史 EDP 通报样本；完整维度、倍率、2009—2010 发布标识和原值待 H2。"
+  - id: "interest-not-balance"
+    indicator_key: "deficit_eur"
+    series: {"source_id": "eu-eurostat", "table_key": "gov_10a_main", "indicator": "Interest", "indicator_code": "D41", "fixed_dimensions": {"sector": "S13", "unit": "MIO_EUR", "geo": "EL", "freq": "A"}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://ec.europa.eu/eurostat/databrowser/view/gov_10a_main/default/table?lang=en", "locator": "gov_10a_main; D41", "note": "范围、单位或交易项目不同；负例维度组合也须 H2 确认实际可查询。"}
+    pending_reason: "计划已有 Eurostat，但本仓库没有对应表及历史 EDP 通报样本；完整维度、倍率、2009—2010 发布标识和原值待 H2。"
+  - id: "primary-balance"
+    indicator_key: "deficit_pct_gdp"
+    series: {"source_id": "intl-imf-weo", "table_key": "WEO", "indicator": "General government primary net lending/borrowing", "indicator_code": "GGXONLB_NGDP", "fixed_dimensions": {}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://www.imf.org/en/Publications/WEO/weo-database", "locator": "GGXONLB_NGDP", "note": "基本余额扣除了利息，不是需求的一般政府净借贷。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"
+  - id: "imf-forecast"
+    indicator_key: "deficit_pct_gdp"
+    series: {"source_id": "intl-imf-weo", "table_key": "WEO", "indicator": "General government net lending/borrowing", "indicator_code": "GGXCNL_NGDP", "fixed_dimensions": {"observation_status": "forecast"}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://www.imf.org/en/Publications/WEO/weo-database", "locator": "GGXCNL_NGDP; Estimates Start After", "note": "同代码预测发布不能冒充历史实绩修订。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"

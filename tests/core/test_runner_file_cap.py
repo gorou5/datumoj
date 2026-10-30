@@ -2,13 +2,13 @@
 
 import pytest
 
-from datumoj.core.contracts import Crawler, FetchTask
-from datumoj.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
-from datumoj.core.manifest import SqliteManifest
-from datumoj.core.models import FetchOutcome
-from datumoj.core.rawstore import FileRawStore
-from datumoj.core.runner import CrawlDeps, run_crawl
-from datumoj.testing.samples import T0, make_spec, sha
+from datumoj.rikolto.core.contracts import Crawler, FetchTask
+from datumoj.rikolto.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
+from datumoj.rikolto.core.manifest import SqliteManifest
+from datumoj.rikolto.core.models import FetchOutcome
+from datumoj.rikolto.core.rawstore import FileRawStore
+from datumoj.rikolto.core.runner import CrawlDeps, run_crawl
+from datumoj.rikolto.testing.samples import T0, make_spec, sha
 
 BASE = "https://example.go.jp"
 

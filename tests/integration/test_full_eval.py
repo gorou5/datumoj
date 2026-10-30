@@ -14,7 +14,7 @@ import os
 import shutil
 import threading
 import weakref
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -24,30 +24,37 @@ import yaml
 from mcp import Client
 from typer.testing import CliRunner
 
-from datumoj import cli, mcp_server, wiring
-from datumoj.core.models import parse_context_fingerprint
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.contracts import ParseError, ParseResult, Parser, ParseStatus, discover_parsers, select_parser
-from datumoj.core.manifest import SqliteManifest
-from datumoj.core.models import Chunk, Document, FetchOutcome, MatchedBy, Snapshot, SourceText
-from datumoj.core.rawstore import FileRawStore
-from datumoj.core.registry import RegistryImpl, load_registry
-from datumoj.crawlers.egov_law import pending_amendments
-from datumoj.eval import check_gate, evaluate, load_questions, write_reports
-from datumoj.index.embed import HashEmbedder
-from datumoj.index.hybrid import HybridRetriever
-from datumoj.index.vector import LanceVectorIndex
-from datumoj.pipeline import vector_status
-from datumoj.store.catalog import SqliteCatalogStore
-from datumoj.store.observations import DuckDBObservationStore
-from datumoj.testing.contract_suites import ParserSuite
-from datumoj.testing.samples import ParseSample, make_snapshot
+from datumoj.rikolto import cli, mcp_server, wiring
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult, ParseStatus, discover_parsers, select_parser
+from datumoj.rikolto.core.manifest import SqliteManifest
+from datumoj.rikolto.core.models import (
+    Chunk,
+    Document,
+    FetchOutcome,
+    MatchedBy,
+    Snapshot,
+    SourceText,
+    parse_context_fingerprint,
+)
+from datumoj.rikolto.core.rawstore import FileRawStore
+from datumoj.rikolto.core.registry import RegistryImpl, load_registry
+from datumoj.rikolto.crawlers.egov_law import pending_amendments
+from datumoj.rikolto.eval import check_gate, evaluate, load_questions, write_reports
+from datumoj.rikolto.index.embed import HashEmbedder
+from datumoj.rikolto.index.hybrid import HybridRetriever
+from datumoj.rikolto.index.vector import LanceVectorIndex
+from datumoj.rikolto.pipeline import vector_status
+from datumoj.rikolto.store.catalog import SqliteCatalogStore
+from datumoj.rikolto.store.observations import DuckDBObservationStore
+from datumoj.rikolto.testing.contract_suites import ParserSuite
+from datumoj.rikolto.testing.samples import ParseSample, make_snapshot
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "tests/fixtures"
 IVY_BANKS = ("law.yaml", "stats.yaml", "catalog.yaml", "behavior.yaml")
 EXTRA = FIXTURES / "eval_extra"
-NOW = datetime(2026, 10, 21, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 21, tzinfo=UTC)
 
 
 class AnnouncementParser(Parser):

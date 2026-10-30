@@ -1,0 +1,53 @@
+schema: "eltiro.eval.gold/v1"
+demand_id: "japan-monthly-earnings-revisions"
+demand_version: 1
+entries:
+  - id: "estat-cash-earnings"
+    indicator_key: "cash_earnings_jpy"
+    series: {"source_id": "jp-estat-files", "table_key": "毎月勤労統計調査 全国調査 月次結果 (statInfId unresolved)", "indicator": "現金給与総額", "indicator_code": null, "fixed_dimensions": {"country": "JPN", "frequency": "monthly", "industry": "調査産業計", "establishment_size": "5人以上", "workers": "常用労働者", "valuation": "nominal"}}
+    expected: "positive"
+    status: "pending_h2"
+    evidence: {"reference": "https://www.mhlw.go.jp/toukei/list/30-1.html", "locator": "毎月勤労統計調査 / 全国調査 / 現金給与総額", "note": "官方调查入口；表号未由离线样本证实，不臆造编号。"}
+    pending_reason: "现有 jp-estat-files 只含人口与经济普查，没有工资表；statInfId、指标及维度码、重算前后发布和覆盖连续性待 H2。"
+  - id: "real-wage-index"
+    indicator_key: "cash_earnings_jpy"
+    series: {"source_id": "jp-estat-files", "table_key": "毎月勤労統計調査 全国調査 月次結果 (statInfId unresolved)", "indicator": "実質賃金指数", "indicator_code": null, "fixed_dimensions": {"country": "JPN", "frequency": "monthly", "industry": "調査産業計", "establishment_size": "5人以上", "workers": "常用労働者", "valuation": "nominal"}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://www.mhlw.go.jp/toukei/list/30-1.html", "locator": "毎月勤労統計調査 / 実質賃金指数", "note": "实际指数、工资分项或事业所范围不同，不能替代名义工资总额。"}
+    pending_reason: "现有 jp-estat-files 只含人口与经济普查，没有工资表；statInfId、指标及维度码、重算前后发布和覆盖连续性待 H2。"
+  - id: "scheduled-earnings"
+    indicator_key: "cash_earnings_jpy"
+    series: {"source_id": "jp-estat-files", "table_key": "毎月勤労統計調査 全国調査 月次結果 (statInfId unresolved)", "indicator": "所定内給与", "indicator_code": null, "fixed_dimensions": {"country": "JPN", "frequency": "monthly", "industry": "調査産業計", "establishment_size": "5人以上", "workers": "常用労働者", "valuation": "nominal"}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://www.mhlw.go.jp/toukei/list/30-1.html", "locator": "毎月勤労統計調査 / 所定内給与", "note": "实际指数、工资分项或事业所范围不同，不能替代名义工资总额。"}
+    pending_reason: "现有 jp-estat-files 只含人口与经济普查，没有工资表；statInfId、指标及维度码、重算前后发布和覆盖连续性待 H2。"
+  - id: "large-establishments"
+    indicator_key: "cash_earnings_jpy"
+    series: {"source_id": "jp-estat-files", "table_key": "毎月勤労統計調査 全国調査 月次結果 (statInfId unresolved)", "indicator": "現金給与総額", "indicator_code": null, "fixed_dimensions": {"country": "JPN", "frequency": "monthly", "industry": "調査産業計", "establishment_size": "30人以上", "workers": "常用労働者", "valuation": "nominal"}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://www.mhlw.go.jp/toukei/list/30-1.html", "locator": "毎月勤労統計調査 / 現金給与総額", "note": "实际指数、工资分项或事业所范围不同，不能替代名义工资总额。"}
+    pending_reason: "现有 jp-estat-files 只含人口与经济普查，没有工资表；statInfId、指标及维度码、重算前后发布和覆盖连续性待 H2。"
+  - id: "ilo-monthly-earnings"
+    indicator_key: "cash_earnings_jpy"
+    series: {"source_id": "intl-ilo", "table_key": "ILOSTAT earnings (dataset key unresolved)", "indicator": "Average monthly earnings of employees", "indicator_code": null, "fixed_dimensions": {"country": "JPN", "frequency": "monthly", "currency": "JPY"}}
+    expected: "positive"
+    status: "pending_h2"
+    evidence: {"reference": "https://ilostat.ilo.org/topics/wages/", "locator": "Wages / average monthly earnings", "note": "只是检索候选；是否含该日本调查、5人以上且月频相同口径尚不能确认。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。 不保证存在等价序列；无等价序列应删去正例并记录缺口。"
+  - id: "oecd-monthly-earnings"
+    indicator_key: "cash_earnings_jpy"
+    series: {"source_id": "intl-oecd", "table_key": "Earnings (dataset key unresolved)", "indicator": "Monthly earnings from Japan Monthly Labour Survey", "indicator_code": null, "fixed_dimensions": {"country": "JPN", "frequency": "monthly", "currency": "JPY"}}
+    expected: "positive"
+    status: "pending_h2"
+    evidence: {"reference": "https://data-explorer.oecd.org/", "locator": "Earnings / Japan / monthly", "note": "候选概念而非已证实的 OECD 序列，无 dataflow 或代码证据。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。 是否存在等价口径必须 H2 确认，否则记录缺口。"
+  - id: "oecd-annual-wages"
+    indicator_key: "cash_earnings_jpy"
+    series: {"source_id": "intl-oecd", "table_key": "Average annual wages (dataset key unresolved)", "indicator": "Average annual wages", "indicator_code": null, "fixed_dimensions": {"country": "JPN", "frequency": "annual"}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://www.oecd.org/en/data/indicators/average-annual-wages.html", "locator": "Average annual wages", "note": "年度工资不是指定月度调查序列，不以年值除12替代。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"

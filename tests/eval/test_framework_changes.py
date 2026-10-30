@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from datumoj.eval import Question, check_gate, evaluate, load_questions, write_reports
+from datumoj.rikolto.eval import Question, check_gate, evaluate, load_questions, write_reports
 
 
 def question(expected=None, **updates):

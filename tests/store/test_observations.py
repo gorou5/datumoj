@@ -5,11 +5,11 @@ from decimal import Decimal
 import duckdb
 import pytest
 
-from datumoj.core.contracts import QueryError, QueryRejected, QueryTimeout
-from datumoj.core.models import SnapshotOrder
-from datumoj.store.observations import DuckDBObservationStore
-from datumoj.testing.contract_suites import ObservationStoreSuite
-from datumoj.testing.samples import T0, make_observation
+from datumoj.rikolto.core.contracts import QueryError, QueryRejected, QueryTimeout
+from datumoj.rikolto.core.models import SnapshotOrder
+from datumoj.rikolto.store.observations import DuckDBObservationStore
+from datumoj.rikolto.testing.contract_suites import ObservationStoreSuite
+from datumoj.rikolto.testing.samples import T0, make_observation
 
 
 class TestDuckDBObservationStore(ObservationStoreSuite):
@@ -206,7 +206,7 @@ def test_provenance_roundtrips_every_field(tmp_path):
     store.write_table("jp-stat", "t1", obs)
     r = store.query_readonly("SELECT obs_id, value FROM observations ORDER BY obs_id DESC")
     assert r.provenance == obs[::-1]
-    assert r.rows == [("c", Decimal("100000")), ("b", Decimal("-123456789012345678901234567.5")),
+    assert r.rows == [("c", Decimal(100000)), ("b", Decimal("-123456789012345678901234567.5")),
                       ("a", Decimal("1E-10"))]
     assert str(r.rows[0][1]) == "100000"
     dims = store.query_readonly("SELECT dims FROM observations WHERE obs_id = 'a'").rows[0][0]
@@ -218,7 +218,7 @@ def test_provenance_dedup_in_first_seen_order(store):
     assert [p.obs_id for p in r.provenance] == ["o2", "o1"]
     assert r.warnings == []
     agg = store.query_readonly("SELECT sum(value) AS s FROM observations")
-    assert agg.rows == [(Decimal("13960000"),)] and agg.provenance == [] and agg.warnings
+    assert agg.rows == [(Decimal(13960000),)] and agg.provenance == [] and agg.warnings
 
 
 @pytest.mark.parametrize("value", ["0.00000000001", "1E+28", "-1E+28"])
@@ -276,7 +276,7 @@ def test_describe_several_tables(tmp_path):
 def test_table_and_watermark_share_atomic_replace(tmp_path, monkeypatch, empty):
     import pyarrow.parquet as pq
 
-    import datumoj.store.observations as module
+    import datumoj.rikolto.store.observations as module
 
     store = DuckDBObservationStore(tmp_path / "obs")
     older = SnapshotOrder(fetched_at=T0, seq=1)

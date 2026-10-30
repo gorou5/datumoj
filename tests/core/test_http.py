@@ -2,7 +2,7 @@
 
 import gzip
 import logging
-from datetime import timedelta, timezone
+from datetime import UTC, timedelta
 from email.utils import format_datetime
 from pathlib import Path
 from urllib import robotparser
@@ -10,12 +10,12 @@ from urllib import robotparser
 import httpx
 import pytest
 
-from datumoj.core.contracts import UrlNotAllowed
-from datumoj.core.http import PoliteHttpFetcher, Recorded, ReplayTransport, RobotsCache, RobotsRules
-from datumoj.core.models import FetchOutcome
-from datumoj.testing.contract_suites import HttpFetcherSuite
-from datumoj.testing.fakes import UnregisteredUrl
-from datumoj.testing.samples import T0, make_spec
+from datumoj.rikolto.core.contracts import UrlNotAllowed
+from datumoj.rikolto.core.http import PoliteHttpFetcher, Recorded, ReplayTransport, RobotsCache, RobotsRules
+from datumoj.rikolto.core.models import FetchOutcome
+from datumoj.rikolto.testing.contract_suites import HttpFetcherSuite
+from datumoj.rikolto.testing.fakes import UnregisteredUrl
+from datumoj.rikolto.testing.samples import T0, make_spec
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 BASE = "https://example.go.jp"
@@ -211,7 +211,7 @@ def test_retry_after_seconds_is_respected():
 
 def test_retry_after_http_date_is_respected():
     clock = FakeClock()
-    when = format_datetime((T0 + timedelta(seconds=30)).astimezone(timezone.utc), usegmt=True)
+    when = format_datetime((T0 + timedelta(seconds=30)).astimezone(UTC), usegmt=True)
     site = Site({f"{BASE}/x": [(503, {"Retry-After": when}, b""), ok()]})
     assert make(site, clock, robots=allow_all()).fetch(f"{BASE}/x").outcome is FetchOutcome.ok
     assert clock.sleeps == [30.0]
@@ -234,7 +234,7 @@ def test_network_error_retried_then_reported():
 
     site = Site({f"{BASE}/x": down})
     r = make(site, clock, robots=allow_all(), max_retries=2).fetch(f"{BASE}/x")
-    assert r.outcome is FetchOutcome.network_error and "connection refused" in r.error
+    assert r.outcome is FetchOutcome.network_error and "ConnectError" in r.error
     assert len(site.log) == 3 and clock.sleeps == [1.0, 2.0]
 
 
@@ -437,12 +437,12 @@ def test_gzip_bomb_aborts_while_decoding():
 def test_broken_gzip_is_network_error(body):
     site = Site({f"{BASE}/x": ok(body, **{"Content-Encoding": "gzip"})})
     r = make(site).fetch(f"{BASE}/x")
-    assert r.outcome is FetchOutcome.network_error and "gzip" in r.error and r.content is None
+    assert r.outcome is FetchOutcome.network_error and "_BodyError" in r.error and r.content is None
 
 
 def test_unsupported_content_encoding():
     r = make(Site({f"{BASE}/x": ok(b"...", **{"Content-Encoding": "br"})})).fetch(f"{BASE}/x")
-    assert r.outcome is FetchOutcome.network_error and "Content-Encoding" in r.error
+    assert r.outcome is FetchOutcome.network_error and "_BodyError" in r.error
 
 
 # ---------- 7、13. URL 去 Key ----------

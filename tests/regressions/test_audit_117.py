@@ -8,12 +8,12 @@ from types import SimpleNamespace
 import pytest
 from typer.testing import CliRunner
 
-from datumoj import cli, cloud, wiring
-from datumoj.core.lease import LeaseError, LeaseManager
-from datumoj.core.models import StateWriter
-from datumoj.core.monitor import attach_cloud_status
-from datumoj.testing.fakes import FakeStateObjectStore
-from datumoj.testing.samples import T0, make_spec
+from datumoj.rikolto import cli, cloud, wiring
+from datumoj.rikolto.core.lease import LeaseError, LeaseManager
+from datumoj.rikolto.core.models import StateWriter
+from datumoj.rikolto.core.monitor import attach_cloud_status
+from datumoj.rikolto.testing.fakes import FakeStateObjectStore
+from datumoj.rikolto.testing.samples import T0, make_spec
 
 
 def _monitor_status(specs):

@@ -6,11 +6,11 @@ from datetime import timedelta
 import pytest
 from typer.testing import CliRunner
 
-from datumoj import cli, wiring
-from datumoj.index.vector import LanceVectorIndex, maintain_vectors
-from datumoj.pipeline import PipelineDeps, parse_pending, reindex
-from datumoj.testing.contract_suites import VectorIndexSuite
-from datumoj.testing.fakes import (
+from datumoj.rikolto import cli, wiring
+from datumoj.rikolto.index.vector import LanceVectorIndex, maintain_vectors
+from datumoj.rikolto.pipeline import PipelineDeps, parse_pending, reindex
+from datumoj.rikolto.testing.contract_suites import VectorIndexSuite
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChunkStore,
     FakeEmbedder,
@@ -21,7 +21,7 @@ from datumoj.testing.fakes import (
     FakeRawStore,
     FakeRegistry,
 )
-from datumoj.testing.samples import make_chunk, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import make_chunk, make_snapshot, make_spec
 
 
 class TestMaintainedVectorContract(VectorIndexSuite):

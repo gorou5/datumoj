@@ -5,12 +5,12 @@ from datetime import date
 
 import pytest
 
-import datumoj.analysis.tools as analysis_tools_module
-import datumoj.store.observations as observations_module
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.contracts import QueryTimeout
-from datumoj.store.observations import DuckDBObservationStore
-from datumoj.testing.fakes import (
+import datumoj.rikolto.analysis.tools as analysis_tools_module
+import datumoj.rikolto.store.observations as observations_module
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.contracts import QueryTimeout
+from datumoj.rikolto.store.observations import DuckDBObservationStore
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChunkStore,
     FakeManifest,
@@ -18,7 +18,7 @@ from datumoj.testing.fakes import (
     FakeRegistry,
     FakeRetriever,
 )
-from datumoj.testing.samples import T0, make_observation, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_observation, make_snapshot, make_spec
 
 
 def test_describe_cache_hits_and_invalidates_for_writes_and_file_changes(tmp_path, monkeypatch):
@@ -103,9 +103,7 @@ def test_query_sql_has_one_budget_and_later_request_succeeds(query_tools, monkey
     if slow_stage in ("query", "metadata"):
         def slow_query(sql, *args, **kwargs):
             result = query(sql, *args, **kwargs)
-            if slow_stage == "query" and sql.startswith("SELECT source_id, table_key, obs_id"):
-                advance_once()
-            elif slow_stage == "metadata" and sql.startswith("SELECT source_id, table_key, snapshot_sha256,"):
+            if slow_stage == "query" and sql.startswith("SELECT source_id, table_key, obs_id") or slow_stage == "metadata" and sql.startswith("SELECT source_id, table_key, snapshot_sha256,"):
                 advance_once()
             return result
 
