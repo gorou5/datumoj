@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-303
 title: 世界银行 WDI 精选指标 → 观测值：6 国、2000–2024、4 个指标，单位按指标写死
 project: DATUMOJ
-status: doing
+status: ready
 priority: 2
 depends_on: []
 runner: claude
@@ -60,3 +60,12 @@ WDI 的人口、美元 GDP、本币 GDP、预期寿命作为跨国比较基准�
 # 补充：来源目录文件（2026-10-31）
 - 新来源要同时提交 `catalog/intl-wdi.json`（仓库里登记来源的导出目录，`tests/core/test_registry_export.py` 和 `tests/integration/test_tachibana_m2.py` 要求它和 `sources/*.yaml` 一致）。用 `uv run --frozen rikolto registry export --out catalog` 生成，只提交本任务来源的文件；`catalog/` 下其他文件不应有变化，有变化就说明改到了别的来源，要查清楚。
 - `tests/regressions/test_audit_wisteria_102.py` 已在 `feature/0.4` 上改为只固定原有的 7 个来源（提交 42efc70），本任务不需要、也不许改它。
+
+# 重做要求（第 1 轮，2026-10-31）
+前两次尝试停下来问：流水线每处理一个快照，就用它的观测值整体替换对应的 `table_key`，WDI 分多页抓取时后一页会覆盖前一页。这是任务文件没写清楚，不改契约和流水线，按下面做：
+
+1. **一个快照必须含一张完整的表**（现有来源都是这样，例如 e-Stat 文件一个文件一张表）。采集时每个指标一次请求取齐全部国家和年份（6 国 × 25 年 = 150 行），`per_page` 设为 1000；`plan` 里校验“国家数 × 年数 ≤ per_page”，不满足就抛 `ValueError`。原要求第 2 条的“按 `pages` 翻完所有页”作废。
+2. **响应不止一页时拒绝**：解析时发现 `pages > 1` 或返回行数小于 `total`，就抛解析错误（`ParseError`），这个快照不发布任何观测值，不写半张表。
+3. 样本 `gdp_cd_cn_JPN-USA_2020-2024_p1.json` / `_p2.json` 是用小 `per_page` 录的两页：用它们测“多页响应被拒绝、不发布”；正常解析的测试用第 1 页里的数据另行在 `tmp_path` 构造单页响应（`pages: 1`，`total` 等于行数），不改样本文件。
+4. 同一快照里如果有多个指标（`indicator=A;B`），每个指标各自是完整的一张表即可；推荐一个指标一个请求。
+5. 本轮从 `feature/0.4` 重新开始，其余要求不变。全量测试要跑完，不要中途中断；跑得慢就等。
