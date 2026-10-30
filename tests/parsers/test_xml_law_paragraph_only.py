@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from datumoj.core.contracts import ParseError
-from datumoj.parsers.xml_law import LawXMLParser
-from datumoj.testing.samples import make_snapshot
+from datumoj.rikolto.core.contracts import ParseError
+from datumoj.rikolto.parsers.xml_law import LawXMLParser
+from datumoj.rikolto.testing.samples import make_snapshot
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "egov_law"
 

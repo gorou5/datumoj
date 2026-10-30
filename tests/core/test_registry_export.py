@@ -8,9 +8,8 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
-from datumoj import cli
-from datumoj.core.registry_export import export_registry
-
+from datumoj.rikolto import cli
+from datumoj.rikolto.core.registry_export import export_registry
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -160,7 +159,7 @@ def test_export_is_deterministic_sorted_utf8_and_newline_terminated(tmp_path):
     assert [path.name for path in repeated] == ["jp-alpha.json", "jp-zeta.json"]
     assert first == {path.name: path.read_bytes() for path in repeated}
     assert all(data.endswith(b"\n") for data in first.values())
-    assert "Example source".encode() in first["jp-alpha.json"]
+    assert b"Example source" in first["jp-alpha.json"]
     assert b"\\u" not in first["jp-alpha.json"]
     parsed = json.loads(first["jp-alpha.json"])
     assert list(parsed) == sorted(parsed)

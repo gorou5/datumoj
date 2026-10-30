@@ -1,0 +1,38 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "input": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Input",
+      "type": "string"
+    },
+    "op": {
+      "const": "moving_average",
+      "title": "Op",
+      "type": "string"
+    },
+    "window": {
+      "maximum": 1200,
+      "minimum": 2,
+      "title": "Window",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "id",
+    "input",
+    "op",
+    "window"
+  ],
+  "title": "MovingAverage",
+  "type": "object"
+}

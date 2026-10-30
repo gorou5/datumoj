@@ -1,0 +1,69 @@
+{
+  "$defs": {
+    "SnapshotOrder": {
+      "additionalProperties": false,
+      "description": "快照抓取时间优先，同一时间按 manifest 写入序号排序；只在同一 manifest 内可比。",
+      "properties": {
+        "fetched_at": {
+          "format": "date-time",
+          "title": "Fetched At",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "fetched_at",
+        "seq"
+      ],
+      "title": "SnapshotOrder",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "一次来源发布的截至边界；released_at 对旧数据是 fetched_at 的 UTC 兼容日。",
+  "properties": {
+    "source_id": {
+      "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+      "title": "Source Id",
+      "type": "string"
+    },
+    "release_key": {
+      "minLength": 1,
+      "title": "Release Key",
+      "type": "string"
+    },
+    "released_at": {
+      "format": "date",
+      "title": "Released At",
+      "type": "string"
+    },
+    "order": {
+      "$ref": "#/$defs/SnapshotOrder"
+    },
+    "table_key": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Table Key"
+    }
+  },
+  "required": [
+    "source_id",
+    "release_key",
+    "released_at",
+    "order"
+  ],
+  "title": "ReleaseEntry",
+  "type": "object"
+}

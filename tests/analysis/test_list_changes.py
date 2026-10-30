@@ -6,8 +6,8 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.models import (
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.models import (
     ChangeEvent,
     ChangeKind,
     DocKind,
@@ -15,7 +15,7 @@ from datumoj.core.models import (
     Redistribution,
     UsageScope,
 )
-from datumoj.testing.fakes import (
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChangeLog,
     FakeChunkStore,
@@ -25,7 +25,7 @@ from datumoj.testing.fakes import (
     FakeRegistry,
     FakeRetriever,
 )
-from datumoj.testing.samples import T0, make_chunk, make_document, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_chunk, make_document, make_snapshot, make_spec
 
 
 @pytest.fixture
@@ -33,8 +33,9 @@ def env(tmp_path):
     raw, manifest, chunks = FakeRawStore(tmp_path), FakeManifest(), FakeChunkStore()
     catalog, observations, change_log = FakeCatalogStore(), FakeObservationStore(), FakeChangeLog()
     license_info = LicenseInfo(
-        name="CC BY 4.0", attribution="テスト省", usage_scope=UsageScope.redistributable,
-        redistribution=Redistribution.allowed,
+        name="CC BY 4.0", url="https://example.go.jp/license", attribution="テスト省",
+        usage_scope=UsageScope.redistributable, redistribution=Redistribution.allowed, outflow="raw_ok",
+        verified_at=date(2026, 10, 20), notes="テスト用の検証根拠",
     )
     registry = FakeRegistry([make_spec("jp-test", kind="fake", license=license_info)])
     snapshots = {}
@@ -124,7 +125,7 @@ def test_list_changes_defaults_to_the_last_seven_days(env, monkeypatch):
         def now(cls, tz=None):
             return T0 + timedelta(days=1)
 
-    monkeypatch.setattr("datumoj.analysis.tools.datetime", FrozenDateTime)
+    monkeypatch.setattr("datumoj.rikolto.analysis.tools.datetime", FrozenDateTime)
     change_log.append([
         ChangeEvent.make(
             source_id="jp-test", kind=ChangeKind.added, doc_key="jp-test:a",

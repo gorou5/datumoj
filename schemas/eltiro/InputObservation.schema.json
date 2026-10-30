@@ -1,0 +1,43 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "source_id": {
+      "maxLength": 128,
+      "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+      "title": "Source Id",
+      "type": "string"
+    },
+    "table_key": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Table Key",
+      "type": "string"
+    },
+    "obs_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Obs Id",
+      "type": "string"
+    },
+    "snapshot_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Snapshot Sha256",
+      "type": "string"
+    },
+    "release_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Release Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_id",
+    "table_key",
+    "obs_id",
+    "snapshot_sha256",
+    "release_id"
+  ],
+  "title": "InputObservation",
+  "type": "object"
+}

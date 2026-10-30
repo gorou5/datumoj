@@ -5,12 +5,18 @@ from pathlib import Path
 
 import pytest
 
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.contracts import ContentState
-from datumoj.parsers.estat_tables import EstatTableParser
-from datumoj.testing.contract_suites import ParserSuite
-from datumoj.testing.fakes import FakeCatalogStore, FakeManifest, FakeObservationStore, FakeRawStore, FakeRegistry
-from datumoj.testing.samples import ParseSample, make_snapshot, make_spec
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.contracts import ContentState
+from datumoj.rikolto.parsers.estat_tables import EstatTableParser
+from datumoj.rikolto.testing.contract_suites import ParserSuite
+from datumoj.rikolto.testing.fakes import (
+    FakeCatalogStore,
+    FakeManifest,
+    FakeObservationStore,
+    FakeRawStore,
+    FakeRegistry,
+)
+from datumoj.rikolto.testing.samples import ParseSample, make_snapshot, make_spec
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "estat_files"
 DOWNLOAD = "https://www.e-stat.go.jp/stat-search/file-download?statInfId={}&fileKind={}"

@@ -1,5 +1,14 @@
 {
   "$defs": {
+    "EvidenceState": {
+      "enum": [
+        "complete",
+        "partial",
+        "unavailable"
+      ],
+      "title": "EvidenceState",
+      "type": "string"
+    },
     "Freshness": {
       "additionalProperties": false,
       "description": "数据新鲜度。as_of 是结果所用快照里最新的抓取时间，即“数据截止时间”。",
@@ -50,11 +59,66 @@
         "ok",
         "zero_hits",
         "not_ingested",
+        "not_indexed",
         "fetch_failed",
         "out_of_scope"
       ],
       "title": "GapState",
       "type": "string"
+    },
+    "JsonValue": {},
+    "PipelineStatus": {
+      "additionalProperties": false,
+      "description": "当前查询范围的管线计数；各状态计数可以重叠，不表示互斥分区。",
+      "properties": {
+        "parseable_snapshots": {
+          "minimum": 0,
+          "title": "Parseable Snapshots",
+          "type": "integer"
+        },
+        "parsed": {
+          "minimum": 0,
+          "title": "Parsed",
+          "type": "integer"
+        },
+        "parse_failed": {
+          "minimum": 0,
+          "title": "Parse Failed",
+          "type": "integer"
+        },
+        "needs_ocr": {
+          "minimum": 0,
+          "title": "Needs Ocr",
+          "type": "integer"
+        },
+        "searchable_chunks": {
+          "minimum": 0,
+          "title": "Searchable Chunks",
+          "type": "integer"
+        },
+        "index_generation": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Index Generation"
+        }
+      },
+      "required": [
+        "parseable_snapshots",
+        "parsed",
+        "parse_failed",
+        "needs_ocr",
+        "searchable_chunks"
+      ],
+      "title": "PipelineStatus",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -87,6 +151,43 @@
       ],
       "default": null,
       "title": "Gap Detail"
+    },
+    "evidence_state": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EvidenceState"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "evidence_inputs": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evidence Inputs"
+    },
+    "pipeline": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PipelineStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [

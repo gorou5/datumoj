@@ -1,5 +1,4 @@
-from datumoj.cli import app
-
+from datumoj.rikolto.cli import app
 
 if __name__ == "__main__":
     app()

@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from datumoj.core.rawstore import FileRawStore
-from datumoj.testing.contract_suites import RawStoreSuite
+from datumoj.rikolto.core.rawstore import FileRawStore
+from datumoj.rikolto.testing.contract_suites import RawStoreSuite
 
 
 class TestFileRawStore(RawStoreSuite):
@@ -60,9 +60,9 @@ class TestFileRawStore(RawStoreSuite):
         mode = store.path_for(digest).stat().st_mode
         assert mode & (stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH) == 0
 
-    def test_existing_blob_is_not_rewritten(self, store):
+    def test_put_repairs_corrupted_existing_blob(self, store):
         digest = store.put(b"same")
         self.corrupt(store, digest)
         assert store.put(b"same") == digest
-        assert store.path_for(digest).read_bytes() == b"tampered"
+        assert store.path_for(digest).read_bytes() == b"same"
 

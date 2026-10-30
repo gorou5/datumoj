@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlencode, urlsplit
+from uuid import UUID
 
 import boto3
 import httpx
@@ -23,17 +24,17 @@ import pytest
 from moto.server import ThreadedMotoServer
 from typer.testing import CliRunner
 
-from datumoj import cli, wiring
-from datumoj.core.contracts import ParseRecord, ParseResult, ParseStatus
-from datumoj.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
-from datumoj.core.models import Citation, GapState, SourceText
-from datumoj.core.rawstore import FileRawStore
-from datumoj.core.rawstore_s3 import S3RawStore
-from datumoj.core.registry import RegistryImpl, load_registry
-from datumoj.core.runner import CrawlDeps
-from datumoj.eval import check_gate, evaluate, load_questions, write_reports
-from datumoj.testing.contract_suites import ParserSuite
-from datumoj.testing.samples import ParseSample, make_snapshot
+from datumoj.rikolto import cli, wiring
+from datumoj.rikolto.core.contracts import ParseRecord, ParseResult, ParseStatus
+from datumoj.rikolto.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
+from datumoj.rikolto.core.models import Citation, GapState, SourceText, parse_context_fingerprint
+from datumoj.rikolto.core.rawstore import FileRawStore
+from datumoj.rikolto.core.rawstore_s3 import S3RawStore
+from datumoj.rikolto.core.registry import RegistryImpl, load_registry
+from datumoj.rikolto.core.runner import CrawlDeps
+from datumoj.rikolto.eval import check_gate, evaluate, load_questions, write_reports
+from datumoj.rikolto.testing.contract_suites import ParserSuite
+from datumoj.rikolto.testing.samples import ParseSample, make_snapshot
 from tests.integration.test_full_eval import AnnouncementParser, _ivy_questions, _seed
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -100,7 +101,15 @@ def _restore(deps, item):
     citation = Citation.model_validate(item["citation"])
     deps.raw.verify(citation.snapshot_sha256)
     assert citation.fetched_at == NOW
-    restored = deps.tools.cite(citation.snapshot_sha256, citation.locator)["data"]
+    snapshot = next(s for s in deps.manifest.snapshots_by_sha256(citation.snapshot_sha256)
+                    if s.snapshot_id == citation.snapshot_id)
+    assert (citation.source_id, citation.resource_url, citation.fetched_at) == (
+        snapshot.source_id, snapshot.resource_url, snapshot.fetched_at,
+    )
+    restored = deps.tools.cite(
+        citation.snapshot_sha256, citation.locator,
+        snapshot_id=citation.snapshot_id, resource_url=citation.resource_url,
+    )["data"]
     assert restored["status"] == "ok", restored
     assert restored["passages"]
     return citation, restored["passages"]
@@ -181,11 +190,15 @@ def test_bodik_catalog_and_datastore_snapshots(tmp_path, evidence):
         deps.manifest.record_parse(ParseRecord(
             sha256=failed.sha256, parser=wiring._CkanPages.name, version=wiring._CkanPages.version,
             status=ParseStatus.failed, error="pre-fix: CKAN package 缺少 id/name",
+            context_fingerprint=parse_context_fingerprint(failed, deps.manifest.snapshot_meta(failed.snapshot_id)),
         ))
         parsed = _parse_index(deps, spec.id)
         assert failed.snapshot_id in parsed.retried
         for snap in pages:
-            record = deps.manifest.get_parse(snap.sha256, wiring._CkanPages.name, wiring._CkanPages.version)
+            record = deps.manifest.get_parse(
+                snap.sha256, wiring._CkanPages.name, wiring._CkanPages.version,
+                parse_context_fingerprint(snap, deps.manifest.snapshot_meta(snap.snapshot_id)),
+            )
             assert record.status is ParseStatus.ok
         assert [h.dataset.dataset_key for h in deps.catalog.search("")] == [f"{spec.id}:{selected['id']}"]
         _json(evidence / "bodik-datastore.json", {
@@ -316,7 +329,9 @@ def test_keyword_only_ivy_gates_and_behavior(tmp_path, evidence):
         assert len(questions) >= 60
 
         def cite(citation):
-            restored = deps.tools.cite(citation.snapshot_sha256, citation.locator)["data"]
+            restored = deps.tools.cite(
+                citation.snapshot_sha256, citation.locator, snapshot_id=citation.snapshot_id,
+            )["data"]
             assert restored["status"] == "ok"
             return restored["passages"]
 
@@ -375,6 +390,10 @@ def test_s3_law_chain_matches_local_raw(tmp_path, monkeypatch, evidence):
         }
         outputs = []
         for backend, store_type in (("local", FileRawStore), ("s3", S3RawStore)):
+            # Replay the same observation ids so complete citation output can be compared.
+            snapshot_ids = iter(range(1, len(routes) + 1))
+            monkeypatch.setattr("datumoj.rikolto.core.runner.uuid4",
+                                lambda snapshot_ids=snapshot_ids: UUID(int=next(snapshot_ids)))
             monkeypatch.setenv("DATUMOJ_RAW_BACKEND", backend)
             deps = wiring.build(tmp_path / backend)
             try:

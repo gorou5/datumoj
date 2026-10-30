@@ -1,0 +1,19 @@
+services:
+  rikolto:
+    image: rikolto-nas:local
+    build:
+      context: ../..
+      dockerfile: deploy/nas/Dockerfile
+    env_file:
+      - ./env.local
+    command: ["cloud", "run", "--max-embed", "0"]
+    restart: "no"
+  ollama:
+    image: ollama/ollama:0.12.6
+    profiles: ["ollama"]
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  ollama-models:

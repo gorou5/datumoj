@@ -4,6 +4,8 @@
 
 **datumoj（数据之门）** 是一个开源项目：连接世界各国及地区政府侧公开的数据，为用户定义的场景提供数据访问、检索、处理、分析和自动化能力。
 
+DATUMOJ 是整个项目；现有的采集、解析、索引、存储和问答系统名为 **Rikolto**（`datumoj.rikolto`，命令 `rikolto`）。计划中的提取服务 **Eltiro** 将在 0.4 版本独立实现。
+
 ## 核心原则
 
 1. **连接数据，而不是占有数据** — 我们不是传统的数据搬运工。
@@ -48,7 +50,7 @@ python tests/validate_schemas.py
 ```
 ├── README.md / AGENTS.md / CONTRIBUTING.md / SECURITY.md / CODE_OF_CONDUCT.md
 ├── CLAUDE.md           # 调度器（orchestrator）协作约定，内部工作流
-├── src/datumoj/        # Python 包：core / crawlers / parsers / index / store / eval / admin / mcp_server
+├── src/datumoj/rikolto/ # Rikolto Python 包：core / crawlers / parsers / index / store / eval / admin / mcp_server
 ├── sources/            # 数据源描述（YAML）：eGov 法令・e-Stat・JMA・政府统计门户等
 ├── schemas/            # 内部数据契约（*.schema.json）＋注册层描述标准（registry/）
 ├── docs/               # PLAN · SETUP · PLANNING · TASKS · architecture · interoperability · data-sources · adr · tasks
@@ -67,7 +69,7 @@ python tests/validate_schemas.py
 
 ## 当前阶段
 
-0.1（代号 IVY）开发中：已实现日本官方数据源的抓取、解析、索引与检索（eGov 法令、e-Stat 文件、JMA 订阅、政府统计门户），含 MCP Server、本机抓取管理页面与评测集。数据源注册层的三个统一标准（描述 / 调用 / 证据）已并入仓库，正在与内部数据契约对齐。许可证待定（见下）。
+各版本的状态见 [docs/PLAN.md](docs/PLAN.md) 第 8.2 节版本表，进度总览见 https://plan.datumoj.com/ 。许可证待定（见下）。
 
 ## 许可证
 

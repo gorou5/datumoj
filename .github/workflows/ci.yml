@@ -80,6 +80,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --python 3.12
 
+      - name: Run lint
+        run: uv run --frozen ruff check src tests
+
       - name: Run tests
         run: uv run --frozen pytest -q
 

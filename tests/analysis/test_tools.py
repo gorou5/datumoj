@@ -1,4 +1,4 @@
-"""分析工具层：每个工具的正常、空结果、错误输入；出处、SourceText、只读、口径提示。全部用 datumoj.testing 的假实现。"""
+"""分析工具层：每个工具的正常、空结果、错误输入；出处、SourceText、只读、口径提示。全部用 datumoj.rikolto.testing 的假实现。"""
 
 from __future__ import annotations
 
@@ -14,10 +14,10 @@ import pytest
 from pydantic import JsonValue
 
 import datumoj
-from datumoj.analysis.glossary import expand_terms, load_glossary
-from datumoj.analysis.tools import INTERNAL_ONLY, AnalysisTools
-from datumoj.core.contracts import ContentState, ParseResult, QueryError, QueryRejected
-from datumoj.core.models import (
+from datumoj.rikolto.analysis.glossary import expand_terms, load_glossary
+from datumoj.rikolto.analysis.tools import INTERNAL_ONLY, AnalysisTools
+from datumoj.rikolto.core.contracts import ContentState, ParseResult, QueryError, QueryRejected
+from datumoj.rikolto.core.models import (
     FetchOutcome,
     LicenseInfo,
     Observation,
@@ -26,7 +26,7 @@ from datumoj.core.models import (
     TimeGranularity,
     UsageScope,
 )
-from datumoj.testing.fakes import (
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChunkStore,
     FakeManifest,
@@ -36,7 +36,7 @@ from datumoj.testing.fakes import (
     FakeRegistry,
     FakeRetriever,
 )
-from datumoj.testing.samples import (
+from datumoj.rikolto.testing.samples import (
     T0,
     make_chunk,
     make_dataset,
@@ -144,8 +144,9 @@ def _ingest(env_parts: dict[str, Any], source_id: str, url: str, text: str, meta
 @pytest.fixture
 def env(tmp_path) -> Env:
     open_license = LicenseInfo(
-        name="CC BY 4.0", attribution="出典：テスト省", usage_scope=UsageScope.redistributable,
-        redistribution=Redistribution.allowed,
+        name="CC BY 4.0", url="https://example.go.jp/license", attribution="出典：テスト省",
+        usage_scope=UsageScope.redistributable, redistribution=Redistribution.allowed, outflow="raw_ok",
+        verified_at=date(2026, 10, 20), notes="テスト用の検証根拠",
     )
     specs = [
         make_spec("jp-law", kind="law", license=LicenseInfo(name="公共データ利用規約", attribution="e-Gov 法令検索")),
@@ -154,10 +155,10 @@ def env(tmp_path) -> Env:
         make_spec("jp-broken", kind="fake"),
         make_spec("jp-empty", kind="fake"),
     ]
-    parts: dict[str, Any] = dict(
-        raw=FakeRawStore(tmp_path), manifest=FakeManifest(), chunks=FakeChunkStore(),
-        catalog=FakeCatalogStore(), observations=FakeObservationStore(),
-    )
+    parts: dict[str, Any] = {
+        "raw": FakeRawStore(tmp_path), "manifest": FakeManifest(), "chunks": FakeChunkStore(),
+        "catalog": FakeCatalogStore(), "observations": FakeObservationStore(),
+    }
     registry = FakeRegistry(specs)
     law = _ingest(parts, "jp-law", "https://example.go.jp/law/LAW1", LAW_TEXT, LAW_META, T0, LawTextParser)
     notice = _ingest(parts, "jp-open", "https://example.go.jp/notice.txt", NOTICE_TEXT, {}, T0 + H, FakeParser)

@@ -63,7 +63,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "出处 = source_id + resource_url + snapshot_sha256 + fetched_at + locator，外加时间口径与许可。\n\nfetched_at 只是抓取日，永远不能当数据日期用。",
+  "description": "出处由 snapshot_id 绑定一次观察；保留资源、blob、位置、时间口径与许可。\n\nsnapshot_id 可空仅兼容旧数据；新生成的出处必须填入快照身份。\n\nfetched_at 只是抓取日，永远不能当数据日期用。",
   "properties": {
     "source_id": {
       "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
@@ -78,6 +78,19 @@
       "pattern": "^[0-9a-f]{64}$",
       "title": "Snapshot Sha256",
       "type": "string"
+    },
+    "snapshot_id": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Snapshot Id"
     },
     "fetched_at": {
       "format": "date-time",

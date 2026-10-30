@@ -1,0 +1,34 @@
+{
+  "additionalProperties": false,
+  "description": "写入租约；holder 是 kind/run_id，token 是每次取得租约的新随机标识。",
+  "properties": {
+    "holder": {
+      "minLength": 1,
+      "title": "Holder",
+      "type": "string"
+    },
+    "token": {
+      "minLength": 1,
+      "title": "Token",
+      "type": "string"
+    },
+    "acquired_at": {
+      "format": "date-time",
+      "title": "Acquired At",
+      "type": "string"
+    },
+    "expires_at": {
+      "format": "date-time",
+      "title": "Expires At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "holder",
+    "token",
+    "acquired_at",
+    "expires_at"
+  ],
+  "title": "WriteLease",
+  "type": "object"
+}

@@ -1,0 +1,41 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "provider": {
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "title": "Provider",
+      "type": "string"
+    },
+    "model": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Model",
+      "type": "string"
+    },
+    "version": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+    },
+    "tier": {
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Tier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "provider",
+    "model",
+    "version",
+    "tier"
+  ],
+  "title": "ModelUse",
+  "type": "object"
+}

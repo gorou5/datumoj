@@ -28,16 +28,16 @@ lint:
 	$(UV) run --frozen ruff check src tests
 
 crawl:
-	$(UV) run --frozen datumoj crawl $(SOURCE) $(if $(LIMIT),--limit $(LIMIT))
+	$(UV) run --frozen rikolto crawl $(SOURCE) $(if $(LIMIT),--limit $(LIMIT))
 
 parse:
-	$(UV) run --frozen datumoj parse $(SOURCE)
+	$(UV) run --frozen rikolto parse $(SOURCE)
 
 index:
-	$(UV) run --frozen datumoj index
+	$(UV) run --frozen rikolto index
 
 eval:
-	$(UV) run --frozen datumoj eval --gate
+	$(UV) run --frozen rikolto eval --gate
 
 mcp:
-	$(UV) run --frozen datumoj mcp
+	$(UV) run --frozen rikolto mcp

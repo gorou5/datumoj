@@ -2,8 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from datumoj.reference import code5_to_code6, code6_to_code5, lookup, normalize_area_label
-
+from datumoj.rikolto.reference import code5_to_code6, code6_to_code5, lookup, normalize_area_label
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -51,6 +50,6 @@ def test_nationwide_and_invalid_codes():
 
 
 def test_runtime_table_matches_read_only_fixture():
-    runtime_file = ROOT / "src/datumoj/reference/data/000925835_dantai_code_R060101.xlsx"
+    runtime_file = ROOT / "src/datumoj/rikolto/reference/data/000925835_dantai_code_R060101.xlsx"
     fixture = ROOT / "tests/fixtures/area_codes/000925835_dantai_code_R060101.xlsx"
     assert runtime_file.read_bytes() == fixture.read_bytes()

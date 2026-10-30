@@ -1,0 +1,22 @@
+{
+  "additionalProperties": false,
+  "description": "已发布 StateGeneration 编号及其实际清单字节的 SHA256；不是认证凭据。",
+  "properties": {
+    "generation": {
+      "minimum": 1,
+      "title": "Generation",
+      "type": "integer"
+    },
+    "manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Manifest Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "generation",
+    "manifest_sha256"
+  ],
+  "title": "GenerationToken",
+  "type": "object"
+}

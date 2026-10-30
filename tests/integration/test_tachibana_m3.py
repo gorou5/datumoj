@@ -20,12 +20,12 @@ import pytest
 from mcp import Client, StdioServerParameters
 from typer.testing import CliRunner
 
-from datumoj import cli, pipeline, wiring
-from datumoj.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
-from datumoj.core.models import ChangeKind, Citation, SourceText
-from datumoj.core.registry import RegistryImpl, load_registry
-from datumoj.core.runner import CrawlDeps
-from datumoj.eval import check_gate, evaluate, load_questions, write_reports
+from datumoj.rikolto import cli, pipeline, wiring
+from datumoj.rikolto.core.http import PoliteHttpFetcher, Recorded, ReplayTransport
+from datumoj.rikolto.core.models import ChangeKind, Citation, SourceText
+from datumoj.rikolto.core.registry import RegistryImpl, load_registry
+from datumoj.rikolto.core.runner import CrawlDeps
+from datumoj.rikolto.eval import check_gate, evaluate, load_questions, write_reports
 from tests.eval.test_questions_tachibana import GOV_WEB_FIXTURES
 from tests.integration.test_full_eval import AnnouncementParser, _seed
 
@@ -239,6 +239,8 @@ def test_weekly_report_and_monitor_alerts_match_events(m3, monkeypatch):
     monkeypatch.setenv("DATUMOJ_DATA_DIR", str(deps.data_dir))
     scheduler = cli.scheduling.Scheduler
     monkeypatch.setattr(cli.scheduling, "Scheduler", lambda *a, **kw: scheduler(*a, **kw, now=lambda: SECOND))
+    cli.scheduling.set_enabled(deps.data_dir, True)
+    cli.scheduling.set_enabled(deps.data_dir, True, ["jp-jma"])
     runner = CliRunner()
     status = runner.invoke(cli.app, ["schedule", "status"])
     assert status.exit_code == 0, status.output
@@ -285,13 +287,13 @@ def test_new_tools_over_real_stdio(m3):
         "exec('def forbidden(*a, **kw):\\n raise RuntimeError(\"MCP must stay offline\")'); "
         "httpx.HTTPTransport.handle_request=forbidden; "
         "httpx.AsyncHTTPTransport.handle_async_request=forbidden; "
-        "from datumoj.cli import app; app()"
+        "from datumoj.rikolto.cli import app; app()"
     )
     params = StdioServerParameters(command=sys.executable,
         args=["-c", bootstrap, "--data-dir", str(deps.data_dir), "mcp"], cwd=ROOT,
         env={**os.environ, "PYTHONPATH": str(ROOT / "src"), "DATUMOJ_DATA_DIR": str(deps.data_dir),
              "DATUMOJ_VECTORS": "off", "DATUMOJ_RAW_BACKEND": "local",
-             "DATUMOJ_TOOLS_FACTORY": "datumoj.wiring:build_tools"})
+             "DATUMOJ_TOOLS_FACTORY": "datumoj.rikolto.wiring:build_tools"})
 
     def data(result):
         assert not result.is_error, result.content

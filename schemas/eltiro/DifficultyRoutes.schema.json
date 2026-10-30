@@ -1,0 +1,92 @@
+{
+  "$defs": {
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model",
+        "version"
+      ],
+      "title": "ModelIdentity",
+      "type": "object"
+    },
+    "RouteTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "enum": [
+            "none",
+            "claude_plan",
+            "ollama",
+            "cloud_api"
+          ],
+          "title": "Provider",
+          "type": "string"
+        },
+        "identity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ModelIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "credential_env": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Z][A-Z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Credential Env"
+        }
+      },
+      "required": [
+        "provider"
+      ],
+      "title": "RouteTarget",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "low": {
+      "$ref": "#/$defs/RouteTarget"
+    },
+    "medium": {
+      "$ref": "#/$defs/RouteTarget"
+    },
+    "high": {
+      "$ref": "#/$defs/RouteTarget"
+    }
+  },
+  "required": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "title": "DifficultyRoutes",
+  "type": "object"
+}

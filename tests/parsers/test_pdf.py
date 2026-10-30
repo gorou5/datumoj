@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from datumoj.core.contracts import ParseError
-from datumoj.parsers.pdf import PdfParser, _title
-from datumoj.testing.contract_suites import ParserSuite
-from datumoj.testing.samples import ParseSample, make_snapshot
+from datumoj.rikolto.core.contracts import ParseError
+from datumoj.rikolto.parsers.pdf import PdfParser, _title
+from datumoj.rikolto.testing.contract_suites import ParserSuite
+from datumoj.rikolto.testing.samples import ParseSample, make_snapshot
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "gov_web"
 PDF_FIXTURES = FIXTURES / "pdf"

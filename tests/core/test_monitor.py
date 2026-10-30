@@ -6,12 +6,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from datumoj.core.contracts import ParseRecord, ParseStatus
-from datumoj.core.models import FetchOutcome
-from datumoj.core.monitor import evaluate_alerts
-from datumoj.core.schedule import Scheduler, set_enabled
-from datumoj.testing.fakes import FakeManifest
-from datumoj.testing.samples import T0, make_snapshot, make_spec
+from datumoj.rikolto.core.contracts import ParseRecord, ParseStatus
+from datumoj.rikolto.core.models import FetchOutcome
+from datumoj.rikolto.core.monitor import evaluate_alerts
+from datumoj.rikolto.core.schedule import Scheduler, set_enabled
+from datumoj.rikolto.testing.fakes import FakeManifest
+from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 
 
 def _run(source_id: str, at, *, success: bool) -> dict:
@@ -133,10 +133,10 @@ def test_overdue_does_not_trigger_at_exactly_two_cycles(schedule, elapsed):
 
 
 def test_short_retention_gap_reports_endpoints_and_exact_six_hours_is_not_a_gap():
-    spec = make_spec("jp-test", retention_note="约 7 天滑动窗口")
+    spec = make_spec("jp-test", scope={"short_retention": True})
     old = _run("jp-test", T0 - timedelta(hours=7, minutes=1), success=True)
     old["ended_at"] = (T0 - timedelta(hours=7)).isoformat()
-    alerts = evaluate_alerts(spec, [old], None, T0, enabled=False)
+    alerts = evaluate_alerts(spec, [old], None, T0, enabled=True)
     gap, = alerts
     assert gap.rule == "retention_gap" and gap.severity == "error"
     assert gap.details["gap_start"] == (T0 - timedelta(hours=7)).isoformat()
@@ -145,7 +145,7 @@ def test_short_retention_gap_reports_endpoints_and_exact_six_hours_is_not_a_gap(
 
     exact = _run("jp-test", T0 - timedelta(hours=6, minutes=1), success=True)
     exact["ended_at"] = (T0 - timedelta(hours=6)).isoformat()
-    assert evaluate_alerts(spec, [exact], None, T0, enabled=False) == []
+    assert evaluate_alerts(spec, [exact], None, T0, enabled=True) == []
 
 
 def test_short_retention_scope_flag_detects_gap_between_successes():
@@ -155,19 +155,36 @@ def test_short_retention_scope_flag_detects_gap_between_successes():
     second = _run("jp-test", T0 - timedelta(hours=10, minutes=1), success=True)
     second["ended_at"] = (T0 - timedelta(hours=10)).isoformat()
 
-    alerts = evaluate_alerts(spec, [first, second], None, T0, enabled=False)
+    alerts = evaluate_alerts(spec, [first, second], None, T0, enabled=True)
 
     assert len(alerts) == 2
     assert all(alert.rule == "retention_gap" for alert in alerts)
     assert alerts[0].details["gap_start"] == (T0 - timedelta(hours=20)).isoformat()
     assert alerts[0].details["gap_end"] == (T0 - timedelta(hours=10)).isoformat()
+    assert alerts[1].details["gap_start"] == (T0 - timedelta(hours=10)).isoformat()
+    assert alerts[1].details["gap_end"] == T0.isoformat()
 
 
-def test_jma_is_short_retention_even_without_explicit_note():
-    run = _run("jp-jma", T0 - timedelta(hours=7), success=True)
+def test_retention_note_alone_does_not_mark_short_retention():
+    spec = make_spec("jp-test", retention_note="约 7 天滑动窗口")
+    run = _run("jp-test", T0 - timedelta(hours=7), success=True)
     run["ended_at"] = (T0 - timedelta(hours=7)).isoformat()
-    alerts = evaluate_alerts(make_spec("jp-jma"), [run], None, T0, enabled=False)
-    assert [alert.rule for alert in alerts] == ["retention_gap"]
+    assert evaluate_alerts(spec, [run], None, T0, enabled=True) == []
+
+
+def test_disabled_short_retention_source_reports_history_gap_but_not_tail_gap():
+    spec = make_spec("jp-test", scope={"short_retention": True})
+    first = _run("jp-test", T0 - timedelta(hours=20, minutes=1), success=True)
+    first["ended_at"] = (T0 - timedelta(hours=20)).isoformat()
+    second = _run("jp-test", T0 - timedelta(hours=10, minutes=1), success=True)
+    second["ended_at"] = (T0 - timedelta(hours=10)).isoformat()
+
+    alerts = evaluate_alerts(spec, [first, second], None, T0, enabled=False)
+
+    gap, = alerts
+    assert gap.rule == "retention_gap"
+    assert gap.details["gap_start"] == (T0 - timedelta(hours=20)).isoformat()
+    assert gap.details["gap_end"] == (T0 - timedelta(hours=10)).isoformat()
 
 
 def test_scheduler_status_serializes_source_alerts_and_total_count(tmp_path):

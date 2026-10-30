@@ -10,10 +10,10 @@ from typing import Any
 import pytest
 from mcp import Client
 
-from datumoj import mcp_server
-from datumoj.analysis.tools import AnalysisTools
-from datumoj.core.models import ChangeEvent, ChangeKind, Observation, TimeGranularity
-from datumoj.testing.fakes import (
+from datumoj.rikolto import mcp_server
+from datumoj.rikolto.analysis.tools import AnalysisTools
+from datumoj.rikolto.core.models import ChangeEvent, ChangeKind, Observation, TimeGranularity
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChangeLog,
     FakeChunkStore,
@@ -24,7 +24,7 @@ from datumoj.testing.fakes import (
     FakeRegistry,
     FakeRetriever,
 )
-from datumoj.testing.samples import T0, make_dataset, make_resource, make_snapshot, make_spec
+from datumoj.rikolto.testing.samples import T0, make_dataset, make_resource, make_snapshot, make_spec
 
 TEXT = "お知らせ\n\n人口統計の公開について。"
 TOOLS = {"search_docs", "list_changes", "search_catalog", "query_sql", "get_chunk", "cite", "version", "coverage"}
@@ -45,7 +45,7 @@ def tools(tmp_path) -> AnalysisTools:
         obs_id="jp-open:1", source_id="jp-open", dataset_key="jp-open:pop", table_key="t1", survey="国勢調査",
         indicator="人口", area_code="13000", area_label="東京都", time_start=date(2020, 1, 1),
         time_end=date(2020, 12, 31), time_label="2020年", granularity=TimeGranularity.year, unit="人",
-        value=Decimal("14047594"), snapshot_sha256=snap.sha256, locator="row=1", fetched_at=snap.fetched_at,
+        value=Decimal(14047594), snapshot_sha256=snap.sha256, locator="row=1", fetched_at=snap.fetched_at,
     )])
     catalog.upsert(
         datasets=[make_dataset("jp-open:pop", "人口統計 2020")],
@@ -136,10 +136,101 @@ def test_cite(tools):
     assert data["data"]["status"] == "ok"
 
 
+def test_cite_identity_parameters_and_ambiguity(tools):
+    original = make_snapshot("jp-open", "https://example.go.jp/notice.txt", TEXT.encode())
+    other = make_snapshot("jp-open", "https://example.go.jp/other.txt", TEXT.encode())
+    tools.manifest.record_snapshot(other)
+    ambiguous = _data(_call(tools, "cite", {"snapshot_sha256": original.sha256, "locator": "section=1"}))
+    assert ambiguous["data"]["status"] == "ambiguous"
+    assert {candidate["snapshot_id"] for candidate in ambiguous["data"]["candidates"]} == {
+        original.snapshot_id, other.snapshot_id,
+    }
+    restored = _data(_call(tools, "cite", {
+        "snapshot_sha256": original.sha256, "locator": "section=1",
+        "snapshot_id": original.snapshot_id, "resource_url": original.resource_url,
+    }))
+    assert restored["data"]["passages"][0]["citation"]["snapshot_id"] == original.snapshot_id
+    listed = _run(tools, lambda client: client.list_tools())
+    cite = next(tool for tool in listed.tools if tool.name == "cite")
+    assert {"snapshot_id", "resource_url"} <= cite.input_schema["properties"].keys()
+    assert "ambiguous" in cite.description
+
+
 def test_version(tools):
     data = _data(_call(tools, "version"))
     assert data["data"]["package"] == "datumoj"
-    assert data["data"]["version"].endswith("+tachibana603")
+    assert "+" not in data["data"]["version"]
+
+
+def test_version_includes_pulled_generation_and_vector_coverage(tools):
+    (tools.data_dir / "state-pull.json").write_text(
+        '{"generation":12,"created_at":"2026-10-23T01:02:03+00:00",'
+        '"vector_coverage":{"model":"test","version":"1","dim":3,'
+        '"embedded_chunks":7,"pending_chunks":2},"stores":[]}',
+        encoding="utf-8",
+    )
+    data = _data(_call(tools, "version"))["data"]
+    assert data["data_generation"] == 12
+    assert data["data_generated_at"] == "2026-10-23T01:02:03+00:00"
+    assert data["data_origin"] == "R2 有效代次副本"
+    assert data["vector_coverage_note"] == "向量覆盖 7 / 9"
+
+
+def test_version_identifies_local_data_without_pull_record(tools):
+    data = _data(_call(tools, "version"))["data"]
+    assert data["data_generation"] is None
+    assert data["data_generated_at"] is None
+    assert data["data_origin"] == "本机自建数据"
+
+
+def test_factory_disables_vector_initialization_for_pulled_copy(tools, monkeypatch):
+    import os
+
+    (tools.data_dir / "state-pull.json").write_text(
+        '{"generation":1,"created_at":"2026-10-23T01:02:03+00:00",'
+        '"vector_coverage":null,"stores":[]}',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("DATUMOJ_DATA_DIR", str(tools.data_dir))
+    monkeypatch.setenv("DATUMOJ_VECTORS", "on")
+    observed = []
+
+    def factory():
+        observed.append(os.environ.get("DATUMOJ_VECTORS"))
+        return tools
+
+    data = _data(_run(factory, lambda client: client.call_tool("version")))
+    assert observed == ["off"]
+    assert os.environ["DATUMOJ_VECTORS"] == "on"
+    assert data["data"]["data_origin"] == "R2 有效代次副本"
+
+
+def test_factory_reloads_tools_after_pull_generation_changes(tools, monkeypatch):
+    import json
+
+    monkeypatch.setenv("DATUMOJ_DATA_DIR", str(tools.data_dir))
+    calls = []
+
+    def factory():
+        calls.append(True)
+        return tools
+
+    async def go():
+        async with Client(mcp_server.create_server(factory)) as client:
+            local = _data(await client.call_tool("version"))
+            (tools.data_dir / "state-pull.json").write_text(json.dumps({
+                "generation": 2,
+                "created_at": "2026-10-23T01:02:03+00:00",
+                "vector_coverage": None,
+                "stores": [],
+            }), encoding="utf-8")
+            pulled = _data(await client.call_tool("version"))
+            return local, pulled
+
+    local, pulled = asyncio.run(go())
+    assert len(calls) == 2
+    assert local["data"]["data_origin"] == "本机自建数据"
+    assert pulled["data"]["data_generation"] == 2
 
 
 def test_coverage(tools):
@@ -150,10 +241,10 @@ def test_coverage(tools):
 @pytest.mark.parametrize(
     ("name", "args", "needle"),
     [
-        ("query_sql", {"sql": "DELETE FROM observations"}, "QueryRejected"),
-        ("query_sql", {"sql": "   "}, "ValueError"),
-        ("search_docs", {"queries": "x", "k": 0}, "ValueError"),
-        ("cite", {"snapshot_sha256": "xyz", "locator": "row=1"}, "ValueError"),
+        ("query_sql", {"sql": "DELETE FROM observations"}, "QueryRejected: 只允许单条 SELECT / WITH 查询"),
+        ("query_sql", {"sql": "   "}, "ValueError: sql 不能为空白"),
+        ("search_docs", {"queries": "x", "k": 0}, "ValueError: k 必须是 1–50 的整数"),
+        ("cite", {"snapshot_sha256": "xyz", "locator": "row=1"}, "ValueError: snapshot_sha256 必须是 64 位小写十六进制"),
         ("get_chunk", {"chunk_id": 5}, ""),  # 参数类型错误也是错误结果
     ],
 )

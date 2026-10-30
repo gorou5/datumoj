@@ -1,0 +1,49 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "profile_field": {
+      "enum": [
+        "series",
+        "concept_ids",
+        "names",
+        "descriptions",
+        "methodology",
+        "survey",
+        "unit",
+        "scale",
+        "areas",
+        "time_start",
+        "time_end",
+        "frequency",
+        "availability"
+      ],
+      "title": "Profile Field",
+      "type": "string"
+    },
+    "source_id": {
+      "maxLength": 128,
+      "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+      "title": "Source Id",
+      "type": "string"
+    },
+    "snapshot_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Snapshot Sha256",
+      "type": "string"
+    },
+    "locator": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Locator",
+      "type": "string"
+    }
+  },
+  "required": [
+    "profile_field",
+    "source_id",
+    "snapshot_sha256",
+    "locator"
+  ],
+  "title": "MatchEvidence",
+  "type": "object"
+}

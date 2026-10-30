@@ -1,0 +1,240 @@
+{
+  "$defs": {
+    "Compatibility": {
+      "additionalProperties": false,
+      "description": "Unknown is unsafe for automatic binding; no positive assumptions.",
+      "properties": {
+        "methodology": {
+          "default": "unknown",
+          "enum": [
+            "same",
+            "different",
+            "unknown"
+          ],
+          "title": "Methodology",
+          "type": "string"
+        },
+        "unit": {
+          "default": "unknown",
+          "enum": [
+            "same",
+            "different",
+            "unknown"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "survey": {
+          "default": "unknown",
+          "enum": [
+            "same",
+            "different",
+            "unknown"
+          ],
+          "title": "Survey",
+          "type": "string"
+        }
+      },
+      "title": "Compatibility",
+      "type": "object"
+    },
+    "MatchEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "profile_field": {
+          "enum": [
+            "series",
+            "concept_ids",
+            "names",
+            "descriptions",
+            "methodology",
+            "survey",
+            "unit",
+            "scale",
+            "areas",
+            "time_start",
+            "time_end",
+            "frequency",
+            "availability"
+          ],
+          "title": "Profile Field",
+          "type": "string"
+        },
+        "source_id": {
+          "maxLength": 128,
+          "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "snapshot_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Snapshot Sha256",
+          "type": "string"
+        },
+        "locator": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Locator",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile_field",
+        "source_id",
+        "snapshot_sha256",
+        "locator"
+      ],
+      "title": "MatchEvidence",
+      "type": "object"
+    },
+    "SeriesIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "maxLength": 128,
+          "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "table_key": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Table Key",
+          "type": "string"
+        },
+        "indicator": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Indicator",
+          "type": "string"
+        },
+        "indicator_code": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Indicator Code"
+        },
+        "fixed_dimensions": {
+          "additionalProperties": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxProperties": 256,
+          "propertyNames": {
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "title": "Fixed Dimensions",
+          "type": "object"
+        }
+      },
+      "required": [
+        "source_id",
+        "table_key",
+        "indicator"
+      ],
+      "title": "SeriesIdentity",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "demand_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "title": "Demand Id",
+      "type": "string"
+    },
+    "demand_version": {
+      "minimum": 1,
+      "title": "Demand Version",
+      "type": "integer"
+    },
+    "indicator_key": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Indicator Key",
+      "type": "string"
+    },
+    "series": {
+      "$ref": "#/$defs/SeriesIdentity"
+    },
+    "tier": {
+      "enum": [
+        "deterministic",
+        "vector",
+        "model"
+      ],
+      "title": "Tier",
+      "type": "string"
+    },
+    "confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "reason": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/MatchEvidence"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "generation": {
+      "minimum": 1,
+      "title": "Generation",
+      "type": "integer"
+    },
+    "confirmation": {
+      "default": "pending",
+      "enum": [
+        "pending",
+        "confirmed",
+        "rejected"
+      ],
+      "title": "Confirmation",
+      "type": "string"
+    },
+    "compatibility": {
+      "$ref": "#/$defs/Compatibility"
+    },
+    "auto_bind": {
+      "default": false,
+      "title": "Auto Bind",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "demand_id",
+    "demand_version",
+    "indicator_key",
+    "series",
+    "tier",
+    "confidence",
+    "reason",
+    "evidence",
+    "generation"
+  ],
+  "title": "MatchRecord",
+  "type": "object"
+}

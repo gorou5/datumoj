@@ -1,0 +1,58 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "source_id": {
+      "maxLength": 128,
+      "pattern": "^[a-z]{2,4}(?:-[a-z0-9]+)+$",
+      "title": "Source Id",
+      "type": "string"
+    },
+    "table_key": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Table Key",
+      "type": "string"
+    },
+    "indicator": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Indicator",
+      "type": "string"
+    },
+    "indicator_code": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Indicator Code"
+    },
+    "fixed_dimensions": {
+      "additionalProperties": {
+        "maxLength": 256,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxProperties": 256,
+      "propertyNames": {
+        "maxLength": 256,
+        "minLength": 1
+      },
+      "title": "Fixed Dimensions",
+      "type": "object"
+    }
+  },
+  "required": [
+    "source_id",
+    "table_key",
+    "indicator"
+  ],
+  "title": "SeriesIdentity",
+  "type": "object"
+}

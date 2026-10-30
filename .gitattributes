@@ -1,0 +1,2 @@
+# Fixtures keep their recorded bytes: no line-ending conversion on any platform.
+tests/fixtures/** -text

@@ -1,16 +1,16 @@
 """PDF recheck scheduling uses only the injected crawl clock."""
 
-from datetime import timedelta
 import logging
+from datetime import timedelta
 from urllib.parse import urlsplit
 
 import pytest
 
-from datumoj.core.contracts import CrawlContext, FetchResult
-from datumoj.core.models import FetchOutcome
-from datumoj.crawlers.gov_web import GovWebCrawler
-from datumoj.testing.fakes import FakeManifest, FakeRawStore
-from datumoj.testing.samples import T0, make_snapshot, make_spec
+from datumoj.rikolto.core.contracts import CrawlContext, FetchResult
+from datumoj.rikolto.core.models import FetchOutcome
+from datumoj.rikolto.crawlers.gov_web import GovWebCrawler
+from datumoj.rikolto.testing.fakes import FakeManifest, FakeRawStore
+from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 
 BASE = "http://gov-web.test"
 SEED = BASE + "/policy/startup/index.html"
@@ -48,7 +48,7 @@ def listing(*links):
 
 @pytest.mark.parametrize(("days_ago", "expected"), [(6, False), (8, True)])
 def test_pdf_recheck_interval(days_ago, expected):
-    spec, manifest, ctx = context(pdf_recheck_days=7)
+    _spec, manifest, ctx = context(pdf_recheck_days=7)
     successful_pdf(manifest, days_ago)
     crawler = GovWebCrawler()
     task, = crawler.plan(ctx)

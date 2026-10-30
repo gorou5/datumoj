@@ -9,7 +9,7 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from datumoj.core.contracts import (
+from datumoj.rikolto.core.contracts import (
     CrawlContext,
     FetchResult,
     FetchTask,
@@ -20,7 +20,6 @@ from datumoj.core.contracts import (
     PluginConflict,
     PluginError,
     PluginWarning,
-    SourceSpec,
     citation_for_chunk,
     citation_for_observation,
     discover_crawlers,
@@ -28,11 +27,8 @@ from datumoj.core.contracts import (
     normalize_media_type,
     select_parser,
 )
-from datumoj.core.models import FetchOutcome, GapState, LicenseInfo, Redistribution, TimeBasis, UsageScope
-from datumoj.testing.contract_suites import (
-    _kw_corpus,
-    _obs_table,
-    retrieval_corpus,
+from datumoj.rikolto.core.models import FetchOutcome, GapState, LicenseInfo, Redistribution, TimeBasis, UsageScope
+from datumoj.rikolto.testing.contract_suites import (
     CatalogStoreSuite,
     ChunkStoreSuite,
     CrawlerSuite,
@@ -40,14 +36,18 @@ from datumoj.testing.contract_suites import (
     HttpFetcherSuite,
     KeywordIndexSuite,
     ManifestSuite,
+    ObservationReleaseSuite,
     ObservationStoreSuite,
     ParserSuite,
     RawStoreSuite,
     RegistrySuite,
     RetrieverSuite,
     VectorIndexSuite,
+    _kw_corpus,
+    _obs_table,
+    retrieval_corpus,
 )
-from datumoj.testing.fakes import (
+from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChunkStore,
     FakeCrawler,
@@ -65,7 +65,7 @@ from datumoj.testing.fakes import (
     UnregisteredUrl,
     drive_crawler,
 )
-from datumoj.testing.samples import (
+from datumoj.rikolto.testing.samples import (
     T0,
     ParseSample,
     make_chunk,
@@ -190,7 +190,7 @@ class TestFakeObservationStore(ObservationStoreSuite):
         return FakeObservationStore()
 
     def test_timeout(self, filled):
-        from datumoj.core.contracts import QueryTimeout
+        from datumoj.rikolto.core.contracts import QueryTimeout
 
         endless = "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n) SELECT count(*) FROM n"
         with pytest.raises(QueryTimeout):
@@ -342,7 +342,7 @@ class TestParseModels:
     snap = make_snapshot(data=b"doc")
 
     def _doc_and_chunk(self, sha256=None):
-        from datumoj.testing.samples import make_document
+        from datumoj.rikolto.testing.samples import make_document
 
         s = sha256 or self.snap.sha256
         return make_document("jp-test:d", s), make_chunk("jp-test:d", s, "art=1", "本文")
@@ -521,7 +521,7 @@ def make_pkg(tmp_path, monkeypatch):
 
 
 CRAWLER_ALPHA = """
-    from datumoj.core.contracts import Crawler
+    from datumoj.rikolto.core.contracts import Crawler
 
     class Base(Crawler):
         '''没有声明 kind 的基类，不算插件。'''
@@ -536,7 +536,7 @@ CRAWLER_ALPHA = """
         '''没有重新声明 kind，不算插件（否则会和 Alpha 撞键）。'''
 """
 CRAWLER_BETA = """
-    from datumoj.core.contracts import Crawler
+    from datumoj.rikolto.core.contracts import Crawler
     from {pkg}.alpha import Alpha  # 导入进来的类不能重复计
 
     class Beta(Crawler):
@@ -552,13 +552,13 @@ CRAWLER_BETA = """
         kind = "not_a_crawler"
 """
 CRAWLER_ALPHA_AGAIN = """
-    from datumoj.core.contracts import Crawler
+    from datumoj.rikolto.core.contracts import Crawler
 
     class AlphaAgain(Crawler):
         kind = "alpha"
 """
 PARSER_JSON = """
-    from datumoj.core.contracts import Parser, ParseResult
+    from datumoj.rikolto.core.contracts import Parser, ParseResult
 
     class LawJson(Parser):
         name = "law-json"
@@ -570,7 +570,7 @@ PARSER_JSON = """
             return ParseResult()
 """
 PARSER_ANY = """
-    from datumoj.core.contracts import Parser, ParseResult
+    from datumoj.rikolto.core.contracts import Parser, ParseResult
 
     class AnyTable(Parser):
         name = "any-table"
@@ -623,7 +623,7 @@ class TestDiscoverCrawlers:
     @pytest.mark.parametrize("kind", ['""', '"Bad Kind"', "123"])
     def test_invalid_kind(self, make_pkg, kind):
         pkg = make_pkg({"bad": f"""
-            from datumoj.core.contracts import Crawler
+            from datumoj.rikolto.core.contracts import Crawler
 
             class Bad(Crawler):
                 kind = {kind}
@@ -665,3 +665,35 @@ class TestDiscoverParsers:
         pkg = make_pkg({"law": PARSER_JSON.replace(old, new)})
         with pytest.raises(PluginError, match="LawJson"):
             discover_parsers(pkg)
+
+
+class TestFakeObservationReleases(ObservationReleaseSuite):
+    @pytest.fixture
+    def store(self):
+        return FakeObservationStore()
+
+    @pytest.fixture
+    def publish(self):
+        return lambda store, manifest: store.publish_generation(manifest)
+
+    @pytest.fixture
+    def discard(self):
+        return lambda store, generation: store.discard_generation(generation)
+
+
+class TestDuckDBObservationReleases(ObservationReleaseSuite):
+    @pytest.fixture
+    def store(self, tmp_path):
+        from datumoj.rikolto.store.observations import DuckDBObservationStore
+        return DuckDBObservationStore(tmp_path)
+
+    @pytest.fixture
+    def publish(self):
+        def publish(store, manifest):
+            from tests.store.test_observation_releases import publish_fixture
+            return publish_fixture(store, manifest)
+        return publish
+
+    @pytest.fixture
+    def discard(self):
+        return lambda store, generation: (store.root / '.observation-generations' / str(generation) / 'verified.json').unlink()

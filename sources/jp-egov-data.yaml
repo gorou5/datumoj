@@ -17,6 +17,8 @@ license:
   attribution: 出典：e-Govデータポータル（https://data.e-gov.go.jp/）
   usage_scope: internal_only
   redistribution: unverified
+  outflow: no_outflow
+  cloud_model_ok: false
   verified_at: null
   notes: 利用規約尚未逐项核对；数据集级 license_id 全站为空，许可以资源级为准（记在资源快照 meta 的 license）；核对前仅内部使用
 # 目录元数据全量抓取；资源文件只下载白名单内的（不在白名单的只留元数据）。

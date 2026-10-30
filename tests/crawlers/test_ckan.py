@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
-from datumoj.core.contracts import CrawlContext
-from datumoj.core.models import FetchOutcome
-from datumoj.crawlers.ckan import CkanCrawler
-from datumoj.testing.contract_suites import CrawlerSuite
-from datumoj.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore, FakeResponse, drive_crawler
-from datumoj.testing.samples import T0, make_spec
+from datumoj.rikolto.core.contracts import CrawlContext
+from datumoj.rikolto.core.models import FetchOutcome
+from datumoj.rikolto.crawlers.ckan import CkanCrawler
+from datumoj.rikolto.testing.contract_suites import CrawlerSuite
+from datumoj.rikolto.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore, FakeResponse, drive_crawler
+from datumoj.rikolto.testing.samples import T0, make_spec
 
 FIXTURES = Path(__file__).parents[2] / "tests" / "fixtures" / "ckan_egov"
 API = "https://data.e-gov.go.jp/data/api/action"
@@ -20,8 +20,8 @@ SEARCH = API + "/package_search?q=%2A%3A%2A&rows={rows}&start={start}&sort=id%20
 ACTIVITY = API + "/recently_changed_packages_activity_list?limit=100"
 SHOW = API + "/package_show?id={id}"
 CSV_URL = "https://www.npa.go.jp/a/data.csv"
-RUN1 = datetime(2026, 10, 1, tzinfo=timezone.utc)  # 早于 fixture 里的活动时间戳（2026-10-16 起）
-RUN2 = datetime(2026, 10, 20, tzinfo=timezone.utc)
+RUN1 = datetime(2026, 10, 1, tzinfo=UTC)  # 早于 fixture 里的活动时间戳（2026-10-16 起）
+RUN2 = datetime(2026, 10, 20, tzinfo=UTC)
 
 
 def _fixture(name: str) -> bytes:

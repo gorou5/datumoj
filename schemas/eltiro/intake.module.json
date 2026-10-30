@@ -1,0 +1,22 @@
+{
+  "id": "eltiro-local-intake",
+  "name": "Eltiro local demand intake",
+  "kind": "tool",
+  "version": "0.1.0",
+  "description": "Validate local consumer demands, persist immutable versions, archive files and append private receipts and audit evidence.",
+  "inputs": [
+    {"name": "consumers.yaml", "type": "ConsumersConfig", "required": true},
+    {"name": "demand", "type": "DemandSpec YAML/JSON", "required": true},
+    {"name": "source registry", "type": "Registry / authoritative SourceSpec YAML directory", "required": true}
+  ],
+  "outputs": "SQLite demand metadata and versions; per-consumer JSON receipts; append-only audit.jsonl; processed/rejected files",
+  "runtime": "local Python 3.12-3.13 on POSIX macOS/Linux; same-filesystem inbox/archive rename",
+  "permissions": ["read trusted source registry and consumers configuration", "read inbox files without following symlinks", "write host-owned Eltiro data, receipts, audit and archives"],
+  "data_source": "operator-supplied local demands and authoritative source registry; no network",
+  "license": "unknown",
+  "invocation": {"kind": "cli", "detail": "python -m datumoj.eltiro --data-dir data --sources-dir sources intake"},
+  "error_model": "Fixed receipt reason codes; CLI exits 1 on submit rejection or operational error without reflecting input. Files remain retryable on persistence failure.",
+  "test": "make check T=tests/regressions/test_audit_wisteria_801.py; make check T=tests/eltiro; make check T=tests",
+  "repository": "src/datumoj/eltiro/intake.py",
+  "status": "experimental"
+}

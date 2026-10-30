@@ -1,0 +1,53 @@
+schema: eltiro.request/v0
+id: trade-mirror
+version: 1
+consumer: example-analysis-site
+purpose: >-
+  将日本报告的对美国货物出口与美国报告的自日本进口并列，保留报告方、伙伴方、
+  商品分类及版本、估价和发布时间，计算镜像差。CIF/FOB 差异必须明示；
+  WTO 无同口径双边数据时报告缺口，不拿全球合计或服务贸易替代。
+source_case: "cases #003 贸易镜像黑洞：出口 100，进口只剩 60（标题数字不是原值）"
+entities:
+  countries: [JPN, USA]
+period:
+  from: "2018"
+  to: "2023"
+  frequency: annual
+revisions: latest
+indicators:
+  - key: exports_usd
+    concept: 日本为报告方、美国为伙伴方的年度货物出口总额，当年美元，FOB
+    unit: USD
+    preferred_sources: [intl-un-comtrade, intl-wto]
+    min_sources: 2
+    keep_separate_by: [source, release, methodology]
+    examples:
+      positive: ["日本报告的对美国货物出口，全部商品，FOB"]
+      negative: ["全球伙伴合计", "服务贸易", "美国对日本出口", "净出口"]
+  - key: imports_usd
+    concept: 美国为报告方、日本为伙伴方的年度货物进口总额，当年美元，保留来源估价口径
+    unit: USD
+    preferred_sources: [intl-un-comtrade, intl-wto]
+    min_sources: 2
+    keep_separate_by: [source, release, methodology]
+    examples:
+      positive: ["美国报告的自日本货物进口，全部商品，来源原始估价"]
+      negative: ["日本自美国进口", "全球伙伴合计", "出口减进口"]
+align:
+  keys: [year, source]
+  require_same_unit: true
+operations:
+  - id: mirror_gap
+    op: mirror_diff
+    left: exports_usd
+    right: imports_usd
+output:
+  fields: [year, source, reporter, partner, valuation, exports_usd, imports_usd, mirror_gap, release_id, citation_id]
+  format: [parquet, csv]
+accept_outflow: [raw_ok, derived_only]
+models:
+  max_tier: low
+  allow_cloud: false
+run:
+  trigger: on_new_generation
+  notify_on: [binding_stale, definition_changed, new_candidate, gap_filled]

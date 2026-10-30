@@ -10,7 +10,7 @@ import hashlib
 import json
 import os
 import sqlite3
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from functools import partial
 from pathlib import Path
 
@@ -19,17 +19,25 @@ import pytest
 from typer.testing import CliRunner
 from werkzeug.wrappers import Response
 
-from datumoj import cli, wiring
-from datumoj.core.contracts import ParseStatus, select_parser
-from datumoj.core.http import PoliteHttpFetcher
-from datumoj.core.models import Citation, DocKind, FetchOutcome, SourceText, TimeBasis, parent_ref
-from datumoj.core.registry import RegistryImpl, load_registry
-from datumoj.core.runner import CrawlDeps
-from datumoj.core.schedule import read_control
-from datumoj.crawlers.gov_web import GovWebCrawler
-from datumoj.index.hybrid import HybridRetriever
-from datumoj.testing.contract_suites import ParserSuite
-from datumoj.testing.samples import ParseSample, make_snapshot
+from datumoj.rikolto import cli, wiring
+from datumoj.rikolto.core.contracts import ParseStatus, select_parser
+from datumoj.rikolto.core.http import PoliteHttpFetcher
+from datumoj.rikolto.core.models import (
+    Citation,
+    DocKind,
+    FetchOutcome,
+    SourceText,
+    TimeBasis,
+    parent_ref,
+    parse_context_fingerprint,
+)
+from datumoj.rikolto.core.registry import RegistryImpl, load_registry
+from datumoj.rikolto.core.runner import CrawlDeps
+from datumoj.rikolto.core.schedule import read_control
+from datumoj.rikolto.crawlers.gov_web import GovWebCrawler
+from datumoj.rikolto.index.hybrid import HybridRetriever
+from datumoj.rikolto.testing.contract_suites import ParserSuite
+from datumoj.rikolto.testing.samples import ParseSample, make_snapshot
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = ROOT / "tests/fixtures/gov_web"
@@ -44,7 +52,7 @@ GUIDE = PREFIX + "guide.pdf"
 CAO = "/cstp/openinnovation/procurement/index.html"
 PDF = "/cstp/openinnovation/procurement/guideline.pdf"
 DATED = "/dated/index.html"
-NOW = datetime(2026, 10, 22, 12, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 22, 12, tzinfo=UTC)
 LAST_MODIFIED = "Wed, 21 Oct 2026 00:00:00 GMT"
 
 
@@ -208,7 +216,10 @@ def test_page_sections_pdf_pages_and_restorable_citations(policy_chain):
     for snap in deps.manifest.snapshots_for(SOURCE):
         assert snap.outcome is FetchOutcome.ok
         deps.raw.verify(snap.sha256)
-        record = deps.manifest.get_parse(snap.sha256, wiring._GovWebContent.name, wiring._GovWebContent.version)
+        record = deps.manifest.get_parse(
+            snap.sha256, wiring._GovWebContent.name, wiring._GovWebContent.version,
+            parse_context_fingerprint(snap, deps.manifest.snapshot_meta(snap.snapshot_id)),
+        )
         assert record.status is ParseStatus.ok
 
     cases = [
@@ -293,7 +304,10 @@ def test_crawl_boundaries_and_failures_are_not_successes(chain_factory):
     assert parsed.exit_code == 1 and "empty_content" in parsed.output
     for path in (DETAIL, DEEPER):
         snap = deps.manifest.last_success(BASE + path)
-        record = deps.manifest.get_parse(snap.sha256, wiring._GovWebContent.name, wiring._GovWebContent.version)
+        record = deps.manifest.get_parse(
+            snap.sha256, wiring._GovWebContent.name, wiring._GovWebContent.version,
+            parse_context_fingerprint(snap, deps.manifest.snapshot_meta(snap.snapshot_id)),
+        )
         assert record.status is ParseStatus.failed
     assert len(_versions(deps)) == 2  # Only seed HTML and its PDF entered the store.
     indexed = invoke("index", "--rebuild")

@@ -1,0 +1,42 @@
+schema: "eltiro.eval.values/v1"
+demand_id: "greece-deficit-revision-chain"
+points:
+  - id: "grc-2009-april2010"
+    status: "pending_h2"
+    selector: {"demand_id": "greece-deficit-revision-chain", "country": "GRC", "period": "2009", "indicator_key": "deficit_pct_gdp", "source_id": "eu-eurostat", "release_id": "pending_h2"}
+    unit: "percent_of_gdp"
+    source_value: null
+    source_note: null
+    source_multiplier: "1"
+    output_multiplier: "1"
+    absolute_tolerance: "0"
+    significant_digits: null
+    evidence: {"reference": "https://ec.europa.eu/eurostat/databrowser/view/gov_10dd_edpt1/default/table?lang=en", "locator": "gov_10dd_edpt1 / B9 / S13 / PC_GDP / EL / 2009; April 2010 release", "note": "待核验点，非已录原值；本次只检查仓库证据，未访问页面。若有倍率，H2 必须核对元数据。"}
+    checked_at: null
+    pending_reason: "没有该点的官方原值及发布快照；H2 补原值、来源页/存档、核对日期、真实 release_id、倍率和精度后才能计分。"
+  - id: "grc-2009-nov2010"
+    status: "pending_h2"
+    selector: {"demand_id": "greece-deficit-revision-chain", "country": "GRC", "period": "2009", "indicator_key": "deficit_pct_gdp", "source_id": "eu-eurostat", "release_id": "pending_h2"}
+    unit: "percent_of_gdp"
+    source_value: null
+    source_note: null
+    source_multiplier: "1"
+    output_multiplier: "1"
+    absolute_tolerance: "0"
+    significant_digits: null
+    evidence: {"reference": "https://ec.europa.eu/eurostat/databrowser/view/gov_10dd_edpt1/default/table?lang=en", "locator": "gov_10dd_edpt1 / B9 / S13 / PC_GDP / EL / 2009; November 2010 release", "note": "待核验点，非已录原值；本次只检查仓库证据，未访问页面。若有倍率，H2 必须核对元数据。"}
+    checked_at: null
+    pending_reason: "没有该点的官方原值及发布快照；H2 补原值、来源页/存档、核对日期、真实 release_id、倍率和精度后才能计分。"
+  - id: "grc-2009-debt"
+    status: "pending_h2"
+    selector: {"demand_id": "greece-deficit-revision-chain", "country": "GRC", "period": "2009", "indicator_key": "debt_eur", "source_id": "eu-eurostat", "release_id": "pending_h2"}
+    unit: "EUR"
+    source_value: null
+    source_note: null
+    source_multiplier: "1"
+    output_multiplier: "1"
+    absolute_tolerance: "0"
+    significant_digits: null
+    evidence: {"reference": "https://ec.europa.eu/eurostat/databrowser/view/gov_10dd_edpt1/default/table?lang=en", "locator": "gov_10dd_edpt1 / GD / S13 / MIO_EUR / EL / 2009", "note": "待核验点，非已录原值；本次只检查仓库证据，未访问页面。若有倍率，H2 必须核对元数据。"}
+    checked_at: null
+    pending_reason: "没有该点的官方原值及发布快照；H2 补原值、来源页/存档、核对日期、真实 release_id、倍率和精度后才能计分。"

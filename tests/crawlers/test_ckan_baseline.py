@@ -1,22 +1,22 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from datumoj.crawlers.ckan import CkanCrawler
-from datumoj.core.runner import CrawlDeps, run_crawl
-from datumoj.core.models import FetchOutcome
-from datumoj.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore, FakeResponse, drive_crawler
-from datumoj.testing.samples import make_spec
+from datumoj.rikolto.core.models import FetchOutcome
+from datumoj.rikolto.core.runner import CrawlDeps, run_crawl
+from datumoj.rikolto.crawlers.ckan import CkanCrawler
+from datumoj.rikolto.testing.fakes import FakeHttpFetcher, FakeManifest, FakeRawStore, FakeResponse, drive_crawler
+from datumoj.rikolto.testing.samples import make_spec
 
 API = "https://data.e-gov.go.jp/data/api/action"
 SEARCH = API + "/package_search?q=%2A%3A%2A&rows={rows}&start={start}&sort=id%20asc"
 ACTIVITY = API + "/recently_changed_packages_activity_list?limit=100"
-RUN1 = datetime(2026, 10, 1, tzinfo=timezone.utc)
-RUN2 = datetime(2026, 10, 2, tzinfo=timezone.utc)
-RUN3 = datetime(2026, 10, 3, tzinfo=timezone.utc)
+RUN1 = datetime(2026, 10, 1, tzinfo=UTC)
+RUN2 = datetime(2026, 10, 2, tzinfo=UTC)
+RUN3 = datetime(2026, 10, 3, tzinfo=UTC)
 
 
 def _spec(*, rows: int = 2, max_files: int = 100, incremental: bool = True):

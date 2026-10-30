@@ -1,0 +1,67 @@
+schema: "eltiro.eval.gold/v1"
+demand_id: "trade-mirror"
+demand_version: 1
+entries:
+  - id: "comtrade-exports_usd"
+    indicator_key: "exports_usd"
+    series: {"source_id": "intl-un-comtrade", "table_key": "UN Comtrade annual merchandise trade (adapter table key unresolved)", "indicator": "primaryValue", "indicator_code": null, "fixed_dimensions": {"typeCode": "C", "freqCode": "A", "reporterCode": "392", "partnerCode": "842", "flowCode": "X", "cmdCode": "TOTAL"}}
+    expected: "positive"
+    status: "pending_h2"
+    evidence: {"reference": "https://comtradeapi.un.org/", "locator": "annual merchandise; primaryValue; reporterCode/partnerCode/flowCode/cmdCode", "note": "UN Comtrade 参数入口；进口估价、分类版本、customs/mode/partner2 仍需补齐，不能当完整身份。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。 注册表 id 暂拟 intl-un-comtrade，计划未给字面 id，以 H2 为准。"
+  - id: "wto-exports_usd"
+    indicator_key: "exports_usd"
+    series: {"source_id": "intl-wto", "table_key": "WTO merchandise trade (dataset key unresolved)", "indicator": "Bilateral merchandise exports", "indicator_code": null, "fixed_dimensions": {"reporter": "392", "partner": "842", "currency": "USD"}}
+    expected: "positive"
+    status: "pending_h2"
+    evidence: {"reference": "https://stats.wto.org/", "locator": "Merchandise trade values / bilateral coverage unresolved", "note": "不臆造 WTO 指标代码，不假定具有所需双边/估价口径；没有则记录缺口。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。 是否有双边等价序列待核验。"
+  - id: "world-exports_usd"
+    indicator_key: "exports_usd"
+    series: {"source_id": "intl-un-comtrade", "table_key": "UN Comtrade annual merchandise trade (adapter table key unresolved)", "indicator": "primaryValue", "indicator_code": null, "fixed_dimensions": {"typeCode": "C", "freqCode": "A", "reporterCode": "392", "partnerCode": "0", "flowCode": "X", "cmdCode": "TOTAL"}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://comtradeapi.un.org/", "locator": "partnerCode=0 (World)", "note": "全球合计不能替代指定双边伙伴。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"
+  - id: "reverse-exports_usd"
+    indicator_key: "exports_usd"
+    series: {"source_id": "intl-un-comtrade", "table_key": "UN Comtrade annual merchandise trade (adapter table key unresolved)", "indicator": "primaryValue", "indicator_code": null, "fixed_dimensions": {"typeCode": "C", "freqCode": "A", "reporterCode": "842", "partnerCode": "392", "flowCode": "X", "cmdCode": "TOTAL"}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://comtradeapi.un.org/", "locator": "reporterCode/partnerCode reversed", "note": "反向流不能当作同一报告方和伙伴方的流。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"
+  - id: "comtrade-imports_usd"
+    indicator_key: "imports_usd"
+    series: {"source_id": "intl-un-comtrade", "table_key": "UN Comtrade annual merchandise trade (adapter table key unresolved)", "indicator": "primaryValue", "indicator_code": null, "fixed_dimensions": {"typeCode": "C", "freqCode": "A", "reporterCode": "842", "partnerCode": "392", "flowCode": "M", "cmdCode": "TOTAL"}}
+    expected: "positive"
+    status: "pending_h2"
+    evidence: {"reference": "https://comtradeapi.un.org/", "locator": "annual merchandise; primaryValue; reporterCode/partnerCode/flowCode/cmdCode", "note": "UN Comtrade 参数入口；进口估价、分类版本、customs/mode/partner2 仍需补齐，不能当完整身份。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。 注册表 id 暂拟 intl-un-comtrade，计划未给字面 id，以 H2 为准。"
+  - id: "wto-imports_usd"
+    indicator_key: "imports_usd"
+    series: {"source_id": "intl-wto", "table_key": "WTO merchandise trade (dataset key unresolved)", "indicator": "Bilateral merchandise imports", "indicator_code": null, "fixed_dimensions": {"reporter": "842", "partner": "392", "currency": "USD"}}
+    expected: "positive"
+    status: "pending_h2"
+    evidence: {"reference": "https://stats.wto.org/", "locator": "Merchandise trade values / bilateral coverage unresolved", "note": "不臆造 WTO 指标代码，不假定具有所需双边/估价口径；没有则记录缺口。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。 是否有双边等价序列待核验。"
+  - id: "world-imports_usd"
+    indicator_key: "imports_usd"
+    series: {"source_id": "intl-un-comtrade", "table_key": "UN Comtrade annual merchandise trade (adapter table key unresolved)", "indicator": "primaryValue", "indicator_code": null, "fixed_dimensions": {"typeCode": "C", "freqCode": "A", "reporterCode": "842", "partnerCode": "0", "flowCode": "M", "cmdCode": "TOTAL"}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://comtradeapi.un.org/", "locator": "partnerCode=0 (World)", "note": "全球合计不能替代指定双边伙伴。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"
+  - id: "reverse-imports_usd"
+    indicator_key: "imports_usd"
+    series: {"source_id": "intl-un-comtrade", "table_key": "UN Comtrade annual merchandise trade (adapter table key unresolved)", "indicator": "primaryValue", "indicator_code": null, "fixed_dimensions": {"typeCode": "C", "freqCode": "A", "reporterCode": "392", "partnerCode": "842", "flowCode": "M", "cmdCode": "TOTAL"}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://comtradeapi.un.org/", "locator": "reporterCode/partnerCode reversed", "note": "反向流不能当作同一报告方和伙伴方的流。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"
+  - id: "services-not-goods"
+    indicator_key: "exports_usd"
+    series: {"source_id": "intl-wto", "table_key": "WTO commercial services (dataset key unresolved)", "indicator": "Commercial services exports", "indicator_code": null, "fixed_dimensions": {"reporter": "392", "partner": "842"}}
+    expected: "negative"
+    status: "pending_h2"
+    evidence: {"reference": "https://stats.wto.org/", "locator": "Commercial services", "note": "服务贸易不能替代货物贸易。"}
+    pending_reason: "国际来源等待 H2；官方代码为核验入口，尚未核对接入后的完整 SeriesIdentity、倍率、实绩范围与发布时间。"
