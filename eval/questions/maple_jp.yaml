@@ -1,0 +1,134 @@
+questions:
+- id: maple-jp-ksj-title
+  question: 国土数値情報P05の録画サンプルは何年度・どの県ですか？
+  lang: ja
+  kind: retrieval
+  queries:
+  - 国土数値情報 2022年度 佐賀県
+  source_ids:
+  - jp-ksj
+  expect:
+    hits:
+    - doc_key: jp-ksj:P05-22_41
+      locator_prefix: member=KS-META-P05-22_41.xml
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/ksj/P05-22_41_GML.zip. Expected: 2022年度、佐賀県。市町村役場等及び公的集会施設、国土交通省、CC BY 4.0。'
+- id: maple-jp-ksj-facility
+  question: 嘉瀬公民館の住所は何ですか？
+  lang: ja
+  kind: retrieval
+  queries:
+  - 嘉瀬公民館
+  source_ids:
+  - jp-ksj
+  expect:
+    hits:
+    - doc_key: jp-ksj:P05-22_41
+      locator_prefix: member=P05-22_41.geojson
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/ksj/P05-22_41_GML.zip. Expected: 佐賀市嘉瀬町中原1690。GeoJSONのP05_003/P05_004で確認。'
+- id: maple-jp-census-establishments
+  question: 令和6年経済センサス甲調査の佐賀市の事業所数は？
+  lang: ja
+  kind: retrieval
+  queries:
+  - 佐賀市 事業所数
+  source_ids:
+  - jp-census
+  expect:
+    hits:
+    - doc_key: jp-census:000040389320
+      locator_prefix: sheet=c1_001_1;cell=D1745
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/census2024/c1_001_1.xlsx. Expected: 8780事業所。雇用者のいない個人経営の事業所を除く。事業内容等不詳を含むC列10379と混同しない。'
+- id: maple-jp-census-workers
+  question: 令和6年経済センサス甲調査の佐賀県の従業者数は？
+  lang: ja
+  kind: retrieval
+  queries:
+  - 佐賀県 従業者数
+  source_ids:
+  - jp-census
+  expect:
+    hits:
+    - doc_key: jp-census:000040389320
+      locator_prefix: sheet=c1_001_1;cell=E1744
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/census2024/c1_001_1.xlsx. Expected: 338267人。雇用者のいない個人経営の事業所を除く。'
+- id: maple-jp-ndb-count
+  question: NDB質問項目1の北海道・男性40～44歳・「はい」は何人ですか？
+  lang: ja
+  kind: retrieval
+  queries:
+  - 北海道 男 40～44歳 はい 血圧
+  source_ids:
+  - jp-mhlw
+  expect:
+    hits:
+    - doc_key: jp-mhlw:ndb11-q1
+      locator_prefix: member=08_特定健診_問診項目/標準的な質問票（質問項目１）　都道府県別性年齢階級別分布.xlsx;sheet=質問項目;cell=C6
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/ndb/ndb11_kenshin_shitsumon01_pref_sex_age.xlsx. Expected: 4688人数、2023年度健診分（2023-04-01–2024-03-31）、第11回公開日2026-06-16。'
+- id: maple-jp-ndb-suppression
+  question: NDB表頭の規則に従い「‐」で表示される遮蔽格子の数値を答えられますか？
+  lang: ja
+  kind: retrieval
+  queries:
+  - 現在、血圧を下げる薬を使用しているか
+  source_ids:
+  - jp-mhlw
+  expect:
+    hits:
+    - doc_key: jp-mhlw:ndb11-q1
+      locator_prefix: member=08_特定健診_問診項目/標準的な質問票（質問項目１）　都道府県別性年齢階級別分布.xlsx;sheet=質問項目;cell=A1
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/ndb/ndb11_kenshin_shitsumon01_pref_sex_age.xlsx. Expected: 遮蔽，不能给数值。A1: 集計結果が10未満の場合は「‐」;
+    1箇所だけの場合は10以上の最小値も遮蔽。ゼロで補わず、逆算しない。この録画のデータ行には実際の遮蔽格子はなく、表頭の規則を問う。'
+- id: maple-jp-abr-id
+  question: 青ヶ島村休戸郷の町字IDと読みは？
+  lang: ja
+  kind: retrieval
+  queries:
+  - 休戸郷
+  source_ids:
+  - jp-abr
+  expect:
+    hits:
+    - doc_key: jp-abr:mt_town:134023
+      locator_prefix: member=mt_town_city134023.csv;row=2
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/abr/mt_town_city134023.csv.zip. Expected: machiaza_id=0003000、ヤスンドゴウ。lg_code=134023。先頭ゼロを保持。'
+- id: maple-jp-abr-ike
+  question: 青ヶ島村池之沢の町字IDと読みは？
+  lang: ja
+  kind: retrieval
+  queries:
+  - 池之沢
+  source_ids:
+  - jp-abr
+  expect:
+    hits:
+    - doc_key: jp-abr:mt_town:134023
+      locator_prefix: member=mt_town_city134023.csv;row=3
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/abr/mt_town_city134023.csv.zip. Expected: machiaza_id=0004000、イケノサワ。lg_code=134023。'
+- id: maple-zero-ja
+  question: 恐竜 化石 火星探査?
+  lang: ja
+  kind: gap
+  queries:
+  - 恐竜 化石 火星探査
+  source_ids:
+  - us-fedreg
+  - eu-eurostat
+  - intl-wdi
+  - fr-data-gouv
+  - eu-data-europa
+  - jp-ksj
+  - jp-census
+  - jp-mhlw
+  - jp-abr
+  expect:
+    hits: []
+    gap_state: zero_hits
+  notes: 'Expected: 当前15个样本响应未包含此主题；明确无命中，不猜测答案。检查所有MAPLE样本来源，不限单一来源。'
