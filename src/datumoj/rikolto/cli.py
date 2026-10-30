@@ -146,7 +146,7 @@ def _state_call(action: Callable[[], Any]) -> None:
 
 @cloud_app.command("check")
 def cloud_check() -> None:
-    """实际验证 S3 条件写入；不取得租约或发布代次。"""
+    """实际验证所选状态后端的条件写入；不取得租约或发布代次。"""
     from datumoj.rikolto.cloud import check
 
     result = check()

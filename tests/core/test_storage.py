@@ -151,3 +151,30 @@ def test_build_tools_uses_loaded_directory(tmp_path, monkeypatch):
 
     monkeypatch.setattr(wiring, "build", build)
     assert wiring.build_tools() is sentinel
+
+
+def test_dir_configuration_and_lease_detection(tmp_path):
+    from datumoj.rikolto.core.storage import s3_remote_configured
+
+    env = {"DATUMOJ_STATE_BACKEND": "dir", "DATUMOJ_STATE_DIR": str(tmp_path / "state")}
+    config = load_storage_config(env, tmp_path / "data")
+    assert config.state_backend == "dir" and config.state_dir == tmp_path / "state"
+    assert s3_remote_configured(env)
+    assert not s3_remote_configured({})
+    assert load_storage_config({}).state_backend == "s3"
+    with pytest.raises(ValueError):
+        load_storage_config({"DATUMOJ_STATE_BACKEND": "unknown"})
+
+
+@pytest.mark.parametrize("location", [None, "relative", "data", "data/nested", "."])
+def test_invalid_or_overlapping_state_directory(tmp_path, location):
+    state = None if location is None else (location if location == "relative" else tmp_path / location)
+    with pytest.raises(ValueError, match="DATUMOJ_STATE_DIR"):
+        StorageConfig(data_dir=tmp_path / "data", state_backend="dir", state_dir=state)
+
+
+def test_symlink_overlap_rejected(tmp_path):
+    (tmp_path / "data").mkdir()
+    (tmp_path / "alias").symlink_to(tmp_path / "data")
+    with pytest.raises(ValueError, match="重叠"):
+        StorageConfig(data_dir=tmp_path / "data", state_backend="dir", state_dir=tmp_path / "alias/state")
