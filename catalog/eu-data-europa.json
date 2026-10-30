@@ -1,0 +1,18 @@
+{
+  "access_method": "other",
+  "auth_required": false,
+  "country_region": "EU",
+  "id": "eu-data-europa",
+  "last_verified": "unknown",
+  "license": {
+    "allows_redistribution": "unknown",
+    "name": "CC0 1.0",
+    "requires_attribution": true,
+    "url": "https://data.europa.eu/en/legal-notice"
+  },
+  "name": "Data Europa Publications Office catalogue",
+  "official_url": "https://data.europa.eu/api/hub/repo/",
+  "publisher": "data.europa.eu; catalogue ID, dataset ID and original dataset URI are retained",
+  "rate_limit": "1 req/s",
+  "status": "experimental"
+}
