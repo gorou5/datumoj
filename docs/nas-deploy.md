@@ -35,7 +35,7 @@ mkdir -p /c/archive/r2 /c/archive/bin
 
 ```
 /c/archive/r2/
-  objects/    # 文件本体，文件名 = SHA-256，按哈希前几位分了小目录
+  raw/        # 文件本体，文件名 = SHA-256，放在以哈希前 2 位命名的子目录里
   index/      # 账本（URL ↔ 哈希对照表）
 ```
 
@@ -62,7 +62,10 @@ provider = Cloudflare
 access_key_id = <只读 Key ID>
 secret_access_key = <只读 Secret>
 endpoint = <R2 接入地址>
+no_check_bucket = true
 ```
+
+注意：密钥要用**对象级只读（Object Read only）**权限签发的那种。对象级令牌没有查桶的权限，必须带上 `no_check_bucket = true` 这一行，rclone 才不会因为查桶失败而报错（Cloudflare 官方 rclone 文档的明确要求）。
 
 测一下通不通（能列出桶里的目录就对了）：
 
@@ -78,11 +81,15 @@ endpoint = <R2 接入地址>
 #!/bin/bash
 LOG=/c/archive/pull.log
 echo "=== $(date) ===" >> "$LOG"
-/c/archive/bin/rclone copy r2arc:<桶名> /c/archive/r2 --checksum >> "$LOG" 2>&1
-echo "done" >> "$LOG"
+if /c/archive/bin/rclone copy r2arc:<桶名> /c/archive/r2 --checksum >> "$LOG" 2>&1; then
+  echo "done" >> "$LOG"
+else
+  echo "FAILED" >> "$LOG"
+  exit 1
+fi
 ```
 
-注意用的是 `copy`（只往回拉，不删本地）——云端就算误删，NAS 上这份也不受影响。
+注意用的是 `copy`（只往回拉，不删本地）——云端就算误删，NAS 上这份也不受影响。日志里只有拉成功才写 `done`；失败写 `FAILED`，脚本同时以失败码退出，不会把失败记成成功。
 
 ```bash
 chmod +x /c/archive/bin/pull.sh
@@ -101,7 +108,7 @@ crontab -e                    # 加下面这一行，每天凌晨 3 点自动拉
 
 ```bash
 H=把哈希粘在这里
-ls /c/archive/r2/objects/${H:0:2}/${H:2:2}/$H
+ls /c/archive/r2/raw/${H:0:2}/$H
 ```
 
 **只知道原 URL**——先去账本里反查哈希：
@@ -114,7 +121,7 @@ grep "example.go.jp/那个文件名" /c/archive/r2/index/*.jsonl
 
 ## 八、日常维护（就 3 条）
 
-1. **不要手动改 `/c/archive/r2/objects` 里的任何文件**，文件名就是身份证，改了就找不回来。
+1. **不要手动改 `/c/archive/r2/raw` 里的任何文件**，文件名就是身份证，改了就找不回来。
 2. 每月瞄一眼 `/c/archive/pull.log` 最后几行，确认拉取没连续报错。
 3. 在 Frontview 里打开硬盘健康告警（邮件提醒），硬盘有异常它会自己报。
 
