@@ -1,0 +1,29 @@
+id: jp-census
+name: 令和6年経済センサス‐基礎調査 甲調査（確報、表1-1）
+country: jp
+kind: estat_files
+base_url: https://www.e-stat.go.jp/
+allowed_hosts: [www.e-stat.go.jp]
+rate_per_sec: 0.2
+max_total_bytes: 1073741824
+max_files: 10000
+schedule: weekly
+license:
+  name: 政府標準利用規約（第2.0版）
+  url: https://www.e-stat.go.jp/terms-of-use
+  attribution: 出典：政府統計の総合窓口（e-Stat）（https://www.e-stat.go.jp/）、総務省統計局「令和6年経済センサス‐基礎調査 甲調査」確報 第1-1表（statInfId 000040389320）を加工して作成
+  usage_scope: internal_only
+  redistribution: unverified
+  outflow: no_outflow
+  cloud_model_ok: false
+  verified_at: null
+  notes: 2024 年甲调查排除没有雇员的个人经营事业所，和往年口径不同。适用 e-Stat 规约，可按 CC BY 4.0 利用；统计局政策页未复核，完整利用条件核对前仅内部使用。采集器拒收超过 25 MiB 的文件。
+scope:
+  tables:
+    - stat_inf_id: "000040389320"
+      survey: 令和６年経済センサス‐基礎調査
+      title: 第１－１表　民営事業所数及び従業者数(雇用者のいない個人経営の事業所を除く)－全国、都道府県、市区町村
+      layout: census2024_area_by_measure
+      expected_area_level: municipality
+      publisher: 総務省統計局
+retention_note: 原始 Excel 用于出处还原和离线重解析；清理沿用项目快照保留策略。

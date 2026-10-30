@@ -10,7 +10,9 @@ from __future__ import annotations
 from collections.abc import Iterable
 from urllib.parse import urlencode, urljoin
 
-from datumoj.rikolto.core.contracts import CrawlContext, Crawler, FetchTask
+from datumoj.rikolto.core.contracts import CrawlContext, Crawler, FetchResult, FetchTask
+from datumoj.rikolto.core.models import FetchOutcome
+from datumoj.rikolto.parsers._zip import MAX_FILE_BYTES
 from datumoj.rikolto.parsers.estat_tables import LAYOUT_FORMATS, TableEntry
 
 
@@ -29,3 +31,9 @@ class EstatFilesCrawler(Crawler):
             query = urlencode({"statInfId": entry.stat_inf_id, "fileKind": LAYOUT_FORMATS[entry.layout][1]})
             url = urljoin(ctx.spec.base_url, f"/stat-search/file-download?{query}")
             yield FetchTask(url=url, meta=entry.model_dump())
+
+    def classify(self, task: FetchTask, result: FetchResult) -> FetchOutcome | None:
+        if (task.meta.get("layout") == "census2024_area_by_measure" and result.outcome is FetchOutcome.ok
+                and result.content is not None and len(result.content) > MAX_FILE_BYTES):
+            return FetchOutcome.too_large
+        return None

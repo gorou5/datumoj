@@ -1,4 +1,4 @@
-"""e-Stat 统计表文件 → Observation，两种版式（DATUMOJ-IVY-305）。
+"""e-Stat 统计表文件 → Observation，按清单选择版式。
 
 只认清单（随快照保存的 meta，即 ``sources/jp-estat-files.yaml`` 的一项）指定的版式。文件格式、结构、表题、
 调查名、地区任何一项和清单对不上都抛 ParseError，不猜：文件名和响应头不可信（东京和大阪的下载名都是
@@ -8,6 +8,7 @@
   2015 年两组都有，按 (指标, 地区, 年) 去重，保留先出现的工作表（locator 记着来源工作表），两边值不同就报错。
 - ``census_area_by_measure``：経済センサス CSV。第 1 列是行号，表头里有列维度编码（经营组织 × 测度），
   数据行带地区码 ``ti.<5 位>`` 和产业码。
+- ``census2024_area_by_measure``：2024 甲調査表 1-1 XLSX，地区行包含五位代码与名称，三列原始测度。
 """
 
 from __future__ import annotations
@@ -26,12 +27,14 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError, m
 
 from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult
 from datumoj.rikolto.core.models import Chunk, Dataset, Document, Observation, Resource, Snapshot, Text, TimeGranularity
+from datumoj.rikolto.parsers._zip import MAX_FILE_BYTES
 from datumoj.rikolto.reference.areas import lookup, normalize_area_label
 from datumoj.rikolto.tabular import RawCell, RawTable, read_csv, read_xlsx, sniff
 
 LAYOUT_FORMATS: dict[str, tuple[str, int]] = {
     "wide_area_by_year": ("xlsx", 4),
     "census_area_by_measure": ("csv", 1),
+    "census2024_area_by_measure": ("xlsx", 0),
 }
 """版式 → (文件内容应有的格式, e-Stat 下载用的 fileKind)。"""
 _MEDIA_TYPES = {
@@ -55,16 +58,18 @@ class TableEntry(BaseModel):
     survey: Text
     title: Text
     """文件里的表题须包含它（比较前做 NFKC、去空白、统一顿号和破折号）。"""
-    layout: Literal["wide_area_by_year", "census_area_by_measure"]
-    expected_area_level: Literal["prefecture"]
+    layout: Literal["wide_area_by_year", "census_area_by_measure", "census2024_area_by_measure"]
+    expected_area_level: Literal["prefecture", "municipality"]
     publisher: Text | None = None
     area_code: Annotated[str, Field(pattern=r"^[0-9]{5}$")] | None = None
-    """census_area_by_measure 一个文件只有一个地区，必须写明；wide_area_by_year 含全国和全部都道府県，不写。"""
+    """仅 census_area_by_measure 必须指定单一地区；另两种版式包含多个地区，不写。"""
 
     @model_validator(mode="after")
     def _area_code_per_layout(self) -> TableEntry:
         if (self.layout == "census_area_by_measure") != (self.area_code is not None):
-            raise ValueError("census_area_by_measure 必须写 area_code，wide_area_by_year 不能写")
+            raise ValueError("census_area_by_measure 必须写 area_code，其他版式不能写")
+        if (self.layout == "census2024_area_by_measure") != (self.expected_area_level == "municipality"):
+            raise ValueError("census2024_area_by_measure 的地区层级须为 municipality，其他版式须为 prefecture")
         return self
 
 
@@ -334,9 +339,51 @@ def _census_area_by_measure(
     return out, []
 
 
+def _census2024_area_by_measure(
+    tables: list[RawTable], snapshot: Snapshot, entry: TableEntry,
+) -> tuple[list[Observation], list[str]]:
+    if len(tables) != 1:
+        raise ParseError("表 1-1 应只有一个工作表")
+    rows = tables[0].rows
+    header = _text(rows[:7])
+    _check_title(header, entry, "表 1-1")
+    _check_survey(header, header, entry, "表 1-1")
+    if (len(rows) < 8 or not _norm(_raw(rows[0], 1)).startswith("令和6年経済センサス-基礎調査甲調査")
+            or [_raw(rows[4], j) for j in range(2, 6)] != [
+                "表章項目", "事業所数（事業内容等不詳を含む）", "事業所数", "従業者数",
+            ] or [_raw(rows[5], j) for j in range(2, 6)] != ["表章単位", "事業所", "事業所", "人"]
+            or [_raw(rows[6], j) for j in (1, 2)] != ["地域識別コード", "地域区分"]):
+        raise ParseError("表 1-1 的调查、指标、单位或地区表头不匹配")
+    start, end, _ = _survey_period(_norm(_raw(rows[0], 1)), "表 1-1")
+    period = re.match(r"令和[0-9０-９]+年", _raw(rows[0], 1))
+    if period is None:
+        raise ParseError("表 1-1 缺少原始调查年份标签")
+    label = period.group(0)
+    make = _Obs(snapshot, entry)
+    out: list[Observation] = []
+    seen: set[str] = set()
+    for row in rows[7:]:
+        area = re.fullmatch(r"([0-9]{5})_(\S.+)", _raw(row, 2))
+        if area is None or _raw(row, 1) not in {"a", "0", "1", "2", "3"}:
+            raise ParseError(f"{row[0].locator} 不是表 1-1 地区行")
+        code, name = area.groups()
+        if code in seen or len(row) != 5:
+            raise ParseError(f"表 1-1 重复地区或列数不符：{code}")
+        seen.add(code)
+        for j in range(3, 6):
+            out.append(make(
+                f"{code}:{j}", row[j - 1], indicator=_raw(rows[4], j),
+                area_code=code, area_label=name, time_start=start, time_end=end, time_label=label,
+                unit=_raw(rows[5], j), dims={"地域識別コード": _raw(row, 1)},
+                note="雇用者のいない個人経営の事業所を除く",
+            ))
+    return out, []
+
+
 _CONVERTERS: dict[str, Callable[[list[RawTable], Snapshot, TableEntry], tuple[list[Observation], list[str]]]] = {
     "wide_area_by_year": _wide_area_by_year,
     "census_area_by_measure": _census_area_by_measure,
+    "census2024_area_by_measure": _census2024_area_by_measure,
 }
 
 
@@ -344,7 +391,7 @@ class EstatTableParser(Parser):
     """按快照 meta 里的清单项转换 e-Stat 统计表文件；核对不通过或版式认不出抛 ParseError。"""
 
     name = "estat-tables"
-    version = "1"
+    version = "2"
     source_kind = "estat_files"
     content_type = "*"  # 响应头不可信，按内容判断
 
@@ -357,6 +404,8 @@ class EstatTableParser(Parser):
             raise ParseError(f"快照 meta 不是有效的清单项，版式不明，不猜：{exc}") from None
         if parse_qs(urlsplit(snapshot.resource_url).query).get("statInfId") != [entry.stat_inf_id]:
             raise ParseError(f"快照 URL 的 statInfId 和清单项 {entry.stat_inf_id} 不一致")
+        if entry.layout == "census2024_area_by_measure" and len(data) > MAX_FILE_BYTES:
+            raise ParseError("经济普查单文件超过 25 MiB")
         fmt = LAYOUT_FORMATS[entry.layout][0]
         try:
             actual = sniff(data)
