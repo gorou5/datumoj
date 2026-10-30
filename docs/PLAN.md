@@ -143,7 +143,7 @@ Citation = source_id + resource_url + snapshot_sha256 + fetched_at + locator
 - **方向**：运行时以后落到网络存储，云端优先 Cloudflare（R2 存原始文件和派生文件，Workers / Cron Triggers 跑定时抓取，D1 等按需选择），与团队规范 `docs/architecture.md` §4 一致。
 - **做法**：核心逻辑与平台解耦。所有存储经接口访问（`RawStore` 已有；manifest、chunk、目录、观测值、向量各有 Protocol），数据位置只由一处配置决定；平台相关的实现放在独立的适配层，本机实现继续可用。
 - **分步**：TACHIBANA 先把存储位置收拢到一处配置，并给 `RawStore` 加 S3 兼容（R2）实现，用契约测试套件在模拟存储上验证；SQLite 类的库（manifest、目录、chunk）上网络存储的方式（D1，或只同步备份）用 ADR 决定。2026-10-22 已定（ADR 0002）：索引跟随数据上 R2，本机的库按需从 R2 重建；同步频率按来源分别设置。真正部署到 Cloudflare，等账号、凭证和部署流程定下来以后另排版本。**2026-10-25 定**：0.3 的运行环境改为自有 NAS（NAS 跑全部流程，状态存在 NAS 上的 S3 兼容服务），代码按 S3 接口写、只换 endpoint；R2 和 Actions 的写法保留不启用，以后要上云时再启用。**2026-10-30 改**：数据先放 R2，由 GitHub Actions 定时运行写入；本机历史不迁移，从零抓取；NAS 以后改为从 R2 取数据的下游副本（另排），不再是写入方。
-- **凭证**：R2 / Cloudflare 和 NAS 状态存储的凭证只放 `.env`、NAS 的运行环境变量文件或平台 Secrets，不进仓库和镜像；生产资源的创建和变更要人明确授权（`SECURITY.md`）。
+- **凭证**：R2 / Cloudflare 的写入凭证只放平台 Secrets（2026-10-30 起只在 GitHub Actions secrets，本机 `.env` 不放 R2 密钥）；以后 NAS 下游的只读凭证放 NAS 的运行环境变量文件；都不进仓库和镜像；生产资源的创建和变更要人明确授权（`SECURITY.md`）。
 
 ## 5. 来源范围与优先级
 
@@ -355,7 +355,7 @@ datumoj/
 - 来源正文可能含有“指令样式”的文本（提示注入），检索结果交给模型时要标注为数据；MCP 工具一律只读
 - 个人信息：公告类来源（例如以后接入的 KKJ）里的担当者姓名、电话、邮箱在入库前替换成占位符
 - 原始数据只供分析，不再对外分发；放到网络存储以后也是私有存储，不公开访问。公开分享前要逐项核对许可
-- Cloudflare / R2 凭证放 `.env`（在 .gitignore 里，`.env.example` 只放虚构值）或平台 Secrets；来自 fork 的 PR 拿不到任何凭证；创建或变更生产资源要人明确授权（`SECURITY.md`）
+- Cloudflare / R2 凭证只放平台 Secrets（2026-10-30 起本机 `.env` 不放 R2 写入密钥；`.env` 在 .gitignore 里，`.env.example` 只放虚构值）；来自 fork 的 PR 拿不到任何凭证；创建或变更生产资源要人明确授权（`SECURITY.md`）
 - 项目许可证尚未确定（候选 MIT / Apache-2.0），由维护者决定后再加 `LICENSE`
 
 ## 12. 风险
