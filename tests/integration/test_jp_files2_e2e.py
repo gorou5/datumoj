@@ -91,7 +91,9 @@ def test_each_source_fetch_parse_query_and_citation(tmp_path, source, blocked):
         assert len(parsed.parsed) == 1 and not parsed.failed
         indexed = deps.reindex(deps.pipeline_deps, source)
         if source == 'jp-mhlw':
-            assert indexed == 0
+            assert indexed == 1  # A1 title (suppression rule) is the only searchable chunk.
+            hit, = deps.retriever.search(['10未満'], k=10, source_ids=[source]).data
+            assert parse_locator(hit.locator)['cell'] == 'A1'
             result = deps.tools.query_sql(
                 "SELECT obs_id, value, unit FROM observations WHERE source_id = 'jp-mhlw' "
                 "AND obs_id = 'ndb11-q1:北海道:男:40～44歳:はい'"

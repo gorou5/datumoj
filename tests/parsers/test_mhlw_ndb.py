@@ -127,3 +127,17 @@ def test_wrong_metadata_is_rejected():
     s = sample()
     with pytest.raises(ParseError, match='requires ZIP member'):
         MhlwNdbParser().parse(s.snapshot, s.data, {'member': MEMBER.replace('１', '1')})
+
+
+def test_a1_title_with_suppression_rule_is_indexed_as_a_citable_chunk():
+    result = parse()
+    book = load_workbook(io.BytesIO(XLSX), read_only=True, data_only=True)
+    try:
+        title = book['質問項目']['A1'].value
+    finally:
+        book.close()
+    assert [d.doc_key for d in result.documents] == ['jp-mhlw:ndb11-q1']
+    chunk, = result.chunks
+    assert chunk.doc_key == 'jp-mhlw:ndb11-q1' and chunk.text == title
+    assert '10未満' in chunk.text and '‐' in chunk.text
+    assert parse_locator(chunk.locator) == {'member': MEMBER, 'sheet': '質問項目', 'cell': 'A1'}

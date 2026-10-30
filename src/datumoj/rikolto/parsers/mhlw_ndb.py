@@ -10,7 +10,7 @@ from openpyxl.utils import get_column_letter
 from pydantic import JsonValue
 
 from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult
-from datumoj.rikolto.core.models import Observation, Snapshot, TimeGranularity, format_locator
+from datumoj.rikolto.core.models import Chunk, Document, Observation, Snapshot, TimeGranularity, format_locator
 from datumoj.rikolto.parsers._zip import read_zip
 
 MEMBER = "08_特定健診_問診項目/標準的な質問票（質問項目１）　都道府県別性年齢階級別分布.xlsx"
@@ -21,7 +21,7 @@ AGES = ("40～44歳", "45～49歳", "50～54歳", "55～59歳", "60～64歳", "6
 
 class MhlwNdbParser(Parser):
     name = "mhlw-ndb"
-    version = "1"
+    version = "2"
     source_kind = "mhlw_ndb"
     content_type = "*"
 
@@ -88,7 +88,18 @@ class MhlwNdbParser(Parser):
                             release_id="ndb11", released_at=date(2026, 6, 16),
                             locator=format_locator({"member": MEMBER, "sheet": "質問項目", "cell": cell}),
                         ))
-            return ParseResult(observations=observations)
+            # The A1 title carries the suppression rule; index it so it can be found and cited.
+            dataset_key = f"{snapshot.source_id}:ndb11-q1"
+            title_locator = format_locator({"member": MEMBER, "sheet": "質問項目", "cell": "A1"})
+            document = Document(
+                doc_key=dataset_key, source_id=snapshot.source_id, snapshot_sha256=snapshot.sha256,
+                title=f"{SURVEY} {INDICATOR}", lang="ja", kind="dataset", content_type="application/zip",
+            )
+            title_chunk = Chunk(
+                chunk_id=f"{dataset_key}#{title_locator}", doc_key=dataset_key, locator=title_locator,
+                text=rows[0][0], title_path=[document.title], snapshot_sha256=snapshot.sha256, lang="ja",
+            )
+            return ParseResult(documents=[document], chunks=[title_chunk], observations=observations)
         except ParseError:
             raise
         except Exception as exc:
