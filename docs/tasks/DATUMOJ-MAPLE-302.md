@@ -9,7 +9,7 @@ runner: codex
 model: null
 tier: high
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/rikolto/crawlers/eurostat.py", "src/datumoj/rikolto/parsers/eurostat.py", "sources/eu-eurostat.yaml", "tests/crawlers/test_eurostat.py", "tests/parsers/test_eurostat.py", "tests/integration/test_eurostat_e2e.py", "results/DATUMOJ-MAPLE-302/**"]
+scope: ["src/datumoj/rikolto/crawlers/eurostat.py", "src/datumoj/rikolto/parsers/eurostat.py", "sources/eu-eurostat.yaml", "tests/crawlers/test_eurostat.py", "tests/parsers/test_eurostat.py", "tests/integration/test_eurostat_e2e.py", "catalog/eu-eurostat.json", "results/DATUMOJ-MAPLE-302/**"]
 out_of_scope: [".orch/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", "docs/**", "schemas/**", ".github/**", "src/datumoj/rikolto/core/**", "src/datumoj/rikolto/wiring.py", "src/datumoj/eltiro/**", "sources/README.md"]
 protected: ["tests/fixtures/**", "tests/regressions/**"]
 acceptance:
@@ -59,3 +59,7 @@ Eurostat 的 GDP、人口和希腊政府赤字 / 债务数据进 `query_sql`，�
 
 # 重做要求（第 1 轮，2026-10-31）
 第 1 次尝试停下来问：任务文件要求“在 yaml 加载时校验 key”，但加载器在 `core/`，不在 scope 里。这是任务文件的冲突，已改为在采集器 `plan` 里校验（见要求第 2 条）。本轮从 `feature/0.4` 重新开始，其余要求不变，`core/**` 仍不改。
+
+# 补充：来源目录文件（2026-10-31）
+- 新来源要同时提交 `catalog/eu-eurostat.json`（仓库里登记来源的导出目录，`tests/core/test_registry_export.py` 和 `tests/integration/test_tachibana_m2.py` 要求它和 `sources/*.yaml` 一致）。用 `uv run --frozen rikolto registry export --out catalog` 生成，只提交本任务来源的文件；`catalog/` 下其他文件不应有变化，有变化就说明改到了别的来源，要查清楚。
+- `tests/regressions/test_audit_wisteria_102.py` 已在 `feature/0.4` 上改为只固定原有的 7 个来源（提交 42efc70），本任务不需要、也不许改它。

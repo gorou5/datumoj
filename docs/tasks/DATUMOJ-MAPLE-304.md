@@ -2,14 +2,14 @@
 id: DATUMOJ-MAPLE-304
 title: 国土数值信息 P05（佐賀）和 2024 经济普查表 1-1：命名文件下载、ZIP 安全解压与混合编码
 project: DATUMOJ
-status: ready
+status: doing
 priority: 2
 depends_on: []
 runner: claude
 model: null
 tier: high
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/rikolto/crawlers/ksj.py", "src/datumoj/rikolto/parsers/ksj.py", "src/datumoj/rikolto/parsers/_zip.py", "src/datumoj/rikolto/parsers/estat_tables.py", "src/datumoj/rikolto/crawlers/estat_files.py", "sources/jp-ksj.yaml", "sources/jp-census.yaml", "tests/parsers/test_zip_safe.py", "tests/crawlers/test_ksj.py", "tests/parsers/test_ksj.py", "tests/parsers/test_census2024.py", "tests/integration/test_jp_files_e2e.py", "results/DATUMOJ-MAPLE-304/**"]
+scope: ["src/datumoj/rikolto/crawlers/ksj.py", "src/datumoj/rikolto/parsers/ksj.py", "src/datumoj/rikolto/parsers/_zip.py", "src/datumoj/rikolto/parsers/estat_tables.py", "src/datumoj/rikolto/crawlers/estat_files.py", "sources/jp-ksj.yaml", "sources/jp-census.yaml", "tests/parsers/test_zip_safe.py", "tests/crawlers/test_ksj.py", "tests/parsers/test_ksj.py", "tests/parsers/test_census2024.py", "tests/integration/test_jp_files_e2e.py", "catalog/jp-ksj.json", "catalog/jp-census.json", "results/DATUMOJ-MAPLE-304/**"]
 out_of_scope: [".orch/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", "docs/**", "schemas/**", ".github/**", "src/datumoj/rikolto/core/**", "src/datumoj/rikolto/wiring.py", "src/datumoj/eltiro/**", "sources/README.md"]
 protected: ["tests/fixtures/**", "tests/regressions/**"]
 acceptance:
@@ -66,3 +66,7 @@ max_attempts: 2
 - 不回补其他年份、其他县，不抓经济普查表 5（7.9MB，决策文档 3.3）。
 - 不做空间检索（坐标只写进块和元数据）。
 - shortcut：ZIP 整包读进内存，ZIP 本身受 25 MiB 单文件上限约束；要处理更大的 ZIP 时改流式。
+
+# 补充：来源目录文件（2026-10-31）
+- 新来源要同时提交 `catalog/jp-ksj.json`、`catalog/jp-census.json`（仓库里登记来源的导出目录，`tests/core/test_registry_export.py` 和 `tests/integration/test_tachibana_m2.py` 要求它和 `sources/*.yaml` 一致）。用 `uv run --frozen rikolto registry export --out catalog` 生成，只提交本任务来源的文件；`catalog/` 下其他文件不应有变化，有变化就说明改到了别的来源，要查清楚。
+- `tests/regressions/test_audit_wisteria_102.py` 已在 `feature/0.4` 上改为只固定原有的 7 个来源（提交 42efc70），本任务不需要、也不许改它。

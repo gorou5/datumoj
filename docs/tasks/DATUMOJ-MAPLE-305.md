@@ -9,7 +9,7 @@ runner: codex
 model: null
 tier: high
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/rikolto/crawlers/mhlw_ndb.py", "src/datumoj/rikolto/parsers/mhlw_ndb.py", "src/datumoj/rikolto/crawlers/abr.py", "src/datumoj/rikolto/parsers/abr.py", "sources/jp-mhlw.yaml", "sources/jp-abr.yaml", "tests/crawlers/test_mhlw_ndb.py", "tests/parsers/test_mhlw_ndb.py", "tests/crawlers/test_abr.py", "tests/parsers/test_abr.py", "tests/integration/test_jp_files2_e2e.py", "results/DATUMOJ-MAPLE-305/**"]
+scope: ["src/datumoj/rikolto/crawlers/mhlw_ndb.py", "src/datumoj/rikolto/parsers/mhlw_ndb.py", "src/datumoj/rikolto/crawlers/abr.py", "src/datumoj/rikolto/parsers/abr.py", "sources/jp-mhlw.yaml", "sources/jp-abr.yaml", "tests/crawlers/test_mhlw_ndb.py", "tests/parsers/test_mhlw_ndb.py", "tests/crawlers/test_abr.py", "tests/parsers/test_abr.py", "tests/integration/test_jp_files2_e2e.py", "catalog/jp-mhlw.json", "catalog/jp-abr.json", "results/DATUMOJ-MAPLE-305/**"]
 out_of_scope: [".orch/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", "docs/**", "schemas/**", ".github/**", "src/datumoj/rikolto/core/**", "src/datumoj/rikolto/wiring.py", "src/datumoj/eltiro/**", "sources/README.md"]
 protected: ["tests/fixtures/**", "tests/regressions/**"]
 acceptance:
@@ -58,3 +58,7 @@ NDB 特定健診質問票的都道府県 × 性别 × 年龄分布进 `query_sql
 # 不做
 - 不抓 NDB 的レセプト和其他表，不抓 ABR 的地番、住居表示、地图。
 - 不对遮蔽值做推算。
+
+# 补充：来源目录文件（2026-10-31）
+- 新来源要同时提交 `catalog/jp-mhlw.json`、`catalog/jp-abr.json`（仓库里登记来源的导出目录，`tests/core/test_registry_export.py` 和 `tests/integration/test_tachibana_m2.py` 要求它和 `sources/*.yaml` 一致）。用 `uv run --frozen rikolto registry export --out catalog` 生成，只提交本任务来源的文件；`catalog/` 下其他文件不应有变化，有变化就说明改到了别的来源，要查清楚。
+- `tests/regressions/test_audit_wisteria_102.py` 已在 `feature/0.4` 上改为只固定原有的 7 个来源（提交 42efc70），本任务不需要、也不许改它。

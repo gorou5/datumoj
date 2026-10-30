@@ -9,7 +9,7 @@ runner: claude
 model: null
 tier: medium
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/rikolto/crawlers/wdi.py", "src/datumoj/rikolto/parsers/wdi.py", "sources/intl-wdi.yaml", "tests/crawlers/test_wdi.py", "tests/parsers/test_wdi.py", "tests/integration/test_wdi_e2e.py", "results/DATUMOJ-MAPLE-303/**"]
+scope: ["src/datumoj/rikolto/crawlers/wdi.py", "src/datumoj/rikolto/parsers/wdi.py", "sources/intl-wdi.yaml", "tests/crawlers/test_wdi.py", "tests/parsers/test_wdi.py", "tests/integration/test_wdi_e2e.py", "catalog/intl-wdi.json", "results/DATUMOJ-MAPLE-303/**"]
 out_of_scope: [".orch/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", "docs/**", "schemas/**", ".github/**", "src/datumoj/rikolto/core/**", "src/datumoj/rikolto/wiring.py", "src/datumoj/eltiro/**", "sources/README.md"]
 protected: ["tests/fixtures/**", "tests/regressions/**"]
 acceptance:
@@ -56,3 +56,7 @@ WDI 的人口、美元 GDP、本币 GDP、预期寿命作为跨国比较基准�
 # 不做
 - 不扩展到 WDI 全部指标或其他 World Bank 数据源。
 - 不做币种换算。
+
+# 补充：来源目录文件（2026-10-31）
+- 新来源要同时提交 `catalog/intl-wdi.json`（仓库里登记来源的导出目录，`tests/core/test_registry_export.py` 和 `tests/integration/test_tachibana_m2.py` 要求它和 `sources/*.yaml` 一致）。用 `uv run --frozen rikolto registry export --out catalog` 生成，只提交本任务来源的文件；`catalog/` 下其他文件不应有变化，有变化就说明改到了别的来源，要查清楚。
+- `tests/regressions/test_audit_wisteria_102.py` 已在 `feature/0.4` 上改为只固定原有的 7 个来源（提交 42efc70），本任务不需要、也不许改它。

@@ -9,7 +9,7 @@ runner: claude
 model: null
 tier: high
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/rikolto/crawlers/fedreg.py", "src/datumoj/rikolto/parsers/fedreg.py", "sources/us-fedreg.yaml", "tests/crawlers/test_fedreg.py", "tests/parsers/test_fedreg.py", "tests/integration/test_fedreg_e2e.py", "results/DATUMOJ-MAPLE-201/**"]
+scope: ["src/datumoj/rikolto/crawlers/fedreg.py", "src/datumoj/rikolto/parsers/fedreg.py", "sources/us-fedreg.yaml", "tests/crawlers/test_fedreg.py", "tests/parsers/test_fedreg.py", "tests/integration/test_fedreg_e2e.py", "catalog/us-fedreg.json", "results/DATUMOJ-MAPLE-201/**"]
 out_of_scope: [".orch/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", "docs/**", "schemas/**", ".github/**", "src/datumoj/rikolto/core/**", "src/datumoj/rikolto/wiring.py", "src/datumoj/eltiro/**", "sources/README.md"]
 protected: ["tests/fixtures/**", "tests/regressions/**"]
 acceptance:
@@ -58,3 +58,10 @@ max_attempts: 2
 - 不做历史回补（2026-10-01 以前）。
 - 不抓网页版（robots 禁止若干网页搜索路径，决策文档 6.4），只用 API。
 - 不碰 Public Inspection。
+
+# 补充：来源目录文件（2026-10-31）
+- 新来源要同时提交 `catalog/us-fedreg.json`（仓库里登记来源的导出目录，`tests/core/test_registry_export.py` 和 `tests/integration/test_tachibana_m2.py` 要求它和 `sources/*.yaml` 一致）。用 `uv run --frozen rikolto registry export --out catalog` 生成，只提交本任务来源的文件；`catalog/` 下其他文件不应有变化，有变化就说明改到了别的来源，要查清楚。
+- `tests/regressions/test_audit_wisteria_102.py` 已在 `feature/0.4` 上改为只固定原有的 7 个来源（提交 42efc70），本任务不需要、也不许改它。
+
+# 重做要求（第 1 轮，2026-10-31）
+前两次尝试的 Federal Register 实现和专项测试都通过了，只是全量测试里 3 个测试失败：`catalog/` 少了 `us-fedreg.json`，以及 102 回归测试固定了来源列表。这两处都是任务文件没写清楚，已按上一节补上。本轮从 `feature/0.4` 重新开始，其余要求不变。

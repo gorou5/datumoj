@@ -9,7 +9,7 @@ runner: codex
 model: null
 tier: medium
 resources: {mem_gb: 2, disk_gb: 1, api: [], port: 0}
-scope: ["src/datumoj/rikolto/crawlers/data_europa.py", "src/datumoj/rikolto/parsers/data_europa.py", "sources/eu-data-europa.yaml", "tests/crawlers/test_data_europa.py", "tests/parsers/test_data_europa.py", "tests/integration/test_data_europa_e2e.py", "results/DATUMOJ-MAPLE-403/**"]
+scope: ["src/datumoj/rikolto/crawlers/data_europa.py", "src/datumoj/rikolto/parsers/data_europa.py", "sources/eu-data-europa.yaml", "tests/crawlers/test_data_europa.py", "tests/parsers/test_data_europa.py", "tests/integration/test_data_europa_e2e.py", "catalog/eu-data-europa.json", "results/DATUMOJ-MAPLE-403/**"]
 out_of_scope: [".orch/**", "CLAUDE.md", "AGENTS.md", "pyproject.toml", "uv.lock", "Makefile", "handoff/**", "plan/**", "docs/**", "schemas/**", ".github/**", "src/datumoj/rikolto/core/**", "src/datumoj/rikolto/wiring.py", "src/datumoj/eltiro/**", "sources/README.md"]
 protected: ["tests/fixtures/**", "tests/regressions/**"]
 acceptance:
@@ -54,3 +54,7 @@ data.europa.eu 上欧盟出版局（catalogue `publ`）的数据集能在目录�
 # 不做
 - 不用 search 接口、SPARQL。
 - 不采 `estat` catalogue（和 Eurostat 来源重复）。
+
+# 补充：来源目录文件（2026-10-31）
+- 新来源要同时提交 `catalog/eu-data-europa.json`（仓库里登记来源的导出目录，`tests/core/test_registry_export.py` 和 `tests/integration/test_tachibana_m2.py` 要求它和 `sources/*.yaml` 一致）。用 `uv run --frozen rikolto registry export --out catalog` 生成，只提交本任务来源的文件；`catalog/` 下其他文件不应有变化，有变化就说明改到了别的来源，要查清楚。
+- `tests/regressions/test_audit_wisteria_102.py` 已在 `feature/0.4` 上改为只固定原有的 7 个来源（提交 42efc70），本任务不需要、也不许改它。
