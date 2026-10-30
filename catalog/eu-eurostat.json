@@ -1,0 +1,18 @@
+{
+  "access_method": "other",
+  "auth_required": false,
+  "country_region": "EU",
+  "id": "eu-eurostat",
+  "last_verified": "unknown",
+  "license": {
+    "allows_redistribution": "unknown",
+    "name": "Eurostat statistical data reuse policy",
+    "requires_attribution": true,
+    "url": "https://ec.europa.eu/eurostat/help/copyright-notice"
+  },
+  "name": "Eurostat（精选 GDP、人口及希腊政府赤字和债务）",
+  "official_url": "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/",
+  "publisher": "Source: Eurostat; dataset code, query key and fetched_at are retained with each snapshot",
+  "rate_limit": "1 req/s",
+  "status": "experimental"
+}
