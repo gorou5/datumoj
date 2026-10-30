@@ -1,0 +1,24 @@
+id: fr-data-gouv
+name: INSEE data gouv fr
+country: fr
+kind: udata
+base_url: https://www.data.gouv.fr/api/1/
+allowed_hosts: [www.data.gouv.fr]
+rate_per_sec: 1
+max_total_bytes: 1073741824
+max_files: 10000
+schedule: daily
+license:
+  name: Licence Ouverte 2.0
+  url: https://www.data.gouv.fr/pages/legal/licences/etalab-2.0
+  attribution: 'Source: data.gouv.fr; retain the dataset last modification date.'
+  usage_scope: internal_only
+  redistribution: unverified
+  outflow: no_outflow
+  cloud_model_ok: false
+  verified_at: null
+scope:
+  organization: 534fff81a3a7292c64a77e5c
+  page_size: 100
+  download_resources: false
+retention_note: Retain metadata snapshots for catalog search and provenance; resource files are not downloaded.
