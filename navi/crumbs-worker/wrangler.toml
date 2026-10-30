@@ -1,0 +1,13 @@
+name = "navi-crumbs"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+routes = [
+  { pattern = "datumoj.com/navi/nas*", zone_name = "datumoj.com" },
+  { pattern = "datumoj.com/navi/report*", zone_name = "datumoj.com" },
+  { pattern = "datumoj.com/navi/intl-sources*", zone_name = "datumoj.com" },
+  { pattern = "datumoj.com/navi/people*", zone_name = "datumoj.com" },
+  { pattern = "datumoj.com/navi/news*", zone_name = "datumoj.com" },
+  { pattern = "datumoj.com/plan*", zone_name = "datumoj.com" },
+  { pattern = "datumoj.com/task*", zone_name = "datumoj.com" },
+]

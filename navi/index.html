@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Datumoj 导航 — datumoj.com/navi</title>
+<meta name="description" content="Datumoj 全部对外产出的导航：数据门户、计划总览、电话号码库、任务中心与最新汇报页面。">
+<style>
+  :root{--ink:#1c2430;--sub:#5a6a7a;--line:#dde4ea;--bg:#f7f9fb;--card:#fff;--acc:#205f9e}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Hiragino Sans","Noto Sans CJK SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.65}
+  .wrap{max-width:880px;margin:0 auto;padding:2.2rem 1.1rem 3.5rem}
+  h1{font-size:1.7rem;margin:.2rem 0 .3rem}
+  .lede{color:var(--sub);margin:0 0 1.8rem}
+  h2{font-size:1.05rem;margin:2rem 0 .7rem;padding-bottom:.35rem;border-bottom:2px solid var(--line);letter-spacing:.02em}
+  .grid{display:grid;grid-template-columns:1fr;gap:.7rem}
+  @media(min-width:640px){.grid{grid-template-columns:1fr 1fr}}
+  a.item{display:block;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.85rem 1rem;text-decoration:none;color:var(--ink)}
+  a.item:hover{border-color:var(--acc)}
+  .t{font-weight:700;font-size:1rem}
+  .d{color:var(--sub);font-size:.88rem;margin-top:.15rem}
+  .u{color:var(--acc);font-size:.8rem;margin-top:.3rem;word-break:break-all}
+  .feed{display:flex;flex-direction:column;gap:.55rem;margin-bottom:.4rem}
+  .pstats{display:flex;flex-wrap:wrap;gap:.55rem;margin:.2rem 0 .6rem}
+  .pstat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.55rem .8rem;min-width:150px;flex:1}
+  .pstat .n{font-weight:600}
+  .pstat .r{color:var(--sub);font-size:.78rem;margin-left:.35rem}
+  .pstat .s{font-size:.86rem;margin-top:.15rem}
+  .pstat .s b{color:var(--acc)}
+  .more{font-size:.92rem}
+  .more a{color:var(--acc);text-decoration:none}
+  .more a:hover{text-decoration:underline}
+  .fi{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:8px;padding:.6rem .9rem}
+  .fi .m{font-size:.78rem;color:var(--sub)}
+  .fi .tx{font-size:.95rem}
+  .fi a{color:var(--acc);font-size:.82rem}
+  .ftag{display:inline-block;font-size:.72rem;font-weight:700;border:1px solid var(--line);border-radius:999px;padding:.02rem .5rem;margin-right:.4rem;color:var(--ink)}
+  .tag{display:inline-block;font-size:.72rem;font-weight:700;color:#8e1414;background:#fdecea;border:1px solid #e3a49f;border-radius:999px;padding:.05rem .5rem;margin-left:.45rem;vertical-align:.12em}
+  footer{margin-top:2.6rem;color:var(--sub);font-size:.82rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Datumoj 导航</h1>
+  <p class="lede">Datumoj 全部给人看的产出都汇总在这里：对外站点、计划页面，以及最新的汇报与演示。</p>
+
+  <h2>最新动态</h2>
+  <div class="feed" id="feed"><p class="lede">加载中…</p></div>
+  <p class="more" style="margin:.1rem 0 .7rem"><a href="/navi/news/">查看全部动态 →</a></p>
+  <p class="lede" style="font-size:.85rem">动态每天定时从仓库与运维记录核实后更新，没有变化就不写。协作者同步近况：把文件（Markdown / HTML 优先，任何格式均可）放进仓库 <b>navi/inbox/</b> 目录，每天整理进这里并归档。</p>
+  <script>
+  function esc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  fetch('/navi/feed.json').then(function(r){return r.json();}).then(function(items){
+    var box=document.getElementById('feed');
+    if(!items || !items.length){ box.innerHTML='<p class="lede">暂无动态。</p>'; return; }
+    box.innerHTML = items.slice(0,5).map(function(it){
+      var okUrl = typeof it.url==='string' && (/^https:\/\//.test(it.url) || /^\/(?!\/)/.test(it.url));
+      var link = okUrl ? ' <a href="'+esc(it.url)+'">查看</a>' : '';
+var TAGS = {'仓库':['#e3ecf7','#205f9e','#a9c4e2'],'上线':['#e2f2e4','#1e7a34','#a3d3ac'],'调研':['#ece5f7','#5b3ea8','#c4b2e8'],'运维':['#fdf0dc','#9a6206','#ecc887'],'安全':['#fdecea','#a02c2c','#e3a49f'],'同步':['#ddf2f0','#0f766e','#93d5cf']};
+      var c = TAGS[it.tag] || ['#eef1f4','#5a6a7a','#ccd4dc'];
+      var tag = it.tag ? '<span class="ftag" style="background:'+c[0]+';color:'+c[1]+';border-color:'+c[2]+'">'+esc(it.tag)+'</span>' : '';
+      return '<div class="fi"><div class="m">'+tag+esc(it.date)+'</div><div class="tx">'+esc(it.text)+link+'</div></div>';
+    }).join('');
+  }).catch(function(){
+    document.getElementById('feed').innerHTML='<p class="lede">动态加载失败，请稍后再看。</p>';
+  });
+  </script>
+
+  <h2>协作者</h2>
+  <div class="pstats" id="pstats"><p class="lede">加载中…</p></div>
+  <p class="more"><a href="/navi/people/">查看每位协作者的完整贡献历史 →</a></p>
+  <script>
+  fetch('/navi/people.json').then(function(r){return r.json();}).then(function(d){
+    var ps = (d.people||[]).slice().sort(function(a,b){return b.merged_count-a.merged_count;});
+    document.getElementById('pstats').innerHTML = ps.map(function(p){
+      return '<div class="pstat"><span class="n">'+esc(p.login)+'</span><span class="r">'+esc(p.role||'')+'</span>'
+        + '<div class="s">已合并 PR <b>'+p.merged_count+'</b> 个 · 执行合并 <b>'+(p.merged_by||0)+'</b> 个</div></div>';
+    }).join('');
+  }).catch(function(){
+    document.getElementById('pstats').innerHTML='<p class="lede">统计加载失败，点下方入口看完整历史。</p>';
+  });
+  </script>
+
+  <h2>最新产出</h2>
+  <div class="grid">
+    <a class="item" href="/navi/report/">
+      <div class="t">DATUMOJ 阶段汇报<span class="tag">2026-10-25</span></div>
+      <div class="d">10 月 17 日到 23 日的阶段汇报：契约先行、异源审查，从官方来源到带出处的回答共七步。</div>
+      <div class="u">datumoj.com/navi/report/</div>
+    </a>
+    <a class="item" href="/navi/nas/">
+      <div class="t">DATUMOJ NAS 容量预估<span class="tag">2026-10-25</span></div>
+      <div class="d">NAS 要多大：五层数据叠加再留三成余量，四个保存期限可交互切换，两块 4 TB 镜像的结论。</div>
+      <div class="u">datumoj.com/navi/nas/</div>
+    </a>
+    <a class="item" href="/navi/intl-sources/">
+      <div class="t">七源核验<span class="tag">2026-10-25</span></div>
+      <div class="d">七个国际数据来源（UN Comtrade、IMF、ILOSTAT 等）的页面记录与许可状态核验：有记录，许可仍需逐项确认。</div>
+      <div class="u">datumoj.com/navi/intl-sources/</div>
+    </a>
+    <a class="item" href="/navi/intl-sources/review/">
+      <div class="t">七源核验 · 独立评审</div>
+      <div class="d">对「七源核验」演示页的独立离线评审结论：APPROVE_WITH_P2（P0/P1 为零，3 项 P2）。</div>
+      <div class="u">datumoj.com/navi/intl-sources/review/</div>
+    </a>
+  </div>
+
+  <h2>站点</h2>
+  <div class="grid">
+    <a class="item" href="https://datumoj.com">
+      <div class="t">Datumoj 世界公共数据门户</div>
+      <div class="d">中央搜索实时过滤各国政府与国际组织开放数据门户，25 种语言。</div>
+      <div class="u">datumoj.com</div>
+    </a>
+    <a class="item" href="https://datumoj.com/tel">
+      <div class="t">日本电话号码库</div>
+      <div class="d">用总务省官方指定数据查号码的种类、运营商与地区；政府机构号码带出处。</div>
+      <div class="u">datumoj.com/tel</div>
+    </a>
+    <a class="item" href="https://datumoj.com/plan">
+      <div class="t">计划总览</div>
+      <div class="d">项目计划与调研产出的总览页，下含登记库、案例与验证各子页（见下）。</div>
+      <div class="u">datumoj.com/plan</div>
+    </a>
+    <a class="item" href="https://datumoj.com/task">
+      <div class="t">项目任务中心</div>
+      <div class="d">全部计划分解的 90 个任务：状态、依赖、预计 token 与推荐模型，机器可读版在 /tasks.json。</div>
+      <div class="u">datumoj.com/task</div>
+    </a>
+  </div>
+
+  <h2>计划子页</h2>
+  <div class="grid">
+    <a class="item" href="https://datumoj.com/plan/orbis/">
+      <div class="t">官方数据资源登记库</div>
+      <div class="d">471 个官方数据资源按场景分类，50 个预设分析场景逐步筛选。</div>
+      <div class="u">datumoj.com/plan/orbis/</div>
+    </a>
+    <a class="item" href="https://datumoj.com/plan/cases/">
+      <div class="t">多源数据融合案例</div>
+      <div class="d">100 个案例（50 场景 × 2），每例至少 3 个真实数据源。</div>
+      <div class="u">datumoj.com/plan/cases/</div>
+    </a>
+    <a class="item" href="https://datumoj.com/plan/verify/">
+      <div class="t">单源数据失真验证案例</div>
+      <div class="d">30 个案例：用至少 3 个独立来源交叉验证单一来源数据的真伪。</div>
+      <div class="u">datumoj.com/plan/verify/</div>
+    </a>
+    <a class="item" href="https://datumoj.com/plan/hf-gov/">
+      <div class="t">Hugging Face 政府数据集调查</div>
+      <div class="d">389 个政府相关数据集全量调查：谁在做、做到什么程度、空白在哪。</div>
+      <div class="u">datumoj.com/plan/hf-gov/</div>
+    </a>
+  </div>
+
+  <footer>Datumoj — 世界公共数据连接平台。本页源码在仓库 <b>navi/</b> 目录，随产出更新。</footer>
+</div>
+</body>
+</html>
