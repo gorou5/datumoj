@@ -125,7 +125,7 @@ Citation = source_id + resource_url + snapshot_sha256 + fetched_at + locator
 | 关键词检索 | SQLite FTS5 trigram（日文不分词也能搜） | 零依赖；需要时再换 tantivy |
 | 向量检索 | LanceDB，嵌入模型可替换 | 法令切块后约 100 万块，需要 ANN 索引，sqlite-vec 暴力检索撑不住；默认 bge-m3 通过本机 Ollama 运行，H5 在评测集上验证效果 |
 | 分析层 LLM | 第一阶段只通过 MCP 由宿主模型（Claude）调用工具，代码里不调用任何 LLM | 延续旧项目“不额外付费调用模型”的决定；查询改写由宿主模型做，代码只提供中英日术语对照表 |
-| 调度 | `make crawl` 加系统定时任务（macOS 用 launchd，Linux 用 cron 或 systemd timer） | 第一阶段不上云；定时配置不写死某台机器。以后可换成 Cloudflare Cron Triggers（第 4.4 节） |
+| 调度 | `make crawl` 加系统定时任务（macOS 用 launchd，Linux 用 cron 或 systemd timer） | 第一阶段（IVY、TACHIBANA）不上云；定时配置不写死某台机器。0.3 起改由 GitHub Actions 定时运行、状态写进 R2（2026-10-30，见第 4.4 节） |
 
 ### 4.3 检索与问答的关键规则
 
@@ -142,8 +142,8 @@ Citation = source_id + resource_url + snapshot_sha256 + fetched_at + locator
 
 - **方向**：运行时以后落到网络存储，云端优先 Cloudflare（R2 存原始文件和派生文件，Workers / Cron Triggers 跑定时抓取，D1 等按需选择），与团队规范 `docs/architecture.md` §4 一致。
 - **做法**：核心逻辑与平台解耦。所有存储经接口访问（`RawStore` 已有；manifest、chunk、目录、观测值、向量各有 Protocol），数据位置只由一处配置决定；平台相关的实现放在独立的适配层，本机实现继续可用。
-- **分步**：TACHIBANA 先把存储位置收拢到一处配置，并给 `RawStore` 加 S3 兼容（R2）实现，用契约测试套件在模拟存储上验证；SQLite 类的库（manifest、目录、chunk）上网络存储的方式（D1，或只同步备份）用 ADR 决定。2026-10-22 已定（ADR 0002）：索引跟随数据上 R2，本机的库按需从 R2 重建；同步频率按来源分别设置。真正部署到 Cloudflare，等账号、凭证和部署流程定下来以后另排版本。**2026-10-25 定**：0.3 的运行环境改为自有 NAS（NAS 跑全部流程，状态存在 NAS 上的 S3 兼容服务），代码按 S3 接口写、只换 endpoint；R2 和 Actions 的写法保留不启用，以后要上云时再启用。
-- **凭证**：R2 / Cloudflare 和 NAS 状态存储的凭证只放 `.env`、NAS 的运行环境变量文件或平台 Secrets，不进仓库和镜像；生产资源的创建和变更要人明确授权（`SECURITY.md`）。
+- **分步**：TACHIBANA 先把存储位置收拢到一处配置，并给 `RawStore` 加 S3 兼容（R2）实现，用契约测试套件在模拟存储上验证；SQLite 类的库（manifest、目录、chunk）上网络存储的方式（D1，或只同步备份）用 ADR 决定。2026-10-22 已定（ADR 0002）：索引跟随数据上 R2，本机的库按需从 R2 重建；同步频率按来源分别设置。真正部署到 Cloudflare，等账号、凭证和部署流程定下来以后另排版本。**2026-10-25 定**：0.3 的运行环境改为自有 NAS（NAS 跑全部流程，状态存在 NAS 上的 S3 兼容服务），代码按 S3 接口写、只换 endpoint；R2 和 Actions 的写法保留不启用，以后要上云时再启用。**2026-10-30 改**：数据先放 R2，由 GitHub Actions 定时运行写入；本机历史不迁移，从零抓取；NAS 以后改为从 R2 取数据的下游副本（另排），不再是写入方。
+- **凭证**：R2 / Cloudflare 的写入凭证只放平台 Secrets（2026-10-30 起只在 GitHub Actions secrets，本机 `.env` 不放 R2 密钥）；以后 NAS 下游的只读凭证放 NAS 的运行环境变量文件；都不进仓库和镜像；生产资源的创建和变更要人明确授权（`SECURITY.md`）。
 
 ## 5. 来源范围与优先级
 
@@ -290,7 +290,7 @@ datumoj/
 |---|---|---|---|
 | **0.1** | **IVY（蔦）** | 契约 → 法令链路 → 目录与统计 → AI 分析入口（第一阶段） | **已完成**（2026-10-21，tag `v0.1.0-ivy`），48 个任务，验收见 `docs/acceptance/` |
 | 0.2 | **TACHIBANA（橘）** | 日本扩面与持续运营：省厅和自治体政策网页与 PDF、BODIK、抓取监控、每周变化报告、存储适配层（为网络存储做准备）、注册层描述导出，并补上 IVY 遗留的检索缺口。KKJ 采购公告移出本版本（2026-10-22） | **开发完成**，已合并进 `main`（#15，2026-10-22），检查点 m1 已打 tag；H4 真实问答验收待做。计划见 `docs/plans/0.2-tachibana.md` |
-| 0.3 | **MAPLE（楓）** | 定时运行（2026-10-25 改为自有 NAS：NAS 跑全部流程，raw 和索引在 NAS 上的 S3 兼容存储、可重建、按来源设频率，即 ADR 0002 的实现；GitHub Actions 和 R2 的写法保留不启用；一周试运行）；欧美来源（data.europa.eu、Eurostat、法国门户、Federal Register、世界银行 WDI；英德荷门户因 robots 禁止 API 移出，2026-10-26）；日本新来源（e-Stat API、国土数值信息、2024 经济普查、医疗开放数据、ABR 地址）；现有系统改名 Rikolto 并回归（2026-10-26 从 0.4 移来） | 计划见 `docs/plans/0.3-maple.md` |
+| 0.3 | **MAPLE（楓）** | 定时运行（2026-10-25 改为自有 NAS：NAS 跑全部流程，raw 和索引在 NAS 上的 S3 兼容存储、可重建、按来源设频率，即 ADR 0002 的实现；GitHub Actions 和 R2 的写法保留不启用；2026-10-30 再改：GitHub Actions 定时运行、状态存 R2、从零抓取，NAS 以后从 R2 取数据；一周试运行）；欧美来源（data.europa.eu、Eurostat、法国门户、Federal Register、世界银行 WDI；英德荷门户因 robots 禁止 API 移出，2026-10-26）；日本新来源（e-Stat API、国土数值信息、2024 经济普查、医疗开放数据、ABR 地址）；现有系统改名 Rikolto 并回归（2026-10-26 从 0.4 移来） | 计划见 `docs/plans/0.3-maple.md` |
 | 0.4 | **WISTERIA（藤）** | 新子系统 Eltiro（按外部项目注入的需求，匹配并提取资料库里的数据，带出处和许可闸门）；观测值按发布时间查询；试点所需的国际来源（IMF、OECD、ILO、UN COMTRADE、WTO） | 草案，计划见 `docs/plans/0.4-wisteria.md` |
 
 其他候选代号：片喰 Katabami、柏 Oak、桐 Paulownia、葵 Aoi、桔梗 Bellflower、菊 Chrysanthemum。
@@ -355,7 +355,7 @@ datumoj/
 - 来源正文可能含有“指令样式”的文本（提示注入），检索结果交给模型时要标注为数据；MCP 工具一律只读
 - 个人信息：公告类来源（例如以后接入的 KKJ）里的担当者姓名、电话、邮箱在入库前替换成占位符
 - 原始数据只供分析，不再对外分发；放到网络存储以后也是私有存储，不公开访问。公开分享前要逐项核对许可
-- Cloudflare / R2 凭证放 `.env`（在 .gitignore 里，`.env.example` 只放虚构值）或平台 Secrets；来自 fork 的 PR 拿不到任何凭证；创建或变更生产资源要人明确授权（`SECURITY.md`）
+- Cloudflare / R2 凭证只放平台 Secrets（2026-10-30 起本机 `.env` 不放 R2 写入密钥；`.env` 在 .gitignore 里，`.env.example` 只放虚构值）；来自 fork 的 PR 拿不到任何凭证；创建或变更生产资源要人明确授权（`SECURITY.md`）
 - 项目许可证尚未确定（候选 MIT / Apache-2.0），由维护者决定后再加 `LICENSE`
 
 ## 12. 风险
