@@ -1,0 +1,18 @@
+{
+  "access_method": "download",
+  "auth_required": false,
+  "country_region": "JP",
+  "id": "jp-census",
+  "last_verified": "unknown",
+  "license": {
+    "allows_redistribution": "unknown",
+    "name": "政府標準利用規約（第2.0版）",
+    "requires_attribution": true,
+    "url": "https://www.e-stat.go.jp/terms-of-use"
+  },
+  "name": "令和6年経済センサス‐基礎調査 甲調査（確報、表1-1）",
+  "official_url": "https://www.e-stat.go.jp/",
+  "publisher": "政府統計の総合窓口",
+  "rate_limit": "0.2 req/s",
+  "status": "experimental"
+}

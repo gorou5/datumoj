@@ -1,0 +1,24 @@
+id: jp-ksj
+name: 国土数値情報 P05（佐賀県、2022年度）
+country: jp
+kind: ksj_file
+base_url: https://nlftp.mlit.go.jp/ksj/
+allowed_hosts: [nlftp.mlit.go.jp]
+rate_per_sec: 0.2
+max_total_bytes: 1073741824
+max_files: 10000
+schedule: weekly
+license:
+  name: CC BY 4.0
+  url: https://creativecommons.org/licenses/by/4.0/
+  attribution: 国土交通省（国土数値情報「市町村役場等及び公的集会施設データ」、2022年度、https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-P05-2022.html）を加工して作成
+  usage_scope: internal_only
+  redistribution: unverified
+  outflow: no_outflow
+  cloud_model_ok: false
+  verified_at: null
+  notes: P05-2022 数据页标注 CC BY 4.0；总规约 https://nlftp.mlit.go.jp/ksj/other/agreement.html；完整利用条件核对前仅内部使用。采集器拒收超过 25 MiB 的文件；解析器限制 ZIP 展开总量 250 MiB、10000 条目。
+scope:
+  files:
+    - https://nlftp.mlit.go.jp/ksj/gml/data/P05/P05-22/P05-22_41_GML.zip
+retention_note: 原始 ZIP 用于出处还原和离线重解析；清理沿用项目快照保留策略。
