@@ -84,12 +84,14 @@ def test_registry_rejects_relaxed_outflow_without_evidence(tmp_path, missing):
 
 def test_all_existing_sources_keep_legacy_citation_and_usage_notice_behavior():
     registry = load_registry(SOURCE_DIR)
-    specs = registry.all()
-
-    assert [spec.id for spec in specs] == [
+    legacy = [
         "jp-bodik", "jp-egov-data", "jp-egov-law", "jp-estat-files", "jp-gov-web", "jp-jma",
         "jp-stat-dashboard",
     ]
+    # New sources (MAPLE 201+) may be added; only the sources that existed at 102 are pinned here.
+    specs = [spec for spec in registry.all() if spec.id in legacy]
+
+    assert [spec.id for spec in specs] == legacy
     for spec in specs:
         license_info = spec.license
         source_data = yaml.safe_load((SOURCE_DIR / f"{spec.id}.yaml").read_text(encoding="utf-8"))
