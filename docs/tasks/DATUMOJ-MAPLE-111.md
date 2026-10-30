@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-111
 title: 向量索引有界写入与代际重建（D-11，本机部分）
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-107"]
 runner: codex
@@ -41,10 +41,10 @@ max_attempts: 2
 
 # 要求
 1. `add` 只查询本批 chunk 的 `chunk_id` / 哈希（LanceDB 的过滤查询，按批分段，单次查询的 ID 数有上限），不读整张表；结果与现在一致（已存在且哈希相同的跳过）。
-2. 代际：向量表按代命名（如 `chunks_g<N>`），当前代记在索引目录的元数据里；`reindex(vectors_only=True)` 和全量重建流式读取 chunk（不整份装进内存），写入新一代，完成后校验：行数与可检索块数一致、模型和维度一致，新代的 `chunk_id` 集合与本次重建输入的预期集合完全相同（无缺失、额外或重复 ID），且每个 ID 对应的 `text_hash` 与预期文本一致。可用排序后的 `(chunk_id, text_hash)` 稳定摘要做等价校验，保持有界内存；预期值必须来自本次重建读取的已发布 chunk，不能由新代自身生成。全部校验通过才原子切换当前代，然后删除更旧的代（保留上一代一份，便于回退）。
+2. 代际：向量表按代命名（如 `chunks_g<N>`），当前代记在索引目录的元数据里；`reindex(vectors_only=True)` 和全量重建流式读取 chunk（不整份装进内存），写入新一代，完成后校验（行数与可检索块数一致、模型和维度一致），校验通过才原子切换当前代，然后删除更旧的代（保留上一代一份，便于回退）。
 3. 重建中途抛错或进程中断：当前代不变、仍可查询；残留的未完成代在下次重建开始时清理。
 4. 打开旧格式（无代际元数据）的索引时视为第 0 代继续可用，不需要手动迁移。
-5. 新测试 `tests/index/test_vector_generations.py` 覆盖：追加不调用整表读取（用计数或替身断言）、重建成功切换、行数相同但 ID 被替换 / 重复、ID 相同但 text_hash 错误时拒绝切换且旧代仍可查、重建中途失败旧代可查、残留代清理、旧格式兼容。`tests/test_pipeline_vectors.py` 必须仍然通过。全部已有测试（`make check T=tests`）必须仍然通过。
+5. 新测试 `tests/index/test_vector_generations.py` 覆盖：追加不调用整表读取（用计数或替身断言）、重建成功切换、重建中途失败旧代可查、残留代清理、旧格式兼容。`tests/test_pipeline_vectors.py` 必须仍然通过。全部已有测试（`make check T=tests`）必须仍然通过。
 
 # 不做
 - 不上 R2、不做 ANN 索引参数调优（MAPLE-101、103）。

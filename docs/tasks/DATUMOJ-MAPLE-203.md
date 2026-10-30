@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-203
 title: 解析器修正：PDF 日期传到每个 Chunk（D-06）；HTML 去框架改用 drop_tree() 保留尾随正文
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-002"]
 runner: codex

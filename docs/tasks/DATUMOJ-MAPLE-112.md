@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-112
 title: 状态副本按块增量：SQLite 副本切成 256KB 块按内容寻址；关键词索引不进代次、恢复时从 chunks 重建
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-102", "DATUMOJ-MAPLE-103", "DATUMOJ-MAPLE-105"]
 runner: claude

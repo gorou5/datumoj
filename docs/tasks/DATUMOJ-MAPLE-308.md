@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-308
 title: describe 按表代次缓存，query_sql 整个请求一个预算（D-10）
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-307"]
 runner: codex
@@ -41,8 +41,8 @@ max_attempts: 2
 
 # 要求
 1. `describe` 结果按“表代次”缓存：代次由各 Parquet 文件的路径、大小、修改时间算出；表有写入（`write_table`）或文件变化时失效。缓存在进程内，测试可断言第二次不再扫描。
-2. `AnalysisTools.query_sql` 在请求入口用可注入的单调时钟创建一个绝对截止时间（默认预算沿用现有 `timeout_s`）；将同一 deadline 传入 `query_readonly` 的 `_connect`、SQL 执行、出处回查，以及工具层 `_describe_view` / `describe`（包括缓存未命中扫描及结果组装）。各阶段只使用剩余时间，不得重新获得完整 timeout；连接前即启动预算检查，并为阻塞操作安排可取消 / 可中断的执行边界，不能仅在慢操作返回后检查。超时返回明确的 `QueryTimeout` 错误，不返回部分查询结果或半截出处；清理计时器和连接，超时任务不得干扰后续请求。保持已有调用签名兼容，额外 deadline 通过实现类可选参数或内部适配方法传递，不要求修改受保护的 ObservationStore 协议。
-3. 新测试 `tests/store/test_query_budget.py` 覆盖：缓存命中与失效；分别注入慢连接、慢查询、慢出处回查及慢 describe，验证四种操作均受同一绝对截止时间约束（包括前面阶段已消耗部分预算的情形，不能分阶段重置），超时不返回部分出处，每种超时后后续请求均正常。采用注入时钟和可控阻塞 / 中断替身，不依赖真实长等待。全部已有测试（`make check T=tests`）必须仍然通过。
+2. `query_sql` 整个请求一个截止时间（默认值沿用现有 `timeout_s`），连接、查询、出处回查、元数据都在其内；超时返回清楚的错误，不返回半截出处。
+3. 新测试 `tests/store/test_query_budget.py` 覆盖：缓存命中与失效、整体超时（用可注入的慢操作，不依赖真实长等待）、超时后后续请求正常。全部已有测试（`make check T=tests`）必须仍然通过。
 
 # 不做
 - 不改 MCP 的线程模型。

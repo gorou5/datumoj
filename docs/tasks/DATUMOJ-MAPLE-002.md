@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-002
 title: 身份与状态契约：快照顺序、解析上下文指纹、单调发布、观测值引用键、证据与管线状态；审核问题回归用例
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: []
 runner: claude
@@ -41,8 +41,8 @@ max_attempts: 2
 1. ADR `docs/adr/0004-evidence-identity.md`（状态“提议”，由人定）：定义 blob（字节，sha256）、snapshot（一次观察，`snapshot_id`）、资源（`source_id` + 去 Key 的 `resource_url`）、解析产物（parser、version、上下文指纹）、发布（每个 doc_key 的 current 与已发布水位）、观测值引用键 `(source_id, table_key, obs_id)`；写明每条规则对应审核的哪个问题（D-01–D-07、D-13），以及本地已有数据的迁移办法（重放到新目录，由 MAPLE-900 提供）。
 2. **快照顺序**：`SnapshotOrder`（`fetched_at` + manifest 写入序号 `seq`，可比较，`fetched_at` 是快照记录的抓取时间，不是解析时间）；`Manifest` 协议加 `snapshot_order(snapshot_id) -> SnapshotOrder | None`。
 3. **解析上下文指纹**：纯函数 `parse_context_fingerprint(snapshot, meta) -> str`，由 `source_id`、`resource_url`、`content_type` 和快照 meta（规范化 JSON）稳定算出；同 URL 同 meta 的重复抓取得到同一指纹。`ParseRecord` 加 `context_fingerprint`；`Manifest.get_parse` / `record_parse` 以 `(sha256, parser, version, context_fingerprint)` 为键。
-4. `SqliteManifest` 按上一条实现：schema 版本升到 2；打开 v1 库时在一个事务里重建解析记录表，将主键改为 `(sha256, parser, version, context_fingerprint)`，不能仅新增列而保留三列唯一约束。保留全部快照行（含 seq）及旧解析记录，旧记录的指纹记为空串，不匹配新计算的上下文，下次解析时重做。迁移测试现场建 v1 库，验证旧记录与快照不丢失，同 SHA、同 parser/version、不同指纹的两条记录可同时写入并分别查回，重开库后仍成立。
-5. **单调发布**：`ChunkStore.put_document(document, chunks, *, publish: bool = True)`，`publish=False` 只写入这个版本、不动 current；新方法 `publish_current(doc_key, snapshot_sha256, order: SnapshotOrder) -> bool`：只有 `order` 比该 doc_key 已发布水位新时才切换 current 并持久化水位，返回是否切换；`current_order(doc_key) -> SnapshotOrder | None`。`publish=True`（默认）对水位已知或无历史 current 的库保持兼容。`SqliteChunkStore` 同步实现并迁移 schema：旧库已有 current 时，必须从可确认的快照身份恢复其 `SnapshotOrder`；无法确认时持久化“待重放”状态，在有序重放完成并建立水位前拒绝普通发布（包括默认 `publish=True`），明确提示迁移要求，不能把空水位当成首次发布许可。这替代原“水位为空、第一次发布即覆盖”的约定；迁移测试必须覆盖已有较新 current、首次请求发布更旧快照及重开库后的行为，断言 current 不倒退。`PublishState` 枚举：`staged`、`published`、`failed`（给 MAPLE-107 用）。
+4. `SqliteManifest` 按上一条实现：schema 版本升到 2；打开 v1 库时在一个事务里迁移（不删任何快照行；旧解析记录的指纹记为空串，不匹配任何上下文，下次解析时重做）；迁移测试用一个 v1 库样本（测试里现场建）覆盖。
+5. **单调发布**：`ChunkStore.put_document(document, chunks, *, publish: bool = True)`，`publish=False` 只写入这个版本、不动 current；新方法 `publish_current(doc_key, snapshot_sha256, order: SnapshotOrder) -> bool`：只有 `order` 比该 doc_key 已发布水位新时才切换 current 并持久化水位，返回是否切换；`current_order(doc_key) -> SnapshotOrder | None`。`publish=True`（默认）保持现在的行为，现有调用方不受影响。`SqliteChunkStore` 同步实现（schema 版本升级并迁移，旧库已有 current 的水位记为空，第一次发布即覆盖）。`PublishState` 枚举：`staged`、`published`、`failed`（给 MAPLE-107 用）。
 6. **引用身份**：`Citation` 加 `snapshot_id: str | None = None`（新代码产生的引用必须填，由 MAPLE-404 接入）。`AmbiguousCitation` 异常或等价的结果状态，供“只给 SHA 且对应多个资源”时使用。
 7. **观测值引用键**：`ObservationRef`（`source_id`、`table_key`、`obs_id`）及稳定的字符串形式（可解析回来，`table_key` 含分隔符时也不出错）。
 8. **证据状态**：`EvidenceState` 枚举 `complete` / `partial` / `unavailable`；`ToolResult` 加可选的 `evidence_state` 和 `evidence_inputs`（输入的表、快照、过滤范围；JSON 可序列化），给 MAPLE-307 用。

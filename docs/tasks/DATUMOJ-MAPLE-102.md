@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-102
 title: 状态代次：各库一致副本、增量上传、发布清单、恢复到新目录并校验（datumoj state push / restore）
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-001"]
 runner: claude

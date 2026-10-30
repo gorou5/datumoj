@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-503
 title: 管线覆盖状态（D-13）：区分抓到、已解析、可检索、索引重建中和真正零命中
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-107", "DATUMOJ-MAPLE-502"]
 runner: codex

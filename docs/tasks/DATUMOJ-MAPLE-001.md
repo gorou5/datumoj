@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-001
 title: 契约修订：状态代次清单、对象存储条件写入接口、写入租约；ADR 0005
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: []
 runner: claude

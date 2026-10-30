@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-103
 title: 向量库定期压缩与清理旧版本；向量随状态代次上传和恢复（按文件内容寻址）；单次运行的建向量上限
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-101", "DATUMOJ-MAPLE-102", "DATUMOJ-MAPLE-106", "DATUMOJ-MAPLE-111"]
 runner: codex

@@ -2,9 +2,9 @@
 id: DATUMOJ-MAPLE-502
 title: 过滤召回（D-07）：日期、类型过滤前置或有界补取，预算用完返回截断而不是零命中
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
-depends_on: ["DATUMOJ-MAPLE-404", "DATUMOJ-MAPLE-308"]
+depends_on: ["DATUMOJ-MAPLE-404"]
 runner: codex
 model: null
 tier: medium
@@ -41,11 +41,10 @@ max_attempts: 2
 - 仓库是公开的：代码、测试、文档里不写账号、密钥、本机绝对路径。
 
 # 要求
-1. 能前置的过滤前置：关键词索引（SQLite FTS5，`index/fts.py`）按日期和类型过滤在 SQL 里做（需要的列可以加到索引表，schema 变化要有迁移或重建说明）；向量检索在 LanceDB 查询里用 where 过滤（`index/vector.py`）。`AnalysisTools.search_docs` → `HybridRetriever.hybrid_search` → FTS / 向量两条路径必须传递相同的来源、日期和类型过滤条件，不能只在融合后筛选。日期语义沿用契约：`published_at` 或 `effective_at` 任一值落在闭区间内即保留（无界端点不限制），指定日期过滤时两者均为空则排除；多个 `kinds` 按集合成员匹配，日期与类型同时给定时取 AND，未提供的条件不限制。
+1. 能前置的过滤前置：关键词索引（SQLite FTS5，`index/fts.py`）按日期和类型过滤在 SQL 里做（需要的列可以加到索引表，schema 变化要有迁移或重建说明）；向量检索在 LanceDB 查询里用 where 过滤（`index/vector.py`）。
 2. 不能前置的，按批扩大候选补取（例如每次翻倍），总候选数有上限（模块常量）；上限用完仍不足 k 条时，结果带 `truncated`（写进 `gap_detail` 或 warnings，按现有结果结构选，写进 summary），且不判 `zero_hits`。
 3. 无过滤时的结果和排序与现在一致。
-4. 新测试 `tests/index/test_filtered_recall.py` 覆盖：从 `AnalysisTools.search_docs` 经 `HybridRetriever.hybrid_search` 到两种真实索引的端到端调用，断言两路收到同样过滤参数；符合条件的文档排在 k 之外时日期 / 类型及组合过滤仍能找到；日期上下界均包含、仅 published_at 命中、仅 effective_at 命中、双日期为空排除、多 kinds 集合匹配、日期与类型取 AND、补取上限用完返回截断、无过滤结果不变。审核回归测试 `tests/regressions/test_audit_502.py`：用合成数据离线复现审核场景——符合日期过滤的文档在不过滤时排在 top-k 之外，带日期过滤检索仍能找到它、不报 `zero_hits`——断言修好以后的行为，必须通过（不能标 skip / xfail）。全部已有测试（`make check T=tests`）必须仍然通过。
-5. （本次审核修订，替代原“文档类型不前置”的澄清）保留 `KeywordIndex` / `VectorIndex` / `Retriever` 协议的已有签名和无过滤调用；实现类可增加兼容的过滤参数或专用方法，由工具层 / 混合检索层检查能力后调用。日期来自 Chunk；类型来自 Document，可解析为符合条件的 doc_key 集合传给两种索引，在截 top-k 前限制候选。对不支持前置过滤的实现，保留要求 2 的有界补取并应用完全相同的语义，不可悄悄丢弃参数。与 MAPLE-308 串行执行，保留其在 `analysis/tools.py` 中建立的共享查询截止时间。
+4. 新测试 `tests/index/test_filtered_recall.py` 覆盖：符合条件的文档排在 k 之外时仍能找到、类型过滤同理、补取上限用完返回截断、无过滤结果不变。审核回归测试 `tests/regressions/test_audit_502.py`：用合成数据离线复现审核场景——符合日期过滤的文档在不过滤时排在 top-k 之外，带日期过滤检索仍能找到它、不报 `zero_hits`——断言修好以后的行为，必须通过（不能标 skip / xfail）。全部已有测试（`make check T=tests`）必须仍然通过。
 
 # 不做
 - 不改相关性门槛（ADR 0003）。

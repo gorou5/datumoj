@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-404
 title: 引用绑定快照和资源（D-03）：Citation 带 snapshot_id，cite 接受完整身份，只给 SHA 不唯一时返回歧义
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-002"]
 runner: claude

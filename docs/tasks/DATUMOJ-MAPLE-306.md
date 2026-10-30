@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-306
 title: 观测值引用键（D-04）：出处按 (source_id, table_key, obs_id) 关联，不串表，歧义明说
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-002"]
 runner: codex

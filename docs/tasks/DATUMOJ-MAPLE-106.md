@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-106
 title: 本机拉取：datumoj pull 增量下载最新有效代次、校验后切换；本机副本只读；MCP 报数据截止时间
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-102", "DATUMOJ-MAPLE-104"]
 runner: codex

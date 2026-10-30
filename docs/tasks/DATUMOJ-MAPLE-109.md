@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-109
 title: raw 校验读取（D-09）：读出的字节按哈希校验，坏 blob 隔离并可由重抓修复
 project: DATUMOJ
-status: todo
+status: done
 priority: 1
 depends_on: ["DATUMOJ-MAPLE-002"]
 runner: codex
@@ -25,7 +25,7 @@ acceptance:
 max_attempts: 2
 ---
 # 目标
-本机 raw 文件被改坏后，解析不会再拿坏字节按旧哈希“成功”解析；坏文件被隔离，下次抓到同样内容时自动修复。本机与 S3 都保证读取校验及再次写入修复；本机坏文件必须隔离，S3 仅要求 `S3RawStore.open` 校验读取内容并抛 `CorruptedBlob`、`S3RawStore.put` 覆盖坏对象，不承诺读失败后隔离或标记对象。
+本机 raw 文件被改坏后，解析不会再拿坏字节按旧哈希“成功”解析；坏文件被隔离，下次抓到同样内容时自动修复。本机和 S3 两种实现遵守同一条规则。
 
 # 背景
 开发线：A 云端运行与运行基础。审核 D-09：`FileRawStore.open` / `get`（`core/rawstore.py`）直接返回文件内容，`verify` 是单独的方法；`put` 遇到同 SHA 文件已存在时不检查也不修复。`S3RawStore`（`core/rawstore_s3.py`）取回后已校验并抛 `CorruptedBlob`。管线（`pipeline.py`）读 raw 抛异常时会把这个快照记为解析失败，不发布结果。
