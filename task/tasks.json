@@ -1,0 +1,1038 @@
+{
+ "generated": "2026-10-23",
+ "project": "DATUMOJ",
+ "tasks": [
+  {
+   "id": "DATUMOJ-IVY-001",
+   "title": "契约一：数据模型、locator、工具输出格式",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "150k–350k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [],
+   "note": "runner=claude，tier=high；成果在仓库 results/DATUMOJ-IVY-001/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-002",
+   "title": "契约二：接口协议、插件自动发现、假实现与契约测试",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "150k–350k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [
+    "DATUMOJ-IVY-001"
+   ],
+   "note": "runner=claude，tier=high；成果在仓库 results/DATUMOJ-IVY-002/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-003",
+   "title": "日文文本工具：解码、归一化、和历、数字注记",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "GPT-5 Codex 级",
+   "depends_on": [],
+   "note": "runner=codex，tier=medium；成果在仓库 results/DATUMOJ-IVY-003/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-101",
+   "title": "raw 存储：按内容寻址",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "GPT-5 Codex 级",
+   "depends_on": [
+    "DATUMOJ-IVY-002"
+   ],
+   "note": "runner=codex，tier=medium；成果在仓库 results/DATUMOJ-IVY-101/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-102",
+   "title": "manifest：抓取记录库（SQLite）",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-IVY-002"
+   ],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-102/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-103",
+   "title": "礼貌 HTTP 客户端：限速、条件请求、重试、上限、回放",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "150k–350k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [
+    "DATUMOJ-IVY-002"
+   ],
+   "note": "runner=claude，tier=high；成果在仓库 results/DATUMOJ-IVY-103/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-104",
+   "title": "来源注册表 schema 与校验",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "GPT-5 Codex 级",
+   "depends_on": [
+    "DATUMOJ-IVY-002"
+   ],
+   "note": "runner=codex，tier=medium；成果在仓库 results/DATUMOJ-IVY-104/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-105",
+   "title": "采集执行器：计划→抓取→落库→记录，带上限",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "150k–350k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [
+    "DATUMOJ-IVY-101",
+    "DATUMOJ-IVY-102",
+    "DATUMOJ-IVY-103",
+    "DATUMOJ-IVY-104"
+   ],
+   "note": "runner=claude，tier=high；成果在仓库 results/DATUMOJ-IVY-105/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-106",
+   "title": "修复：单文件超限只记失败、继续抓取",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "30k–90k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-106/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-107",
+   "title": "抓取开关与调度：control.json、schedule、运行锁、launchd",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "150k–350k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [],
+   "note": "runner=claude，tier=high；成果在仓库 results/DATUMOJ-IVY-107/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-201",
+   "title": "e-Gov 法令采集器",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-IVY-002",
+    "DATUMOJ-IVY-104"
+   ],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-201/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-202",
+   "title": "法令 XML 解析器：按条切分，带层级和 locator",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "GPT-5 Codex 级",
+   "depends_on": [
+    "DATUMOJ-IVY-002",
+    "DATUMOJ-IVY-003"
+   ],
+   "note": "runner=codex，tier=medium；成果在仓库 results/DATUMOJ-IVY-202/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-203",
+   "title": "JMA 长期 feed 采集器与解析器",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "GPT-5 Codex 级",
+   "depends_on": [
+    "DATUMOJ-IVY-002",
+    "DATUMOJ-IVY-003",
+    "DATUMOJ-IVY-104"
+   ],
+   "note": "runner=codex，tier=medium；成果在仓库 results/DATUMOJ-IVY-203/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-204",
+   "title": "修复：法令解析器只处理现行版全文快照",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "30k–90k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-204/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-205",
+   "title": "修复：没有“条”、正文直接是“项”的法令也能解析",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "30k–90k",
+   "model": "GPT-5 Codex 级",
+   "depends_on": [],
+   "note": "runner=codex，tier=medium；成果在仓库 results/DATUMOJ-IVY-205/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-301",
+   "title": "表格读取：CSV / XLSX / ZIP，cp932，表头与注记",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "150k–350k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [
+    "DATUMOJ-IVY-003"
+   ],
+   "note": "runner=codex，tier=high；成果在仓库 results/DATUMOJ-IVY-301/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-302",
+   "title": "地区码表：全国地方公共団体コード",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "GPT-5 Codex 级",
+   "depends_on": [
+    "DATUMOJ-IVY-003"
+   ],
+   "note": "runner=codex，tier=medium；成果在仓库 results/DATUMOJ-IVY-302/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-303",
+   "title": "观测值库：DuckDB + Parquet，只读 SQL 与出处回溯",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "150k–350k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [
+    "DATUMOJ-IVY-002"
+   ],
+   "note": "runner=claude，tier=high；成果在仓库 results/DATUMOJ-IVY-303/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-304",
+   "title": "统计 Dashboard 采集器、分批规划与观测值转换",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-IVY-104",
+    "DATUMOJ-IVY-302"
+   ],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-304/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-305",
+   "title": "e-Stat 统计表文件采集器与两类版式转换",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "150k–350k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [
+    "DATUMOJ-IVY-104",
+    "DATUMOJ-IVY-301",
+    "DATUMOJ-IVY-302"
+   ],
+   "note": "runner=claude，tier=high；成果在仓库 results/DATUMOJ-IVY-305/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-306",
+   "title": "修复观测值库只读查询的日文字面量错误",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "30k–90k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-IVY-303"
+   ],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-306/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-401",
+   "title": "通用 CKAN 采集器（e-Gov データポータル）",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-IVY-002",
+    "DATUMOJ-IVY-104"
+   ],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-401/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-402",
+   "title": "目录解析、目录存储与目录检索",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "GPT-5 Codex 级",
+   "depends_on": [
+    "DATUMOJ-IVY-002"
+   ],
+   "note": "runner=codex，tier=medium；成果在仓库 results/DATUMOJ-IVY-402/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-403",
+   "title": "修复：CKAN 增量只以完整走完的全量为基准",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "30k–90k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-403/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-501",
+   "title": "chunk 存储与 FTS5 trigram 关键词索引",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-IVY-002",
+    "DATUMOJ-IVY-003"
+   ],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-501/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-502",
+   "title": "向量索引：嵌入接口与 LanceDB",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-IVY-002"
+   ],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-502/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-503",
+   "title": "混合检索（RRF、多查询）与四种缺口状态",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "150k–350k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [
+    "DATUMOJ-IVY-501",
+    "DATUMOJ-IVY-502",
+    "DATUMOJ-IVY-102",
+    "DATUMOJ-IVY-104"
+   ],
+   "note": "runner=codex，tier=high；成果在仓库 results/DATUMOJ-IVY-503/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-504",
+   "title": "修复：关键词检索按词拆分",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "30k–90k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-504/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-505",
+   "title": "修复：只有低相似度向量结果时判为零命中",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "30k–90k",
+   "model": "GPT-5 Codex 级",
+   "depends_on": [],
+   "note": "runner=codex，tier=medium；成果在仓库 results/DATUMOJ-IVY-505/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-601",
+   "title": "解析与索引流水线（增量，基于插件发现）",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-IVY-002"
+   ],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-601/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-602",
+   "title": "命令行：crawl / parse / index / search / sql / status",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-IVY-601",
+    "DATUMOJ-IVY-105"
+   ],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-602/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-603",
+   "title": "分析工具层：search / catalog / sql / chunk / cite / version / coverage",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "150k–350k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [
+    "DATUMOJ-IVY-002"
+   ],
+   "note": "runner=claude，tier=high；成果在仓库 results/DATUMOJ-IVY-603/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-604",
+   "title": "MCP 服务器（stdio）",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-IVY-603"
+   ],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-604/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-605",
+   "title": "修复：解析失败的快照下次要重试",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "30k–90k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-605/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-607",
+   "title": "修复：向量嵌入失败不能让解析失败；可环境变量关闭向量",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "30k–90k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-607/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-608",
+   "title": "修复：MCP 工具调用固定同一线程，SQLite 不再跨线程报错",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "30k–90k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [],
+   "note": "runner=claude，tier=high；成果在仓库 results/DATUMOJ-IVY-608/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-609",
+   "title": "修复：已成功下载的目录资源标为“已抓取正文”",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "30k–90k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-609/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-610",
+   "title": "抓取管理页面 datumoj admin（仅本机）",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-IVY-107"
+   ],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-610/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-701",
+   "title": "评测框架：题库格式、全部指标、门槛",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "GPT-5 Codex 级",
+   "depends_on": [
+    "DATUMOJ-IVY-002"
+   ],
+   "note": "runner=codex，tier=medium；成果在仓库 results/DATUMOJ-IVY-701/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-702",
+   "title": "法令评测题 20 道",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-IVY-701"
+   ],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-702/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-703",
+   "title": "目录与统计评测题 20 道",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-IVY-701"
+   ],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-703/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-704",
+   "title": "缺口、时间、跨语言、注入评测题 + 回答规则 skill",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-IVY-701"
+   ],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-704/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-705",
+   "title": "修复：统计题 tokyo-ict 的 SQL 补上经营组织维度",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "30k–90k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [],
+   "note": "runner=claude，tier=low；成果在仓库 results/DATUMOJ-IVY-705/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-706",
+   "title": "修复：数值出现率同时认 SQL 结果的出处行",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "30k–90k",
+   "model": "GPT-5 Codex 级",
+   "depends_on": [],
+   "note": "runner=codex，tier=medium；成果在仓库 results/DATUMOJ-IVY-706/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-707",
+   "title": "修复：评测框架按题型取证",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "30k–90k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [],
+   "note": "runner=claude，tier=medium；成果在仓库 results/DATUMOJ-IVY-707/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-901",
+   "title": "检查点 M1 集成：法令链路端到端",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "150k–350k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [
+    "DATUMOJ-IVY-105",
+    "DATUMOJ-IVY-201",
+    "DATUMOJ-IVY-202",
+    "DATUMOJ-IVY-501",
+    "DATUMOJ-IVY-602",
+    "DATUMOJ-IVY-702"
+   ],
+   "note": "runner=claude，tier=high；成果在仓库 results/DATUMOJ-IVY-901/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-902",
+   "title": "检查点 M2 集成：目录、统计、JMA 接入",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "150k–350k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [
+    "DATUMOJ-IVY-901",
+    "DATUMOJ-IVY-203",
+    "DATUMOJ-IVY-303",
+    "DATUMOJ-IVY-304",
+    "DATUMOJ-IVY-305",
+    "DATUMOJ-IVY-401",
+    "DATUMOJ-IVY-402",
+    "DATUMOJ-IVY-703"
+   ],
+   "note": "runner=claude，tier=high；成果在仓库 results/DATUMOJ-IVY-902/summary.md"
+  },
+  {
+   "id": "DATUMOJ-IVY-903",
+   "title": "检查点 M3 集成：工具层接真实实现、MCP、60 题全部门槛（IVY 完成线）",
+   "group": "IVY 0.1（核心库）",
+   "status": "已执行·自动验收通过·待人工评审与提交",
+   "est_tokens": "150k–350k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [
+    "DATUMOJ-IVY-902",
+    "DATUMOJ-IVY-502",
+    "DATUMOJ-IVY-503",
+    "DATUMOJ-IVY-603",
+    "DATUMOJ-IVY-604",
+    "DATUMOJ-IVY-704"
+   ],
+   "note": "runner=claude，tier=high；成果在仓库 results/DATUMOJ-IVY-903/summary.md"
+  },
+  {
+   "id": "IVY-H0",
+   "title": "骨架与依赖锁定（pyproject、Makefile、空包、uv lock）",
+   "group": "IVY 主对话步骤（人+agent）",
+   "status": "待执行",
+   "est_tokens": "60k–120k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [],
+   "note": "主对话步骤：联网、装依赖、做判断的部分，不派给离线调度器"
+  },
+  {
+   "id": "IVY-H1",
+   "title": "录制真实测试样本（法令/JMA/Dashboard/e-Stat/表格/地区码/CKAN 七组 fixtures，含许可与脱敏检查）",
+   "group": "IVY 主对话步骤（人+agent）",
+   "status": "待执行",
+   "est_tokens": "120k–250k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [],
+   "note": "主对话步骤：联网、装依赖、做判断的部分，不派给离线调度器"
+  },
+  {
+   "id": "IVY-H2",
+   "title": "契约审查与 M0 检查点（001/002 全体审查、A 线回放、打 tag v0.1.0-ivy-m0）",
+   "group": "IVY 主对话步骤（人+agent）",
+   "status": "待执行",
+   "est_tokens": "80k–150k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [],
+   "note": "主对话步骤：联网、装依赖、做判断的部分，不派给离线调度器"
+  },
+  {
+   "id": "IVY-H3",
+   "title": "M1 验收（真实抓取法令 200 部、search 实测、去重确认、验收文档与 tag）",
+   "group": "IVY 主对话步骤（人+agent）",
+   "status": "待执行",
+   "est_tokens": "100k–200k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [],
+   "note": "主对话步骤：联网、装依赖、做判断的部分，不派给离线调度器"
+  },
+  {
+   "id": "IVY-H4",
+   "title": "M2 验收（e-Gov 目录/Dashboard/e-Stat 真实抓取、SQL 数值核对、JMA 每小时轮询启动）",
+   "group": "IVY 主对话步骤（人+agent）",
+   "status": "待执行",
+   "est_tokens": "100k–200k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [],
+   "note": "主对话步骤：联网、装依赖、做判断的部分，不派给离线调度器"
+  },
+  {
+   "id": "IVY-H5",
+   "title": "嵌入模型选型（bge-m3 对比评测、短查询全表扫描耗时、ADR 0001）",
+   "group": "IVY 主对话步骤（人+agent）",
+   "status": "待执行",
+   "est_tokens": "80k–160k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [],
+   "note": "主对话步骤：联网、装依赖、做判断的部分，不派给离线调度器"
+  },
+  {
+   "id": "IVY-H6",
+   "title": "M3 与 IVY 版本验收（MCP 注册、10 题现场问答、20 条引用人工抽查 ≥0.95、双 tag）",
+   "group": "IVY 主对话步骤（人+agent）",
+   "status": "待执行",
+   "est_tokens": "120k–220k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [],
+   "note": "主对话步骤：联网、装依赖、做判断的部分，不派给离线调度器"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-001",
+   "title": "契约修订：ChangeEvent、Redaction、Document.kind、快照父子关系、Dataset 快照引用",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "150k–350k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [],
+   "note": "审查=human"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-102",
+   "title": "抓取监控与提醒（基于 IVY-107 运行记录，status 与管理页面）",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [],
+   "note": "审查=other_family"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-201",
+   "title": "PDF 解析器（按页切块、needs_ocr、加密/损坏处理）",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-TACHIBANA-001"
+   ],
+   "note": "审查=other_family"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-202",
+   "title": "HTML 正文抽取与分节切块、日期抽取、SPA 外壳识别",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-TACHIBANA-001"
+   ],
+   "note": "审查=other_family"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-203",
+   "title": "KKJ 采集器（日期分段、满 1000 条自动二分、附件任务）",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-TACHIBANA-001"
+   ],
+   "note": "审查=other_family"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-204",
+   "title": "KKJ 公告解析与脱敏",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "70k–180k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [
+    "DATUMOJ-TACHIBANA-001"
+   ],
+   "note": "审查=human"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-205",
+   "title": "政策网页定向采集器（种子、深度、域名、robots、URL 规范化）",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-TACHIBANA-001"
+   ],
+   "note": "审查=other_family"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-301",
+   "title": "e-Stat 统计表产出 Dataset，进入目录检索",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-TACHIBANA-001"
+   ],
+   "note": "审查=other_family"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-401",
+   "title": "BODIK：CKAN 复用 + DataStore 读取",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [],
+   "note": "审查=other_family"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-402",
+   "title": "目录库保存快照引用，search_catalog 出处可还原",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-TACHIBANA-001"
+   ],
+   "note": "审查=other_family"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-501",
+   "title": "关键词相关性门槛与零命中判定",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [],
+   "note": "审查=other_family"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-601",
+   "title": "变化检测（ChangeEvent 生成）",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-TACHIBANA-001"
+   ],
+   "note": "审查=other_family"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-602",
+   "title": "每周变化报告与 report 命令",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-TACHIBANA-601",
+    "DATUMOJ-TACHIBANA-102"
+   ],
+   "note": "审查=other_family"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-603",
+   "title": "工具层与 MCP：list_changes、search_notices",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "70k–180k",
+   "model": "Claude Sonnet 级",
+   "depends_on": [
+    "DATUMOJ-TACHIBANA-001",
+    "DATUMOJ-TACHIBANA-601"
+   ],
+   "note": "审查=other_family"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-701",
+   "title": "评测题：KKJ 10、政策网页 10、变化 5、脱敏与注入 3、IVY 遗留缺口 5",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "70k–180k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [],
+   "note": "审查=human"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-702",
+   "title": "回答规则更新：采购和政策问答、目录与统计取证方式",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "70k–180k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [],
+   "note": "审查=human"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-901",
+   "title": "检查点 m1：KKJ + PDF 端到端，含真实抓取验收",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "150k–350k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [
+    "DATUMOJ-TACHIBANA-201",
+    "DATUMOJ-TACHIBANA-203",
+    "DATUMOJ-TACHIBANA-204"
+   ],
+   "note": "审查=human"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-902",
+   "title": "检查点 m2：政策网页 + BODIK + 目录与 e-Stat 检索，含真实抓取验收",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "150k–350k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [
+    "DATUMOJ-TACHIBANA-202",
+    "DATUMOJ-TACHIBANA-205",
+    "DATUMOJ-TACHIBANA-301",
+    "DATUMOJ-TACHIBANA-401",
+    "DATUMOJ-TACHIBANA-402",
+    "DATUMOJ-TACHIBANA-501"
+   ],
+   "note": "审查=human"
+  },
+  {
+   "id": "DATUMOJ-TACHIBANA-903",
+   "title": "检查点 m3：监控 + 变化报告 + 全部评测门槛 + MCP 实机问答（TACHIBANA 完成）",
+   "group": "TACHIBANA 0.2（采购+政策网页）",
+   "status": "计划草案·待拆任务文件（计划 PR 合并前提：KKJ 调研样本到位）",
+   "est_tokens": "150k–350k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [
+    "全部 TACHIBANA 任务"
+   ],
+   "note": "审查=human"
+  },
+  {
+   "id": "OPS-SEC-001",
+   "title": "每日安全审查（cron 09:00 JST）：新合并/改动 diff 逐行查密钥、PII、注入、配置回退",
+   "group": "运维·安全",
+   "status": "运行中（每日）",
+   "est_tokens": "40k–80k / 次",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [],
+   "note": "汇报到 datumoj 对话；发现真密钥只报告+建议轮换，不自行改历史"
+  },
+  {
+   "id": "OPS-SEC-002",
+   "title": "feature/0.2 合并时把 astral-sh/setup-uv 钉到 SHA d0cc045d04ccac9d8b7881df0226f9e82c39688e",
+   "group": "运维·安全",
+   "status": "等待 feature/0.2 合并",
+   "est_tokens": "10k–20k",
+   "model": "Claude Haiku 级（轻量）",
+   "depends_on": [],
+   "note": "基线审计 PR #17 已注明"
+  },
+  {
+   "id": "OPS-SEC-003",
+   "title": "gorou5-patch-1/2 两分支删除 .coderabbit.yaml——请 gorou5 确认是否有意",
+   "group": "运维·安全",
+   "status": "待伙伴确认",
+   "est_tokens": "5k（沟通）",
+   "model": "Claude Haiku 级（轻量）",
+   "depends_on": [],
+   "note": "误删会丢失 CodeRabbit 自定义配置"
+  },
+  {
+   "id": "OPS-TEL-001",
+   "title": "tel SEO 排名监测轮次（cron 每 3 小时）：4 查询测位 + 每轮最多推进 1 件白帽优化",
+   "group": "运维·tel",
+   "status": "运行中（每 3 小时）",
+   "est_tokens": "20k–40k / 轮",
+   "model": "Sonnet 级（中型）",
+   "depends_on": [],
+   "note": "记 tel/seo/SEO_LOG.md；不保证名次、不做黑帽"
+  },
+  {
+   "id": "OPS-TEL-002",
+   "title": "Google 官方口径 SERP 初回实测（google.co.jp 未登录口径）——当前被 Google bot 墙挡住，需换测量手段",
+   "group": "运维·tel",
+   "status": "受阻（bot 墙）",
+   "est_tokens": "20k–40k",
+   "model": "Sonnet 级（中型）",
+   "depends_on": [],
+   "note": "替代口径下 0–7 轮均为未掲載；站点已恢复可抓取，下轮起数据才有意义"
+  },
+  {
+   "id": "OPS-TEL-003",
+   "title": "Google Search Console 所有权验证（datumoj/tel/runri 共用待办）",
+   "group": "运维·tel",
+   "status": "待用户操作",
+   "est_tokens": "—（人工）",
+   "model": "人工",
+   "depends_on": [],
+   "note": "需用户登录其 Google 账号操作，agent 代不了"
+  },
+  {
+   "id": "OPS-TEL-004",
+   "title": "会計検査院 03-3581-3251 再核验（jbaudit.go.jp 恢复后查官网现行号码）",
+   "group": "运维·tel",
+   "status": "待官网恢复",
+   "est_tokens": "10k–20k",
+   "model": "Claude Haiku 级（轻量）",
+   "depends_on": [],
+   "note": "政府号码库唯一未结核验项；只认官网实见"
+  },
+  {
+   "id": "OPS-TEL-005",
+   "title": "政府机构号码库下一批扩充（下一组机构，逐条官网实见 + source_url + 确认日）",
+   "group": "运维·tel",
+   "status": "待排期",
+   "est_tokens": "50k–90k / 批",
+   "model": "Sonnet 级（中型）",
+   "depends_on": [],
+   "note": "现 30 机构 34 号码；严禁二手来源冒充"
+  },
+  {
+   "id": "OPS-TEL-006",
+   "title": "首页「よく調べられている番号」公开范围决策：是否只限 0800/0120 等公共服务号段",
+   "group": "运维·tel",
+   "status": "待用户拍板",
+   "est_tokens": "实现 15k–25k",
+   "model": "Sonnet 级（中型）",
+   "depends_on": [],
+   "note": "安全审查提出：私人号码被搜后可能被公开列出；决策后 agent 实现"
+  },
+  {
+   "id": "OPS-TEL-007",
+   "title": "给 tel Worker 设置 IP_HASH_SECRET（wrangler secret put），启用评论 IP 哈希加盐",
+   "group": "运维·tel",
+   "status": "待 owner 执行",
+   "est_tokens": "5k（命令一行）",
+   "model": "Claude Haiku 级（轻量）",
+   "depends_on": [],
+   "note": "代码已支持，未设时回退旧公开盐，IPv4 哈希可字典反推"
+  },
+  {
+   "id": "OPS-TEL-008",
+   "title": "PR #13（tel/history-figure）与 PR #14（tel/seo-watch，叠在 #13 上）的合并跟进与冲突处理",
+   "group": "运维·tel",
+   "status": "进行中（CodeRabbit 自动合并）",
+   "est_tokens": "30k–60k",
+   "model": "Sonnet 级（中型）",
+   "depends_on": [],
+   "note": "2026-10-23 起 PR 交 CodeRabbit review+合并"
+  },
+  {
+   "id": "OPS-TEL-009",
+   "title": "批量灌入前配额估算清单固化（行数×索引放大，先估算再灌 D1）",
+   "group": "运维·tel",
+   "status": "待做",
+   "est_tokens": "10k–20k",
+   "model": "Claude Haiku 级（轻量）",
+   "depends_on": [],
+   "note": "2026-10-22 配额打满事故的教训落地；用户已决定 D1 暂不升付费"
+  },
+  {
+   "id": "OPS-PLAN-001",
+   "title": "orbis 注册表发布为 Hugging Face 数据集（Bharat 式逐条溯源字段）",
+   "group": "运维·plan 站",
+   "status": "待排期（调研建议 #1）",
+   "est_tokens": "60k–100k",
+   "model": "Sonnet 级（中型）",
+   "depends_on": [],
+   "note": "HF 调研结论：跨国注册表数据集无人做过；471 个官方资源"
+  },
+  {
+   "id": "OPS-PLAN-002",
+   "title": "PR #6（plan/plan-page）与 PR #17（安全基线）的合并跟进",
+   "group": "运维·plan 站",
+   "status": "进行中（CodeRabbit 自动合并）",
+   "est_tokens": "15k–30k",
+   "model": "Claude Haiku 级（轻量）",
+   "depends_on": [],
+   "note": ""
+  },
+  {
+   "id": "OPS-DEC-001",
+   "title": "仓库 LICENSE 决定（MIT / Apache-2.0）",
+   "group": "运维·决策",
+   "status": "待用户决定",
+   "est_tokens": "—（人工）",
+   "model": "人工",
+   "depends_on": [],
+   "note": "决定后 agent 一行落地"
+  },
+  {
+   "id": "OPS-DATA-001",
+   "title": "0.3 版本方向细拆（欧美：data.europa.eu、Eurostat SDMX、World Bank WDI、Federal Register）",
+   "group": "运维·规划",
+   "status": "IVY 完成后再拆",
+   "est_tokens": "100k–180k",
+   "model": "Claude Opus 级（强推理）",
+   "depends_on": [],
+   "note": "PLAN 第 7 节只列方向，未拆任务"
+  }
+ ]
+}

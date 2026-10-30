@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DATUMOJ 任务中心 · task.datumoj.com</title>
+<meta name="description" content="DATUMOJ 项目的全部计划分解为 agent 可执行任务：含预计 token 消耗与推荐模型。机器可读版本：/tasks.json">
+<style>
+body{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#0d1117;color:#c9d1d9;margin:0;padding:24px 16px 60px}
+main{max-width:1080px;margin:0 auto}
+h1{font-size:22px;color:#f0f6fc;margin:0 0 4px}
+.sub{color:#8b949e;font-size:13px;margin-bottom:18px}
+h2{font-size:16px;color:#f0f6fc;margin:26px 0 8px;border-bottom:1px solid #30363d;padding-bottom:6px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px 16px;margin-bottom:14px;font-size:13px;line-height:1.7}
+.stats{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:6px}
+.stat{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px 14px;font-size:13px}
+.stat b{color:#f0f6fc;font-size:18px;display:block}
+select,input{background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:7px 10px;font-size:13px;margin:0 8px 12px 0}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{border-bottom:1px solid #21262d;padding:7px 8px;text-align:left;vertical-align:top}
+th{color:#8b949e;font-weight:600}
+.id{color:#58a6ff;white-space:nowrap}
+.badge{display:inline-block;border:1px solid #30363d;border-radius:20px;padding:0 8px;font-size:11px;color:#8b949e;white-space:nowrap}
+.tok{color:#d29922;white-space:nowrap}
+.model{color:#3fb950}
+a{color:#58a6ff}
+button{background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer}
+.note{color:#8b949e;font-size:11.5px}
+code{background:#21262d;padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<main>
+<h1>DATUMOJ 任务中心</h1>
+<div class="sub">task.datumoj.com · 专门给 agent 用的任务分解表 · 更新于 2026-10-23 · 机器可读：<a href="/tasks.json">tasks.json</a>（90 个任务全量）</div>
+
+<div class="stats" id="stats"></div>
+
+<div class="card">
+<b style="color:#f0f6fc">给 agent 的读法</b><br>
+1. 先按「状态」挑任务：<code>待执行 / 待排期</code> 可直接开工；<code>待用户/owner</code> 的先别动，等拍板。<br>
+2. <b>预计 token</b> 是整任务消耗（读代码+实现+测试+返工一轮）的经验区间，不是承诺：契约/集成等 high 难度 150k–350k，一般实现 70k–180k，定点修复 30k–90k，运维轮次按次计。<br>
+3. <b>推荐模型</b> 按难度与审查要求定：契约、集成、评测题、安全审查用强推理（Opus 级）；常规实现用 Sonnet 级；仓库原定 runner 为 codex 的用 GPT-5 Codex 级，且按仓库规则由另一家模型交叉审查；机械小活用 Haiku 级。<br>
+4. 仓库硬规则：分支+PR、不直推 main；不提交任何密钥；史实与数据必须有出处；IVY 任务的验收命令统一 <code>make check T=&lt;测试路径&gt;</code>，全离线。
+</div>
+
+<div>
+<select id="fGroup"><option value="">全部分组</option></select>
+<select id="fStatus"><option value="">全部状态</option><option>待执行</option><option>待排期</option><option>运行中</option><option>已执行</option><option>计划草案</option><option>待用户</option><option>待 owner</option><option>受阻</option></select>
+<input id="fQ" type="search" placeholder="搜索 ID / 标题…" size="26">
+</div>
+<div id="groups"></div>
+
+<div class="card">
+<b style="color:#f0f6fc">总量估算</b><br>
+IVY 剩余人工评审与 H 步骤收尾 ≈ 0.7M–1.3M tokens；TACHIBANA 19 个任务全量 ≈ 1.6M–3.3M tokens（不含真实抓取验收的人工时间）；运维类（SEO 每 3 小时、安全每日）为持续消耗，按轮次表内单价计。0.3（欧美扩面）未细拆，只列了方向任务 OPS-DATA-001。
+</div>
+</main>
+<script>
+let ALL=[];
+function brief(t){return `任务 ${t.id}：${t.title}\n分组：${t.group}｜状态：${t.status}\n依赖：${t.depends_on.join(', ')||'无'}\n预计 token：${t.est_tokens}｜推荐模型：${t.model}\n备注：${t.note||'—'}\n规则：分支+PR 不直推 main；无密钥；结论须有出处。`}
+function render(){
+  const g=document.getElementById('fGroup').value, s=document.getElementById('fStatus').value, q=document.getElementById('fQ').value.trim();
+  const list=ALL.filter(t=>(!g||t.group===g)&&(!s||t.status.includes(s))&&(!q||(t.id+t.title).includes(q)));
+  const byG={}; list.forEach(t=>{(byG[t.group]=byG[t.group]||[]).push(t)});
+  document.getElementById('groups').innerHTML=Object.entries(byG).map(([gname,ts])=>
+   `<h2>${gname}（${ts.length}）</h2><table><tr><th>ID</th><th>任务</th><th>状态</th><th>依赖</th><th>预计 token</th><th>推荐模型</th><th></th></tr>${
+    ts.map(t=>`<tr><td class="id">${t.id}</td><td>${t.title}${t.note?`<div class="note">${t.note}</div>`:''}</td><td><span class="badge">${t.status}</span></td><td class="note">${t.depends_on.join(', ')||'—'}</td><td class="tok">${t.est_tokens}</td><td class="model">${t.model}</td><td><button>简报</button></td></tr>`).join('')
+   }</table>`).join('')||'<p class="note">无匹配任务</p>';
+  // fix brief buttons: attach data properly
+  document.querySelectorAll('#groups table').forEach((tbl,gi)=>{});
+}
+fetch('/tasks.json').then(r=>r.json()).then(d=>{
+  ALL=d.tasks;
+  const groups=[...new Set(ALL.map(t=>t.group))];
+  const sel=document.getElementById('fGroup'); groups.forEach(g=>{const o=document.createElement('option');o.textContent=g;sel.appendChild(o)});
+  const cnt=s=>ALL.filter(t=>t.status.includes(s)).length;
+  document.getElementById('stats').innerHTML=
+   `<div class="stat"><b>${ALL.length}</b>任务总数</div><div class="stat"><b>${cnt('已执行')}</b>已执行待评审</div><div class="stat"><b>${cnt('计划草案')}</b>TACHIBANA 草案</div><div class="stat"><b>${cnt('运行中')}</b>运维运行中</div><div class="stat"><b>${ALL.filter(t=>/待用户|待 owner|待伙伴/.test(t.status)).length}</b>等人拍板</div>`;
+  ['fGroup','fStatus','fQ'].forEach(id=>document.getElementById(id).addEventListener('input',render));
+  // simpler brief copy: delegate
+  document.getElementById('groups').addEventListener('click',e=>{
+    if(e.target.tagName!=='BUTTON')return;
+    const id=e.target.closest('tr').querySelector('.id').textContent;
+    const t=ALL.find(x=>x.id===id); navigator.clipboard.writeText(brief(t)); e.target.textContent='已复制';
+    setTimeout(()=>e.target.textContent='简报',1200);
+  });
+  render();
+});
+</script>
+</body>
+</html>
