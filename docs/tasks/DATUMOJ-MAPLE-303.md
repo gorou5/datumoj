@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-303
 title: 世界银行 WDI 精选指标 → 观测值：6 国、2000–2024、4 个指标，单位按指标写死
 project: DATUMOJ
-status: ready
+status: doing
 priority: 2
 depends_on: []
 runner: claude
@@ -49,7 +49,7 @@ WDI 的人口、美元 GDP、本币 GDP、预期寿命作为跨国比较基准�
    - `release_id` / `released_at` 留空（ADR 0007）。
 4. **测试**：
    - 解析：样本两页合起来的观测值条数、JPN 2023 年美元 GDP 的值与样本一致；本币 GDP 的 `unit` 不是美元；null 年份不出现、warnings 有计数。
-   - 采集：按 `pages` 翻页、请求带 `source=2`；yaml 里写聚合代码（如 `WLD`）时加载报错。
+   - 采集：按 `pages` 翻页、请求带 `source=2`；`scope` 里写聚合代码（如 `WLD`）时，采集器 `plan` 抛 `ValueError`（yaml 加载器在 `core/` 里，不改）。
    - `tests/integration/test_wdi_e2e.py`：样本离线入库，`query_sql` 比较 JPN 和 USA 的美元 GDP 能各自给出出处。
 5. `make lint` 0 条，`make check T=tests` 全部通过。
 

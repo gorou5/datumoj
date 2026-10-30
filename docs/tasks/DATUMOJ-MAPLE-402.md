@@ -40,7 +40,7 @@ max_attempts: 2
 - 不新增依赖，不改 `pyproject.toml`、`uv.lock`；仓库是公开的，不写账号、密钥、本机绝对路径；临时文件放 `tmp_path`。
 
 # 要求
-1. **yaml** `sources/fr-data-gouv.yaml`：`country: fr`，`base_url: https://www.data.gouv.fr/api/1/`，`allowed_hosts: [www.data.gouv.fr]`，`schedule: daily`；`scope.organization` 写 INSEE 的 id `534fff81a3a7292c64a77e5c`（yaml 加载时校验 24 位十六进制）；`download_resources: false`。许可 Licence Ouverte 2.0。
+1. **yaml** `sources/fr-data-gouv.yaml`：`country: fr`，`base_url: https://www.data.gouv.fr/api/1/`，`allowed_hosts: [www.data.gouv.fr]`，`schedule: daily`；`scope.organization` 写 INSEE 的 id `534fff81a3a7292c64a77e5c`（采集器 `plan` 里校验 24 位十六进制，不合法抛 `ValueError`；yaml 加载器在 `core/` 里，不改）；`download_resources: false`。许可 Licence Ouverte 2.0。
 2. **采集**（`kind: udata`）：`/datasets/?organization=<id>&page_size=<n>&page=<k>` 翻到 `next_page` 为空；页数有上限（按 `total / page_size` 加余量），超过就停并记原因；不跟随资源链接下载文件。
 3. **解析**（`source_kind: udata`）：
    - 每个数据集一个 `Dataset`（键用 udata 的永久 id，不用 slug）：标题、描述、机构、许可（原样记录 `license` 值）、标签、`modified_at` 用来源的 `last_modified`（不能用抓取时间代替，决策文档 4.6）、频率和时间覆盖进 `extras`。
@@ -48,7 +48,7 @@ max_attempts: 2
    - 目录检索的内容和 `ckan_meta` 一致：法语标题和描述能被关键词检索到。
 4. **测试**：
    - 解析：样本两页共 4 个数据集，`modified_at` 等于样本的 `last_modified`；资源 URL 原样；联系人邮箱等个人信息不进检索块。
-   - 采集：按 `next_page` 翻页、到最后一页停；`organization` 写 slug 时 yaml 加载报错。
+   - 采集：按 `next_page` 翻页、到最后一页停；`organization` 写 slug 时采集器 `plan` 抛 `ValueError`。
    - `test_udata_e2e.py`：样本离线入库，用法语关键词（如 “population Iris”）在目录检索里找到对应数据集。
 5. `make lint` 0 条，`make check T=tests` 全部通过。
 

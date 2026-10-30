@@ -2,7 +2,7 @@
 id: DATUMOJ-MAPLE-302
 title: Eurostat SDMX 精选数据集 → 观测值：三套过滤条件、SDMX-ML 2.1、按快照保留每次抓到的值
 project: DATUMOJ
-status: ready
+status: doing
 priority: 2
 depends_on: []
 runner: codex
@@ -39,7 +39,7 @@ Eurostat 的 GDP、人口和希腊政府赤字 / 债务数据进 `query_sql`，�
 
 # 要求
 1. **yaml** `sources/eu-eurostat.yaml`：`country: eu`，`base_url` 为 SDMX 2.1 入口，`allowed_hosts: [ec.europa.eu]`，`schedule: daily`；`scope.datasets` 列出三个数据集，每个写 `id`、查询 key、`startPeriod`、`endPeriod`（值见决策文档 3.1：`nama_10_gdp` `A.CP_MEUR.B1GQ.DE+FR+NL` 2020–2024；`demo_pjan` `A.NR.TOTAL.T.DE+FR+NL` 2020–2024；`gov_10dd_edpt1` `A.PC_GDP+MIO_EUR.S13.B9+GD.EL` 2000–2015）。
-2. **采集**（`kind: eurostat_sdmx`）：每个数据集取 DSD（`/datastructure/ESTAT/<ID>`，不用 `references=datastructure`）和数据（SDMX-ML 2.1 Generic，不用 `format=JSON`）。key 只允许维度代码字符和 `.`、`+`，在 yaml 加载时校验。
+2. **采集**（`kind: eurostat_sdmx`）：每个数据集取 DSD（`/datastructure/ESTAT/<ID>`，不用 `references=datastructure`）和数据（SDMX-ML 2.1 Generic，不用 `format=JSON`）。key 只允许维度代码字符和 `.`、`+`，在采集器生成请求时（`plan` 里）校验，不合法就抛 `ValueError`（写法同 `stat_dashboard` 校验 `scope.indicators`）；yaml 加载器在 `core/` 里，不改。
 3. **解析**（`source_kind: eurostat_sdmx`）：
    - 每个观测值一条 `Observation`：`table_key` 为数据集 ID；`dims` 写全部维度代码，`indicator` / `unit` / `area_code` 取对应维度，`area_label`、单位名称从 DSD 的 codelist 取；`time_start` / `time_end` / `granularity` 按 `TIME_PERIOD`。
    - 观测状态（`OBS_STATUS`、`OBS_FLAG`，例如 `p` 暂定、`e` 估计、缺值）写进 `note`；缺值时 `value` 为空、`note` 写状态，绝不补零。
@@ -48,7 +48,7 @@ Eurostat 的 GDP、人口和希腊政府赤字 / 债务数据进 `query_sql`，�
    - 每个数据集一个 `Dataset`，标题和说明取 DSD / dataflow 名称。
 4. **测试**：
    - 解析：希腊 2009 年赤字率 `PC_GDP.S13.B9` 为 -15.4（决策文档实测值），单位 `PC_GDP`；`MIO_EUR` 与 `PC_GDP` 不混；有状态标记的观测值 `note` 带上标记。
-   - 采集：请求的 URL、key 校验拒绝非法字符。
+   - 采集：请求的 URL、`plan` 遇到含非法字符的 key 抛 `ValueError`。
    - `tests/integration/test_eurostat_e2e.py`：用样本离线入库，`query_sql` 查到希腊 2009 年赤字率并能为该行生成出处；同一数据集换一份数值不同的合成快照再入库后，旧快照的值仍能按快照查到。
 5. `make lint` 0 条，`make check T=tests` 全部通过。
 
@@ -56,3 +56,6 @@ Eurostat 的 GDP、人口和希腊政府赤字 / 债务数据进 `query_sql`，�
 - 不回补历史发布版本（EDP 通报档案属于 0.4 的缺口报告）。
 - 不用 JSON-stat。
 - 不跨币种、跨口径换算。
+
+# 重做要求（第 1 轮，2026-10-31）
+第 1 次尝试停下来问：任务文件要求“在 yaml 加载时校验 key”，但加载器在 `core/`，不在 scope 里。这是任务文件的冲突，已改为在采集器 `plan` 里校验（见要求第 2 条）。本轮从 `feature/0.4` 重新开始，其余要求不变，`core/**` 仍不改。
