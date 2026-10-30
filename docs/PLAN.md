@@ -125,7 +125,7 @@ Citation = source_id + resource_url + snapshot_sha256 + fetched_at + locator
 | 关键词检索 | SQLite FTS5 trigram（日文不分词也能搜） | 零依赖；需要时再换 tantivy |
 | 向量检索 | LanceDB，嵌入模型可替换 | 法令切块后约 100 万块，需要 ANN 索引，sqlite-vec 暴力检索撑不住；默认 bge-m3 通过本机 Ollama 运行，H5 在评测集上验证效果 |
 | 分析层 LLM | 第一阶段只通过 MCP 由宿主模型（Claude）调用工具，代码里不调用任何 LLM | 延续旧项目“不额外付费调用模型”的决定；查询改写由宿主模型做，代码只提供中英日术语对照表 |
-| 调度 | `make crawl` 加系统定时任务（macOS 用 launchd，Linux 用 cron 或 systemd timer） | 第一阶段不上云；定时配置不写死某台机器。以后可换成 Cloudflare Cron Triggers（第 4.4 节） |
+| 调度 | `make crawl` 加系统定时任务（macOS 用 launchd，Linux 用 cron 或 systemd timer） | 第一阶段（IVY、TACHIBANA）不上云；定时配置不写死某台机器。0.3 起改由 GitHub Actions 定时运行、状态写进 R2（2026-10-30，见第 4.4 节） |
 
 ### 4.3 检索与问答的关键规则
 
