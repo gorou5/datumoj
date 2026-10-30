@@ -1,0 +1,18 @@
+{
+  "access_method": "other",
+  "auth_required": false,
+  "country_region": "JP",
+  "id": "jp-mhlw",
+  "last_verified": "unknown",
+  "license": {
+    "allows_redistribution": "unknown",
+    "name": "公共データ利用規約（第1.0版）（PDL1.0）",
+    "requires_attribution": true,
+    "url": "https://www.mhlw.go.jp/chosakuken/index.html"
+  },
+  "name": "第11回NDBオープンデータ 特定健診（質問項目１）",
+  "official_url": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000177221_00017.html",
+  "publisher": "厚生労働省",
+  "rate_limit": "0.2 req/s",
+  "status": "experimental"
+}

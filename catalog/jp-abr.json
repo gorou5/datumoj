@@ -1,0 +1,18 @@
+{
+  "access_method": "other",
+  "auth_required": false,
+  "country_region": "JP",
+  "id": "jp-abr",
+  "last_verified": "unknown",
+  "license": {
+    "allows_redistribution": "unknown",
+    "name": "unknown",
+    "requires_attribution": true,
+    "url": "https://www.digital.go.jp/policies/base_registry_address_tos"
+  },
+  "name": "アドレス・ベース・レジストリ 町字マスター（青ヶ島村）",
+  "official_url": "https://data.address-br.digital.go.jp/",
+  "publisher": "デジタル庁",
+  "rate_limit": "0.2 req/s",
+  "status": "experimental"
+}
