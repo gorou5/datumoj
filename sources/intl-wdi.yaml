@@ -1,0 +1,27 @@
+id: intl-wdi
+name: World Development Indicators
+country: intl
+kind: worldbank_wdi
+base_url: https://api.worldbank.org/v2/
+allowed_hosts: [api.worldbank.org]
+rate_per_sec: 1
+max_total_bytes: 1073741824
+max_files: 10000
+schedule: monthly
+license:
+  name: CC BY 4.0 + World Bank 数据集附加条款
+  url: https://www.worldbank.org/ext/en/legal/terms-conditions/datasets
+  attribution: 'The World Bank: World Development Indicators: Data source (if known)'
+  usage_scope: internal_only
+  redistribution: unverified
+  verified_at: null
+scope:
+  countries: [JPN, USA, GBR, DEU, FRA, NLD]
+  start_year: 2000
+  end_year: 2024
+  indicators:
+    SP.POP.TOTL: 人
+    NY.GDP.MKTP.CD: current US$
+    NY.GDP.MKTP.CN: current LCU（各国本币）
+    SP.DYN.LE00.IN: 年
+retention_note: 每次重读整个选定区间，保留历史快照。
