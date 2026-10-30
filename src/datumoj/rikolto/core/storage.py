@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
+from ipaddress import IPv4Address, IPv6Address, ip_address
 from pathlib import Path
 from typing import Literal, Self
 from urllib.parse import urlsplit
@@ -49,6 +50,16 @@ class StorageConfig(BaseModel):
                 valid = False
             if not valid:
                 raise ValueError("S3 endpoint 必须是无凭证、无查询参数的 HTTP(S) URL")
+            if url.scheme == "http":
+                host = url.hostname
+                try:
+                    address = ip_address(host)
+                    loopback = (isinstance(address, IPv4Address) and address.is_loopback
+                                or address == IPv6Address("::1"))
+                except ValueError:
+                    loopback = host == "localhost"
+                if not loopback:
+                    raise ValueError("S3 endpoint 必须用 HTTPS（只有本机回环地址允许 http）")
         return self
 
 
