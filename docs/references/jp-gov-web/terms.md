@@ -2,6 +2,10 @@
 
 S1-S10 的来源说明见 notes.md。以下三条记录分别对应三个站点。S9 是 PDL1.0 标准文本，仅作为内閣府与総務省各自页面所指规约的单独参考文本；不将它套用到大阪市。
 
+核对日期：2026-10-30（下列各条均为该日捕获的页面）。
+
+官方原文链接：内閣府ホームページ利用規約（S2）<https://www.cao.go.jp/notice/rule.html>；総務省当省ホームページについて（S4）<https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html>；大阪市サイトの考え方（S6）<https://www.city.osaka.lg.jp/main/site_policy/0000000120.html>；大阪市掲載データを使う（S7）<https://www.city.osaka.lg.jp/main/site_policy/0000000160.html>；大阪市著作権・免責（S8）<https://www.city.osaka.lg.jp/main/site_policy/0000000124.html>；公共データ利用規約（第1.0版；PDL1.0）（S9）<https://www.digital.go.jp/resources/open_data/public_data_license_v1.0>。
+
 ## 明确的范围限制
 
 本包没有逐一检查目标单页及附件（包括 PDF）的权利。各站点页面分别说明自己的站点级规则、条件与例外；是否有某一被抓取页面或 PDF 带有其他权利标记为 NOT STATED（S2；cao_rule.txt:9,13-14；S4；soumu_tyosaku.txt:127,141-146；S7；osaka_use_data.txt:58,68-80；S8；osaka_copyright.txt:94-99）。因此，本包不判断具体页面或文件的适用许可、再分发状态，也不判断该抓取行为是否获准。

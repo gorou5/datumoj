@@ -19,6 +19,8 @@
 | S11 | 上游维护者的 jp-gov-web YAML 摘录；datumoj_plan_excerpt.md | 仅作配置主张的比对对象，不是官方页面证据（datumoj_plan_excerpt.md:2-40） |
 | R1 | 本方自有 robots.txt 捕获观察（日志不随参考包分发） | 2026-10-30 的三个 URL 与状态见本节下文 |
 
+获取方式：捕获记录头将各文件标作页面文本捕获，并记录来源 URL、HTTP 状态与捕获时间；记录头未记载请求方法。上述信息仅作捕获头元数据，不作为页面正文引用。
+
 ## 1. 三个种子页面
 
 - S1 的页面标题为「イノベーション推進 - 科学技術・イノベーション - 内閣府」（S1；cao_seed.txt:2）；正文目录还列出「SBIR制度」（S1；cao_seed.txt:8）。
@@ -42,6 +44,23 @@
 ## 4. 日期与范围限制
 
 - 本包只按各已捕获页面正文逐条记录，不把捕获时间当作页面更新日。
+
+来源级时间（captured_at 来自捕获记录头；记录头时间仅作元数据，不作为页面正文引用）：
+
+| 标签 | 捕获文件 | captured_at | published_at |
+|---|---|---|---|
+| S1 | cao_seed.txt | 2026-10-30 16:32 JST | unknown |
+| S2 | cao_rule.txt | 2026-10-30 16:32 JST | unknown |
+| S3 | soumu_seed.txt | 2026-10-30 16:32 JST | unknown |
+| S4 | soumu_tyosaku.txt | 2026-10-30 16:32 JST | unknown |
+| S5 | osaka_seed.txt | 2026-10-30 16:32 JST | unknown |
+| S6 | osaka_site_policy.txt | 2026-10-30 16:32 JST | unknown |
+| S7 | osaka_use_data.txt | 2026-10-30 16:32 JST | unknown |
+| S8 | osaka_copyright.txt | 2026-10-30 16:33 JST | unknown |
+| S9 | pdl_v1.txt | 2026-10-30 16:33 JST | unknown |
+| S10 | soumu_robots.txt | 2026-10-30 16:32 JST | unknown |
+
+S6 与 S7 页面文本分别显示日期 2026年6月26日、2026年3月9日，但未标明为更新日或发布日期，故 published_at 记为 unknown（osaka_site_policy.txt:52；osaka_use_data.txt:52）。
 - 本包没有逐一检查被抓取的单页及附件（包括 PDF）的权利。站点级条款写明各自的适用规则与例外；具体目标页面或 PDF 是否带有其他权利标记为 NOT STATED（S2；cao_rule.txt:9,13-14；S4；soumu_tyosaku.txt:127,141-146；S7；osaka_use_data.txt:58,68-80；S8；osaka_copyright.txt:94-99）。
 - 本包不判断某一页面或附件适用何种许可，不作再分发结论，不表示此次或任何抓取获准。未读材料及配置对照仅在维护者专用 SOURCE_CHECK_TABLE.md 汇总（不随公开参考包分发）；公开参考包不提供逐项配置或未读材料核验。
 
