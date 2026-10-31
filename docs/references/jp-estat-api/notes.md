@@ -15,13 +15,15 @@ S1-S7 是 2026-10-30 阅读的官方页面保存文字；S8 是维护者计划�
 | S7 | e-Stat API FAQ：<https://www.e-stat.go.jp/api/api-dev/faq> | 读过官方页面（2026-10-30） |
 | S8 | datumoj_plan_excerpt.md 与 datumoj_pr38_body.md（维护者文字，非官方来源） | 仅读文档 |
 
+本文件中的 `文件名:行号` 指向未随本包提交的本地保存记录（公开仓库不提交未核对再分发范围的原文）；读者核对时以各标签对应的官方 URL 为准。
+
 ## 1. 访问与应用程序 ID（F1）
 
 - API 仅限完成用户注册者使用；指南也将用户注册列为第一步。（api_terms_of_use.txt:8; api_terms_of_use.txt:9；api_guide.txt:6; api_guide.txt:7; api_guide.txt:8；S1、S4）
 - 用户注册完成后，统计中心发放应用程序 ID；指南说每个开发应用程序取得一个 ID，且请求时需要发送该 ID。（api_terms_of_use.txt:11; api_terms_of_use.txt:12; api_terms_of_use.txt:13；api_guide.txt:12; api_guide.txt:13; api_guide.txt:14; api_guide.txt:15; api_guide.txt:16；api_faq.txt:54; api_faq.txt:55; api_faq.txt:56; api_faq.txt:57; api_faq.txt:58; api_faq.txt:59；S1、S4、S7）
 - FAQ 说可取得的应用程序 ID 最多 3 个；ID 不得转让或出借给第三方。（api_faq.txt:58; api_faq.txt:59；api_terms_of_use.txt:13；S1、S7）
 - 若应用程序不在公开网站使用，指南允许在发放时填写本地地址；未读取发放画面。（api_guide.txt:15; api_guide.txt:16；S4）
-- 发现 ID 被第三方不正当使用时，使用者须尽快联系统计中心；统计中心在收到使用者关于发现该 ID 被第三方不正当使用的报告时，或该中心判断该 ID 被第三方不正当使用或疑似被第三方不正当使用时，可立即停止该 ID，并可中断 API 功能的使用。（api_terms_of_use.txt:14; api_terms_of_use.txt:15；S1）
+- 发现 ID 被第三方不正当使用时，使用者须尽快联系统计中心。统计中心可在收到使用者关于该 ID 被第三方不正当使用的报告时，或自行判断该 ID 被第三方不正当使用或疑似被不正当使用时，立即停止该 ID 并中断 API 功能的使用。（原文短引「前項に基づく連絡があった場合及び」；api_terms_of_use.txt:15；S1）
 - FAQ 说更改应用程序 ID 须先删除、再重新发放（「削除後に、再発行することで可能です」），更改前的 ID 将无法再使用。（api_faq.txt:69; api_faq.txt:70; api_faq.txt:71；S7）
 - API 首页和 FAQ 指向的测试表单以及规格页仅有链接或介绍；其页面内容未纳入本包。（api_top.txt:4; api_top.txt:5; api_top.txt:6; api_top.txt:18；api_faq.txt:88；S6、S7）
 
@@ -48,7 +50,7 @@ S1-S7 是 2026-10-30 阅读的官方页面保存文字；S8 是维护者计划�
 - FAQ 说省略 searchKind 时选 1（统计情报）；版本 2.1 以前虽可指定 searchKind=3（社会・人口统计体系），但不指定也能取得该数据且可取得最新数据，因此 FAQ 请使用者不要指定 3。（api_faq.txt:101; api_faq.txt:102；S7）
 - 更新时期因制作机构而异；FAQ 指向数据制作机构查询。它也列出 updatedDate 的年、月、日和范围形式。（api_faq.txt:79; api_faq.txt:80; api_faq.txt:81; api_faq.txt:82; api_faq.txt:83; api_faq.txt:104; api_faq.txt:105; api_faq.txt:106; api_faq.txt:107; api_faq.txt:108; api_faq.txt:109; api_faq.txt:110; api_faq.txt:111; api_faq.txt:112; api_faq.txt:113；S7）
 - 统计表 ID 对应响应中的 LIST_INF 标签 id 属性，约 10 位；e-Stat 的按日新到信息仅包括 Excel、CSV、PDF，不包括数据库形式的 API 数据。（api_faq.txt:90; api_faq.txt:91; api_faq.txt:92; api_faq.txt:79; api_faq.txt:80; api_faq.txt:81; api_faq.txt:82; api_faq.txt:83；S7）
-- 日期：站点规约称其定于 2016-01-29 制定，并遵循政府标准利用规约 2.0 版；S1、S2、S4、S5、S7 所持文字未载明制定日期（NOT STATED）。（site_terms_of_use.txt:58；api_terms_of_use.txt:1; api_terms_of_use.txt:59；api_credit.txt:1; api_credit.txt:2; api_credit.txt:3; api_credit.txt:4; api_credit.txt:5; api_credit.txt:6; api_credit.txt:7；api_guide.txt:1; api_guide.txt:28；api_data.txt:1; api_data.txt:2; api_data.txt:3; api_data.txt:4; api_data.txt:5; api_data.txt:6；api_faq.txt:1; api_faq.txt:122；S1-S7）
+- 日期：站点规约称其定于 2016-01-29 制定，并遵循政府标准利用规约 2.0 版；S1、S2、S4、S5、S7 所持文字未载明制定日期（NOT STATED）。（site_terms_of_use.txt:58；api_terms_of_use.txt:59；api_credit.txt:2; api_credit.txt:3; api_credit.txt:4; api_credit.txt:5; api_credit.txt:6; api_credit.txt:7；api_guide.txt:28；api_data.txt:2; api_data.txt:3; api_data.txt:4; api_data.txt:5; api_data.txt:6；api_faq.txt:122；S1-S7）
 - 站点规约 6)イ 还写明该规则今后可能变更，并称已按政府标准利用规约以前版本利用内容的，「引き続きその条件が適用されます」。（site_terms_of_use.txt:58；S3）
 - API 首页最新列出的新闻日期为 2026-07-10，标题为「消費者物価指数の基準改定に伴うＡＰＩ機能で利用可能な統計表ID等の変更について」；这里只记录页面所列日期与标题。（api_top.txt:22; api_top.txt:23; api_top.txt:24；S6）
 - 本次页面文字核对日期为 2026-10-30；这是本次读取日期，不是规约或页面文件的制定日期。（S1-S7；仅读文档）
