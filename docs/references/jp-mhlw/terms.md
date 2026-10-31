@@ -2,9 +2,13 @@
 
 S1-S4 的标签释义见 notes.md 开头的证据标签表。S4 是维护者计划摘录，不是官方来源。（仅读文档；S1-S4）
 
+核对日期：2026-10-30（下列各条均为该日捕获的页面）。
+
+官方原文链接：厚生劳动省第11回页面（S1）<https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000177221_00017.html>；NDB 总页（S2）<https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000177182.html>；厚生劳动省利用规约页面（S3）<https://www.mhlw.go.jp/chosakuken/index.html>；公共数据利用规约（第1.0版；PDL1.0）<https://www.digital.go.jp/resources/open_data/public_data_license_v1.0>。
+
 ## 1. 厚生劳动省网站规约与 PDL1.0
 
-- S3 说明厚生劳动省网站内容在没有权利标示时依 PDL1.0 的利用条件处理。原文片段为：⟦権利表記の記載がない限り⟧〔mhlw_copyright.txt:6〕⟦「公共データ利用規約（第1.0版）」（PDL1.0）に準拠した利用条件の下で、利用することができます。⟧〔mhlw_copyright.txt:6〕。（读过官方页面（2026-10-30）；S3）
+- S3 说明厚生劳动省网站内容在没有权利标示时依 PDL1.0（<https://www.digital.go.jp/resources/open_data/public_data_license_v1.0>）的利用条件处理。原文片段为：⟦権利表記の記載がない限り⟧〔mhlw_copyright.txt:6〕⟦「公共データ利用規約（第1.0版）」（PDL1.0）に準拠した利用条件の下で、利用することができます。⟧〔mhlw_copyright.txt:6〕。（读过官方页面（2026-10-30）；S3）
 - 已持有的 NDB 第11回页面与总页正文未打印单独的 NDB 数据许可声明；这只描述本次持有的页面文本。（ndb_11th.txt:3；ndb_index.txt:4；S1、S2）
 - PDL1.0 正文未列入本次持有材料。S3 的通用网站条款和 NDB 页面内容并不足以在本包中判断具体 ZIP 或 Excel 文件的许可范围。（mhlw_copyright.txt:6；ndb_11th.txt:89；S1、S3）
 
