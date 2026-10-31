@@ -4,32 +4,32 @@
 
 引用只指向捕获正文行；不引用捕获文件第 1 行。捕获 URL 和 CSV 响应大小来自捕获元数据，不是官方页面正文。M1 是维护者文字，不是官方来源。标题及文字依来源原样记录；本笔记不判断许可，也不选择系列。
 
-| 标签 | 材料 | 用途 |
-|---|---|---|
-| S1 | e-Stat 调查页；estat_survey_00450071.txt；https://www.e-stat.go.jp/statistics/00450071 | 调查名、政府统计代码、全国调查简介。 |
-| S2 | e-Stat 数据库列表；estat_db_zenkoku.txt | 全国调查数据库列表及其公开（更新）日期。 |
-| S3 | e-Stat 原表 dbview；estat_dbview_0003138108.txt；https://www.e-stat.go.jp/dbview?sid=0003138108 | 旧原表标题、公开时间、调查月数量和首尾月份。 |
-| S4 | e-Stat 全国调查文件树；estat_files_zenkoku.txt；https://www.e-stat.go.jp/stat-search/files?toukei=00450071&tstat=000001011791&page=1 | 文件树分组及树中显示的更新日期。 |
-| S5 | e-Stat 最新结果表；estat_fl_latest_tables.txt | 最新结果表分组。 |
-| S6 | e-Stat 实数原表；estat_fl_genpyo_monthly.txt | 月次实数原表分组。 |
-| S7 | e-Stat 给付推计值列表；estat_fl_kyufu_suikei.txt | 给付推计值分组及所示时期。 |
-| S8 | e-Stat 长期时系列表；estat_fl_longseries.txt | 月次长期时系列表的标题与结果表类型。 |
-| S9 | e-Stat 当前累积表；estat_fl_cumulative.txt | 当前版实数、指数・伸び率、赏与列表。 |
-| S10 | e-Stat 令和3年12月以前参考资料页；estat_fl_pre2021_note.txt | 基准时更新前资料的归档位置。 |
-| S11 | e-Stat 従来版列表；estat_fl_juurai_longseries.txt、estat_fl_juurai_cumulative.txt | 従来版长期时系列表和累积表。 |
-| S12 | e-Stat 公表値说明 PDF；estat_pdf_kouhyouchi.txt | 各类实数及推计值时期、指数说明。 |
-| S13 | e-Stat 更新前资料说明 PDF；estat_pdf_pre2021_note.txt | 基准时更新、抽出调查系列和従来公表值说明。 |
-| S14 | e-Stat 累积数据符号 PDF；estat_pdf_cumulative_symbols.txt | 产业、规模、就業形态和月份符号。 |
-| S15 | 厚生劳动省首页及过去通知目录；mhlw_maikin_top.txt、mhlw_maikin_30-1i.txt | 首页所列通知与历史通知标题、日期。 |
-| S16 | 厚生劳动省时系列推计通知；mhlw_maikin_30-1h.txt | 推计值说明与 e-Stat 发布位置。 |
-| S17 | 厚生劳动省従来公表值订正通知；mhlw_maikin_30-1l.txt | 订正范围与页面所述影响。 |
-| S18 | 厚生劳动省订正等通知；mhlw_maikin_30-1o.txt | 抽出调查系列、従来公表值及奖金数据订正。 |
-| S19 | 厚生劳动省调查变更通知；mhlw_maikin_30-1p.txt | 调查系統和特别调查公表日期变更。 |
-| S20 | 令和6年基准更新 PDF；estat_pdf_benchmark_r6.txt | 更新方法、指数追溯修订及伸び率处理。 |
-| S21 | 2018年工资数据说明 PDF；mhlw_pdf_mikata_20180927.txt | 资料日期及 2004–2017 年值的后续修正说明。 |
-| S22 | 厚生劳动省网站利用规约页；mhlw_chosakuken.txt；https://www.mhlw.go.jp/chosakuken/ | 厚生劳动省网站自己的条款文字。 |
-| M1 | 维护者计划、配置和采集器摘录；datumoj_plan_excerpt.md | 仅用于与计划及维护者配置主张对照，不作官方证据。 |
-| H1、H2 | CSV 头部捕获；estat_csvhead_cumulative_jissu.txt、estat_csvhead_juurai_jissu.txt | 当前版与従来版实数文件的捕获 URL 元数据、范围总字节数和列头。 |
+| 标签 | 材料 | 用途 | 验证级别 |
+|---|---|---|---|
+| S1 | e-Stat 调查页；estat_survey_00450071.txt；https://www.e-stat.go.jp/statistics/00450071 | 调查名、政府统计代码、全国调查简介。  | 仅读文档 |
+| S2 | e-Stat 数据库列表；estat_db_zenkoku.txt | 全国调查数据库列表及其公开（更新）日期。  | 仅读文档 |
+| S3 | e-Stat 原表 dbview；estat_dbview_0003138108.txt；https://www.e-stat.go.jp/dbview?sid=0003138108 | 旧原表标题、公开时间、调查月数量和首尾月份。  | 仅读文档 |
+| S4 | e-Stat 全国调查文件树；estat_files_zenkoku.txt；https://www.e-stat.go.jp/stat-search/files?toukei=00450071&tstat=000001011791&page=1 | 文件树分组及树中显示的更新日期。  | 仅读文档 |
+| S5 | e-Stat 最新结果表；estat_fl_latest_tables.txt | 最新结果表分组。  | 仅读文档 |
+| S6 | e-Stat 实数原表；estat_fl_genpyo_monthly.txt | 月次实数原表分组。  | 仅读文档 |
+| S7 | e-Stat 给付推计值列表；estat_fl_kyufu_suikei.txt | 给付推计值分组及所示时期。  | 仅读文档 |
+| S8 | e-Stat 长期时系列表；estat_fl_longseries.txt | 月次长期时系列表的标题与结果表类型。  | 仅读文档 |
+| S9 | e-Stat 当前累积表；estat_fl_cumulative.txt | 当前版实数、指数・伸び率、赏与列表。  | 仅读文档 |
+| S10 | e-Stat 令和3年12月以前参考资料页；estat_fl_pre2021_note.txt | 基准时更新前资料的归档位置。  | 仅读文档 |
+| S11 | e-Stat 従来版列表；estat_fl_juurai_longseries.txt、estat_fl_juurai_cumulative.txt | 従来版长期时系列表和累积表。  | 仅读文档 |
+| S12 | e-Stat 公表値说明 PDF；estat_pdf_kouhyouchi.txt | 各类实数及推计值时期、指数说明。  | 仅读文档 |
+| S13 | e-Stat 更新前资料说明 PDF；estat_pdf_pre2021_note.txt | 基准时更新、抽出调查系列和従来公表值说明。  | 仅读文档 |
+| S14 | e-Stat 累积数据符号 PDF；estat_pdf_cumulative_symbols.txt | 产业、规模、就業形态和月份符号。  | 仅读文档 |
+| S15 | 厚生劳动省首页及过去通知目录；mhlw_maikin_top.txt、mhlw_maikin_30-1i.txt | 首页所列通知与历史通知标题、日期。  | 仅读文档 |
+| S16 | 厚生劳动省时系列推计通知；mhlw_maikin_30-1h.txt | 推计值说明与 e-Stat 发布位置。  | 仅读文档 |
+| S17 | 厚生劳动省従来公表值订正通知；mhlw_maikin_30-1l.txt | 订正范围与页面所述影响。  | 仅读文档 |
+| S18 | 厚生劳动省订正等通知；mhlw_maikin_30-1o.txt | 抽出调查系列、従来公表值及奖金数据订正。  | 仅读文档 |
+| S19 | 厚生劳动省调查变更通知；mhlw_maikin_30-1p.txt | 调查系統和特别调查公表日期变更。  | 仅读文档 |
+| S20 | 令和6年基准更新 PDF；estat_pdf_benchmark_r6.txt | 更新方法、指数追溯修订及伸び率处理。  | 仅读文档 |
+| S21 | 2018年工资数据说明 PDF；mhlw_pdf_mikata_20180927.txt | 资料日期及 2004–2017 年值的后续修正说明。  | 仅读文档 |
+| S22 | 厚生劳动省网站利用规约页；mhlw_chosakuken.txt；https://www.mhlw.go.jp/chosakuken/ | 厚生劳动省网站自己的条款文字。  | 仅读文档 |
+| M1 | 维护者计划、配置和采集器摘录；datumoj_plan_excerpt.md | 仅用于与计划及维护者配置主张对照，不作官方证据。  | 仅读文档 |
+| H1、H2 | CSV 头部捕获；estat_csvhead_cumulative_jissu.txt、estat_csvhead_juurai_jissu.txt | 当前版与従来版实数文件的捕获 URL 元数据、范围总字节数和列头。  | 真实请求验证过 |
 
 ## 1. 调查身份与范围
 
