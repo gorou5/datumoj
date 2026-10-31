@@ -1,4 +1,4 @@
-# 利用规约与采集注意：Eurostat（intl-eurostat）
+# 利用规约与采集注意：Eurostat（eu-eurostat）
 
 ## 证据来源
 

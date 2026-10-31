@@ -7,7 +7,7 @@
 
 ## 条款主题
 
-- **复制、改编、再分发与商业用途**：第 5 节列举「automated browsing or downloading, redistribution, publication, or commercial exploitation」并称「is strictly prohibited without the prior written permission of the United Nations.」；协议另保留适用法律明示许可的情形，本包不判断其范围。[读过官方页面（2026-10-24）]
+- **复制、再分发与商业用途**：第 5 节列举「copying, automated browsing or downloading, redistribution, publication, or commercial exploitation」并称「is strictly prohibited without the prior written permission of the United Nations.」；协议另保留适用法律明示许可的情形，本包不判断其范围。[读过官方页面（2026-10-24）]
 - **书面许可申请对象**：第 5 节指定申请对象为联合国统计司司长；本包不记录页面上的联系地址。[读过官方页面（2026-10-24）]
 - **署名与权属标记**：第 5 节要求不得更改或移除版权符号、作者身份标识或材料作者信息；页面没有提供统一的引用格式。[读过官方页面（2026-10-24）]
 - **第三方权利与例外**：定义称服务内容可能来自联合国、关联方及第三方；协议条款也明确使第三方内容提供者和许可方受益。[读过官方页面（2026-10-24）]

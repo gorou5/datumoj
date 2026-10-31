@@ -1,4 +1,4 @@
-# 利用规约与采集注意：World Bank WDI（intl-worldbank-wdi）
+# 利用规约与采集注意：World Bank WDI（intl-wdi）
 
 ## 证据来源
 

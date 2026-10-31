@@ -4,13 +4,14 @@
 |---|---|
 | 提供者 | 37（jp-gov-data-api）团队 |
 | 资料整理日期 | 2026-10-24 |
-| 资料核对日期 | 2026-10-24（按当日已保存的官方页面文本整理） |
-| 官方入口 | [IMF Data APIs](https://data.imf.org/en/Resource-Pages/IMF-API) |
-| 需要 Key | Swagger 页面要求使用 beta portal account 登录；API 数据请求是否需要 Key 或账户：待确认。 |
-| 许可 / 利用规约 | [IMF Copyright and Terms（未能读取）](https://www.imf.org/en/About/copyright-and-terms)；[Copyright and Usage（未能读取）](https://www.imf.org/external/terms.htm)。 |
-| 可否再分发 | 待确认；上述版权与利用条款文本未能读取，API 页面没有许可条款。 |
-| 本资料的可信度 | 读过官方页面（2026-10-24）；仅读文档；待确认项见 notes.md 与 terms.md。未进行 API 请求。 |
-| 对应的 DATUMOJ 任务 | H2 来源定稿（来源 ID 为提案，合并前由维护者确认） |
+| 资料核对日期 | 2026-10-24 |
+| 官方入口 | [IMF Data APIs](https://data.imf.org/en/Resource-Pages/IMF-API)。 |
+| 需要 Key | 未核对；Swagger 页面要求 beta portal account 登录，API 数据请求是否需要 Key 或账户待确认。 |
+| 许可 / 利用规约 | [IMF Copyright and Terms](https://www.imf.org/en/About/copyright-and-terms) 与 [Copyright and Usage](https://www.imf.org/external/terms.htm) 页面未能读取。；[IMF Data APIs](https://data.imf.org/en/Resource-Pages/IMF-API) 未载许可条款。可否再分发：未核对；版权及使用条款文本未能读取。 |
+| 本资料的可信度 | 仅读文档：所列页面文本；版权与使用条款页面未能读取，未进行 API 请求。 |
+| 对应的 DATUMOJ 任务 |  |
+
+来源 ID `intl-imf` 为提案，合并前由项目负责人确认。
 
 ## 内容清单
 

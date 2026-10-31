@@ -4,13 +4,14 @@
 |---|---|
 | 提供者 | 37（jp-gov-data-api）团队 |
 | 资料整理日期 | 2026-10-24 |
-| 资料核对日期 | 2026-10-24（按当日已保存的官方页面文本整理） |
-| 官方入口 | [ILO Rights and Permissions](https://www.ilo.org/rights-and-permissions) |
-| 需要 Key | Rights and Permissions 页面没有说明 ILOSTAT API 的 Key 或注册要求；待确认。 |
-| 许可 / 利用规约 | [ILO Rights and Permissions](https://www.ilo.org/rights-and-permissions)；该页按日期、数据类型和第三方例外区分许可。 |
-| 可否再分发 | 页面称符合日期条件的数据集及随附参考元数据受 CC BY 4.0 许可，但目标数据日期与排除项仍待核对。 |
-| 本资料的可信度 | 读过官方页面（2026-10-24）；仅读文档；待确认项见 notes.md 与 terms.md。未进行 API 请求。 |
-| 对应的 DATUMOJ 任务 | H2 来源定稿（来源 ID 为提案，合并前由维护者确认） |
+| 资料核对日期 | 2026-10-24 |
+| 官方入口 | [ILO Rights and Permissions](https://www.ilo.org/rights-and-permissions)。 |
+| 需要 Key | 未核对；Rights and Permissions 页面未说明 ILOSTAT API 的 Key 或注册要求。 |
+| 许可 / 利用规约 | [Creative Commons Attribution 4.0 (CC BY 4.0)](https://www.ilo.org/rights-and-permissions)。；[ILO Rights and Permissions](https://www.ilo.org/rights-and-permissions)；ILOSTAT 专属条款与 API 文档未能读取。可否再分发：未核对；目标数据日期、微数据排除项及第三方权利仍待核对。 |
+| 本资料的可信度 | 仅读文档：Rights and Permissions 页面；未进行 API 请求。 |
+| 对应的 DATUMOJ 任务 |  |
+
+来源 ID `intl-ilo` 为提案，合并前由项目负责人确认。
 
 ## 内容清单
 

@@ -1,4 +1,4 @@
-# 接口笔记：World Bank WDI（intl-worldbank-wdi）
+# 接口笔记：World Bank WDI（intl-wdi）
 
 ## 证据与范围
 

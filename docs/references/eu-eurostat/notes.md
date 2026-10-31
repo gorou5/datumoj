@@ -1,4 +1,4 @@
-# 接口笔记：Eurostat API（intl-eurostat）
+# 接口笔记：Eurostat API（eu-eurostat）
 
 ## 证据与范围
 
