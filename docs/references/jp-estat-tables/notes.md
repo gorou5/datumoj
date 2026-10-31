@@ -2,24 +2,24 @@
 
 ## 证据标签
 
-引用只指向捕获正文行，不引用捕获文件第 1 行。每个直接引文都取自同一正文行，并按短语截取。`estat_dllist_*` 是从对应原 HTML 机械提取的索引；其中 statdisp_id 来自链接属性，不是页面可见文字。下文用到的表番号、表题和公开日期已与同组 `estat_dl_*` 的可见文字逐行核对。M1 是维护者计划摘录，只用于计划对照，不是官方来源。
+引用只指向捕获正文行，不引用捕获文件第 1 行。每个直接引文都取自同一正文行，并按短语截取。`estat_dllist_*` 是从对应原 HTML 机械提取的索引；其中 statdisp_id 来自链接属性，不是页面可见文字。下文用到的表番号、表题和公开日期已与同组 `estat_dl_*` 的可见文字逐行核对。M1 是维护者计划摘录，只用于计划对照，不是官方来源。下表的“官方 URL”只取自相应捕获文件第 1 行的 URL 元数据，不作页面正文引文。
 
-| 标签 | 材料 | 用途 |
-|---|---|---|
-| S1 | e-Stat 人口推計 dbview；estat_dbview_0003443838.txt | 表题、分类、公开时间、维度和项目。 |
-| S2 | e-Stat 人口推計统计页；estat_statistics_00200524.txt | 政府统计名与代码。 |
-| S3 | e-Stat 人口推計月次数据列表可见文字；estat_dl_00200524_monthly_a.txt | 表番号、表题、调查年月、公开日期。 |
-| S4 | 人口推計链接属性衍生索引；estat_dllist_00200524_monthly_a.txt | 同一表番号下的 statdisp_id 与公开日期；仅作衍生索引。 |
-| S5 | e-Stat 労働力調査 dbview；estat_dbview_0003005865.txt | 表题、分类解释、公开时间、维度和项目。 |
-| S6 | e-Stat 労働力調査统计页；estat_statistics_00200531.txt | 政府统计名与代码。 |
-| S7 | e-Stat 労働力調査基本集計全国月次列表可见文字；estat_dl_00200531_zenkoku_monthly.txt | 所选表行及可见表题、日期。 |
-| S8 | 労働力調査链接属性衍生索引；estat_dllist_00200531_zenkoku_monthly.txt | 113 行表题索引及字符串核对；仅作衍生索引。 |
-| S9 | 総務省統計局 労働力調査页面；stat_roudou_2.txt | 页面出现的季節調整値文字。 |
-| S10 | 総務省統計局 労働力調査月次结果页面；stat_roudou_tsuki.txt | 页面出现的季節調整値文字。 |
-| S11 | e-Stat 消費者物価指数 dbview；estat_dbview_0003427113.txt | 表题、分类、公开时间、维度和项目。 |
-| S12 | e-Stat 消費者物価指数统计页；estat_statistics_00200573.txt | 政府统计名与代码。 |
-| S13 | e-Stat 消費者物価指数数据库列表；estat_db_00200573.txt | 基准分类与列表日期观察。 |
-| M1 | datumoj_plan_excerpt.md | 维护者计划主张；不是官方证据。 |
+| 标签 | 材料 | 用途 | 官方 URL（捕获头部元数据） |
+|---|---|---|---|
+| S1 | e-Stat 人口推計 dbview；estat_dbview_0003443838.txt | 表题、分类、公开时间、维度和项目。  | https://www.e-stat.go.jp/dbview?sid=0003443838 |
+| S2 | e-Stat 人口推計统计页；estat_statistics_00200524.txt | 政府统计名与代码。  | https://www.e-stat.go.jp/statistics/00200524 |
+| S3 | e-Stat 人口推計月次数据列表可见文字；estat_dl_00200524_monthly_a.txt | 表番号、表题、调查年月、公开日期。  | https://www.e-stat.go.jp/stat-search/database?page=1&toukei=00200524&tstat=000000090001&cycle=1&tclass1=000001011678&tclass2=000001151566&layout=datalist&tclass3val=0 |
+| S4 | 人口推計链接属性衍生索引；estat_dllist_00200524_monthly_a.txt | 同一表番号下的 statdisp_id 与公开日期；仅作衍生索引。  | 衍生索引；无独立捕获页 URL |
+| S5 | e-Stat 労働力調査 dbview；estat_dbview_0003005865.txt | 表题、分类解释、公开时间、维度和项目。  | https://www.e-stat.go.jp/dbview?sid=0003005865 |
+| S6 | e-Stat 労働力調査统计页；estat_statistics_00200531.txt | 政府统计名与代码。  | https://www.e-stat.go.jp/statistics/00200531 |
+| S7 | e-Stat 労働力調査基本集計全国月次列表可见文字；estat_dl_00200531_zenkoku_monthly.txt | 所选表行及可见表题、日期。  | https://www.e-stat.go.jp/stat-search/database?page=1&toukei=00200531&tstat=000000110001&cycle=1&tclass1=000001040276&tclass2=000001040299&tclass3=000001040300&layout=datalist&tclass4val=0 |
+| S8 | 労働力調査链接属性衍生索引；estat_dllist_00200531_zenkoku_monthly.txt | 113 行表题索引及字符串核对；仅作衍生索引。  | 衍生索引；无独立捕获页 URL |
+| S9 | 総務省統計局 労働力調査页面；stat_roudou_2.txt | 页面出现的季節調整値文字。  | https://www.stat.go.jp/data/roudou/2.html |
+| S10 | 総務省統計局 労働力調査月次结果页面；stat_roudou_tsuki.txt | 页面出现的季節調整値文字。  | https://www.stat.go.jp/data/roudou/sokuhou/tsuki/index.html |
+| S11 | e-Stat 消費者物価指数 dbview；estat_dbview_0003427113.txt | 表题、分类、公开时间、维度和项目。  | https://www.e-stat.go.jp/dbview?sid=0003427113 |
+| S12 | e-Stat 消費者物価指数统计页；estat_statistics_00200573.txt | 政府统计名与代码。  | https://www.e-stat.go.jp/statistics/00200573 |
+| S13 | e-Stat 消費者物価指数数据库列表；estat_db_00200573.txt | 基准分类与列表日期观察。  | https://www.e-stat.go.jp/stat-search/database?page=1&toukei=00200573 |
+| M1 | datumoj_plan_excerpt.md | 维护者计划主张；不是官方证据。 | 非官方来源；无独立捕获页 URL |
 
 ## 1. 人口推計：表1
 
