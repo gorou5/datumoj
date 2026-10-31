@@ -9,6 +9,8 @@
 | S3 | ArcGIS Hub 的東京都 青ヶ島村 町字マスター条目页：<https://dataset.address-br.digital.go.jp/documents/fbd6a731462c4fc7a31af06a5b98192d/about>；条目值按保存页面呈现记录，界面文案由采集浏览器以简体中文显示。（abr_dataset_item.txt） | 读过官方页面（2026-10-30） |
 | S4 | Datumoj 维护者计划摘录；不是官方来源，只用于核对计划文字。（datumoj_plan_excerpt.md） | 仅读文档 |
 
+本文件中的 `文件名:行号` 指向未随本包提交的本地保存记录（公开仓库不提交未核对再分发范围的原文）；读者核对时以各标签对应的官方 URL 为准。
+
 ## 1. 数据集身份与范围
 
 - S3 条目标题值为 東京都 青ヶ島村 町字マスター，发布者值为 デジタル庁 ベース・レジストリ。（S3；abr_dataset_item.txt:5; abr_dataset_item.txt:6）
