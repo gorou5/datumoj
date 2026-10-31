@@ -6,10 +6,10 @@ S1-S3 指向下表列出的官方页面保存文本；S4 是维护者计划摘�
 
 | 标签 | 官方页面或保存结果 | 验证级别 |
 |---|---|---|
-| S1 | 総務省統計局「令和6年、7年経済センサス‐基礎調査　調査の結果」：<https://www.stat.go.jp/data/e-census/2024/kekka.html>〔S1|census_results.txt:4〕。（读过官方页面（2026-10-30）；S1） | 读过官方页面（2026-10-30） |
-| S2 | 統計局「サイトの利用について」：<https://www.stat.go.jp/info/riyou.html>〔S2|stat_policy.txt:4〕。（读过官方页面（2026-10-30）；S2） | 读过官方页面（2026-10-30） |
-| S3 | 「政府統計の総合窓口（e-Stat）利用規約」：<https://www.e-stat.go.jp/terms-of-use>〔S3|estat_site_terms.txt:2〕。（读过官方页面（2026-10-30）；S3） | 读过官方页面（2026-10-30） |
-| S4 | 维护者计划摘录 datumoj_plan_excerpt.md；非官方来源。（仅读文档；S4〔S4|datumoj_plan_excerpt.md:6〕） | 仅读文档 |
+| S1 | 総務省統計局「令和6年、7年経済センサス‐基礎調査　調査の結果」：<https://www.stat.go.jp/data/e-census/2024/kekka.html>〔S1\|census_results.txt:4〕。（读过官方页面（2026-10-30）；S1） | 读过官方页面（2026-10-30） |
+| S2 | 統計局「サイトの利用について」：<https://www.stat.go.jp/info/riyou.html>〔S2\|stat_policy.txt:4〕。（读过官方页面（2026-10-30）；S2） | 读过官方页面（2026-10-30） |
+| S3 | 「政府統計の総合窓口（e-Stat）利用規約」：<https://www.e-stat.go.jp/terms-of-use>〔S3\|estat_site_terms.txt:2〕。（读过官方页面（2026-10-30）；S3） | 读过官方页面（2026-10-30） |
+| S4 | 维护者计划摘录 datumoj_plan_excerpt.md；非官方来源。（仅读文档；S4〔S4\|datumoj_plan_excerpt.md:6〕） | 仅读文档 |
 
 ## 1. 调查身份与已列结果
 

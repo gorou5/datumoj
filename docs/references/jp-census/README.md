@@ -2,16 +2,17 @@
 
 | 项目 | 内容 |
 |---|---|
-| 提供者 | 総務省統計局（统计局出典示例所示）。（读过官方页面（2026-10-30）；S2〔S2|stat_policy.txt:19〕） |
+| 提供者 | 37（jp-gov-data-api）团队 |
 | 资料整理日期 | 2026-10-30（本包整理日）。（仅读文档） |
 | 资料核对日期 | 2026-10-30（核对本包列出的三份官方页面保存文本）。（读过官方页面（2026-10-30）；S1-S3） |
 | 官方入口 | [令和6年、7年经济普查结果](https://www.stat.go.jp/data/e-census/2024/kekka.html)（S1）；[统计局网站利用说明](https://www.stat.go.jp/info/riyou.html)（S2）；[e-Stat利用规约](https://www.e-stat.go.jp/terms-of-use)（S3）。 |
-| 需要 Key | NOT STATED：已读页面没有说明获取这份具体 census 表格文件是否需要 Key 或认证。（仅读文档；S1〔S1|census_results.txt:12〕；S3〔S3|estat_site_terms.txt:4〕） |
-| 许可 / 利用规约 | 统计局页面称其内容依所列利用规则处理，并写有：『権利表記の記載がない限り』〔S2|stat_policy.txt:8〕及『「公共データ利用規約（第1.0版）」（PDL1.0）』〔S2|stat_policy.txt:8〕；适用内容的原文条件见 terms.md。e-Stat页面名称为「政府統計の総合窓口（e-Stat）利用規約」〔S3|estat_site_terms.txt:2〕，并以『当サイトで公開している情報』〔S3|estat_site_terms.txt:4〕描述其范围。该表格文件适用哪一页，NOT STATED。本包仅摘要记录 e-Stat 规约，未逐项整理全部六项规则；具体 census 文件适用哪一条规则仍为 NOT STATED（S3；estat_site_terms.txt:4）。 |
-| 可否再分发 | 仅记录两页各自的原文和范围：统计局页面写『複製、公衆送信、翻訳・変形等の翻案等、自由に利用できます。商用利用も可能です。』〔S2|stat_policy.txt:13〕；e-Stat页面先限定适用条件为『以下の１）～６）に従って』，再写『複製、公衆送信、翻訳・変形等の翻案等、自由に利用できます。商用利用も可能です。』〔S3|estat_site_terms.txt:4〕。具体 census 文件是否属于任一页面所述范围，NOT STATED；本包不作许可判断。 |
-| 更新频率 | 统计局页面称甲调查『5年に一度実施』〔S1|census_results.txt:7〕。两份规约均写有内容可能不预告变更、迁移或删除〔S2|stat_policy.txt:39〕〔S3|estat_site_terms.txt:52〕；没有列明该数据文件的更新周期。（读过官方页面（2026-10-30）） |
-| 本资料的可信度 | 阅读了 S1 结果页文本、S2 统计局利用说明文本及 S3 e-Stat利用规约文本。未读取各统计表的 e-Stat 文件页、DB view 页、结果概要 PDF、利用注意 PDF、用语解说 PDF、Excel 文件或 PDL1.0 原文；未下载文件、未作 HTTP HEAD、未测试下载。（读过官方页面（2026-10-30）；S1-S3；仅读文档；S4） |
-| 对应的 DATUMOJ 任务 | S1称部分统计表在 e-Stat 发布〔S1|census_results.txt:12〕。特定文件的规则适用范围没有由已读页面连接确认；若维护者需要确定，应由运营者针对具体项目核实。e-Stat规约在本包仅作要点摘要，未逐项整理全部六项规则。 |
+| 需要 Key | 未核对：已读页面没有说明获取这份具体 census 表格文件是否需要 Key 或认证。（仅读文档；S1〔S1\|census_results.txt:12〕；S3〔S3\|estat_site_terms.txt:4〕） |
+| 许可 / 利用规约 | 统计局网站利用说明：<https://www.stat.go.jp/info/riyou.html>；e-Stat 利用规约：<https://www.e-stat.go.jp/terms-of-use>；统计局页面称其内容依所列利用规则处理，并写有：『権利表記の記載がない限り』〔S2\|stat_policy.txt:8〕及『「公共データ利用規約（第1.0版）」（PDL1.0）』〔S2\|stat_policy.txt:8〕；适用内容的原文条件见 terms.md。e-Stat页面名称为「政府統計の総合窓口（e-Stat）利用規約」〔S3\|estat_site_terms.txt:2〕，并以『当サイトで公開している情報』〔S3\|estat_site_terms.txt:4〕描述其范围。该表格文件适用哪一页，未核对。本包仅摘要记录 e-Stat 规约，未逐项整理全部六项规则；具体 census 文件适用哪一条规则仍为 未核对（S3；estat_site_terms.txt:4）。；仅记录两页各自的原文和范围：统计局页面写『複製、公衆送信、翻訳・変形等の翻案等、自由に利用できます。商用利用も可能です。』〔S2\|stat_policy.txt:13〕；e-Stat页面先限定适用条件为『以下の１）～６）に従って』，再写『複製、公衆送信、翻訳・変形等の翻案等、自由に利用できます。商用利用も可能です。』〔S3\|estat_site_terms.txt:4〕。具体 census 文件是否属于任一页面所述范围，未核对；本包不作许可判断。；可否再分发：未核对。 |
+| 本资料的可信度 | 仅读文档：阅读了 S1 结果页文本、S2 统计局利用说明文本及 S3 e-Stat利用规约文本。未读取各统计表的 e-Stat 文件页、DB view 页、结果概要 PDF、利用注意 PDF、用语解说 PDF、Excel 文件或 PDL1.0 原文；未下载文件、未作 HTTP HEAD、未测试下载。（读过官方页面（2026-10-30）；S1-S3；仅读文档；S4） |
+| 对应的 DATUMOJ 任务 |  |
+| 原提供者字段记录 | 総務省統計局（统计局出典示例所示）。（读过官方页面（2026-10-30）；S2〔S2\|stat_policy.txt:19〕） |
+| 更新频率 | 统计局页面称甲调查『5年に一度実施』〔S1\|census_results.txt:7〕。两份规约均写有内容可能不预告变更、迁移或删除〔S2\|stat_policy.txt:39〕〔S3\|estat_site_terms.txt:52〕；没有列明该数据文件的更新周期。（读过官方页面（2026-10-30）） |
+| DATUMOJ 计划对照（原记录） | S1称部分统计表在 e-Stat 发布〔S1\|census_results.txt:12〕。特定文件的规则适用范围没有由已读页面连接确认；若维护者需要确定，应由运营者针对具体项目核实。e-Stat规约在本包仅作要点摘要，未逐项整理全部六项规则。 |
 
 ## 内容清单
 
