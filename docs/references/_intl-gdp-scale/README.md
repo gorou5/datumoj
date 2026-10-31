@@ -1,9 +1,16 @@
-# WDI、IMF、OECD 名义 GDP 单位与数量级参考（docs_references_intl-gdp-scale）
+# WDI、IMF、OECD 名义 GDP 单位与数量级参考（_intl-gdp-scale）
 
 | 项目 | 内容 |
 |---|---|
-| 包标识 | `docs_references_intl-gdp-scale` 是工作名；维护者可将内容并入 WDI、IMF 和 OECD 对应参考包。本版仅为候选。 |
-| 整理与核对日 | 2026-10-30；整理范围为本次持有的页面文字及本地捕获记录。 |
+| 提供者 | 37（jp-gov-data-api）团队 |
+| 资料整理日期 | 2026-10-30 |
+| 资料核对日期 | 2026-10-30 |
+| 官方入口 | [WDI 元数据 glossary](https://databank.worldbank.org/metadataglossary/world-development-indicators/series/NY.GDP.MKTP.CN)；[WDI 指标页](https://data.worldbank.org/indicator/NY.GDP.MKTP.CD)；[IMF WEO](https://www.imf.org/en/Publications/WEO/weo-database/2025/October)；[OECD API 信息](https://www.oecd.org/en/data/insights/data-explainers/2024/09/api.html)（后两页未捕获）。 |
+| 需要 Key | 未核对；本包未调用 API，现有资料未说明是否需要 Key。 |
+| 许可 / 利用规约 | [CC BY-4.0](https://datacatalog.worldbank.org/public-licenses#cc-by)（S1）；WDI 指标页也显示 CC BY-4.0（S2）。；本包仅转录 WDI 页面条款标签；数据集条款见 intl-wdi 包，IMF 与 OECD 条款见 intl-imf 与 intl-oecd 包。可否再分发：未核对。 |
+| 本资料的可信度 | 仅读文档：WDI 页面捕获（S1、S2）；本包未调用 API。 |
+| 对应的 DATUMOJ 任务 |  |
+| 包标识 | `_intl-gdp-scale` 是按跨来源主题规则命名的目录名；维护者可将内容并入 WDI、IMF 和 OECD 对应参考包。本版仅为候选。 |
 | 调查范围 | WDI 的 NY.GDP.MKTP.CN 元数据 glossary 页面和 NY.GDP.MKTP.CD 指标页面已捕获；WDI NY.GDP.MKTP.CD glossary 请求转到站点错误页；IMF WEO 与 OECD 请求页未捕获。 |
 | 用途 | 记录系列名称、页面单位措辞和倍率状态；未捕获的来源内容不作补写。 |
 | 条款范围 | terms.md 转录两张 WDI 页面的条款标签，并指向既有来源包；本包不作许可判断或建议。 |

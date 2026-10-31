@@ -1,4 +1,4 @@
-# WDI 名义 GDP 单位与数量级资料笔记（docs_references_intl-gdp-scale）
+# WDI 名义 GDP 单位与数量级资料笔记（_intl-gdp-scale）
 
 ## 证据标签
 
