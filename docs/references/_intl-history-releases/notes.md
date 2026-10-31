@@ -1,4 +1,4 @@
-# 国际历史发布（intl-history-releases）资料笔记
+# 国际历史发布（_intl-history-releases）资料笔记
 
 ## 证据标签
 
@@ -14,6 +14,7 @@
 | S6 | S2 原始 HTML 的机械链接列表；eurostat_edp_notification_tables_links_derived.txt；基础页面 URL 同 S2 | 2026-10-30 21:42 JST | 仅核对页面可见链接文字与 href 目标；不是官方页面文字。 |
 | M1 | datumoj_plan_excerpt.md | 随任务提供 | 维护者计划与请求样例，不是官方证据。 |
 | C1 | 随任务提供的 capture_log.jsonl | 2026-10-30 | 本次捕获的 HTTP 状态与时间；不是官方页面文字。 |
+本文件中的 `文件名:行号` 指向未随本包提交的本地保存记录（公开仓库不提交未核对再分发范围的原文）；读者核对时以各标签对应的官方 URL 为准。
 
 ## 1. 报告与发布时点
 

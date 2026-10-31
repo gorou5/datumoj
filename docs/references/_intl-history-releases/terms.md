@@ -1,6 +1,6 @@
-# 国际历史发布参考包条款范围（intl-history-releases）
+# 国际历史发布参考包条款范围（_intl-history-releases）
 
-本页只记录 2026-10-30 捕获的 Eurostat copyright notice 可见文字，不形成许可分析。完整条款分析请见 intl-eurostat 包，本页不重述。
+本页只记录 2026-10-30 捕获的 Eurostat copyright notice 可见文字，不形成许可分析。完整条款分析请见 eu-eurostat 包，本页不重述。
 
 页面关于网站 editorial content 的文字包括「licensed under the Creative Commons Attribution 4.0 International licence.」（S5；eurostat_copyright_notice.txt:159）。
 
