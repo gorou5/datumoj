@@ -50,9 +50,10 @@ PDL1.0 提醒适用内容中可能包含第三方权利；权利存在与否或�
 
 | 主机 | 请求 URL | 保存结果 | 页面 / 正文观察 | 核对时间 |
 |---|---|---|---|---|
-| www.jma.go.jp | https://www.jma.go.jp/robots.txt | HTTP 404，text/html，2203 bytes | 气象厅 404 HTML；显示 “404 Not Found” 和“指定されたページは存在しません” | 2026-10-20 12:02:37+09:00 |（真实请求验证过；S8）
-| www.data.jma.go.jp | https://www.data.jma.go.jp/robots.txt | HTTP 404，text/html，2203 bytes | 同为气象厅 404 HTML；显示 “404 Not Found” 和“指定されたページは存在しません” | 2026-10-20 12:02:38+09:00 |（真实请求验证过；S8）
-| xml.kishou.go.jp | https://xml.kishou.go.jp/robots.txt | HTTP 404，text/html; charset=iso-8859-1，196 bytes | 通用 Apache HTML 404 正文，不含 robots 规则 | 2026-10-20 12:03:16+09:00 |（真实请求验证过；S8）
+| www.jma.go.jp | https://www.jma.go.jp/robots.txt | HTTP 404，text/html，2203 bytes | 气象厅 404 HTML；显示 “404 Not Found” 和“指定されたページは存在しません” | 2026-10-20 12:02:37+09:00 |
+| www.data.jma.go.jp | https://www.data.jma.go.jp/robots.txt | HTTP 404，text/html，2203 bytes | 同为气象厅 404 HTML；显示 “404 Not Found” 和“指定されたページは存在しません” | 2026-10-20 12:02:38+09:00 |
+| xml.kishou.go.jp | https://xml.kishou.go.jp/robots.txt | HTTP 404，text/html; charset=iso-8859-1，196 bytes | 通用 Apache HTML 404 正文，不含 robots 规则 | 2026-10-20 12:03:16+09:00 |
+（真实请求验证过；S8）
 
 ## 候选样本决定
 
@@ -60,8 +61,9 @@ PDL1.0 提醒适用内容中可能包含第三方权利；权利存在与否或�
 
 | 候选 | 来源记录 | 决定 |
 |---|---|---|
-| jma_osaka_normals_sfc_ym_47772_real.html | https://www.data.jma.go.jp/stats/etrn/view/nml_sfc_ym.php?prec_no=62&block_no=47772&year=&month=&day=&view=；2026-10-19 11:05:26+09:00 | 不附：PDL1.0 的第三方权利须逐项确认，保存资料未确认该 HTML 是否含第三方或排除内容 |（仅读文档；S4）
-| jma_amedas_station_index_cp932_real.csv | https://www.data.jma.go.jp/stats/data/mdrr/normal/2020/data/amedas_station_index.zip；2026-10-19 11:05:03+09:00 | 不附：站点索引文件的逐文件第三方 / 排除项状态未确认；保留 CP932 字节样本会构成再分发 |（仅读文档；S4）
+| jma_osaka_normals_sfc_ym_47772_real.html | https://www.data.jma.go.jp/stats/etrn/view/nml_sfc_ym.php?prec_no=62&block_no=47772&year=&month=&day=&view=；2026-10-19 11:05:26+09:00 | 不附：PDL1.0 的第三方权利须逐项确认，保存资料未确认该 HTML 是否含第三方或排除内容 |
+| jma_amedas_station_index_cp932_real.csv | https://www.data.jma.go.jp/stats/data/mdrr/normal/2020/data/amedas_station_index.zip；2026-10-19 11:05:03+09:00 | 不附：站点索引文件的逐文件第三方 / 排除项状态未确认；保留 CP932 字节样本会构成再分发 |
+（仅读文档；S4）
 
 以上决定遵守逐文件证据门槛。气象厅站点采用 PDL1.0 的一般说明和 PDL1.0 的复制 / 公众传输条款，并不能补足这两份具体文件的权利状态。要取得数据，请从 README.md 列出的气象厅官方入口按页面当前链接获取，并自行核对具体文件的权利标记。没有把样本标为不可复制；其状态是未核对，因此不附。（仅读文档；S4）
 

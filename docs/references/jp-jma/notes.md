@@ -82,7 +82,7 @@
 | 长期 feed poller 每小时运行 | 与长周期 feed 的文档更新间隔一致；高频 feed 另有每分钟更新的说明，本资料不据此建议接入实时预报用途。（仅读文档；S7a） |
 | 解析器关闭 DTD / 外部实体并限制大小 | 这是实现侧安全计划；气象厅已读取页面没有给出这些解析要求或响应大小上限，需由 DATUMOJ 实现与验证另行证明。（推测；S3、S9） |
 | 可选 Duration 缺失时不报错 | 给定官方页面和保存资料没有可用于验证该行为的真实 feed XML 样本或对应 schema 片段，当前为 NOT_FOUND。（仅读文档；S3、S9） |
-| 两次长 feed 获取、重叠项及 3–5 个 XML entry fixture | 证据包没有真实 feed XML 文件；这些 fixture 需由 DATUMOJ 后续自行采集，不是本资料已经准备的样本。（仅读文档；S3、S5、S9） |
+| 两次长 feed 获取、重叠项及 3–5 个 XML entry fixture | 本参考资料包不附样本；仓库已有 JMA XML fixtures，位置为 tests/fixtures/jma/（见 tests/fixtures/jma/README.md）。 |
 | 平年値作为文档 / 结构化文件 | 与下载页、ZIP 格式说明、站点索引和 HTML 表格的证据相符；CSV 编码仍需按文件实测。（仅读文档；S2、S4、S9） |
 | Atom entry 用 id / updated / link 去重 | 已读 FAQ 提供信息单位字段和 DateTime / Serial 说明，但没有核实 Atom 字段路径或唯一去重键；当前方案需保留这一缺口。（读过官方页面（2026-10-20）；S9） |
 
