@@ -48,7 +48,7 @@ S3 是门户服务规约；它把数字厅网站定义为域名为 jgrants-porta
 - S3 第 14 条第 3 项第 8 号：不得删除或变更数字厅指定者所表示的著作权表示或商标表示。（S3；portal_stipulation_excerpt.txt:45）原文片段：「著作権表示若しくは商標表示を削除し、又は変更しないこと」（S3；portal_stipulation_excerpt.txt:45）。
 - 上述 S3 第 14 条各项是否适用于 API 返回数据，与下段所述范围问题相同，现有材料未说明。（F7；S3；portal_stipulation_excerpt.txt:25；S1；api_terms.txt:20, api_terms.txt:21）
 
-S4 提案列出的 API 基址是 api.jgrants-portal.go.jp/exp；这是维护者提案内容，未由本资料核实。（datumoj_issue48_body.md:17, datumoj_issue48_body.md:18）现有材料没有说明 S1 的 Web-API 规约或 S3 的门户规约中哪一份适用于该 API 主机返回的数据，也没有明确确认门户规约第 14 条及第 29 条适用于 API 输出。要解决该范围问题，需要运营方明确说明哪份规约适用于该 API 返回数据，以及 S3 条款是否涵盖该输出。（F7；S1；api_terms.txt:20, api_terms.txt:21；S3；portal_stipulation_excerpt.txt:25, portal_stipulation_excerpt.txt:37, portal_stipulation_excerpt.txt:64；S4；datumoj_issue48_body.md:18）
+S4 提案列出的 API 基址是 api.jgrants-portal.go.jp/exp；这是维护者提案内容，未由本资料核实。（datumoj_issue48_body.md:17；datumoj_issue48_body.md:18）S1 第3条规定 Web-API 利用规约适用于本功能的使用；第2条定义コンテンツ为本功能提供的信息（S1；api_terms.txt:18；api_terms.txt:20-21）。因此，S1 适用于 API 的使用及其提供的内容。S3 是否也适用于 API 主机返回的数据，以及第14条和第29条是否涵盖 API 输出，仍待运营方确认。（F7；S1；api_terms.txt:18；api_terms.txt:20-21；S3；portal_stipulation_excerpt.txt:25；portal_stipulation_excerpt.txt:37；portal_stipulation_excerpt.txt:64；S4；datumoj_issue48_body.md:18）
 
 ## 4. 开放事项
 

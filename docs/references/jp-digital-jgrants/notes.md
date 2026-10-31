@@ -2,14 +2,26 @@
 
 ## 证据标签
 
-S1–S4 指向本次阅读的保存文本。S1、S2 是 PDF 正文抽取文本，S3 是门户服务规约页面节选，S4 是维护者提案而非官方来源。
+S1–S4 指向本次阅读的保存文本。S1、S2 是 PDF 正文抽取文本，S3 是门户服务规约页面节选，S4 是维护者提案而非官方来源。URL 取自相应捕获文件第 1 行的头部元数据，仅作来源入口，不作为页面正文引文。
 
 | 标签 | 官方页面或保存材料 | 验证级别 |
 |---|---|---|
-| S1 | jGrants Web-API 利用规约 PDF：<https://fs2.jgrants-portal.go.jp/API%E5%88%A9%E7%94%A8%E8%A6%8F%E7%B4%84.pdf>。（api_terms.txt:1） | 读过官方文档（2026-10-30） |
-| S2 | Jグランツ 补助金信息取得 API 利用概要 PDF：<https://fs2.jgrants-portal.go.jp/API%E5%88%A9%E7%94%A8%E6%A6%82%E8%A6%81.pdf>。（api_overview.txt:1） | 读过官方文档（2026-10-30） |
-| S3 | Jグランツ 利用规约页面：<https://www.jgrants-portal.go.jp/stipulation>。（portal_stipulation_excerpt.txt:1-3） | 读过官方页面（2026-10-30） |
-| S4 | datumoj issue 48 的维护者提案文本：<https://github.com/gorou5/datumoj/issues/48>；非官方来源。（datumoj_issue48_body.md:1） | 仅读文档 |
+| S1 | jGrants Web-API 利用规约 PDF：<https://fs2.jgrants-portal.go.jp/API%E5%88%A9%E7%94%A8%E8%A6%8F%E7%B4%84.pdf>。 | 读过官方文档（2026-10-30） |
+| S2 | Jグランツ 补助金信息取得 API 利用概要 PDF：<https://fs2.jgrants-portal.go.jp/API%E5%88%A9%E7%94%A8%E6%A6%82%E8%A6%81.pdf>。 | 读过官方文档（2026-10-30） |
+| S3 | Jグランツ 利用规约页面：<https://www.jgrants-portal.go.jp/stipulation>。 | 读过官方页面（2026-10-30） |
+| S4 | datumoj issue 48 的维护者提案文本：<https://github.com/gorou5/datumoj/issues/48>；非官方来源。 | 仅读文档 |
+
+本文件中的 `文件名:行号` 指向未随本包提交的本地保存记录（公开仓库不提交未核对再分发范围的原文）；读者核对时以各标签对应的官方 URL 为准。
+
+### F 标签
+
+F2：记录出处标注与编辑加工要求。
+
+F3：记录使用者类别及使用条件。
+
+F4：记录禁止事项、访问限制、停止使用及责任等规约事实。
+
+F5：记录第三方权利内容及使用者需自行确认或取得许可的事实。
 
 ## 1. 请求形状
 
