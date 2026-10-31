@@ -1,6 +1,10 @@
 # 子育て支援制度レジストリ（jp-digital-childcare-registry）利用规约与开放事项
 
-S1–S4 是所持官方文本，S5 是维护者提案，不是官方来源。本文件转述所持材料，不判断任何申请者或项目是否满足申请条件。（inputs/held/myna_terms.txt:90；inputs/held/eshinsei_page.txt:63；inputs/held/datumoj_issue49_body.md:1）
+核对日期：2026-10-30（下列各条均为该日捕获的页面）
+
+S1：[マイナポータルAPI 利用规约 PDF](https://files.microcms-assets.io/assets/7c793323a46a46b7bb9a2ac7d0023301/535e70eb7c5b4918b5ae4b6b202c74c4/mynaportal-api-terms.pdf)；S2：[機密保持誓約書 PDF](https://files.microcms-assets.io/assets/7c793323a46a46b7bb9a2ac7d0023301/f94b4980b0074de99b70a1480adb85d3/mynaportal-api-commitment.pdf)。
+
+S1–S4 是所持官方文本，S5 是维护者提案，不是官方来源。本文件转述所持材料，不判断任何申请者或项目是否满足申请条件。（inputs/held/myna_terms.txt:90；inputs/held/eshinsei_page.txt:63）
 
 ## 1. 申请流程与申请条件
 
@@ -69,7 +73,7 @@ S2 的定义包含指定为机密或工作中获知的非公开信息两类条�
 
 开放事项：
 
-- G5：API 利用对象数据定义与注册库制度信息的适用范围待确认；独立的缓存期限或一般保存期限未说明，只有上述同意期间、目的与停止后删除要求。（inputs/held/myna_terms.txt:125；inputs/held/myna_terms.txt:127；inputs/held/myna_terms.txt:173；inputs/held/myna_terms.txt:329）
+- G5：API 利用对象数据定义与注册库制度信息的适用范围待确认；独立的缓存期限或一般保存期限未说明；仅在依据第1项停止 API 使用时，数字厅可要求删除此前取得的 API 利用对象数据。（myna_terms.txt:125；myna_terms.txt:127；myna_terms.txt:173；myna_terms.txt:323-326；myna_terms.txt:327；myna_terms.txt:329）
 - G6：第18条是否涵盖 API 返回的注册库数据，未说明。（inputs/held/myna_terms.txt:356；inputs/held/myna_terms.txt:361；inputs/held/eshinsei_page.txt:38）
 - G8：注册库数据的调用频率上限、数据再分发或再发布、单独缓存期、商业用途、AI/机器学习或云模型使用、具名数据许可、署名文字、数据更新频率、数据日期均未由所持材料说明。S1 仅泛称高负载时可限制环境使用，没有印载数值；S4 只说明登记与 API 取得方式。（inputs/held/myna_terms.txt:307；inputs/held/myna_terms.txt:308；inputs/held/myna_terms.txt:309；inputs/held/myna_terms.txt:361；inputs/held/registry_service_page.txt:19；inputs/held/registry_service_page.txt:20）
 - G9：全量 CSV、API-key 类型、注册库专用利用规约页面及每阶段 5–15 个工作日均为 S5 提案中的主张，所持官方材料未支持这些具体说法；S3 所列认证 API 与接続試験账户发放内容见 FIELD_UPDATE_TABLE.md。（inputs/held/datumoj_issue49_body.md:27；inputs/held/datumoj_issue49_body.md:29；inputs/held/datumoj_issue49_body.md:37；inputs/held/datumoj_issue49_body.md:73；inputs/held/eshinsei_page.txt:27；inputs/held/eshinsei_page.txt:102）

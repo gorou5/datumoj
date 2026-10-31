@@ -2,15 +2,15 @@
 
 ## 证据标签
 
-S1–S4 是所持官方 PDF 文本或官方页面文本；S5 是维护者自己的提案文本，不是官方来源。未进行 live API 请求，也未取得 API 规格书。（S1–S5）
+S1–S4 是所持官方 PDF 文本或官方页面文本；S5 是维护者自己的提案文本，不是官方来源。未进行 live API 请求，也未取得 API 规格书。URL 取自捕获文件第 1 行的头部元数据，仅作来源入口，不作为页面正文引文。（S1–S5）
 
 | 标签 | 官方页面或保存结果 | 验证级别 |
 |---|---|---|
 | S1 | マイナポータルAPI 利用規約 PDF 文本；标题页写明 2.3 版与日期。<https://files.microcms-assets.io/assets/7c793323a46a46b7bb9a2ac7d0023301/535e70eb7c5b4918b5ae4b6b202c74c4/mynaportal-api-terms.pdf>（inputs/held/myna_terms.txt:15；inputs/held/myna_terms.txt:28；inputs/held/myna_terms.txt:30） | 读过官方文档（2026-10-30） |
 | S2 | 機密保持誓約書 PDF 文本；无签署日期以外的文件日期。<https://files.microcms-assets.io/assets/7c793323a46a46b7bb9a2ac7d0023301/f94b4980b0074de99b70a1480adb85d3/mynaportal-api-commitment.pdf>（inputs/held/myna_commitment.txt:9；inputs/held/myna_commitment.txt:74） | 读过官方文档（2026-10-30） |
-| S3 | デジタル庁开发者站点的電子申請等API 页面。<https://developers.digital.go.jp/documents/mynaportal-api/specification/eshinsei/>（inputs/held/eshinsei_page.txt:1） | 读过官方页面（2026-10-30） |
-| S4 | デジタル庁子育て支援制度レジストリ服务页。<https://services.digital.go.jp/childrearing-support-registry/>（inputs/held/registry_service_page.txt:1） | 读过官方页面（2026-10-30） |
-| S5 | DATUMOJ Issue 49 的维护者提案文本；非官方来源。<https://github.com/gorou5/datumoj/issues/49>（inputs/held/datumoj_issue49_body.md:1） | 仅读文档 |
+| S3 | デジタル庁开发者站点的電子申請等API 页面。<https://developers.digital.go.jp/documents/mynaportal-api/specification/eshinsei/> | 读过官方页面（2026-10-30） |
+| S4 | デジタル庁子育て支援制度レジストリ服务页。<https://services.digital.go.jp/childrearing-support-registry/> | 读过官方页面（2026-10-30） |
+| S5 | DATUMOJ Issue 49 的维护者提案文本；非官方来源。<https://github.com/gorou5/datumoj/issues/49> | 仅读文档 |
 
 ## 1. 注册库 API 与返回信息
 
@@ -55,6 +55,6 @@ S1/S2 的持有文本头部记载提取日期；S3/S4 的页面文本头部记�
 
 ## 4. 提案来源分界
 
-S5 的 API key、专用利用规约页面、5–15 个工作日及全量 CSV 说法均为维护者提案中的说法。所持官方材料对这些具体主张的支持程度逐项列于 FIELD_UPDATE_TABLE.md；未把 S5 单独陈述当作官方核实结论。（仅读文档；S5）inputs/held/datumoj_issue49_body.md:27；inputs/held/datumoj_issue49_body.md:29；inputs/held/datumoj_issue49_body.md:37；inputs/held/datumoj_issue49_body.md:73
+S5 的 API key、专用利用规约页面、5–15 个工作日及全量 CSV 说法均为维护者提案中的说法。所持官方材料对这些具体主张的支持程度逐项列于 字段逐项对照表（维护者侧材料，未随本 PR 提交）；未把 S5 单独陈述当作官方核实结论。（仅读文档；S5）inputs/held/datumoj_issue49_body.md:27；inputs/held/datumoj_issue49_body.md:29；inputs/held/datumoj_issue49_body.md:37；inputs/held/datumoj_issue49_body.md:73
 
 S5 attributes the planned all-municipality CSV to an MHLW administrative notice; the notice itself is not in the held materials, so this remains a maintainer claim (inputs/held/datumoj_issue49_body.md:29).
