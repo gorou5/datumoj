@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一瞬间 · ISSHUNKAN — 社群知识发现 | osaka.datumoj.com</title>
+<meta name="description" content="一瞬间：把150人社群里碎片式的聊天、代码协作与Agent协作，结构化成可以被发现的知识。伟大的想法，常常是在讨论中突然冒出来的那一瞬间。Sample版，全部为虚构样本数据。本项目独立运作。">
+<style>
+:root{--bg:#f6f3ea;--bg2:#fffdf6;--card:#fffdf7;--card2:#efe9da;--ink:#353a31;--dim:#6e7263;--faint:#9b9e8f;--ochre:#a97a24;--terra:#b4623f;--teal:#3f7d76;--rose:#ad5a72;--sage:#5d7d46;--lav:#76699e;--line:rgba(94,99,84,.18);--radius:18px}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:"PingFang SC","Hiragino Sans","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;line-height:1.8;font-size:16px}
+a{color:var(--teal)}
+.wrap{max-width:1060px;margin:0 auto;padding:0 22px 90px}
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:22px 2px;gap:12px;flex-wrap:wrap}
+.brand{display:flex;gap:11px;align-items:center;font-weight:700;letter-spacing:.05em}
+.brand .dot{width:10px;height:10px;border-radius:50%;background:var(--ochre)}
+.sampleTag{font-size:11.5px;border:1.5px dashed var(--ochre);color:var(--ochre);border-radius:99px;padding:3px 12px;font-weight:700;letter-spacing:.08em}
+.hero{padding:44px 0 12px}
+.kicker{font-family:ui-monospace,Menlo,monospace;letter-spacing:.32em;font-size:12px;color:var(--ochre);font-weight:700}
+h1{font-size:clamp(42px,7.5vw,78px);line-height:1.12;font-weight:900;margin:14px 0 6px}
+h1 .en{display:block;font-size:clamp(12px,1.9vw,16px);letter-spacing:.5em;color:var(--dim);font-weight:600;margin-top:14px;font-family:ui-monospace,Menlo,monospace}
+.lede{font-size:clamp(15.5px,2.3vw,18.5px);color:#4c5142;max-width:760px;margin-top:22px}
+.lede b{color:var(--ochre)}
+.golden{margin:40px 0 10px;background:#fdf6df;border:1.5px solid rgba(169,122,36,.4);border-radius:var(--radius);padding:30px 34px}
+.golden .lab{font-size:12px;letter-spacing:.26em;color:var(--ochre);font-weight:800}
+.golden blockquote{font-size:clamp(19px,3.2vw,26px);font-weight:800;line-height:1.6;margin:14px 0 10px}
+.golden .meta{color:var(--dim);font-size:13.5px}
+.golden .meta b{color:var(--ink)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:30px 0 10px}
+@media(max-width:820px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+.stat .num{font-size:25px;font-weight:900;line-height:1.15;font-family:ui-monospace,Menlo,monospace}
+.stat .num em{font-style:normal;font-size:13px;color:var(--dim);font-weight:600}
+.stat .cap{font-size:12.5px;color:var(--dim);margin-top:4px;line-height:1.6}
+.stat.hot{border-color:rgba(169,122,36,.55);background:#fdf6df} .stat.hot .num{color:var(--ochre)}
+nav.tabs{position:sticky;top:0;z-index:40;background:rgba(246,243,234,.94);backdrop-filter:blur(8px);display:flex;gap:9px;flex-wrap:wrap;padding:16px 0;border-bottom:1px solid var(--line);margin-top:26px}
+.tab{border:1.5px solid var(--line);background:var(--card);color:var(--ink);padding:8px 17px;border-radius:99px;font-size:14.5px;font-weight:700;cursor:pointer}
+.tab.on{background:var(--ink);border-color:var(--ink);color:#f6f3ea}
+.tab small{opacity:.6;font-weight:600;margin-left:5px}
+section.view{display:none;padding:44px 0 10px}
+section.view.on{display:block}
+h2{font-size:clamp(22px,3.6vw,30px);font-weight:900;margin-bottom:8px}
+h2 .sub{display:block;font-size:14.5px;color:var(--dim);font-weight:500;margin-top:8px;line-height:1.75;max-width:780px}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0;align-items:center}
+.controls input{flex:1;min-width:200px;padding:12px 16px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font-size:15px}
+.chip{border:1.5px solid var(--line);background:var(--card);color:var(--ink);padding:7px 14px;border-radius:99px;font-size:13px;font-weight:700;cursor:pointer}
+.chip.on{background:var(--ink);color:#f6f3ea;border-color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+.mcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px 26px;cursor:pointer;text-align:left;color:var(--ink);width:100%;transition:border-color .15s;font-family:inherit}
+.mcard:hover{border-color:rgba(169,122,36,.6)}
+.mcard .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.badge{font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:99px;letter-spacing:.04em}
+.b-spark{background:#f7ecd2;color:var(--ochre);border:1px solid rgba(169,122,36,.45)}
+.b-turn{background:#f6e0e6;color:var(--rose);border:1px solid rgba(173,90,114,.4)}
+.b-q{background:#ddeeea;color:var(--teal);border:1px solid rgba(63,125,118,.4)}
+.b-dec{background:#e4ecd8;color:var(--sage);border:1px solid rgba(93,125,70,.4)}
+.b-link{background:#e6e2f0;color:var(--lav);border:1px solid rgba(118,105,158,.4)}
+.b-joke{background:#f7e3d5;color:var(--terra);border:1px solid rgba(180,98,63,.4)}
+.src{font-size:12px;color:var(--faint);font-family:ui-monospace,Menlo,monospace}
+.mcard .quote{font-size:16.5px;font-weight:700;line-height:1.65}
+.mcard .why{font-size:13.5px;color:var(--dim);margin-top:10px;line-height:1.7}
+.mcard .foot{display:flex;justify-content:space-between;gap:10px;margin-top:16px;font-size:12.5px;color:var(--faint);flex-wrap:wrap}
+.reso{color:var(--ochre);font-weight:800}
+.status{font-weight:700}.st-grown{color:var(--sage)}.st-seed{color:var(--teal)}.st-wait{color:var(--rose)}
+.drawer{position:fixed;inset:0;z-index:80;display:none}
+.drawer.on{display:block}
+.drawer .scrim{position:absolute;inset:0;background:rgba(60,58,44,.45)}
+.drawer .panel{position:absolute;right:0;top:0;bottom:0;width:min(560px,94vw);background:var(--bg2);border-left:1.5px solid var(--line);padding:30px 30px 48px;overflow:auto}
+.drawer .close{float:right;border:1.5px solid var(--line);background:var(--card);color:var(--ink);width:38px;height:38px;border-radius:50%;font-size:17px;cursor:pointer}
+.drawer h3{font-size:21px;line-height:1.55;margin:10px 0}
+.chain{margin:22px 0;border-left:2.5px solid rgba(169,122,36,.45);padding-left:20px;display:grid;gap:18px}
+.chain .step{position:relative}
+.chain .step:before{content:"";position:absolute;left:-26px;top:8px;width:10px;height:10px;border-radius:50%;background:var(--ochre)}
+.chain .step .t{font-size:12px;color:var(--ochre);font-weight:800;letter-spacing:.08em}
+.chain .step p{font-size:14.5px;color:#4c5142}
+.note{background:var(--card2);border-radius:14px;padding:18px 20px;font-size:13.5px;color:var(--dim);margin-top:22px;line-height:1.75}
+.constel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-top:8px}
+.constel svg{width:100%;height:auto;display:block}
+.tnode{cursor:pointer}
+.tnode text{fill:var(--ink);font-size:13.5px;font-weight:700}
+.tnode .cnt{fill:var(--dim);font-size:11px;font-weight:500}
+.riverCtl{display:flex;gap:9px;margin:22px 0;flex-wrap:wrap}
+.riverBox{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:28px 30px;min-height:180px}
+.riverBox h3{margin-bottom:10px;font-size:19px}
+.riverBox p,.riverBox li{color:#4c5142;font-size:15px}
+.riverBox ul{padding-left:20px;display:grid;gap:8px}
+.frag{border-left:3px solid var(--ochre);padding:8px 0 8px 15px;margin:14px 0;font-size:14.5px}
+.frag .who{color:var(--faint);font-size:12.5px}
+.loopCard{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--rose);border-radius:16px;padding:22px 24px}
+.loopCard h3{font-size:16.5px;margin-bottom:8px;line-height:1.6}
+.loopCard p{font-size:13.5px;color:var(--dim)}
+.pot{font-family:ui-monospace,Menlo,monospace;color:var(--rose);font-weight:800}
+.peopleGrid{display:flex;flex-wrap:wrap;gap:6px;margin:22px 0}
+.pdot{width:17px;height:17px;border-radius:50%;border:1.5px solid rgba(246,243,234,.7);cursor:pointer}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{border-bottom:1px solid var(--line);padding:13px 10px;text-align:left;vertical-align:top}
+th{color:var(--dim);font-size:12.5px;letter-spacing:.06em}
+td .mono{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--ochre)}
+.fwcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px}
+.fwcard h3{font-size:16.5px} .fwcard h3 span{color:var(--faint);font-size:12.5px;font-weight:600}
+.fwcard p{font-size:13.5px;color:var(--dim);margin-top:6px}
+.fwcard .fit{color:var(--sage);font-size:13.5px;margin-top:10px}
+.fwcard .gap{color:var(--rose);font-size:13.5px}
+.tiercard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px 26px}
+.tiercard .tno{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.2em;color:var(--ochre);font-weight:800}
+.tiercard h3{font-size:18px;margin:6px 0 8px}
+.tiercard p{font-size:14px;color:var(--dim)}
+.tiercard .scores{font-size:12.5px;color:var(--faint);margin-top:10px;font-family:ui-monospace,Menlo,monospace;line-height:1.9}
+.verdict{background:#eef2e2;border:1.5px solid rgba(93,125,70,.4);border-radius:var(--radius);padding:24px 26px;margin-top:24px;font-size:15px}
+.verdict b{color:var(--sage)}
+footer{margin-top:60px;border-top:1px solid var(--line);padding-top:22px;color:var(--faint);font-size:13px;display:grid;gap:8px}
+.kv{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+@media(max-width:720px){.kv{grid-template-columns:1fr}}
+.iaBox{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px}
+.iaBox h3{font-size:16px;margin-bottom:8px}.iaBox p,.iaBox li{font-size:13.5px;color:var(--dim)} .iaBox ul{padding-left:18px;display:grid;gap:5px}
+.bigQuoteDay{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:720px){.bigQuoteDay{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span> 一瞬间 · ISSHUNKAN</div>
+    <span class="sampleTag">SAMPLE 版 · 独立项目 · 数据全部为虚构样本</span>
+  </div>
+
+  <header class="hero">
+    <div class="kicker">COMMUNITY KNOWLEDGE DISCOVERY</div>
+    <h1>一瞬间<span class="en">ISSHUNKAN — THE MOMENT IT CLICKS</span></h1>
+    <p class="lede">很多伟大的想法，不是坐在桌前想出来的，是<b>在讨论中突然冒出来的</b>——食堂老板的一句闲话撞上工程师的难题，招牌师傅的手艺撞上写代码的规矩。聊天记录会把它们冲走。这个站的工作只有一件：<b>把那一瞬间捞起来，放到能被再次看见、被接续、被长成作品的地方。</b></p>
+  </header>
+
+  <div class="golden">
+    <div class="lab">✦ 今日金句 · QUOTE OF THE DAY</div>
+    <blockquote>菜单写得太清楚，客人就不问了；客人一问，常客就多一个。</blockquote>
+    <div class="meta">— <b>汤浅由纪</b>（食堂店主）· 今天 19:42 · #深夜食堂（即时通讯）· 这一句今天被引用 <b>23 次</b>，还撞出了一个产品决定 → <a href="#" onclick="openMoment(1);return false">看它是怎么长大的</a></div>
+  </div>
+
+  <div class="stats" id="statsRow"></div>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab on" data-v="today">今日<small>Today</small></button>
+    <button class="tab" data-v="moments">一瞬间墙<small>Moments</small></button>
+    <button class="tab" data-v="constel">脉络<small>Constellations</small></button>
+    <button class="tab" data-v="river">河流<small>River</small></button>
+    <button class="tab" data-v="loops">未决<small>Open Loops</small></button>
+    <button class="tab" data-v="people">成员<small>150</small></button>
+    <button class="tab" data-v="artifacts">产物<small>Artifacts</small></button>
+    <button class="tab" data-v="sources">接入顺序<small>Sources</small></button>
+    <button class="tab" data-v="framework">框架调研<small>Frameworks</small></button>
+  </nav>
+
+  <!-- TODAY -->
+  <section class="view on" id="v-today">
+    <h2>今日 · 2026-10-28（样本日）<span class="sub">日报不是流水账。日报只回答三个问题：今天冒出了什么新想法？什么东西长大了？什么问题还悬着没人接？</span></h2>
+    <div class="bigQuoteDay">
+      <div class="iaBox"><h3>⚡ 今日新的一瞬间（12）</h3><p>从 2,847 条消息、312 个线程、23 个代码提交与 147 次 Agent 运行里，筛出 12 个「值得被再看一眼」的瞬间。筛选标准不是热闹，是<b style="color:var(--ochre)">共鸣度</b>：这句话之后，有没有人接、引用、动手。点上方「一瞬间墙」逐个看。</p></div>
+      <div class="iaBox"><h3>🌱 今日长大的（4）</h3><p>食堂的一句闲话长成了产品说明的改版决定；防灾志愿者的一句质疑长成了避难地图的改版单；二手市集的观察长成了商品页的「来历」栏；町工厂师傅的经验长成了功能下线规则。</p></div>
+      <div class="iaBox"><h3>🕳 今日悬着的（17）</h3><p>17 个问题被提出后无人接续超过 6 小时。其中 3 个被标为高潜——不是没人感兴趣，是提出时已是深夜，被冲走了。它们在「未决」页等被捡回来，这正是知识发现最常发生的地方。</p></div>
+      <div class="iaBox"><h3>📊 今日社群体温</h3><p>最活跃频道 #深夜食堂（612 条）；人类与 Agent 的对话占比 31%；跨频道「串门引用」41 次——一个圈子的话被另一个圈子引用，往往就是新脉络的起点：今天最响的一句，出自食堂，响在产品组。</p></div>
+    </div>
+    <div class="note">为什么日报长这样：普通日报按时间排，像监控；这里按<b>「想法的一生」</b>排——诞生（瞬间）→ 共鸣（被接续）→ 生长（成决定/产物）→ 或悬置（未决）。知识发现发生在后三步，日报就只盯后三步。</div>
+  </section>
+
+  <!-- MOMENTS -->
+  <section class="view" id="v-moments">
+    <h2>一瞬间墙<span class="sub">最小单位不是「一条消息」，是一个<b>瞬间</b>：一句原话 ＋ 它出现的上下文 ＋ 它之后引发的共鸣 ＋ 它现在的长势。这个社群的成员彼此行业不同，瞬间最常诞生于「跨界相撞」：外行的一句话，解开内行想了很久的结。点任意卡片，看它的完整「出生证明与成长记录」。</span></h2>
+    <div class="controls">
+      <input id="q" type="search" placeholder="搜索原话、作者、话题…（例：招牌 / 防灾 / 菜单）">
+    </div>
+    <div class="controls" id="typeChips"></div>
+    <div class="grid" id="momentGrid"></div>
+    <p id="noHit" style="display:none;color:var(--dim);margin-top:16px">没有匹配的瞬间。换个词试试——或者，这正是社群还没聊到过的盲区。</p>
+  </section>
+
+  <!-- CONSTELLATIONS -->
+  <section class="view" id="v-constel">
+    <h2>脉络 · 话题星图<span class="sub">话题不是文件夹，是星群：由一个个瞬间连成的线。这张图是<b>力导向</b>的——相连的话题互相牵引、无关的话题彼此推开，位置是自己长出来的；你也可以<b>按住任意一颗星拖着玩</b>，松手后它会重新找平衡。点一颗星（轻点，别拖），看这条脉络的演化。</span></h2>
+    <div class="constel"><svg viewBox="0 0 900 460" id="constelSvg" role="img" aria-label="话题星图（力导向，可拖拽）"></svg></div>
+    <div id="constelDetail" class="note">拖动星点可以重排这张图；轻点任意话题，这里会显示它的演化链。</div>
+  </section>
+
+  <!-- RIVER -->
+  <section class="view" id="v-river">
+    <h2>河流 · 一条讨论的三种深度<span class="sub">同一条讨论，三种看法：一句话（给路过的人）→ 摘要（给想跟上的人）→ 原始碎片（给想亲自判断的人）。知识发现需要能自由缩放，而不是只有原文或只有总结。</span></h2>
+    <div class="riverCtl">
+      <button class="chip on" data-z="1">① 一句话</button>
+      <button class="chip" data-z="2">② 话题摘要</button>
+      <button class="chip" data-z="3">③ 原始碎片（14 条）</button>
+    </div>
+    <div class="riverBox" id="riverBox"></div>
+    <div class="note">这个三层缩放来自华盛顿大学 Tilda 研究（群聊协同标注与摘要）：人们要的不是「被告知结论」，是「能自己控制下潜深度」——先一句话判断值不值得，再决定要不要读到原文。</div>
+  </section>
+
+  <!-- LOOPS -->
+  <section class="view" id="v-loops">
+    <h2>未决 · 等着被捡回来的问题<span class="sub">全站最有价值的一页。被认真提出、却没人接的话，往往不是不重要，是生不逢时。这里按「潜在价值」排序，并写明为什么值得捡。</span></h2>
+    <div class="grid" id="loopGrid" style="margin-top:20px"></div>
+  </section>
+
+  <!-- PEOPLE -->
+  <section class="view" id="v-people">
+    <h2>成员 · 150 个账号，132 人 ＋ 18 个 Agent<span class="sub">成员来自各行各业：工程师、店主、职人、研究者、学生、创作者。这里不写头衔，写<b>涌现出来的角色</b>：谁总能点火（提出瞬间的人）、谁总能接住（把瞬间长成产物的人）、谁是连接者（把两个圈子的话引到一起的人）。角色来自行为，不来自自我介绍。</span></h2>
+    <div class="peopleGrid" id="peopleGrid"></div>
+    <div class="kv" id="sparkerList"></div>
+    <div class="note">图例：<span style="color:var(--ochre)">●</span> 点火者偏多　<span style="color:var(--teal)">●</span> 接续者偏多　<span style="color:var(--lav)">●</span> 连接者偏多　<span style="color:#b9bcab">●</span> 潜水阅读者　<span style="color:var(--sage)">◆</span> Agent 账号。点任意圆点看该成员样本档案。</div>
+    <div id="personDetail" class="note" style="display:none"></div>
+  </section>
+
+  <!-- ARTIFACTS -->
+  <section class="view" id="v-artifacts">
+    <h2>产物 · 每个作品都能追溯到哪一句话<span class="sub">决定、文档、改版、活动规则，在这里不按类型排，按<b>出身</b>排：它是从哪个瞬间长出来的。追溯链断了的知识，很快就没人敢改。</span></h2>
+    <div style="overflow:auto;margin-top:16px"><table id="artifactTable">
+      <thead><tr><th>产物</th><th>类型</th><th>出身瞬间</th><th>接续者</th><th>状态</th></tr></thead><tbody></tbody>
+    </table></div>
+  </section>
+
+  <!-- SOURCES -->
+  <section class="view" id="v-sources">
+    <h2>信息来源接入顺序<span class="sub">顺序不按「数据量大不大」排，按五条判据排：<b>出处可追溯</b>（每条碎片能不能指回一个永久地址）、<b>瞬间密度</b>（多少条里出一个瞬间）、<b>接入成本</b>、<b>授权摩擦</b>（要多少人点头、平台墙有多高）、<b>易失性</b>（不捞就多快消失）。先接「密、稳、易」的，让站先活起来；最吵最散的即时通讯全量流，放到最后，并且先过授权关。</span></h2>
+    <div class="grid" style="margin-top:20px" id="tierGrid"></div>
+    <div class="verdict"><b>一条边界，先说清：</b>一对一私聊永不接入——那不是社群知识，是别人的隐私。线下聚会同理，只收成员自愿写下的回顾，不收录音与偷拍式的记录。接入顺序可以商量，这条边界不商量。</div>
+    <div class="note">平台已定（2026-10-28）：社群在<b>微信群</b>。结论已写进第 3、4 位——微信侧以打捞层为正路，全量只剩「打捞员本地导出」一条条件路，且先过同意关。前 2 位（代码协作、Agent 记录）不受平台影响，可以先动。</div>
+  </section>
+
+  <!-- FRAMEWORKS -->
+  <section class="view" id="v-framework">
+    <h2>框架调研 · 有没有现成的？<span class="sub">结论先行：<b>没有一个现成框架直接做「一瞬间发现」这件事。</b>最接近的几家各解决一段——把聊天变成可搜索存档、把聊天提炼成 Wiki、把笔记连成图——但「以瞬间为单位、按共鸣与生长来组织、专为再次发现而设计」的展示层，目前是空白。所以 Sample 版先用最轻的自研静态页验证信息架构，验证成立再接后端提炼管线。</span></h2>
+    <div class="grid" style="margin-top:20px" id="fwGrid"></div>
+    <div class="verdict"><b>建议的组合（若验证成立）：</b>接入与提炼层借 Beever Atlas 的思路（多平台聊天 → 原子事实 → 带引用的主题页 ＋ 知识图谱 ＋ MCP 给 Agent 用）；发布与图谱层借 Quartz 的数字花园（全文检索、反向链接、图视图）；展示层——就是你现在看的这一页——保持自研，因为「瞬间 / 共鸣 / 未决」这套信息架构没有现成产品做。先验证展示，再接管线，避免一上来就为还没人用的系统建数据库。</div>
+    <div class="kv" style="margin-top:20px">
+      <div class="iaBox"><h3>本站信息架构（5 个一级单位）</h3><ul><li><b>瞬间 Moment</b>——最小单位，原话＋上下文＋共鸣＋长势</li><li><b>脉络 Constellation</b>——瞬间连成的演化线，不是分类文件夹</li><li><b>未决 Loop</b>——没被接住的问题，单独成页、按潜力排序</li><li><b>产物 Artifact</b>——决定／文档／改版，强制挂回出身瞬间</li><li><b>成员 Member</b>——按行为涌现的角色，不按头衔</li></ul></div>
+      <div class="iaBox"><h3>三条展示原则</h3><ul><li><b>不按时间排，按一生排</b>：诞生→共鸣→生长→悬置</li><li><b>可缩放</b>：一句话→摘要→原始碎片，随时下潜到出处</li><li><b>每条提炼必带出处</b>：点任何结论都能回到原话，不信任黑箱摘要</li></ul></div>
+    </div>
+  </section>
+
+  <footer>
+    <div>一瞬间 ISSHUNKAN · Sample v0.4（2026-10-28）· 独立项目。本页全部人物、数字与引文均为虚构样本，用于验证信息架构与展示方式，不含任何真实聊天记录。</div>
+    <div>下一步（待拍板）：① 这套展示是否成立 → ② 按「接入顺序」页的次序接信息来源 → ③ 再议提炼管线（自研，还是改造 Beever Atlas 一类开源提炼层）。</div>
+  </footer>
+</div>
+
+<!-- DRAWER -->
+<div class="drawer" id="drawer"><div class="scrim" onclick="closeDrawer()"></div>
+  <div class="panel"><button class="close" onclick="closeDrawer()">✕</button><div id="drawerBody"></div></div>
+</div>
+
+<script>
+const STATS=[
+ {num:"150",em:" 个账号",cap:"132 位成员（各行各业）＋ 18 个 Agent 账号",hot:false},
+ {num:"2,847",em:" 条",cap:"今日消息（9 个频道 · 即时通讯）",hot:false},
+ {num:"12",em:" 个",cap:"今日新的一瞬间（从全部碎片中筛出）",hot:true},
+ {num:"23",em:" 次",cap:"今日金句被引用次数（共鸣度第一）",hot:true},
+ {num:"312",em:" 个",cap:"今日讨论线程 · 跨圈子引用 41 次",hot:false},
+ {num:"23 / 9",em:" 件",cap:"今日代码协作：提交 23 · 合并 9",hot:false},
+ {num:"147",em:" 次",cap:"今日 Agent 运行（检索/翻译/汇总）",hot:false},
+ {num:"17",em:" 个",cap:"未决问题（其中 3 个高潜待捡）",hot:true},
+];
+const MOMENTS=[
+ {id:1,type:"灵光",cls:"b-spark",src:"💬 即时通讯 · #深夜食堂",quote:"菜单写得太清楚，客人就不问了；客人一问，常客就多一个。",author:"汤浅由纪 · 食堂店主",time:"19:42",topic:"吃的学问",reso:23,status:"已长成决定",st:"st-grown",why:"食堂老板的生意经，被做产品的人听成了另一件事：说明写得太满，用户就不开口了；不开口，就没有关系。当晚产品组就把这句引进了自己的讨论。",
+  chain:[["19:42 · 原话","汤浅在 #深夜食堂 聊为什么她家菜单只写菜名、不写说明。"],["19:50–20:30 · 跨界共鸣","做产品的林小满接话：「我们的新手引导就是写得太清楚了，清楚到用户连问都不想问。」线程长到 47 条。"],["21:15 · 成议题","整理成议题页《留一点不清楚》，挂到脉络「吃的学问」与「做产品」之间。"],["次日 · 成决定","产品组决定：新手引导删掉一半说明，改成「问一句」的入口——先让人开口，再给答案。"]]},
+ {id:2,type:"反转",cls:"b-turn",src:"🤖 Agent · 夜跑数据汇总",quote:"汇总 Agent 自注：连续 30 天的夜跑打卡里，让人第二天还来的，不是配速最好的那个，是跑完发了一张便利店灯光照片的人。",author:"汇总君（Agent）",time:"06:10",topic:"河与夜跑",reso:17,status:"已长成活动规则",st:"st-grown",why:"Agent 从打卡数据里看出一个人类没注意的规律：留住人的不是成绩，是一个有画面感的收尾。夜跑群当周就改了打卡规则。",
+  chain:[["06:10 · 原话","汇总 Agent 在晨间报告末尾写下这句自注，原本只是数据附注。"],["07:02 · 被人捞起","河合亮转发到 #河边，问：那打卡到底该打什么？"],["当日 · 成规则","夜跑打卡改为「一张收尾照片」制，配速数据退到第二屏。"]]},
+ {id:3,type:"质疑",cls:"b-q",src:"💬 即时通讯 · #河边",quote:"我们总说这条河是这座城的「背面」，可住在河边的人，天天看它日出。到底是谁的背面？",author:"河合亮 · 河川研究者",time:"08:26",topic:"河与夜跑",reso:15,status:"已长成改版单",st:"st-grown",why:"一句话把一张城市地图的方向感整个翻了过来：以河为正面的地图，长什么样？",
+  chain:[["08:26 · 原话","河合在讨论城市导览地图时反问。"],["09:10 · 共鸣","做地图的成员接话：现有导览全以车站为中心，河永远在边缘。"],["两日后 · 成产物","改版单建立：一版以河为脊线的城市地图，车站退为注脚。"]]},
+ {id:4,type:"连接",cls:"b-link",src:"💬 即时通讯 · #老店新事",quote:"老店的招牌字从来不是「设计」出来的，是一代代描出来的。描，就是最早的版本管理——每一代都只改一点点，还都留着上一代的笔。",author:"陈阿巧 · 招牌描字师傅",time:"15:03",topic:"手艺与版本",reso:19,status:"已长成档案项目",st:"st-grown",why:"描字师傅随口说的行话，被写代码的人接住了：原来「版本管理」不是软件发明的，是手艺人几百年的规矩。这句成了两个圈子之间的桥。",
+  chain:[["15:03 · 原话","陈阿巧在晒一张四代同堂的招牌照片时说的。"],["15:20 · 跨界共鸣","工程师高桥健回复：「我们合并代码讲的『只改一点、留着来历』，您师傅几百年前就这么干了。」"],["一周内 · 成项目","《招牌字体档案》立项：逐店记录招牌字的每一代描改，格式照着版本历史来。"]]},
+ {id:5,type:"灵光",cls:"b-spark",src:"💬 即时通讯 · #做点什么",quote:"手冲的水温我从来不写进配方。写进去了，学徒就不尝了。有些东西，不写下来，才传得下去。",author:"顾一帆 · 咖啡师",time:"11:18",topic:"吃的学问",reso:13,status:"讨论中",st:"st-seed",why:"和所有「把知识都写下来」的冲动正好相反的一句：文档的边界在哪里？什么东西必须靠嘴和手传？这句让社群开始认真讨论「不写的清单」。",
+  chain:[["11:18 · 原话","顾一帆在争论要不要把食堂配方全量文档化时说的。"],["11:40 · 共鸣","与瞬间 #1 互相引用：一句说「留一点不清楚」，一句说「有些不要写」，合并成议题《留白的规矩》。"]]},
+ {id:6,type:"笑话成真",cls:"b-joke",src:"💬 即时通讯 · #随口一说",quote:"笑死，我们这个群迟早需要一个「一瞬间」打捞员——专门负责在好话沉底之前，把它捞出来钉在墙上。",author:"米拉 · 学生",time:"23:17",topic:"一瞬间（本站）",reso:21,status:"已长成本站",st:"st-grown",why:"深夜的一句玩笑，今天成了一个站。笑话成真型瞬间，是这个社群最稳定的创新来源（样本统计：本月 3 次）。",
+  chain:[["23:17 · 原话","米拉在深夜闲聊里开玩笑。"],["23:20 · 共鸣","21 个人接话，有人说：那先做个 sample 看看，好不好用再说。"],["次日 · 成产物","「一瞬间」Sample 版立项：先验证展示方式，再谈数据来源。"]]},
+ {id:7,type:"质疑",cls:"b-q",src:"💬 即时通讯 · #问个问题",quote:"避难地图上标的都是「最近的避难所」。可真到了那天，老人不会去最近的，他会去他认识人的那家小店。地图标错了东西。",author:"中村实 · 防灾志愿者",time:"09:34",topic:"防灾与邻里",reso:16,status:"已长成改版单",st:"st-grown",why:"把「距离最近」和「心里最近」的区别，一句话钉在了地图上。防灾这件事，原来一半是地理，一半是人情。",
+  chain:[["09:34 · 原话","中村在社区防灾演练复盘时提出。"],["10:05 · 共鸣","汤浅接话：演练那天，真有三位老人先来了她食堂门口。"],["三日后 · 成产物","避难地图改版单：新增一层「熟人的店」——经店主同意后标注。"]]},
+ {id:8,type:"灵光",cls:"b-spark",src:"⌨️ 代码协作 · 功能下线讨论",quote:"零件坏了先别扔，放一周。一周后还想得起来它用在哪，才是真坏了；想不起来，那它本来就是多余的。功能下线也该这么办。",author:"岛田铁工 · 町工厂师傅",time:"14:47",topic:"手艺与版本",reso:11,status:"已长成规则",st:"st-grown",why:"工厂师傅处理废零件的土办法，被借去做了软件的功能下线规则：先冷藏，再决定。跨界借来的规矩，往往比本行发明的更朴素、更好用。",
+  chain:[["14:47 · 原话","岛田在功能下线讨论里留言，他本是被拉来咨询一个完全不相干的问题。"],["15:30 · 成规则","「冷藏一周」写入功能下线流程：先隐藏入口一周，无人问起才真删。"]]},
+ {id:9,type:"反转",cls:"b-turn",src:"💬 即时通讯 · #周末市集",quote:"市集上最先卖光的，从来不是最便宜的，是摊主能讲出上一任主人故事的那几件。东西一有来历，就不只是东西了。",author:"林小满 · 市集摊主",time:"10:12",topic:"市集与来历",reso:12,status:"已长成新栏目",st:"st-grown",why:"一句话给二手市集定了个新规矩：卖东西之前，先把故事准备好。后来商品页真的多了「来历」一栏，成交反而更快。",
+  chain:[["10:12 · 原话","林小满在市集收摊复盘时总结。"],["当日 · 共鸣","买家们纷纷作证：确实是冲着故事买的。"],["下周 · 成产物","市集摊位登记表新增「来历」栏，摊主必填一句话。"]]},
+ {id:10,type:"决定",cls:"b-dec",src:"💬 即时通讯 · #做点什么",quote:"定了个规矩：雨天不取消，改小。取消一次，人就散一次；改小，人才知道——下雨天也有地方去。",author:"夜市组 · 集体决定",time:"20:05",topic:"防灾与邻里",reso:10,status:"已执行",st:"st-grown",why:"一条活动规矩，理由不是效率，是人心：社群的信任是靠「说好的一定在」攒起来的。这条后来被三个活动小组抄走。",
+  chain:[["20:05 · 原话","夜市组在雨季排期会上拍板，记录员原样记下。"],["当月 · 扩散","夜跑组、读书会、市集组先后采用了同款「改小不取消」规矩。"]]},
+ {id:11,type:"连接",cls:"b-link",src:"💬 即时通讯 · #话与笑",quote:"大阪话里的「なんでやねん」，其实就是我们这儿的代码评审：先指出不对劲，再一起笑一场，笑完，事还得改。",author:"山本梓 · 语言学学生",time:"21:29",topic:"话与笑",reso:9,status:"还在发芽",st:"st-seed",why:"把方言里的吐槽，连接到了评审文化上：指出问题的方式，可以决定问题被不被接受。这句正在被几个小组引用，还没长成正式产物。",
+  chain:[["21:29 · 原话","山本梓在聊方言的线程里随口类比。"],["21:45 · 被连接","高桥健把它引到代码评审讨论：「吐槽式评审」当晚被试用了一次，反馈意外地好。"]]},
+ {id:12,type:"灵光",cls:"b-spark",src:"🤖 Agent · 翻译运行记录",quote:"翻译 Agent 自注：今天有 11 句话我怎么都翻不准，全是玩笑。玩笑是这个群里信息最密的部分，也是我最弱的部分。",author:"译君（Agent）",time:"23:58",topic:"话与笑",reso:8,status:"已长成机制",st:"st-grown",why:"Agent 诚实地标出了自己的盲区，反而指出了社群的富矿：玩笑里藏着最多的默契与新想法。于是有了「玩笑人工复核队列」。",
+  chain:[["23:58 · 原话","译君在当日翻译日志末尾自注。"],["次日 · 成机制","跨语言频道新增规矩：Agent 翻不准的玩笑自动进人工队列，由成员顺手译并标注语境。"]]},
+];
+const TOPICS=[
+ {name:"吃的学问",x:450,y:88,r:42,cnt:"34 个瞬间",color:"#a97a24",desc:"从金句「菜单写太清楚，客人就不问了」开始，串起瞬间 #1 #5。演化：一句生意经 → 跨界议题《留白的规矩》→ 产品决定。特点：这条脉络的源头几乎都在饭桌边。"},
+ {name:"河与夜跑",x:175,y:150,r:31,cnt:"16 个瞬间",color:"#3f7d76",desc:"夜跑打卡数据（#2）与「谁的背面」（#3）在这里交叉。演化：数据自注 → 打卡规则改版；一句反问 → 以河为脊线的地图改版单。"},
+ {name:"老店与新事",x:705,y:140,r:30,cnt:"15 个瞬间",color:"#b4623f",desc:"老店怎么活下去的讨论群。招牌、菜单、常客，都是从这里被别的圈子借走的概念。"},
+ {name:"手艺与版本",x:795,y:285,r:27,cnt:"14 个瞬间",color:"#76699e",desc:"描字（#4）与废零件（#8）：手艺人的老规矩，两次被写代码的人接走，分别长成了档案项目和下线规则。本站跨界密度最高的一条脉络。"},
+ {name:"防灾与邻里",x:120,y:305,r:28,cnt:"13 个瞬间",color:"#ad5a72",desc:"「心里最近」的那家店（#7）与「雨天改小不取消」（#10）。这条脉络的产物都不大，但都直接落在街坊的生活里。"},
+ {name:"市集与来历",x:330,y:335,r:26,cnt:"11 个瞬间",color:"#5d7d46",desc:"从「东西一有来历，就不只是东西了」（#9）长出「来历」栏。正在和「老店与新事」互相引用，可能合并成一条更大的脉络。"},
+ {name:"话与笑",x:565,y:275,r:28,cnt:"12 个瞬间",color:"#b4623f",desc:"方言吐槽（#11）与 Agent 翻不准的玩笑（#12）。共识正在形成：这个社群的信息密度，一半在正经话里，一半在玩笑里。"},
+ {name:"一瞬间（本站）",x:450,y:190,r:21,cnt:"6 个瞬间",color:"#a97a24",desc:"本站自己的出身：一句深夜玩笑（#6）。这条脉络提醒每个访问者——你正在看的站，就是一次成功打捞的证据。"},
+];
+const LOOPS=[
+ {q:"线下聚会聊出的东西，从来没进过任何记录。这个站要不要管「空气里的讨论」？",by:"米拉",ago:"悬置 4 天",pot:"潜力 92",why:"最难的一类来源：没有文本。与本站的题目同题——有些一瞬间，只活在在场者的记忆里。可能的解法不是录音，是聚会后三分钟的自愿口述。"},
+ {q:"150 人里四成是潜水者。他们的「已读」算不算一种共鸣？发现系统要不要数沉默？",by:"高桥健",ago:"悬置 3 天",pot:"潜力 88",why:"如果只数发言，共鸣度会被话多的人带偏；但数沉默又涉及边界。这决定了共鸣度的算法根基，值得认真吵一次。"},
+ {q:"Agent 翻不准的玩笑要进人工队列——可玩笑被「解释」之后，还好笑吗？存档会不会把笑存死？",by:"山本梓",ago:"悬置 1 天",pot:"潜力 81",why:"直接关系到「话与笑」脉络的做法：标注语境和杀死玩笑之间，只隔一层分寸。"},
+ {q:"不会用智能手机的街坊，怎么进这个社群？他们的瞬间谁来替他们说？",by:"中村实",ago:"悬置 2 天",pot:"潜力 77",why:"避难地图那条瞬间（#7）的主角们，恰恰不在这个群里。发现系统的盲区，可能正是社群最该听见的人。"},
+ {q:"深夜说的话，白天看还成立吗？要不要给瞬间标一个「 mood 」：它是清醒的，还是深夜的？",by:"顾一帆",ago:"悬置 6 小时",pot:"潜力 69",why:"样本里过半的高共鸣瞬间出现在 22 点以后。深夜既出灵感也出妄言，标注时段也许比事后筛选更诚实。"},
+ {q:"跨语言成员的瞬间，现在全靠 Agent 翻译。翻错的一句，会不会就此被当成原意传下去？",by:"译君（Agent）",ago:"悬置 9 小时",pot:"潜力 66",why:"与玩笑队列相连：翻译是这个多语言社群的基础设施，它的可信度需要一条回溯机制。"},
+];
+const TIERS=[
+ {no:"第 1 位 · 先接",name:"代码协作",body:"提交、评审意见、议题讨论。这类碎片天生带永久编号和链接，出处追溯满分；样本里 12 个瞬间有 3 个出身于此。更重要的是：产物就长在这里，「瞬间→产物」的闭环只有先接它才能立刻跑通。",scores:"出处追溯 ★★★★★ · 瞬间密度 ★★★★ · 成本 低 · 授权摩擦 低 · 易失性 低"},
+ {no:"第 2 位 · 紧接着",name:"Agent 协作记录",body:"Agent 的运行日志、每日汇总、翻译与检索记录。它们已经是文本、已经在系统里，不需要任何人额外授权。而 Agent 提出的瞬间最容易死——样本 #2、#12 都是靠被人偶然看见才活下来的。第二位接它，先救最易失的那一类。",scores:"出处追溯 ★★★★ · 瞬间密度 ★★★★（已半提炼）· 成本 低 · 授权摩擦 无 · 易失性 最高"},
+ {no:"第 3 位 · 微信群的主路",name:"打捞层：投稿与被引用的话",body:"社群在微信群——而微信群没有官方的全量接口（见第 4 位），所以打捞层不是过渡，它就是微信侧的正路。只收三种话：成员用微信自带的「合并转发」投进打捞箱的、被别人引用或转发的、被写进日报与回顾的。都已被社群自己筛过一遍，密度最高、授权最轻，还能把「随手捞一句」变成群里的习惯。",scores:"出处追溯 ★★★ · 瞬间密度 ★★★★★ · 成本 中 · 授权摩擦 低（自愿）· 易失性 中"},
+ {no:"第 4 位 · 微信现实版（原设想已改）",name:"全量流：官方路不存在，只剩一条条件路",body:"先说清事实：个人微信群没有官方导出或接口，聊天记录只存在于各人设备本地；企业微信倒有官方「会话存档」接口，但要全员迁到企业微信、逐人告知存档、外部成员可拒绝——社群会先变成被管理的组织，不推荐。剩下的条件路是「打捞员本地导出」：指定一个在群内的账号，电脑版微信保持登录，定期用本地工具（如 WeChatMsg 一类）把该账号自己收到的记录导出为结构化文件——只能导这个账号亲历的部分，工具随微信更新常失效，处理必须全程本地＋脱敏。开工条件缺一不可：群内明示同意、可撤回、只导本群。过不了同意关，这一位就永久停在第 3 位，不硬上。",scores:"出处追溯 ★★★ · 瞬间密度 ★★（总量大、密度低）· 成本 高 · 授权摩擦 最高 · 前置：明示同意"},
+];
+const FRAMEWORKS=[
+ {name:"Beever Atlas",tag:"开源 · 2026 · 最接近",fit:"✓ 聊天（Slack/Discord/Teams 等）→ 提炼原子事实 → 自动 Wiki ＋ 知识图谱 ＋ 带出处引用，还能经 MCP 喂给 Agent。正中「碎片→结构化」这一段。",gap:"✕ 刚开源、以团队聊天为中心；没有「瞬间/共鸣/未决」的展示层，也不理解跨界相撞为何重要。"},
+ {name:"Linen",tag:"开源 · 聊天存档",fit:"✓ 把 Slack/Discord 同步成可搜索、可被 Google 索引的网站，解决「聊天是黑洞、好话被冲走」的存档问题。",gap:"✕ 它保留的是线程原样，是「存档」不是「发现」：不提炼、不连脉络、不标共鸣。"},
+ {name:"Answer Overflow",tag:"开源 · Discord",fit:"✓ 与 Linen 同类，专攻 Discord 问答沉淀与搜索发现，社区分析做得细。",gap:"✕ 只覆盖 Discord 问答场景，离多来源（聊天＋代码＋Agent）很远。"},
+ {name:"Discourse",tag:"成熟论坛 · AI 摘要",fit:"✓ 结构化讨论的老牌答案：话题、标签、AI 摘要、信任等级都现成，150 人规模绰绰有余。",gap:"✕ 它要求讨论「搬家」到论坛里发生。本站的前提恰恰相反：讨论留在原地，这里只负责打捞与发现。"},
+ {name:"Quartz",tag:"开源 · 数字花园",fit:"✓ 把 Markdown 笔记发成带全文检索、反向链接与图视图的站。「脉络星图」一页的形态与它最像，发布层可直接借用。",gap:"✕ 输入端是已整理好的笔记，不是原始碎片；从聊天到笔记的那一段提炼，它不管。"},
+ {name:"Polis / Kialo",tag:"意见地图 / 论证图",fit:"✓ 大规模讨论中绘制「谁同意什么」的意见地形（Polis 曾用于公共议题协商），Kialo 把争论画成论证树。做「分歧可视化」时值得借。",gap:"✕ 它们组织的是立场，不是知识的生长过程；日常碎片流不是它们的输入形态。"},
+ {name:"Tilda",tag:"学术原型 · 华盛顿大学",fit:"✓ 群聊协同标注＋分层摘要的原型研究，本站「河流」三层缩放直接受它启发，结论经用户访谈验证。",gap:"✕ 是研究原型，不是可部署产品；只能借思想，不能借代码。"},
+ {name:"通用建站框架（Astro 等）",tag:"建站工具",fit:"✓ 静态生成便宜、稳、好部署。本 Sample 本身就是零框架的单文件静态页，跑在 Cloudflare Pages 上。",gap:"✕ 它们只管「把页面发出来」，知识发现的信息架构要自己设计——而那正是本站真正的工作。"},
+];
+const ARTIFACTS=[
+ ["新手引导「先问一句」改版","决定 · 产品","#1 汤浅的菜单经","林小满 等","已执行"],
+ ["以河为脊线的城市地图","改版单 · 地图","#3 河合的反问","地图组","进行中"],
+ ["《招牌字体档案》","档案项目","#4 陈阿巧的「描」","陈阿巧 · 高桥健","进行中"],
+ ["避难地图「熟人的店」层","改版单 · 地图","#7 中村的质疑","中村实 · 汤浅","进行中"],
+ ["市集登记「来历」栏","规则 · 市集","#9 林小满的观察","市集组","已生效"],
+ ["功能下线「冷藏一周」规则","规则 · 流程","#8 岛田的废零件","工程师组","已生效"],
+ ["雨天「改小不取消」规矩","规则 · 活动","#10 夜市组的决定","夜市组 等 3 组","已执行"],
+ ["玩笑人工复核队列","机制 · 翻译","#12 译君的自注","译君 → 成员轮值","已生效"],
+ ["「一瞬间」Sample 站（本站）","网站","#6 米拉的玩笑","全体","你正在看"],
+];
+const SPARKERS=[
+ ["汤浅由纪","点火者 · 食堂店主","本月点火 9 次 · 最响的一句被引 23 次，且全响在别的圈子","#a97a24"],
+ ["陈阿巧","点火者 · 描字师傅","话不多，但每句都被工程师圈子借走","#b4623f"],
+ ["河合亮","提问者 · 研究者","他的反问有 3 个进了未决页 Top 5","#3f7d76"],
+ ["林小满","连接者 · 摊主兼产品","跨圈引用 14 次，本月第一：食堂的话是她引到产品组的","#76699e"],
+ ["汇总君（Agent）","守夜者","147 次运行 · 从数据里提出瞬间 11 个，被接率 45%","#5d7d46"],
+ ["米拉","气氛组→点火者 · 学生","玩笑成真 3 次，本站就是第 3 次","#b4623f"],
+];
+/* ---------- render ---------- */
+document.getElementById('statsRow').innerHTML=STATS.map(s=>'<div class="stat'+(s.hot?' hot':'')+'"><div class="num">'+s.num+'<em>'+s.em+'</em></div><div class="cap">'+s.cap+'</div></div>').join('');
+const TYPES=["全部","灵光","反转","质疑","连接","决定","笑话成真"];
+let curType="全部";
+document.getElementById('typeChips').innerHTML=TYPES.map(t=>'<button class="chip'+(t==="全部"?" on":"")+'" data-t="'+t+'">'+t+'</button>').join('');
+function renderMoments(){
+ const q=(document.getElementById('q').value||"").trim();
+ const list=MOMENTS.filter(m=>(curType==="全部"||m.type===curType)&&(!q||(m.quote+m.author+m.topic+m.src).includes(q)));
+ document.getElementById('momentGrid').innerHTML=list.map(m=>'<button class="mcard" onclick="openMoment('+m.id+')"><div class="row"><span class="badge '+m.cls+'">'+m.type+'</span><span class="src">'+m.src+'</span></div><div class="quote">'+m.quote+'</div><div class="why">'+m.why+'</div><div class="foot"><span><b style="color:var(--ink)">'+m.author+'</b> · '+m.time+' · 脉络「'+m.topic+'」</span><span class="reso">共鸣 '+m.reso+'</span><span class="status '+m.st+'">'+m.status+'</span></div></button>').join('');
+ document.getElementById('noHit').style.display=list.length?"none":"block";
+}
+document.getElementById('q').addEventListener('input',renderMoments);
+document.getElementById('typeChips').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(!b)return;curType=b.dataset.t;document.querySelectorAll('#typeChips .chip').forEach(c=>c.classList.toggle('on',c===b));renderMoments();});
+renderMoments();
+function openMoment(id){
+ const m=MOMENTS.find(x=>x.id===id);if(!m)return;
+ document.getElementById('drawerBody').innerHTML='<div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><span class="badge '+m.cls+'">'+m.type+'</span><span class="src">'+m.src+' · '+m.time+'</span></div><h3>'+m.quote+'</h3><p style="color:var(--dim);font-size:14px">— '+m.author+' · 脉络「'+m.topic+'」· 共鸣 '+m.reso+' 次 · <span class="status '+m.st+'">'+m.status+'</span></p><div class="chain">'+m.chain.map(c=>'<div class="step"><div class="t">'+c[0]+'</div><p>'+c[1]+'</p></div>').join('')+'</div><div class="note"><b style="color:var(--ink)">为什么它算一个「一瞬间」：</b>'+m.why+'<br><br>判据（样本口径）：原话保留不改写；共鸣＝之后被引用/接续/导致行动的次数；长势每周复核一次，停滞的瞬间不会被删，会转入脉络的「沉睡区」等下一次被引用唤醒。</div>';
+ document.getElementById('drawer').classList.add('on');
+}
+function closeDrawer(){document.getElementById('drawer').classList.remove('on')}
+document.addEventListener('keydown',e=>{if(e.key==="Escape")closeDrawer()});
+/* constellations — force-directed & draggable */
+(function(){
+ const svg=document.getElementById('constelSvg');
+ const W=900,H=460;
+ const LINKS=[[0,7],[0,2],[0,6],[7,6],[1,6],[3,7],[4,7],[5,7],[2,7]];
+ const nodes=TOPICS.map((t,i)=>{const a=(i/TOPICS.length)*Math.PI*2;return {t:t,x:450+Math.cos(a)*200,y:230+Math.sin(a)*115,vx:0,vy:0,r:t.r};});
+ let h=LINKS.map(()=>'<line class="lk" stroke="rgba(94,99,84,.35)" stroke-width="1.5" stroke-dasharray="4 5"/>').join('');
+ h+=nodes.map(n=>'<g class="tnode" style="cursor:grab"><circle class="halo" r="'+n.r+'" fill="'+n.t.color+'1f" stroke="'+n.t.color+'"/><circle class="core" r="5" fill="'+n.t.color+'"/><text class="nm" text-anchor="middle">'+n.t.name+'</text><text class="cnt" text-anchor="middle">'+n.t.cnt+'</text></g>').join('');
+ svg.innerHTML=h;
+ const lineEls=Array.from(svg.querySelectorAll('.lk'));
+ const gEls=Array.from(svg.querySelectorAll('.tnode'));
+ function render(){
+  LINKS.forEach((l,i)=>{const a=nodes[l[0]],b=nodes[l[1]];lineEls[i].setAttribute('x1',a.x);lineEls[i].setAttribute('y1',a.y);lineEls[i].setAttribute('x2',b.x);lineEls[i].setAttribute('y2',b.y);});
+  nodes.forEach((n,i)=>{const g=gEls[i];g.querySelector('.halo').setAttribute('cx',n.x);g.querySelector('.halo').setAttribute('cy',n.y);g.querySelector('.core').setAttribute('cx',n.x);g.querySelector('.core').setAttribute('cy',n.y);const nm=g.querySelector('.nm');nm.setAttribute('x',n.x);nm.setAttribute('y',n.y-n.r-12);const ct=g.querySelector('.cnt');ct.setAttribute('x',n.x);ct.setAttribute('y',n.y+n.r+22);});
+ }
+ let running=false,dragNode=null,dragMoved=0,lastPt=null;
+ function step(){
+  for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){const a=nodes[i],b=nodes[j];let dx=a.x-b.x,dy=a.y-b.y;let d2=dx*dx+dy*dy;if(d2<1){dx=Math.random()-.5;dy=Math.random()-.5;d2=1;}const d=Math.sqrt(d2);const f=Math.min(2600/d2,3);a.vx+=dx/d*f;a.vy+=dy/d*f;b.vx-=dx/d*f;b.vy-=dy/d*f;}
+  LINKS.forEach(l=>{const a=nodes[l[0]],b=nodes[l[1]];const dx=b.x-a.x,dy=b.y-a.y;const d=Math.max(Math.sqrt(dx*dx+dy*dy),1);const diff=(d-215)/d*0.012;a.vx+=dx*diff;a.vy+=dy*diff;b.vx-=dx*diff;b.vy-=dy*diff;});
+  let maxV=0;
+  nodes.forEach(n=>{n.vx+=(450-n.x)*0.0012;n.vy+=(230-n.y)*0.0012;if(n!==dragNode){n.x+=n.vx;n.y+=n.vy;}n.vx*=0.86;n.vy*=0.86;n.x=Math.max(n.r+36,Math.min(W-n.r-36,n.x));n.y=Math.max(n.r+28,Math.min(H-n.r-32,n.y));maxV=Math.max(maxV,Math.abs(n.vx)+Math.abs(n.vy));});
+  render();
+  if(maxV>0.04||dragNode){requestAnimationFrame(step);}else{running=false;}
+ }
+ function wake(){if(!running){running=true;requestAnimationFrame(step);}}
+ function toSVG(evt){const pt=svg.createSVGPoint();pt.x=evt.clientX;pt.y=evt.clientY;const m=svg.getScreenCTM();return m?pt.matrixTransform(m.inverse()):{x:0,y:0};}
+ function selectTopic(i){const t=TOPICS[i];document.getElementById('constelDetail').innerHTML='<b style="color:var(--ink)">脉络「'+t.name+'」</b> · '+t.cnt+'<br>'+t.desc+'<br><br><a href="#" onclick="goMoments(\''+t.name+'\');return false">只看这条脉络的瞬间 →</a>';}
+ gEls.forEach((g,i)=>{g.addEventListener('pointerdown',e=>{dragNode=nodes[i];dragMoved=0;lastPt=toSVG(e);g.style.cursor='grabbing';try{g.setPointerCapture(e.pointerId);}catch(_){}e.preventDefault();wake();});});
+ svg.addEventListener('pointermove',e=>{if(!dragNode)return;const p=toSVG(e);dragMoved+=Math.abs(p.x-lastPt.x)+Math.abs(p.y-lastPt.y);dragNode.x=p.x;dragNode.y=p.y;dragNode.vx=0;dragNode.vy=0;lastPt=p;render();});
+ svg.addEventListener('pointerup',()=>{if(!dragNode)return;const n=dragNode;dragNode=null;gEls.forEach(g=>g.style.cursor='grab');if(dragMoved<6)selectTopic(nodes.indexOf(n));wake();});
+ svg.addEventListener('pointercancel',()=>{dragNode=null;});
+ document.getElementById('tabs').addEventListener('click',()=>setTimeout(wake,60));
+ render();wake();
+})();
+function goMoments(topic){switchView('moments');document.getElementById('q').value=topic;renderMoments();window.scrollTo({top:document.getElementById('tabs').offsetTop,behavior:'smooth'})}
+/* river */
+const RIVER={
+ 1:'<h3>一句话</h3><p>今晚，食堂老板的一句生意经，被产品组接走，变成了一条产品规矩：<b style="color:var(--ochre)">先让人开口，再给答案。</b></p>',
+ 2:'<h3>话题摘要 · 脉络「吃的学问」（今日）</h3><ul><li>19:42 汤浅由纪提出：菜单太清楚，客人就不问了（瞬间 #1）。</li><li>19:50 林小满跨界接话：新手引导也是同理，清楚到没人想问。</li><li>21:15 议题《留白的规矩》建立，与咖啡师「有些东西不写下来」（#5）互相引用。</li><li>次日产品组落决定：引导删一半说明，改「问一句」入口。</li></ul>',
+ 3:'<h3>原始碎片（节选 4 / 共 14 条）</h3><div class="frag">菜单写得太清楚，客人就不问了；客人一问，常客就多一个。<div class="who">汤浅由纪 · 19:42 · #深夜食堂</div></div><div class="frag">等一下，我们的新手引导就是这个毛病——清楚得像说明书，用户看完就关了，从来没想过要问。<div class="who">林小满 · 19:50 · #深夜食堂</div></div><div class="frag">手冲的水温我从来不写进配方。写进去了，学徒就不尝了。<div class="who">顾一帆 · 11:18（当日稍早）· #做点什么</div></div><div class="frag">所以规矩是：留一点不清楚，不是偷懒，是给关系留一个开口。<div class="who">汤浅由纪 · 21:02 · #深夜食堂</div></div><p style="color:var(--dim);font-size:13.5px">注：摘要里的每一句，都能点回这里的原话；原话不改写、不润色——随口处正是想法拐弯的证据。</p>'
+};
+function setRiver(z){document.getElementById('riverBox').innerHTML=RIVER[z];document.querySelectorAll('[data-z]').forEach(c=>c.classList.toggle('on',+c.dataset.z===z))}
+document.querySelectorAll('[data-z]').forEach(c=>c.addEventListener('click',()=>setRiver(+c.dataset.z)));setRiver(1);
+/* loops */
+document.getElementById('loopGrid').innerHTML=LOOPS.map(l=>'<div class="loopCard"><h3>'+l.q+'</h3><p>'+l.why+'</p><div class="foot" style="display:flex;justify-content:space-between;margin-top:12px;font-size:12.5px;color:var(--faint)"><span>'+l.by+' · '+l.ago+'</span><span class="pot">'+l.pot+'</span></div></div>').join('');
+/* tiers */
+document.getElementById('tierGrid').innerHTML=TIERS.map(t=>'<div class="tiercard"><div class="tno">'+t.no+'</div><h3>'+t.name+'</h3><p>'+t.body+'</p><div class="scores">'+t.scores+'</div></div>').join('');
+/* people */
+(function(){
+ const palette=[["#d9a83f","点火者"],["#6faea6","接续者"],["#a79ccc","连接者"],["#c3c6b6","潜水阅读者"]];
+ let seed=42;const rnd=()=>{seed=(seed*1103515245+12345)%2147483648;return seed/2147483648};
+ let h="";
+ for(let i=0;i<150;i++){const isAgent=i>=132;const r=rnd();const role=isAgent?["#8fae7e","Agent"]:r<.14?palette[0]:r<.38?palette[1]:r<.52?palette[2]:palette[3];
+  h+='<span class="pdot" title="'+(isAgent?("Agent-"+(i-131)):("成员 M-"+String(i+1).padStart(3,"0")))+' · '+role[1]+'" data-role="'+role[1]+'" data-agent="'+isAgent+'" data-i="'+i+'" style="background:'+role[0]+';'+(isAgent?'border-radius:4px':'')+'"></span>';}
+ document.getElementById('peopleGrid').innerHTML=h;
+ document.getElementById('peopleGrid').addEventListener('click',e=>{const d=e.target.closest('.pdot');if(!d)return;const box=document.getElementById('personDetail');box.style.display='block';
+  box.innerHTML='<b style="color:var(--ink)">'+(d.dataset.agent==="true"?("Agent-"+(+d.dataset.i-131)):("成员 M-"+String(+d.dataset.i+1).padStart(3,"0")))+'</b>（样本档案）· 涌现角色：'+d.dataset.role+'<br>本月：提出瞬间 '+(2+(+d.dataset.i*7)%11)+' 个 · 接续他人瞬间 '+(1+(+d.dataset.i*13)%17)+' 次 · 跨圈引用 '+(+d.dataset.i*5)%9+' 次。角色不由本人申报，由行为统计得出，每月重算——上个月的潜水者，这个月可能就是点火者。';});
+ document.getElementById('sparkerList').innerHTML=SPARKERS.map(s=>'<div class="iaBox"><h3><span style="color:'+s[3]+'">●</span> '+s[0]+' · '+s[1]+'</h3><p>'+s[2]+'</p></div>').join('');
+})();
+/* artifacts */
+document.querySelector('#artifactTable tbody').innerHTML=ARTIFACTS.map(a=>'<tr><td><b>'+a[0]+'</b></td><td>'+a[1]+'</td><td><span class="mono">'+a[2]+'</span></td><td>'+a[3]+'</td><td>'+a[4]+'</td></tr>').join('');
+/* frameworks */
+document.getElementById('fwGrid').innerHTML=FRAMEWORKS.map(f=>'<div class="fwcard"><h3>'+f.name+' <span>'+f.tag+'</span></h3><p class="fit">'+f.fit+'</p><p class="gap">'+f.gap+'</p></div>').join('');
+/* tabs */
+function switchView(v){document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.v===v));document.querySelectorAll('section.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v))}
+document.getElementById('tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b)switchView(b.dataset.v)});
+</script>
+</body>
+</html>
