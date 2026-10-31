@@ -2,14 +2,14 @@
 
 | 项目 | 内容 |
 |---|---|
-| 提供者 | zenithli（AI 辅助整理） |
+| 提供者 | 37（jp-gov-data-api）团队 |
 | 资料整理日期 | 2026-10-22 |
-| 资料核对日期 | 2026-10-20（本资料引用的官方页面与接口记录日期）。（读过官方页面（2026-10-20））〔证据:S1〕〔证据:S2〕〔证据:S3〕〔证据:S4〕〔证据:S5〕〔证据:S6〕 |
-| 官方入口 | [BODIK ODCS](https://odcs.bodik.jp/)（读过官方页面（2026-10-20））〔证据:S3〕<br>CKAN Site URL：https://data.bodik.jp/（读过官方页面（2026-10-20））〔证据:S2〕 |
-| 需要 Key | 未说明；开发者页面的示例 URL 未显示 Key 参数。（仅读文档）〔证据:S2〕 |
-| 许可 / 利用规约 | BODIK ODCS 页面称数据集利用规约由各自治体规定；样例数据集显示 Creative Commons Attribution 标识。（读过官方页面（2026-10-20））〔证据:S1〕〔证据:S6〕<br>可否再分发：待确认；所查页面未确认目录元数据的再分发许可。（仅读文档）〔证据:S1〕〔证据:S2〕 |
-| 本资料的可信度 | 已阅读官方页面。（读过官方页面（2026-10-20））〔证据:S1〕〔证据:S2〕〔证据:S3〕〔证据:S4〕〔证据:S5〕〔证据:S6〕<br>一次 package_show 响应的字段形状已通过真实请求核对。（真实请求验证过）〔证据:S7〕 |
-| 对应的 DATUMOJ 任务 | UNVERIFIED：本资料未取得 DATUMOJ 对该来源的任务描述。 |
+| 资料核对日期 | 2026-10-20 |
+| 官方入口 | [BODIK ODCS](https://odcs.bodik.jp/)；CKAN Site URL：<https://data.bodik.jp/>。 |
+| 需要 Key | 未核对；开发者页面的示例 URL 未显示 Key 参数，页面未说明是否需要。（仅读文档；S2） |
+| 许可 / 利用规约 | Creative Commons Attribution（样例数据集标识；[数据集页面](https://data.bodik.jp/dataset/065007ae-d70c-4b47-afd3-8ef150800542)；S6）。；BODIK ODCS 页面称数据集利用规约由各自治体规定（https://odcs.bodik.jp/about/）。可否再分发：未核对；目录元数据再分发许可未确认。 |
+| 本资料的可信度 | 仅读文档：官方说明与样例数据集页（S1-S3、S6）；已用真实请求验证：robots 响应（S4、S5）及 package_show 字段形状（S7）。 |
+| 对应的 DATUMOJ 任务 |  |
 
 ## 内容清单
 
