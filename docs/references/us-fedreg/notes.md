@@ -17,6 +17,7 @@
 ## 1. API 入口与 Key
 
 - 官方说明入口为 S3 的 API Documentation 与 S4 的 REST API 页面。S3 介绍公开 API endpoints；S4 介绍 REST API、交互式文档和端点说明。页面没有给出 API 根路径。
+- 本包中的 `source.yaml:N` 指向 `sources/us-fedreg.yaml`（feature/0.4 分支、固定提交 [`02b8afb`](https://github.com/gorou5/datumoj/blob/02b8afb456378b0677fe5e34abbaaf22d77d81ff/sources/us-fedreg.yaml)），该文件不属于本 PR。
 - 维护者侧材料 `source.yaml:5` 将 base_url 设为 `https://www.federalregister.gov/api/v1/`；该值是配置记录，未在捕获页面正文中找到。
 - S3、S4 均说明 API 不需要 API keys。〔证据:fedreg_api_developer.txt:93〕〔证据:fedreg_reader_aids_dev.txt:96〕
 

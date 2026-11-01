@@ -1,4 +1,4 @@
-核对日期：2026-10-31（下列各条均为该日捕获的页面）
+核对日期：2026-10-31（第 1-4 节的 S1-S4 页面均为该日捕获；第 5 节为配置对照与判断，依据这些页面及维护者记录）
 
 # Federal Register（us-fedreg）利用规约要点
 
@@ -52,6 +52,8 @@ S1-S5 标签及官方 URL 见 notes.md 开头的证据标签表。下列文字�
 > 「3rd party APIs」〔证据:fedreg_reader_aids_dev.txt:93〕
 
 ## 5. 维护者配置与页面文字的对照
+
+本包中的 `source.yaml:N` 指向 `sources/us-fedreg.yaml`（feature/0.4 分支、固定提交 [`02b8afb`](https://github.com/gorou5/datumoj/blob/02b8afb456378b0677fe5e34abbaaf22d77d81ff/sources/us-fedreg.yaml)），该文件不属于本 PR。
 
 - 名称：维护者侧材料 `source.yaml:13` 写为 1 CFR § 2.6；S1 页面标题与条款标题均为 1 CFR 2.6 / § 2.6，见 S1:2、S1:152。
 - URL：维护者侧材料 `source.yaml:14` 使用 eCFR 的 section URL；该 URL 与 notes.md 的 S1 官方 URL 一致。页面标题和条文见 S1:2、S1:152；URL 本身来自捕获元数据。
