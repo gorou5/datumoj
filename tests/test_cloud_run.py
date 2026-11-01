@@ -3,6 +3,7 @@
 import json
 import logging
 import sqlite3
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -430,3 +431,127 @@ def test_scheduler_public_append_validates_and_respects_readonly(world):
     with pytest.raises(schedule.ReadOnlyReplicaError):
         scheduler.append_run({"source_id": "jp-cloud0", "started_at": world.clock[0].isoformat(),
                               "status": "failed", "exit_status": 1})
+
+
+def test_deadline_during_crawl_parses_publishes_and_retries_next_round(world, monkeypatch):
+    timer = [0]
+    monkeypatch.setattr(cloud, "time", SimpleNamespace(monotonic=lambda: timer[0]))
+    original_build = wiring.build
+    fetch = world.overrides["fetcher"].fetch
+    slow = [True]
+    limits = []
+
+    def slow_fetch(*args, **kwargs):
+        response = fetch(*args, **kwargs)
+        if slow[0]:
+            timer[0] += 110
+        return response
+
+    monkeypatch.setattr(world.overrides["fetcher"], "fetch", slow_fetch)
+
+    def build(root):
+        deps = original_build(root)
+        timer[0] += 10  # Initialization also consumes the round's budget.
+        crawl, parse = deps.run_crawl, deps.parse_pending
+
+        def run(spec, crawler, crawl_deps):
+            limits.append((spec.id, spec.scope["max_run_seconds"]))
+            return crawl(spec, crawler, replace(crawl_deps, clock=lambda: timer[0]))
+
+        def parse_pending(*args):
+            summary = parse(*args)
+            if slow[0]:
+                timer[0] += 7  # Parsing completes even after the crawl deadline.
+            return summary
+
+        deps.run_crawl, deps.parse_pending = run, parse_pending
+        return deps
+
+    monkeypatch.setattr(wiring, "build", build)
+    first, root = invoke(world, "first", "--max-minutes", "2")
+    assert limits == [("jp-cloud0", 110)]
+    assert timer[0] == 127
+    assert first["generation"] == 1 and first["budget_exhausted"]
+    assert first["status"] == "completed" and first["exit_status"] == 0
+    assert first["new"] == first["parsed"] == 1 and first["unchanged"] == 0
+    assert not first["failed_sources"]
+    record = first["sources"][0]
+    assert record["source_id"] == "jp-cloud0" and record["stop_reason"] == "deadline"
+    assert record["status"] == "completed" and record["exit_status"] == 0
+    assert rows(root)[-1]["status"] == "incomplete"
+    assert rows(root)[-1]["started_at"] == world.clock[0].isoformat()
+    assert not world.managers[-1].list()[0].last_successful_runs
+    assert all("max_run_seconds" not in spec.scope for spec in world.specs)
+    released(world)
+
+    # Retry immediately, without advancing the scheduler's wall clock.
+    slow[0], timer[0] = False, 0
+    second, _ = invoke(world, "second", "--max-minutes", "2")
+    assert second["due"] == 3
+    assert [row["source_id"] for row in second["sources"]] == [spec.id for spec in world.specs]
+    assert second["generation"] == 2 and second["exit_status"] == 0
+    assert set(world.managers[-1].list()[0].last_successful_runs) == {spec.id for spec in world.specs}
+    timer[0] = 0
+    third, _ = invoke(world, "third", "--max-minutes", "2")
+    assert third["due"] == 0 and third["sources"] == []
+    released(world)
+
+
+@pytest.mark.parametrize("seconds_left,started_count", [(59, 0), (60, 3)])
+def test_source_requires_at_least_one_minute(world, monkeypatch, seconds_left, started_count):
+    timer = [0]
+    monkeypatch.setattr(cloud, "time", SimpleNamespace(monotonic=lambda: timer[0]))
+    original_build = wiring.build
+
+    def build(root):
+        deps = original_build(root)
+        timer[0] = 120 - seconds_left
+        return deps
+
+    monkeypatch.setattr(wiring, "build", build)
+    result, _ = invoke(world, "work", "--max-minutes", "2")
+    assert len(result["sources"]) == started_count
+    assert result["budget_exhausted"] == (started_count == 0)
+    assert result["generation"] == 1 and result["exit_status"] == 0
+    released(world)
+
+
+@pytest.mark.parametrize("scope,expected", [({}, 900), ({"max_run_seconds": 75}, 75)])
+def test_round_limit_preserves_shorter_source_limit_and_scope(world, monkeypatch, scope, expected):
+    original_build = wiring.build
+    world.specs[0].scope.update(scope)
+    seen = []
+
+    def build(root):
+        deps = original_build(root)
+        crawl = deps.run_crawl
+
+        def run(spec, *args):
+            if spec.id == world.specs[0].id:
+                seen.append(spec.scope)
+            return crawl(spec, *args)
+
+        deps.run_crawl = run
+        return deps
+
+    monkeypatch.setattr(wiring, "build", build)
+    result, _ = invoke(world)
+    assert result["exit_status"] == 0
+    assert seen[0]["max_run_seconds"] == expected
+    assert seen[0]["urls"] == world.specs[0].scope["urls"]
+    assert world.specs[0].scope.get("max_run_seconds") == scope.get("max_run_seconds")
+
+
+@pytest.mark.parametrize("options,expected", [((), 10), (("--reserve-minutes", "12.5"), 12.5)])
+def test_cli_passes_reserve_minutes(monkeypatch, options, expected):
+    calls = []
+
+    def run(**kwargs):
+        calls.append(kwargs)
+        return {"exit_status": 0}
+
+    monkeypatch.setattr(cloud, "run", run)
+    response = CliRunner().invoke(cli.app, ["cloud", "run", *options])
+    assert response.exit_code == 0
+    assert calls == [{"work_dir": None, "max_embed": 1000, "max_minutes": 40,
+                      "reserve_minutes": expected}]

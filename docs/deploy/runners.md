@@ -5,6 +5,16 @@
 条件写入能力；`rikolto cloud run` 获取写入租约，从状态存储恢复到空工作目录，
 抓取、解析后发布代次。常驻机器也每次使用空工作目录。
 
+`cloud run --max-minutes 40 --reserve-minutes 10` 的前 40 分钟是从本轮开始计算的
+发布前工作预算（含恢复、抓取、解析与索引），另外固定预留 10 分钟给发布、周报和释放租约。
+每个来源的抓取上限取来源自身上限（默认 900 秒）与本轮剩余秒数的较小值；剩余不足
+1 分钟就不再开始新来源。已抓到的快照仍会完成解析和索引，避免半张表；预算最坏
+超出量为一个来源的解析时间。作业时限应不小于
+`max_minutes + reserve_minutes + 一个来源的解析时间`，并按实际发布耗时设置足够的
+`reserve_minutes`。该参数声明发布余量，不会替部署平台修改作业时限，也不截断发布。
+被 deadline 截止的来源记为未完成，下一轮 cloud run 仍会重试；每个来源、发布和整轮
+结束的安全 JSON 进度行写入 stderr，最终结果 JSON 仍写入 stdout。
+
 | 组合 | 要设置的环境变量 | 写入方标记 | 定时触发 |
 | --- | --- | --- | --- |
 | Actions + R2（当前） | `DATUMOJ_STATE_BACKEND=s3`（可省略）；`DATUMOJ_S3_ENDPOINT=https://account-id.example.r2.cloudflarestorage.com`、`DATUMOJ_S3_BUCKET=example-state`、`DATUMOJ_S3_PREFIX=rikolto`、`DATUMOJ_S3_REGION=auto`；凭证变量见下文 | `DATUMOJ_WRITER_KIND=actions`；未显式设置时有 `GITHUB_RUN_ID` 就回退为 actions | `cloud-run.yml` 调用 `rikolto cloud run`；目前只有手动触发，secrets 补齐并手动跑通后再加定时 |
