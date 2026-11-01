@@ -7,7 +7,7 @@ import yaml
 
 WORKFLOW = Path(__file__).resolve().parents[1] / ".github/workflows/cloud-run.yml"
 SHA256 = "9f9ff52b8297d6e40904f22bac09eac587a05111762bf278359621fbdb53dbb9"
-SECRETS = {"R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_ENDPOINT", "DATUMOJ_S3_BUCKET", "DATUMOJ_S3_PREFIX"}
+SECRETS = {"R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_ENDPOINT", "DATUMOJ_S3_BUCKET", "DATUMOJ_S3_PREFIX", "ESTAT_APP_ID"}
 
 
 def load():
@@ -59,7 +59,7 @@ def test_actions_pinned_dependencies_frozen_model_cached_and_no_data_artifacts()
             assert "upload-artifact" not in step["uses"]
         script = step.get("run", "")
         assert not re.search(r"(?m)^\s*(?:env|printenv|set\s+-x|export\s+-p)\s*(?:$|[|;])", script)
-        assert not re.search(r"(?:echo|printf).*\$(?:\{|)(?:R2_|DATUMOJ_S3_)", script)
+        assert not re.search(r"(?:echo|printf).*\$(?:\{|)(?:R2_|DATUMOJ_S3_|ESTAT_)", script)
         assert not re.search(r"toJSON\s*\(\s*(?:env|secrets|vars)\s*\)", script)
     assert any(s.get("run") == "uv sync --frozen --python 3.12" for s in steps)
     setup = next(s for s in steps if s.get("uses", "").startswith("astral-sh/setup-uv@"))
