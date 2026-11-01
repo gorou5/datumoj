@@ -2,7 +2,9 @@
 
 import base64
 import hashlib
+import json
 import traceback
+from datetime import timedelta
 
 import boto3
 import pytest
@@ -10,9 +12,11 @@ from botocore.exceptions import ClientError, EndpointConnectionError
 from moto import mock_aws
 
 from datumoj.rikolto.core.contracts import ContractError
+from datumoj.rikolto.core.lease import LEASE_KEY, LeaseError, LeaseManager
 from datumoj.rikolto.core.state_s3 import S3StateObjectStore, probe_conditional_writes
 from datumoj.rikolto.core.storage import StorageConfig
 from datumoj.rikolto.testing.contract_suites import StateObjectStoreSuite
+from datumoj.rikolto.testing.samples import T0
 
 
 @pytest.fixture
@@ -122,13 +126,11 @@ def test_probe_supported_and_only_touches_disposable_keys(state_store, monkeypat
     deletes = [params for operation, params in calls if operation == "DeleteObject"]
     assert [p.get("IfNoneMatch") for p in puts] == ["*", "*", None, None]
     assert puts[2]["IfMatch"] != puts[3]["IfMatch"]
-    assert deletes[0]["IfMatch"] == puts[3]["IfMatch"]
-    assert deletes[1]["IfMatch"] != deletes[0]["IfMatch"]
-    assert "IfMatch" not in deletes[2]  # Unconditional cleanup is probe-only.
+    assert len(deletes) == 1 and "IfMatch" not in deletes[0]  # Probe-only cleanup.
     assert {key: state_store.get(key) for key in state_store.list()} == before
 
 
-@pytest.mark.parametrize("stage", ["PutObject", "GetObject", "HeadObject", "DeleteObject"])
+@pytest.mark.parametrize("stage", ["PutObject", "GetObject"])
 def test_probe_io_failure_is_sanitized_and_cleanup_attempted(state_store, monkeypatch, stage):
     original = state_store._client._make_api_call
     cleanup = []
@@ -161,4 +163,38 @@ def test_probe_cleanup_failure_refuses_run(state_store, monkeypatch):
     assert probe_conditional_writes(state_store) == {
         "supported": False, "check": "cleanup", "cleanup_failed": True,
     }
-    assert state_store.list("probe/") == []
+    assert len(state_store.list("probe/")) == 1  # Failed cleanup leaves only the disposable key.
+
+
+def test_r2_ignored_delete_condition_allows_probe_and_safe_lease_lifecycle(state_store, monkeypatch):
+    original = state_store._client.delete_object
+    deletes = []
+
+    def ignores_delete_match(**params):
+        deletes.append(params.copy())
+        params.pop("IfMatch", None)
+        return original(**params)
+
+    monkeypatch.setattr(state_store._client, "delete_object", ignores_delete_match)
+    assert probe_conditional_writes(state_store) == {"supported": True, "check": "complete"}
+    assert len(deletes) == 1 and "IfMatch" not in deletes[0]
+    assert state_store.list() == []
+
+    clock = [T0]
+    manager = LeaseManager(state_store, now=lambda: clock[0], ttl=timedelta(minutes=1))
+    owner = manager.acquire("local/one")
+    manager.release(owner.holder, owner.token)
+    released = json.loads(state_store.get(LEASE_KEY)[0])
+    assert set(released) == {"released_at"} and "token" not in released
+    assert manager.status() == {"held": False}
+    successor = manager.acquire("actions/new")
+    manager.check(successor)
+    clock[0] = successor.expires_at
+    replacement = manager.acquire("nas/takeover", force=True)
+    before = state_store.get(LEASE_KEY)
+    for old in (owner, successor):
+        with pytest.raises(LeaseError, match="不属于本次持有者"):
+            manager.release(old.holder, old.token)
+        assert state_store.get(LEASE_KEY) == before
+    manager.check(replacement)
+    assert len(deletes) == 1  # Lease operations never send DELETE.

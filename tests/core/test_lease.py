@@ -116,46 +116,78 @@ def test_force_only_after_expiry_and_old_owner_cannot_revive_or_release(leases, 
         manager.acquire("actions/two")
     successor = manager.acquire("actions/two", force=True)
     assert successor.token != lease.token and successor.acquired_at == clock[0]
+    successor_object = store.get(LEASE_KEY)
     for action in (manager.renew, manager.release):
         with pytest.raises(LeaseError):
             action(lease.holder, lease.token)
+        assert store.get(LEASE_KEY) == successor_object
     manager.check(successor)
 
 
-@pytest.mark.parametrize("operation", ["takeover", "renew", "release"])
+def test_released_record_reacquired_without_force_and_old_owner_rejected(leases, store, monkeypatch):
+    manager, clock = leases
+    lease = manager.acquire("local/one")
+    clock[0] = lease.expires_at  # Expired owners may still release.
+    manager.release(lease.holder, lease.token)
+    released = store.get(LEASE_KEY)
+    assert json.loads(released[0]) == {"released_at": clock[0].isoformat().replace("+00:00", "Z")}
+    assert lease.token.encode() not in released[0]
+    assert manager.status() == {"held": False}
+    monkeypatch.setenv("DATUMOJ_LEASE_TOKEN", lease.token)
+    for action in (manager.renew, manager.release):
+        with pytest.raises(LeaseError, match="不属于本次持有者"):
+            action(lease.holder, lease.token)
+    with pytest.raises(LeaseError, match="不属于本次持有者"):
+        manager.check(lease)
+    with pytest.raises(LeaseError, match="不属于本次持有者"):
+        manager.credentials()
+    assert store.get(LEASE_KEY) == released
+    successor = manager.acquire("actions/new")
+    assert successor.token != lease.token
+    manager.check(successor)
+
+
+@pytest.mark.parametrize("operation", ["takeover", "reacquire", "renew", "release"])
 def test_cas_race_never_changes_successor(leases, store, monkeypatch, operation):
     manager, clock = leases
     lease = manager.acquire("local/one")
     if operation == "takeover":
         clock[0] = lease.expires_at
+    elif operation == "reacquire":
+        manager.release(lease.holder, lease.token)
     else:
         clock[0] += timedelta(seconds=1)
     original_put = store.put_if_match
-    original_delete = store.delete_if_match
     successor = lease.model_copy(update={"holder": "actions/new", "token": "new-random-token"})
 
     def race(key, *args):
         current = store.get(key)
         original_put(key, successor.model_dump_json().encode(), current[1])
-        if operation == "release":
-            return original_delete(key, *args)
         return original_put(key, *args)
 
-    monkeypatch.setattr(store, "delete_if_match" if operation == "release" else "put_if_match", race)
-    with pytest.raises(LeaseError):
-        if operation == "takeover":
-            manager.acquire("actions/two", force=True)
+    monkeypatch.setattr(store, "put_if_match", race)
+    message = "租约释放竞争失败" if operation == "release" else "竞争失败"
+    with pytest.raises(LeaseError, match=message):
+        if operation in {"takeover", "reacquire"}:
+            manager.acquire("actions/two", force=operation == "takeover")
         else:
             getattr(manager, operation)(lease.holder, lease.token)
-    assert json.loads(store.get(LEASE_KEY)[0])["token"] == successor.token
+    assert store.get(LEASE_KEY)[0] == successor.model_dump_json().encode()
 
 
-@pytest.mark.parametrize("bad", [b"{", b"{}", b'{"holder":"local/a","token":"x","acquired_at":"bad"}'])
+@pytest.mark.parametrize("bad", [
+    b"{", b"{}", b'{"holder":"local/a","token":"x","acquired_at":"bad"}',
+    b'{"released_at":"bad"}', b'{"released_at":"2026-11-01T00:00:00"}',
+    b'{"released_at":0}', b'{"released_at":"2026-11-01T00:00:00Z","token":"secret"}',
+    b'{"released_at":"2026-11-01T00:00:00Z","holder":"local/one"}',
+])
 def test_corrupt_lease_force_fails_closed(leases, store, bad):
     manager, _ = leases
     store.put_if_absent(LEASE_KEY, bad)
-    with pytest.raises(LeaseError):
+    with pytest.raises(LeaseError, match="租约格式无效"):
         manager.acquire("local/new", force=True)
+    with pytest.raises(LeaseError, match="租约格式无效"):
+        manager.status()
     assert store.get(LEASE_KEY)[0] == bad
 
 

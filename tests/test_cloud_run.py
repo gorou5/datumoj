@@ -120,7 +120,13 @@ def remote(world):
 
 
 def released(world):
-    assert remote(world).get("write-lease.json") is None
+    found = remote(world).get("write-lease.json")
+    if found is None:
+        assert not world.tokens  # Acquisition can fail before any lease is created.
+    else:
+        record = json.loads(found[0])
+        assert set(record) == {"released_at"} and "token" not in record
+    assert LeaseManager(remote(world)).status() == {"held": False}
 
 
 def test_cloud_check_only_probes_and_does_not_acquire_lease(world):

@@ -54,19 +54,6 @@ def probe_conditional_writes(store: S3StateObjectStore) -> dict:
         if store.get(key) != (b"updated", etag):
             return result
 
-        result["check"] = "delete_if_match_wrong_etag"
-        try:
-            store.delete_if_match(key, wrong)
-        except PreconditionFailed:
-            pass
-        else:
-            return result
-        if store.get(key) != (b"updated", etag):
-            return result
-        result["check"] = "delete_if_match_delete"
-        store.delete_if_match(key, etag)
-        if store.get(key) is not None:
-            return result
         result.update(supported=True, check="complete")
         return result
     except Exception:  # noqa: BLE001 -- 能力探测必须将任意 SDK 失败转成不支持。
@@ -170,6 +157,7 @@ class S3StateObjectStore:
         return self._put(key, data, IfMatch=etag)
 
     def delete_if_match(self, key: str, etag: str) -> None:
+        # Some S3 services (e.g. R2) ignore DELETE If-Match; production paths must not rely on it.
         full = self._key(key)
         # S3 treats DELETE of an absent key as success, even with IfMatch.
         # HEAD is only for the absent-key contract; the deletion remains atomic.
