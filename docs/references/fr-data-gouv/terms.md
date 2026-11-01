@@ -48,7 +48,7 @@
 
 ## S6 — Licence Ouverte 2.0
 
-官方 URL（捕获请求）：https://www.data.gouv.fr/pages/legal/licences/etalab-2.0；捕获头记录的最终 URL：https://www.data.gouv.fr/pages/legal/licences/etalab-2-0。
+官方 URL（捕获请求）：[`etalab-2.0`](https://www.data.gouv.fr/pages/legal/licences/etalab-2.0)；捕获头记录的最终 URL：[`etalab-2-0`](https://www.data.gouv.fr/pages/legal/licences/etalab-2-0)。
 
 页面以 Licence Ouverte 2.0 为标题。
 

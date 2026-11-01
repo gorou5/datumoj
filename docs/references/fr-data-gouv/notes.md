@@ -33,6 +33,7 @@
 
 - S7 是对组织 API URL 的一次 JSON 响应；捕获记录保留了 `id`、`name`、`slug`、`uri`、`page` 和 `metrics` 等字段形状。该记录只描述这一条响应的字段形状；本包不提交响应样本。〔证据:S7〕〔证据:datagouv_org_534fff81.json.txt:2-11〕
 - 组织响应列出的组织 ID 与入口 URL 中的标识一致；返回字段还给出以 slug 组成的组织 `uri`。〔证据:S7〕〔证据:datagouv_org_534fff81.json.txt:3-9〕
+- S7 的 `metrics.datasets` 为 184（2026-10-31 捕获）；维护者计划文本列出 190，计数日期未注明。两者存在差异；本包不判断哪一数值为当前值，也不将其视为固定总数。〔证据:S7〕〔证据:datagouv_org_534fff81.json.txt:38〕
 - S1 描述分页响应包含 `previous_page` 与 `next_page` 链接；其示例响应列出 `page`、`page_size`、`total` 字段。〔证据:S1〕〔证据:datagouv_api_prise_en_main.txt:103-104〕〔证据:datagouv_api_prise_en_main.txt:150-156〕
 
 > 「dans les attributs previous_page et next_page」〔证据:S1〕〔证据:datagouv_api_prise_en_main.txt:104〕
@@ -52,7 +53,7 @@
 
 > 「Disallow: /api/1/organizations/*/datasets*.csv」〔证据:S8〕〔证据:datagouv_robots.txt:79〕
 
-- `source.yaml` 的 API 根路径是 `/api/1/`，当前组织 URL 是 `/api/1/organizations/<id>/`。捕获文本明确列出的组织 CSV 规则是另一条带 `datasets*.csv` 的路径；本页没有给出实际采集程序的 `RobotsRules` 判定记录。〔证据:S7〕〔证据:datagouv_org_534fff81.json.txt:3-9〕〔证据:S8〕〔证据:datagouv_robots.txt:79-80〕
+- `sources/fr-data-gouv.yaml`（feature/0.4 分支，固定提交 [`714c41f`](https://github.com/gorou5/datumoj/blob/714c41fb631d538ae976ed9eada8460530a272f2/sources/fr-data-gouv.yaml)）第 5 行 `base_url` 为 `/api/1/`，第 21 行 `scope.organization` 为组织 ID；当前组织 URL `/api/1/organizations/<id>/` 是由这两个字段推导的值。〔证据:sources/fr-data-gouv.yaml:5〕〔证据:sources/fr-data-gouv.yaml:21〕捕获文本明确列出的组织 CSV 规则是另一条带 `datasets*.csv` 的路径；本页没有给出实际采集程序的 `RobotsRules` 判定记录。〔证据:S7〕〔证据:datagouv_org_534fff81.json.txt:3-9〕〔证据:S8〕〔证据:datagouv_robots.txt:79-80〕
 - S8 在 `User-agent: *` 下列出的 `/organizations?*` 是无 `/api/1/` 前缀的网页路径；文本没有说明它与组织 JSON API 路径的匹配关系。〔证据:S8〕〔证据:datagouv_robots.txt:19-22〕
 
 ## 4. 页面未说明的事项
