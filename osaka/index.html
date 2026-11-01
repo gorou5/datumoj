@@ -178,7 +178,7 @@ footer{margin-top:60px;border-top:1px solid var(--line);padding-top:22px;color:v
   <!-- CONSTELLATIONS -->
   <section class="view" id="v-constel">
     <h2>脉络 · 话题星图<span class="sub">话题不是文件夹，是星群：由一个个瞬间连成的线。这张图是<b>力导向</b>的——相连的话题互相牵引、无关的话题彼此推开，位置是自己长出来的；你也可以<b>按住任意一颗星拖着玩</b>，松手后它会重新找平衡。点一颗星（轻点，别拖），看这条脉络的演化。</span></h2>
-    <div class="constel"><svg viewBox="0 0 900 460" id="constelSvg" role="img" aria-label="话题星图（力导向，可拖拽）"></svg></div>
+    <div class="constel"><svg viewBox="0 0 900 460" id="constelSvg" role="group" aria-label="话题星图（力导向，可拖拽，节点可聚焦）"></svg></div>
     <div id="constelDetail" class="note" tabindex="-1" aria-live="polite">拖动星点可以重排这张图；轻点任意话题，这里会显示它的演化链。</div>
   </section>
 
@@ -346,7 +346,7 @@ function renderMoments(){
  const q=(document.getElementById('q').value||"").trim();
  const list=MOMENTS.filter(m=>(curType==="全部"||m.type===curType)&&(!q||(m.quote+m.author+m.topic+m.src).includes(q)));
  document.getElementById('momentGrid').innerHTML=list.map(m=>'<button class="mcard" onclick="openMoment('+m.id+')"><div class="row"><span class="badge '+m.cls+'">'+m.type+'</span><span class="src">'+m.src+'</span></div><div class="quote">'+m.quote+'</div><div class="why">'+m.why+'</div><div class="foot"><span><b style="color:var(--ink)">'+m.author+'</b> · '+m.time+' · 脉络「'+m.topic+'」</span><span class="reso">共鸣 '+m.reso+'</span><span class="status '+m.st+'">'+m.status+'</span></div></button>').join('');
- const nh=document.getElementById('noHit');nh.style.display=list.length?"none":"block";if(!list.length){nh.textContent=TOPICS.some(t=>t.name===q)?('脉络「'+q+'」在样本墙暂无收录的瞬间样本——星图的计数是全社群口径，样本墙只展示精选样本。'):'没有匹配的瞬间。换个词试试——或者，这正是社群还没聊到过的盲区。';}
+ const nh=document.getElementById('noHit');nh.style.display=list.length?"none":"block";if(!list.length){const topicSamples=MOMENTS.filter(m=>!q||(m.quote+m.author+m.topic+m.src).includes(q)).length;nh.textContent=(curType!=='全部'&&topicSamples>0)?('这个脉络/关键词下有 '+topicSamples+' 个样本，但与当前类型「'+curType+'」无匹配——把类型切回「全部」就能看全。'):(TOPICS.some(t=>t.name===q)?('脉络「'+q+'」在样本墙暂无收录的瞬间样本——星图的计数是全社群口径，样本墙只展示精选样本。'):'没有匹配的瞬间。换个词试试——或者，这正是社群还没聊到过的盲区。');}
 }
 document.getElementById('q').addEventListener('input',renderMoments);
 document.getElementById('typeChips').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(!b)return;curType=b.dataset.t;document.querySelectorAll('#typeChips .chip').forEach(c=>c.classList.toggle('on',c===b));renderMoments();});
@@ -384,12 +384,13 @@ document.addEventListener('keydown',e=>{if(e.key==="Escape")closeDrawer()});
  }
  function wake(){if(!running){running=true;requestAnimationFrame(step);}}
  function toSVG(evt){const pt=svg.createSVGPoint();pt.x=evt.clientX;pt.y=evt.clientY;const m=svg.getScreenCTM();return m?pt.matrixTransform(m.inverse()):{x:0,y:0};}
+ let lastSel=0; function doSelect(i,viaKeyboard){const now=Date.now();if(now-lastSel<350)return;lastSel=now;selectTopic(i,viaKeyboard);}
  function selectTopic(i,viaKeyboard){const t=TOPICS[i];document.getElementById('constelDetail').innerHTML='<b style="color:var(--ink)">脉络「'+t.name+'」</b> · '+t.cnt+'<br>'+t.desc+'<br><br><a href="#" onclick="goMoments(\''+t.name+'\');return false">只看这条脉络的瞬间 →</a>';if(viaKeyboard){document.getElementById('constelDetail').focus();}}
  gEls.forEach((g,i)=>{g.addEventListener('pointerdown',e=>{dragNode=nodes[i];dragMoved=0;lastPt=toSVG(e);g.style.cursor='grabbing';try{g.setPointerCapture(e.pointerId);}catch(_){}e.preventDefault();wake();});});
  svg.addEventListener('pointermove',e=>{if(!dragNode)return;const p=toSVG(e);dragMoved+=Math.abs(p.x-lastPt.x)+Math.abs(p.y-lastPt.y);dragNode.x=p.x;dragNode.y=p.y;dragNode.vx=0;dragNode.vy=0;lastPt=p;render();});
- svg.addEventListener('pointerup',()=>{if(!dragNode)return;const n=dragNode;dragNode=null;gEls.forEach(g=>g.style.cursor='grab');if(dragMoved<6)selectTopic(nodes.indexOf(n));wake();});
+ svg.addEventListener('pointerup',()=>{if(!dragNode)return;const n=dragNode;dragNode=null;gEls.forEach(g=>g.style.cursor='grab');if(dragMoved<6)doSelect(nodes.indexOf(n),false);wake();});
  svg.addEventListener('pointercancel',()=>{dragNode=null;});
- gEls.forEach((g,i)=>{g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectTopic(i,true);}});});
+ gEls.forEach((g,i)=>{g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();doSelect(i,true);}});g.addEventListener('click',()=>doSelect(i,false));});
  document.getElementById('tabs').addEventListener('click',()=>setTimeout(wake,60));
  render();wake();
 })();
@@ -415,7 +416,7 @@ document.getElementById('tierGrid').innerHTML=TIERS.map(t=>'<div class="tiercard
   h+='<span class="pdot" tabindex="0" role="button" title="'+(isAgent?("Agent-"+(i-131)):("成员 M-"+String(i+1).padStart(3,"0")))+' · '+role[1]+'" data-role="'+role[1]+'" data-agent="'+isAgent+'" data-i="'+i+'" style="background:'+role[0]+';'+(isAgent?'border-radius:4px':'')+'"></span>';}
  document.getElementById('peopleGrid').innerHTML=h;
  document.querySelectorAll('.pdot').forEach(d=>d.setAttribute('aria-label',d.title));
- document.getElementById('peopleGrid').addEventListener('keydown',e=>{const d=e.target.closest('.pdot');if(d&&(e.key==='Enter'||e.key===' ')){e.preventDefault();d.click();document.getElementById('personDetail').focus();}});
+ document.getElementById('peopleGrid').addEventListener('keydown',e=>{const d=e.target.closest('.pdot');if(d&&(e.key==='Enter'||e.key===' ')){e.preventDefault();d.click();}});
  document.getElementById('peopleGrid').addEventListener('click',e=>{const d=e.target.closest('.pdot');if(!d)return;const box=document.getElementById('personDetail');box.style.display='block';
   box.innerHTML='<b style="color:var(--ink)">'+(d.dataset.agent==="true"?("Agent-"+(+d.dataset.i-131)):("成员 M-"+String(+d.dataset.i+1).padStart(3,"0")))+'</b>（样本档案）· 涌现角色：'+d.dataset.role+'<br>本月：提出瞬间 '+(2+(+d.dataset.i*7)%11)+' 个 · 接续他人瞬间 '+(1+(+d.dataset.i*13)%17)+' 次 · 跨圈引用 '+(+d.dataset.i*5)%9+' 次。角色不由本人申报，由行为统计得出，每月重算——上个月的潜水者，这个月可能就是点火者。';});
  document.getElementById('sparkerList').innerHTML=SPARKERS.map(s=>'<div class="iaBox"><h3><span style="color:'+s[3]+'">●</span> '+s[0]+' · '+s[1]+'</h3><p>'+s[2]+'</p></div>').join('');
