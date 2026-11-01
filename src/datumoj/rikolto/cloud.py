@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 import os
@@ -21,6 +22,7 @@ from datumoj.rikolto.core.contracts import PreconditionFailed
 from datumoj.rikolto.core.lease import LeaseError, LeaseManager
 from datumoj.rikolto.core.models import PublishState
 from datumoj.rikolto.core.monitor import _ledger_first_attempts, evaluate_cloud_alerts
+from datumoj.rikolto.core.runner import DEFAULT_MAX_RUN_SECONDS
 from datumoj.rikolto.core.schedule import Scheduler, utcnow, workspace_lock, write_control
 from datumoj.rikolto.core.state import StateManager, local_write
 from datumoj.rikolto.core.state_s3 import probe_conditional_writes
@@ -39,6 +41,32 @@ def _quiet():
             yield
         finally:
             logging.disable(previous)
+
+
+def _progress(event, started, record=None):
+    record = record or {}
+    failures = dict(record.get("failures", {}))
+    for source in record.get("sources", []):
+        for reason, count in source["failures"].items():
+            failures[reason] = failures.get(reason, 0) + count
+    row = {key: record.get(key, 0) for key in ("new", "unchanged", "parsed")}
+    row.update(event=event, source_id=record.get("source_id"),
+               elapsed_s=round(time.monotonic() - started, 3),
+               failures=failures, stop_reason=record.get("stop_reason"))
+    print(json.dumps(row, ensure_ascii=False), file=sys.__stderr__, flush=True)
+
+
+def _due(scheduler, root):
+    due = set(scheduler.due())
+    if (root / "runs.jsonl").exists():
+        # Core schedules every attempt, even incomplete ones. Cloud must retry
+        # a deadline without waiting another interval; retain the real times.
+        for source in scheduler.status()["sources"]:
+            last = source["last_run"]
+            if (source["effective_enabled"] and source["next_due"] is not None
+                    and last and last.get("stop_reason") == "deadline"):
+                due.add(source["source_id"])
+    return sorted(due)
 
 
 def _source(deps, spec, scheduler, remaining):
@@ -60,7 +88,8 @@ def _source(deps, spec, scheduler, remaining):
             close = getattr(fetcher, "close", None)
             if close is not None:
                 close()
-        record.update(new=report.new, unchanged=report.unchanged)
+        record.update(new=report.new, unchanged=report.unchanged,
+                      stop_reason="deadline" if report.stop_reason == "deadline" else None)
         if report.failures:
             record["failures"]["crawl_failed"] = sum(report.failures.values())
         phase = "parse_index"
@@ -91,8 +120,10 @@ def _source(deps, spec, scheduler, remaining):
     record.update(state="final", ended_at=utcnow().isoformat(),
                   status="failed" if record["failures"] else "completed",
                   exit_status=1 if record["failures"] else 0,
-                  stop_reason="source_failed" if record["failures"] else None)
-    scheduler.append_run(record)
+                  stop_reason=record["stop_reason"] or ("source_failed" if record["failures"] else None))
+    # Preserve result status/exit semantics, but never advertise a partial crawl
+    # as a successful run in the published generation's last_successful_runs.
+    scheduler.append_run({**record, "status": "incomplete"} if record["stop_reason"] == "deadline" else record)
     return record, remaining
 
 
@@ -159,17 +190,20 @@ def check() -> dict:
                 "phase": "storage_probe", "storage_probe": probe}
 
 
-def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: float = 40) -> dict:
+def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: float = 40,
+        reserve_minutes: float = 10) -> dict:
     result = {"status": "failed", "exit_status": 1, "generation": None,
               "sources": [], "due": 0, "new": 0, "unchanged": 0, "parsed": 0,
               "failed_sources": [], "reason": None, "budget_exhausted": False,
-              "weekly_report_key": None}
+              "weekly_report_key": None, "reserve_minutes": reserve_minutes}
     phase = "configuration"
     manager = leases = lease = deps = None
     started = time.monotonic()
     with _quiet(), ExitStack() as stack:
         try:
-            if type(max_embed) is not int or max_embed < 0 or not math.isfinite(max_minutes) or max_minutes < 0:
+            if (type(max_embed) is not int or max_embed < 0
+                    or not math.isfinite(max_minutes) or max_minutes < 0
+                    or not math.isfinite(reserve_minutes) or reserve_minutes < 0):
                 raise ValueError("invalid_budget")
             root = Path(work_dir) if work_dir is not None else Path(stack.enter_context(
                 tempfile.TemporaryDirectory(prefix="datumoj-cloud-")
@@ -222,17 +256,27 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
                         }})
                     phase = "due"
                     scheduler = Scheduler(root, deps.registry.all(), lambda spec: None)
-                    due = scheduler.due()
+                    due = _due(scheduler, root)
                     result["due"] = len(due)
                     remaining = max_embed
                     for source_id in due:
                         phase = "lease_check"
                         check()
-                        if time.monotonic() - started >= max_minutes * 60:
+                        seconds_left = max_minutes * 60 - (time.monotonic() - started)
+                        if seconds_left < 60:
                             result["budget_exhausted"] = True
                             break
                         phase = "run_ledger"
-                        record, remaining = _source(deps, scheduler.sources[source_id], scheduler, remaining)
+                        spec = scheduler.sources[source_id]
+                        max_run = spec.scope.get("max_run_seconds", DEFAULT_MAX_RUN_SECONDS)
+                        # Invalid source limits must still reach runner validation,
+                        # rather than being masked by the round's valid limit.
+                        if (type(max_run) in (int, float) and math.isfinite(max_run) and max_run > 0):
+                            max_run = min(max_run, seconds_left)
+                        scope = {**spec.scope, "max_run_seconds": max_run}
+                        _progress("source_start", started, {"source_id": source_id})
+                        record, remaining = _source(deps, spec.model_copy(update={"scope": scope}), scheduler, remaining)
+                        _progress("source_end", started, record)
                         result["sources"].append(record)
                         for key in ("new", "unchanged", "parsed"):
                             result[key] += record[key]
@@ -251,7 +295,11 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
                         maintain_vectors(root / "vectors")
                     phase = "publish"
                     check()
-                    generation = manager.push()
+                    _progress("publish_start", started, result)
+                    try:
+                        generation = manager.push()
+                    finally:
+                        _progress("publish_end", started, result)
                     result["generation"] = generation.generation
                     failed = bool(result["failed_sources"])
                     if not failed:
@@ -275,4 +323,5 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
                     leases.release(lease.holder, lease.token)
                 except Exception:  # noqa: BLE001 -- 任意租约释放失败均须阻止本轮被误报成功。
                     result.update(status="failed", exit_status=1, reason="lease_release_failed")
+            _progress("round_end", started, result)
     return result

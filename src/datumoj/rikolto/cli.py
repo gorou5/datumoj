@@ -158,11 +158,13 @@ def cloud_check() -> None:
 def cloud_run(
     work_dir: Path | None = typer.Option(None, "--work-dir", help="空的工作目录；默认使用临时目录"),
     max_embed: int = typer.Option(1000, "--max-embed", min=0, help="整轮嵌入块数上限"),
-    max_minutes: float = typer.Option(40, "--max-minutes", min=0, help="到期后停止开始新来源"),
+    max_minutes: float = typer.Option(40, "--max-minutes", min=0, help="从本轮开始到发布前的工作预算（分钟）"),
+    reserve_minutes: float = typer.Option(10, "--reserve-minutes", min=0, help="另留给发布和收尾的余量（分钟）"),
 ) -> None:
     from datumoj.rikolto.cloud import run
 
-    result = run(work_dir=work_dir, max_embed=max_embed, max_minutes=max_minutes)
+    result = run(work_dir=work_dir, max_embed=max_embed, max_minutes=max_minutes,
+                 reserve_minutes=reserve_minutes)
     typer.echo(_json(result))
     raise typer.Exit(result["exit_status"])
 
