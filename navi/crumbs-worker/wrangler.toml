@@ -8,6 +8,5 @@ routes = [
   { pattern = "datumoj.com/navi/intl-sources*", zone_name = "datumoj.com" },
   { pattern = "datumoj.com/navi/people*", zone_name = "datumoj.com" },
   { pattern = "datumoj.com/navi/news*", zone_name = "datumoj.com" },
-  { pattern = "datumoj.com/plan*", zone_name = "datumoj.com" },
   { pattern = "datumoj.com/task*", zone_name = "datumoj.com" },
 ]

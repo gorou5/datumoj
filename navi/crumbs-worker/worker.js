@@ -25,7 +25,6 @@ function crumbNav(trail) {
 }
 
 const NAVI = 'https://datumoj.com/navi';
-const PLAN = 'https://datumoj.com/plan';
 
 // host: exact hostname; test: pathname predicate; trail: root label links
 // back to the navi hub (absolute URL when on another subdomain).
@@ -37,12 +36,6 @@ const TRAILS = [
   { host: 'datumoj.com', test: (p) => p.startsWith('/navi/news'), trail: [{ label: '导航', href: '/navi/' }, { label: '全部动态' }] },
   { host: 'datumoj.com', test: (p) => p.startsWith('/navi/people'), trail: [{ label: '导航', href: '/navi/' }, { label: '协作者贡献' }] },
   { host: 'datumoj.com', test: (p) => p.startsWith('/navi/report'), trail: [{ label: '导航', href: '/navi/' }, { label: '阶段汇报' }] },
-  // plan.datumoj.com — plan overview + subpages
-  { host: 'datumoj.com', test: (p) => p.startsWith('/plan/orbis'), trail: [{ label: '导航', href: NAVI + '/' }, { label: '计划', href: PLAN + '/' }, { label: '资源目录' }] },
-  { host: 'datumoj.com', test: (p) => p.startsWith('/plan/cases'), trail: [{ label: '导航', href: NAVI + '/' }, { label: '计划', href: PLAN + '/' }, { label: '融合分析案例' }] },
-  { host: 'datumoj.com', test: (p) => p.startsWith('/plan/verify'), trail: [{ label: '导航', href: NAVI + '/' }, { label: '计划', href: PLAN + '/' }, { label: '失真验证案例' }] },
-  { host: 'datumoj.com', test: (p) => p.startsWith('/plan/hf-gov'), trail: [{ label: '导航', href: NAVI + '/' }, { label: '计划', href: PLAN + '/' }, { label: 'HF 数据集调查' }] },
-  { host: 'datumoj.com', test: (p) => p === '/plan' || p === '/plan/' || p === '/plan/index.html', trail: [{ label: '导航', href: NAVI + '/' }, { label: '计划总览' }] },
   // task.datumoj.com — task center
   { host: 'datumoj.com', test: (p) => p === '/task' || p.startsWith('/task/'), trail: [{ label: '导航', href: NAVI + '/' }, { label: '任务中心' }] },
 ];
