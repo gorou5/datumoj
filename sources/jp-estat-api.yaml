@@ -1,0 +1,31 @@
+id: jp-estat-api
+name: e-Stat API
+country: jp
+kind: estat_api
+base_url: https://api.e-stat.go.jp/rest/3.0/app/json/
+allowed_hosts: [api.e-stat.go.jp]
+rate_per_sec: 1
+max_total_bytes: 1073741824
+max_files: 10000
+schedule: daily
+needs_key: env:ESTAT_APP_ID
+license:
+  name: 政府統計の総合窓口（e-Stat）利用規約
+  url: https://www.e-stat.go.jp/terms-of-use
+  attribution: 出典：政府統計の総合窓口(e-Stat)（https://www.e-stat.go.jp/）
+  usage_scope: internal_only
+  redistribution: unverified
+  verified_at: null
+  notes: 'API 規約 https://www.e-stat.go.jp/api/terms-of-use このサービスは、政府統計総合窓口(e-Stat)のAPI機能を使用していますが、サービスの内容は国によって保証されたものではありません。'
+scope:
+  stats_codes: ['00200524', '00200531', '00200573']
+  tables:
+    - stats_data_id: '0003443838'
+      filters: {cdTab: '001', cdCat01: '001', cdCat02: '000', cdCat03: '01000', cdCat04: '01', cdArea: '00000'}
+      unit: 万人
+    - stats_data_id: '0003005865'
+      filters: {cdTab: '02', cdCat01: '000', cdCat02: '01,13,08', cdCat03: '0', cdArea: '00000'}
+      unit: '%'
+    - stats_data_id: '0003427113'
+      filters: {cdTab: '1', cdCat01: '0001', cdArea: '00000'}
+      unit: 2020年=100
