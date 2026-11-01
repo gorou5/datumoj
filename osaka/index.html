@@ -93,7 +93,7 @@ h2 .sub{display:block;font-size:14.5px;color:var(--dim);font-weight:500;margin-t
 .loopCard p{font-size:13.5px;color:var(--dim)}
 .pot{font-family:ui-monospace,Menlo,monospace;color:var(--rose);font-weight:800}
 .peopleGrid{display:flex;flex-wrap:wrap;gap:6px;margin:22px 0}
-.pdot{width:17px;height:17px;border-radius:50%;border:1.5px solid rgba(246,243,234,.7);cursor:pointer}
+.pdot{width:17px;height:17px;border-radius:50%;}.pdot:focus{outline:2.5px solid var(--ochre);outline-offset:2px}.tnode:focus{outline:none}.tnode:focus .halo{stroke-width:3.5;border:1.5px solid rgba(246,243,234,.7);cursor:pointer}
 table{width:100%;border-collapse:collapse;font-size:14px}
 th,td{border-bottom:1px solid var(--line);padding:13px 10px;text-align:left;vertical-align:top}
 th{color:var(--dim);font-size:12.5px;letter-spacing:.06em}
@@ -157,7 +157,7 @@ footer{margin-top:60px;border-top:1px solid var(--line);padding-top:22px;color:v
     <h2>今日 · 2026-10-28（样本日）<span class="sub">日报不是流水账。日报只回答三个问题：今天冒出了什么新想法？什么东西长大了？什么问题还悬着没人接？</span></h2>
     <div class="bigQuoteDay">
       <div class="iaBox"><h3>⚡ 今日新的一瞬间（12）</h3><p>从 2,847 条消息、312 个线程、23 个代码提交与 147 次 Agent 运行里，筛出 12 个「值得被再看一眼」的瞬间。筛选标准不是热闹，是<b style="color:var(--ochre)">共鸣度</b>：这句话之后，有没有人接、引用、动手。点上方「一瞬间墙」逐个看。</p></div>
-      <div class="iaBox"><h3>🌱 今日长大的（4）</h3><p>食堂的一句闲话长成了产品说明的改版决定；防灾志愿者的一句质疑长成了避难地图的改版单；二手市集的观察长成了商品页的「来历」栏；町工厂师傅的经验长成了功能下线规则。</p></div>
+      <div class="iaBox"><h3>🌱 近日长大的（4）</h3><p>这一栏记的是后续进展，不冒充当日成果：食堂的一句闲话，次日长成了产品说明的改版决定；防灾志愿者的一句质疑，三日后长成了避难地图的改版单；二手市集的观察，下周长成了商品页的「来历」栏；町工厂师傅的经验，当日长成了功能下线规则。长成的时间各自标在每个瞬间的成长记录里。</p></div>
       <div class="iaBox"><h3>🕳 今日悬着的（17）</h3><p>17 个问题被提出后无人接续超过 6 小时。其中 3 个被标为高潜——不是没人感兴趣，是提出时已是深夜，被冲走了。它们在「未决」页等被捡回来，这正是知识发现最常发生的地方。</p></div>
       <div class="iaBox"><h3>📊 今日社群体温</h3><p>最活跃频道 #深夜食堂（612 条）；人类与 Agent 的对话占比 31%；跨频道「串门引用」41 次——一个圈子的话被另一个圈子引用，往往就是新脉络的起点：今天最响的一句，出自食堂，响在产品组。</p></div>
     </div>
@@ -303,10 +303,10 @@ const LOOPS=[
  {q:"跨语言成员的瞬间，现在全靠 Agent 翻译。翻错的一句，会不会就此被当成原意传下去？",by:"译君（Agent）",ago:"悬置 9 小时",pot:"潜力 66",why:"与玩笑队列相连：翻译是这个多语言社群的基础设施，它的可信度需要一条回溯机制。"},
 ];
 const TIERS=[
- {no:"第 1 位 · 先接",name:"代码协作",body:"提交、评审意见、议题讨论。这类碎片天生带永久编号和链接，出处追溯满分；样本里 12 个瞬间有 3 个出身于此。更重要的是：产物就长在这里，「瞬间→产物」的闭环只有先接它才能立刻跑通。",scores:"出处追溯 ★★★★★ · 瞬间密度 ★★★★ · 成本 低 · 授权摩擦 低 · 易失性 低"},
+ {no:"第 1 位 · 先接",name:"代码协作",body:"提交、评审意见、议题讨论。这类碎片天生带永久编号和链接，出处追溯满分；样本里 12 个瞬间有 1 个出身于此（#8），且直接长成了规则。更重要的是：产物就长在这里，「瞬间→产物」的闭环只有先接它才能立刻跑通。",scores:"出处追溯 ★★★★★ · 瞬间密度 ★★★★ · 成本 低 · 授权摩擦 低 · 易失性 低"},
  {no:"第 2 位 · 紧接着",name:"Agent 协作记录",body:"Agent 的运行日志、每日汇总、翻译与检索记录。它们已经是文本、已经在系统里，不需要任何人额外授权。而 Agent 提出的瞬间最容易死——样本 #2、#12 都是靠被人偶然看见才活下来的。第二位接它，先救最易失的那一类。",scores:"出处追溯 ★★★★ · 瞬间密度 ★★★★（已半提炼）· 成本 低 · 授权摩擦 无 · 易失性 最高"},
  {no:"第 3 位 · 微信群的主路",name:"打捞层：投稿与被引用的话",body:"社群在微信群——而微信群没有官方的全量接口（见第 4 位），所以打捞层不是过渡，它就是微信侧的正路。只收三种话：成员用微信自带的「合并转发」投进打捞箱的、被别人引用或转发的、被写进日报与回顾的。都已被社群自己筛过一遍，密度最高、授权最轻，还能把「随手捞一句」变成群里的习惯。",scores:"出处追溯 ★★★ · 瞬间密度 ★★★★★ · 成本 中 · 授权摩擦 低（自愿）· 易失性 中"},
- {no:"第 4 位 · 微信现实版（原设想已改）",name:"全量流：官方路不存在，只剩一条条件路",body:"先说清事实：个人微信群没有官方导出或接口，聊天记录只存在于各人设备本地；企业微信倒有官方「会话存档」接口，但要全员迁到企业微信、逐人告知存档、外部成员可拒绝——社群会先变成被管理的组织，不推荐。剩下的条件路是「打捞员本地导出」：指定一个在群内的账号，电脑版微信保持登录，定期用本地工具（如 WeChatMsg 一类）把该账号自己收到的记录导出为结构化文件——只能导这个账号亲历的部分，工具随微信更新常失效，处理必须全程本地＋脱敏。开工条件缺一不可：群内明示同意、可撤回、只导本群。过不了同意关，这一位就永久停在第 3 位，不硬上。",scores:"出处追溯 ★★★ · 瞬间密度 ★★（总量大、密度低）· 成本 高 · 授权摩擦 最高 · 前置：明示同意"},
+ {no:"第 4 位 · 微信现实版（原设想已改）",name:"全量流：官方路不存在，只剩一条条件路",body:"先说清事实：个人微信群没有官方导出或接口，聊天记录只存在于各人设备本地；企业微信倒有官方「会话存档」接口，可按成员范围开启（内部成员先告知、外部联系人需同意），但前提是社群整体迁到企业微信——性质会先变成被管理的组织，不推荐；它也不等同于个人微信群的全量接入。剩下的条件路是「打捞员本地导出」：指定一个在群内的账号，电脑版微信保持登录，定期用本地工具（如 WeChatMsg 一类）把该账号自己收到的记录导出为结构化文件——只能导这个账号亲历的部分，工具随微信更新常失效，处理必须全程本地＋脱敏。开工条件缺一不可：群内明示同意、可撤回、只导本群。过不了同意关，这一位就永久停在第 3 位，不硬上。",scores:"出处追溯 ★★★ · 瞬间密度 ★★（总量大、密度低）· 成本 高 · 授权摩擦 最高 · 前置：明示同意"},
 ];
 const FRAMEWORKS=[
  {name:"Beever Atlas",tag:"开源 · 2026 · 最接近",fit:"✓ 聊天（Slack/Discord/Teams 等）→ 提炼原子事实 → 自动 Wiki ＋ 知识图谱 ＋ 带出处引用，还能经 MCP 喂给 Agent。正中「碎片→结构化」这一段。",gap:"✕ 刚开源、以团队聊天为中心；没有「瞬间/共鸣/未决」的展示层，也不理解跨界相撞为何重要。"},
@@ -365,7 +365,7 @@ document.addEventListener('keydown',e=>{if(e.key==="Escape")closeDrawer()});
  const LINKS=[[0,7],[0,2],[0,6],[7,6],[1,6],[3,7],[4,7],[5,7],[2,7]];
  const nodes=TOPICS.map((t,i)=>{const a=(i/TOPICS.length)*Math.PI*2;return {t:t,x:450+Math.cos(a)*200,y:230+Math.sin(a)*115,vx:0,vy:0,r:t.r};});
  let h=LINKS.map(()=>'<line class="lk" stroke="rgba(94,99,84,.35)" stroke-width="1.5" stroke-dasharray="4 5"/>').join('');
- h+=nodes.map(n=>'<g class="tnode" style="cursor:grab"><circle class="halo" r="'+n.r+'" fill="'+n.t.color+'1f" stroke="'+n.t.color+'"/><circle class="core" r="5" fill="'+n.t.color+'"/><text class="nm" text-anchor="middle">'+n.t.name+'</text><text class="cnt" text-anchor="middle">'+n.t.cnt+'</text></g>').join('');
+ h+=nodes.map((n,i)=>'<g class="tnode" style="cursor:grab" tabindex="0" role="button" aria-label="脉络：'+n.t.name+'，'+n.t.cnt+'"><circle class="halo" r="'+n.r+'" fill="'+n.t.color+'1f" stroke="'+n.t.color+'"/><circle class="core" r="5" fill="'+n.t.color+'"/><text class="nm" text-anchor="middle">'+n.t.name+'</text><text class="cnt" text-anchor="middle">'+n.t.cnt+'</text></g>').join('');
  svg.innerHTML=h;
  const lineEls=Array.from(svg.querySelectorAll('.lk'));
  const gEls=Array.from(svg.querySelectorAll('.tnode'));
@@ -389,10 +389,11 @@ document.addEventListener('keydown',e=>{if(e.key==="Escape")closeDrawer()});
  svg.addEventListener('pointermove',e=>{if(!dragNode)return;const p=toSVG(e);dragMoved+=Math.abs(p.x-lastPt.x)+Math.abs(p.y-lastPt.y);dragNode.x=p.x;dragNode.y=p.y;dragNode.vx=0;dragNode.vy=0;lastPt=p;render();});
  svg.addEventListener('pointerup',()=>{if(!dragNode)return;const n=dragNode;dragNode=null;gEls.forEach(g=>g.style.cursor='grab');if(dragMoved<6)selectTopic(nodes.indexOf(n));wake();});
  svg.addEventListener('pointercancel',()=>{dragNode=null;});
+ gEls.forEach((g,i)=>{g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectTopic(i);}});});
  document.getElementById('tabs').addEventListener('click',()=>setTimeout(wake,60));
  render();wake();
 })();
-function goMoments(topic){switchView('moments');document.getElementById('q').value=topic;renderMoments();window.scrollTo({top:document.getElementById('tabs').offsetTop,behavior:'smooth'})}
+function goMoments(topic){switchView('moments');curType="全部";document.querySelectorAll('#typeChips .chip').forEach(c=>c.classList.toggle('on',c.dataset.t==="全部"));document.getElementById('q').value=topic;renderMoments();window.scrollTo({top:document.getElementById('tabs').offsetTop,behavior:'smooth'})}
 /* river */
 const RIVER={
  1:'<h3>一句话</h3><p>今晚，食堂老板的一句生意经，被产品组接走，变成了一条产品规矩：<b style="color:var(--ochre)">先让人开口，再给答案。</b></p>',
@@ -411,8 +412,10 @@ document.getElementById('tierGrid').innerHTML=TIERS.map(t=>'<div class="tiercard
  let seed=42;const rnd=()=>{seed=(seed*1103515245+12345)%2147483648;return seed/2147483648};
  let h="";
  for(let i=0;i<150;i++){const isAgent=i>=132;const r=rnd();const role=isAgent?["#8fae7e","Agent"]:r<.14?palette[0]:r<.38?palette[1]:r<.52?palette[2]:palette[3];
-  h+='<span class="pdot" title="'+(isAgent?("Agent-"+(i-131)):("成员 M-"+String(i+1).padStart(3,"0")))+' · '+role[1]+'" data-role="'+role[1]+'" data-agent="'+isAgent+'" data-i="'+i+'" style="background:'+role[0]+';'+(isAgent?'border-radius:4px':'')+'"></span>';}
+  h+='<span class="pdot" tabindex="0" role="button" title="'+(isAgent?("Agent-"+(i-131)):("成员 M-"+String(i+1).padStart(3,"0")))+' · '+role[1]+'" data-role="'+role[1]+'" data-agent="'+isAgent+'" data-i="'+i+'" style="background:'+role[0]+';'+(isAgent?'border-radius:4px':'')+'"></span>';}
  document.getElementById('peopleGrid').innerHTML=h;
+ document.querySelectorAll('.pdot').forEach(d=>d.setAttribute('aria-label',d.title));
+ document.getElementById('peopleGrid').addEventListener('keydown',e=>{const d=e.target.closest('.pdot');if(d&&(e.key==='Enter'||e.key===' ')){e.preventDefault();d.click();}});
  document.getElementById('peopleGrid').addEventListener('click',e=>{const d=e.target.closest('.pdot');if(!d)return;const box=document.getElementById('personDetail');box.style.display='block';
   box.innerHTML='<b style="color:var(--ink)">'+(d.dataset.agent==="true"?("Agent-"+(+d.dataset.i-131)):("成员 M-"+String(+d.dataset.i+1).padStart(3,"0")))+'</b>（样本档案）· 涌现角色：'+d.dataset.role+'<br>本月：提出瞬间 '+(2+(+d.dataset.i*7)%11)+' 个 · 接续他人瞬间 '+(1+(+d.dataset.i*13)%17)+' 次 · 跨圈引用 '+(+d.dataset.i*5)%9+' 次。角色不由本人申报，由行为统计得出，每月重算——上个月的潜水者，这个月可能就是点火者。';});
  document.getElementById('sparkerList').innerHTML=SPARKERS.map(s=>'<div class="iaBox"><h3><span style="color:'+s[3]+'">●</span> '+s[0]+' · '+s[1]+'</h3><p>'+s[2]+'</p></div>').join('');
