@@ -32,7 +32,7 @@ def store(monkeypatch):
     (set(), "complete"),
     ({"absent"}, "put_if_absent_existing"),
     ({"match"}, "put_if_match_wrong_etag"),
-    ({"delete"}, "delete_if_match_wrong_etag"),
+    ({"delete"}, "complete"),
     ({"absent", "match", "delete"}, "put_if_absent_existing"),
 ])
 def test_actual_s3_conditions_are_required_and_probe_is_removed(store, monkeypatch, ignored, expected):
@@ -56,7 +56,7 @@ def test_actual_s3_conditions_are_required_and_probe_is_removed(store, monkeypat
 
     monkeypatch.setattr(store._client, "_make_api_call", service)
     for _ in range(2):
-        assert probe_conditional_writes(store) == {"supported": not ignored, "check": expected}
+        assert probe_conditional_writes(store) == {"supported": expected == "complete", "check": expected}
     assert len(touched) == 2  # A fresh UUID for each probe, no official keys.
     assert all(key.startswith("synthetic-project/probe/") for key in touched)
     monkeypatch.setattr(store._client, "_make_api_call", original)

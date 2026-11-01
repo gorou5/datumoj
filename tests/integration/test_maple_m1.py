@@ -208,7 +208,9 @@ def test_two_cloud_generations_pull_mcp_and_operational_guards(tmp_path, monkeyp
             assert first["generation"] == 1 and first["status"] == "completed"
             assert first["due"] == first["new"] == first["parsed"] == 2
             assert set(replay_calls) == {HOURLY, DAILY}
-            assert store.get("write-lease.json") is None
+            released = json.loads(store.get("write-lease.json")[0])
+            assert set(released) == {"released_at"} and "token" not in released
+            assert LeaseManager(store).status() == {"held": False}
             embedded_first = embedder.embedded
             assert embedded_first == 68  # hourly: 2 chunks; daily: 2 + 64 chunks.
 
@@ -313,7 +315,9 @@ def test_two_cloud_generations_pull_mcp_and_operational_guards(tmp_path, monkeyp
             assert partial_uploads and failed["reason"] == "publish_failed"
             assert failed["generation"] is None and store.get("current.json") == before
             assert [g.generation for g in state.StateManager(store, local).list()] == [2, 1]
-            assert store.get("write-lease.json") is None
+            released = json.loads(store.get("write-lease.json")[0])
+            assert set(released) == {"released_at"} and "token" not in released
+            assert LeaseManager(store).status() == {"held": False}
             assert invoke(["pull", "--data-dir", str(local)])["generation"] == 2
             assert asyncio.run(read_local()) == actual  # Neither new SQL values nor failed chunks leak.
 
