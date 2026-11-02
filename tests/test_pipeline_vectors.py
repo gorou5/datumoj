@@ -1,11 +1,24 @@
 from __future__ import annotations
 
+import json
+from dataclasses import replace
+
+import pytest
 from typer.testing import CliRunner
 
 from datumoj.rikolto import cli, wiring
 from datumoj.rikolto.core.contracts import EmbeddingError, ParseStatus
 from datumoj.rikolto.core.models import parse_context_fingerprint
-from datumoj.rikolto.pipeline import PipelineDeps, parse_pending, reindex, vector_status
+from datumoj.rikolto.pipeline import (
+    ParseSummary,
+    PipelineDeps,
+    _load_vector_state,
+    _retry_vectors,
+    _start_vectors,
+    parse_pending,
+    reindex,
+    vector_status,
+)
 from datumoj.rikolto.testing.fakes import (
     FakeCatalogStore,
     FakeChunkStore,
@@ -178,3 +191,84 @@ def test_parse_command_lists_vector_missing_snapshot_and_cause(tmp_path, monkeyp
     assert snapshot.snapshot_id in result.output
     assert "向量暂缺" in result.output
     assert "EmbeddingError" in result.output
+
+
+def test_transient_failure_retries_next_parse_without_reparsing(tmp_path):
+    deps, snapshot = _deps(tmp_path / "vectors-state.json")
+    parse_pending(deps)
+    assert _load_vector_state(deps)["missing"]["jp-test:a.txt"]["failures"] == 1
+    restarted = replace(deps, vectors=FakeVectorIndex(FakeEmbedder()), vector_state={"missing": {}})
+    summary = parse_pending(restarted)
+    assert not summary.parsed and not summary.failed and not summary.vectors_missing
+    assert restarted.manifest.publish_state(snapshot.snapshot_id).value == "published"
+    assert json.loads(restarted.vector_state_path.read_text()) == {"missing": {}, "last_error": None}
+    assert restarted.vectors.search("本文を収録").items
+
+
+def test_three_failures_stop_automatic_retries_and_keep_pending(tmp_path, monkeypatch):
+    deps, snapshot = _deps(tmp_path / "vectors-state.json")
+    calls = []
+    add = deps.vectors.add
+
+    def fail(chunks):
+        calls.append(len(chunks))
+        return add(chunks)
+
+    monkeypatch.setattr(deps.vectors, "add", fail)
+    for count in (1, 2, 3):
+        assert parse_pending(deps).vectors_missing == {snapshot.snapshot_id: "EmbeddingError"}
+        assert _load_vector_state(deps)["missing"]["jp-test:a.txt"]["failures"] == count
+    before = deps.vector_state_path.read_bytes()
+    assert not parse_pending(replace(deps, vector_state={"missing": {}})).vectors_missing
+    assert deps.vector_state_path.read_bytes() == before
+    assert calls == [2, 2, 2]
+    # The retained entry can still be explicitly repaired by an operator.
+    deps.vectors = FakeVectorIndex(FakeEmbedder())
+    assert reindex(deps, vectors_only=True) == 2
+    assert not _load_vector_state(deps)["missing"]
+
+
+def test_legacy_vector_state_defaults_failures_to_zero_and_retries(tmp_path):
+    deps, _ = _deps(tmp_path / "vectors-state.json")
+    parse_pending(deps)
+    state = json.loads(deps.vector_state_path.read_text())
+    del state["missing"]["jp-test:a.txt"]["failures"]
+    deps.vector_state_path.write_text(json.dumps(state))
+    assert _load_vector_state(deps)["missing"]["jp-test:a.txt"]["failures"] == 0
+    restarted = replace(deps, vectors=FakeVectorIndex(FakeEmbedder()), vector_state={"missing": {}})
+    assert not parse_pending(restarted).vectors_missing
+    assert not _load_vector_state(restarted)["missing"]
+
+
+def test_zero_allowance_preserves_error_and_retry_count(tmp_path):
+    deps, _ = _deps(tmp_path / "vectors-state.json")
+    parse_pending(deps)
+    before = deps.vector_state_path.read_bytes()
+    parse_pending(replace(deps, vector_limit=0))
+    assert deps.vector_state_path.read_bytes() == before
+    assert _load_vector_state(deps)["missing"]["jp-test:a.txt"]["failures"] == 1
+
+
+@pytest.mark.parametrize("count", [-1, True, "1", None])
+def test_invalid_retry_count_is_rejected(tmp_path, count):
+    deps, _ = _deps(tmp_path / "vectors-state.json")
+    parse_pending(deps)
+    state = json.loads(deps.vector_state_path.read_text())
+    state["missing"]["jp-test:a.txt"]["failures"] = count
+    deps.vector_state_path.write_text(json.dumps(state))
+    with pytest.raises(ValueError, match="向量重试计数无效"):
+        _load_vector_state(deps)
+
+
+def test_retry_counts_only_new_embeddings_when_previous_attempt_partially_wrote(tmp_path):
+    deps, _ = _deps(tmp_path / "vectors-state.json")
+    parse_pending(deps)
+    deps.vectors = FakeVectorIndex(FakeEmbedder())
+    chunks = deps.chunks.chunks_for("jp-test:a.txt")
+    # A previous failed SDK call may already have committed some rows.
+    deps.vectors.add(chunks[:1])
+    deps.vector_limit = 2
+    _start_vectors(deps)
+    assert _retry_vectors(deps, None, ParseSummary()) == 1
+    assert deps._vector_remaining == 0  # Attempts remain conservatively reserved.
+    assert not _load_vector_state(deps)["missing"]
