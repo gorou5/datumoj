@@ -555,3 +555,113 @@ def test_cli_passes_reserve_minutes(monkeypatch, options, expected):
     assert response.exit_code == 0
     assert calls == [{"work_dir": None, "max_embed": 1000, "max_minutes": 40,
                       "reserve_minutes": expected}]
+
+
+def test_content_lease_check_is_throttled_with_injected_monotonic_clock():
+    from concurrent.futures import ThreadPoolExecutor
+
+    ticks = [10.0]
+    calls = []
+    check = cloud._throttled_check(lambda: calls.append(ticks[0]), monotonic=lambda: ticks[0])
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(lambda _: check(), range(100)))
+    assert calls == [10.0]
+    ticks[0] = 39.999
+    check()
+    assert calls == [10.0]
+    ticks[0] = 40.0
+    check()
+    ticks[0] = 71.0
+    check()
+    assert calls == [10.0, 40.0, 71.0]
+
+
+@pytest.mark.parametrize("boundary", ["generation", "publish"])
+def test_full_lease_checks_bypass_content_throttle(world, monkeypatch, boundary):
+    original_build = wiring.build_state
+    checks = []
+
+    def build(root):
+        manager = original_build(root)
+        check_write = manager._check_write
+        publish = manager._publish
+
+        def checked(*, content=False):
+            before = len(checks)
+            check_write(content=content)
+            if not content:
+                assert len(checks) > before
+
+        def before_publish(candidate, etag):
+            before = len(checks)
+            publish(candidate, etag)
+            assert len(checks) >= before + 2  # before_publish and pointer write.
+
+        manager._check_write = checked
+        manager._publish = before_publish
+        return manager
+
+    original_check = LeaseManager.check
+
+    def check(self, lease):
+        original_check(self, lease)
+        checks.append(1)
+        # All uploads are done but no generation exists: force a loss specifically
+        # at the unthrottled generation boundary, after the content check succeeded.
+        content = self.store.list("copies/")
+        generation = self.store.get("generations/1.json")
+        if (boundary == "generation" and content and generation is None
+                or boundary == "publish" and generation is not None):
+            raise LeaseError("synthetic loss")
+
+    monkeypatch.setattr(wiring, "build_state", build)
+    monkeypatch.setattr(LeaseManager, "check", check)
+    result, _ = invoke(world)
+    assert result["reason"] == "publish_failed" and result["generation"] is None
+    assert remote(world).get("current.json") is None
+    assert (remote(world).get("generations/1.json") is None) == (boundary == "generation")
+    assert result["publish_timings"]["total"] >= 0
+    released(world)
+
+
+def test_cloud_transfer_workers_and_safe_timings_survive_release_hook(world):
+    result, _ = invoke(world)
+    assert result["status"] == "completed"
+    assert world.managers[-1].transfer_workers == 8
+    assert result["restore_timings"] == {}
+    timings = result["publish_timings"]
+    assert {"upload_copies", "upload_raw", "write_generation", "publish", "cleanup", "total",
+            "post_publish", "post_publish_download_copies", "post_publish_download_raw"} <= timings.keys()
+    assert timings["total"] >= timings["post_publish"] >= timings["post_publish_download_raw"]
+    world.clock[0] += timedelta(hours=1)
+    restored, _ = invoke(world, "next")
+    assert restored["status"] == "completed"
+    assert {"download_copies", "download_raw", "cleanup", "total"} <= restored["restore_timings"].keys()
+    for key in ("restore_timings", "publish_timings"):
+        assert all(type(stage) is str and type(seconds) in (int, float) and seconds >= 0
+                   for stage, seconds in restored[key].items())
+    released(world)
+
+
+def test_post_publish_restore_delay_is_visible(world, monkeypatch):
+    from datumoj.rikolto.core.state_s3 import S3StateObjectStore
+
+    monotonic = cloud.time.monotonic
+    original_get = S3StateObjectStore.get
+    delay = [0.0]
+
+    def get(store, key):
+        result = original_get(store, key)
+        # Raw gets happen in wiring's published-copy restore after pointer CAS.
+        if key.startswith("raw/"):
+            delay[0] += 120
+        return result
+
+    monkeypatch.setattr(cloud.time, "monotonic", lambda: monotonic() + delay[0])
+    monkeypatch.setattr(S3StateObjectStore, "get", get)
+    result, _ = invoke(world)
+    assert result["status"] == "completed" and delay[0] >= 120
+    timings = result["publish_timings"]
+    assert timings["post_publish_download_raw"] >= delay[0]
+    assert timings["total"] >= timings["post_publish"] >= delay[0]
+    released(world)
