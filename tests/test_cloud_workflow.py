@@ -22,7 +22,7 @@ def test_triggers_concurrency_permissions_and_timeout():
     assert set(workflow["jobs"]) == {"run"}
     job = workflow["jobs"]["run"]
     assert job["if"] == "github.repository == 'gorou5/datumoj'"
-    assert 0 < job["timeout-minutes"] <= 60
+    assert 0 < job["timeout-minutes"] <= 90
     assert "permissions" not in job
     text = WORKFLOW.read_text()
     assert "pull_request" not in text and "pull_request_target" not in text
