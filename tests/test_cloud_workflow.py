@@ -3,33 +3,43 @@
 import re
 from pathlib import Path
 
+import pytest
 import yaml
 
-WORKFLOW = Path(__file__).resolve().parents[1] / ".github/workflows/cloud-run.yml"
+WORKFLOWS = Path(__file__).resolve().parents[1] / ".github/workflows"
 SHA256 = "9f9ff52b8297d6e40904f22bac09eac587a05111762bf278359621fbdb53dbb9"
-SECRETS = {"R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_ENDPOINT", "DATUMOJ_S3_BUCKET", "DATUMOJ_S3_PREFIX"}
+SECRETS = {"R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_ENDPOINT", "DATUMOJ_S3_BUCKET", "DATUMOJ_S3_PREFIX", "ESTAT_APP_ID"}
 
 
-def load():
-    return yaml.safe_load(WORKFLOW.read_text())
+@pytest.fixture(params=["run", "embed"])
+def workflow_path(request):
+    return WORKFLOWS / f"cloud-{request.param}.yml"
 
 
-def test_triggers_concurrency_permissions_and_timeout():
-    workflow = load()
+def load(workflow_path):
+    return yaml.safe_load(workflow_path.read_text())
+
+
+def test_triggers_concurrency_permissions_and_timeout(workflow_path):
+    workflow = load(workflow_path)
     assert set(workflow["on"]) == {"workflow_dispatch"}
     assert workflow["concurrency"] == {"group": "rikolto-cloud-run", "cancel-in-progress": False}
     assert workflow["permissions"] == {"contents": "read"}
     assert set(workflow["jobs"]) == {"run"}
     job = workflow["jobs"]["run"]
     assert job["if"] == "github.repository == 'gorou5/datumoj'"
-    assert 0 < job["timeout-minutes"] <= 60
+    if workflow_path.stem == "cloud-run":
+        assert 0 < job["timeout-minutes"] <= 90
+    else:
+        assert job["timeout-minutes"] == 150
     assert "permissions" not in job
-    text = WORKFLOW.read_text()
+    text = workflow_path.read_text()
     assert "pull_request" not in text and "pull_request_target" not in text
 
 
-def test_secrets_are_only_env_references_and_no_public_storage_vars():
-    workflow = load()
+def test_secrets_are_only_env_references_and_no_public_storage_vars(workflow_path):
+    secrets = SECRETS if workflow_path.stem == "cloud-run" else SECRETS - {"ESTAT_APP_ID"}
+    workflow = load(workflow_path)
     references = []
 
     def walk(value, path=()):
@@ -43,23 +53,23 @@ def test_secrets_are_only_env_references_and_no_public_storage_vars():
             assert "vars." not in value
             if "secrets." in value:
                 assert path[-2] == "env"
-                assert path[-1] in SECRETS
+                assert path[-1] in secrets
                 assert value == '${{ secrets.' + path[-1] + ' }}'
                 references.append(path[-1])
 
     walk(workflow)
-    assert set(references) == SECRETS and len(references) == len(SECRETS)
+    assert set(references) == secrets and len(references) == len(secrets)
 
 
-def test_actions_pinned_dependencies_frozen_model_cached_and_no_data_artifacts():
-    steps = load()["jobs"]["run"]["steps"]
+def test_actions_pinned_dependencies_frozen_model_cached_and_no_data_artifacts(workflow_path):
+    steps = load(workflow_path)["jobs"]["run"]["steps"]
     for step in steps:
         if "uses" in step:
             assert re.fullmatch(r"[\w-]+/[\w-]+@[a-f0-9]{40}", step["uses"])
             assert "upload-artifact" not in step["uses"]
         script = step.get("run", "")
         assert not re.search(r"(?m)^\s*(?:env|printenv|set\s+-x|export\s+-p)\s*(?:$|[|;])", script)
-        assert not re.search(r"(?:echo|printf).*\$(?:\{|)(?:R2_|DATUMOJ_S3_)", script)
+        assert not re.search(r"(?:echo|printf).*\$(?:\{|)(?:R2_|DATUMOJ_S3_|ESTAT_)", script)
         assert not re.search(r"toJSON\s*\(\s*(?:env|secrets|vars)\s*\)", script)
     assert any(s.get("run") == "uv sync --frozen --python 3.12" for s in steps)
     setup = next(s for s in steps if s.get("uses", "").startswith("astral-sh/setup-uv@"))
@@ -68,14 +78,24 @@ def test_actions_pinned_dependencies_frozen_model_cached_and_no_data_artifacts()
     assert cache["with"]["path"] == "~/.ollama/models"
     assert "bge-m3" in cache["with"]["key"]
     assert any("ollama pull bge-m3" in s.get("run", "") for s in steps)
-    command = next(s for s in steps if "rikolto cloud run" in s.get("run", ""))
+    subcommand = "run" if workflow_path.stem == "cloud-run" else "embed"
+    command = next(s for s in steps if f"rikolto cloud {subcommand}" in s.get("run", ""))
+    if subcommand == "embed":
+        assert command["run"] == "uv run --frozen rikolto cloud embed --max-minutes 100 --reserve-minutes 15"
     assert "uv run --frozen" in command["run"]
     assert command["env"]["DATUMOJ_RAW_BACKEND"] == "s3"
 
 
-def test_ollama_fixed_release_checksum_checked_before_install():
-    script = next(s["run"] for s in load()["jobs"]["run"]["steps"] if s.get("name") == "Install verified Ollama")
+def test_ollama_fixed_release_checksum_checked_before_install(workflow_path):
+    script = next(s["run"] for s in load(workflow_path)["jobs"]["run"]["steps"] if s.get("name") == "Install verified Ollama")
     assert "set -euo pipefail" in script
     assert "releases/download/v0.6.8/ollama-linux-amd64.tgz" in script
     assert SHA256 in script and "sha256sum --check --status" in script
     assert script.index(SHA256) < script.index("sudo tar")
+
+
+def test_workflows_share_concurrency_and_identical_setup():
+    run = load(WORKFLOWS / "cloud-run.yml")
+    embed = load(WORKFLOWS / "cloud-embed.yml")
+    assert run["concurrency"] == embed["concurrency"]
+    assert run["jobs"]["run"]["steps"][:-1] == embed["jobs"]["run"]["steps"][:-1]

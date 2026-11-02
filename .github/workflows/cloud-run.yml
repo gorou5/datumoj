@@ -15,7 +15,7 @@ jobs:
     # A fork may retain this file, but must not run a writer for this namespace.
     if: github.repository == 'gorou5/datumoj'
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -59,5 +59,6 @@ jobs:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           DATUMOJ_S3_BUCKET: ${{ secrets.DATUMOJ_S3_BUCKET }}
           DATUMOJ_S3_PREFIX: ${{ secrets.DATUMOJ_S3_PREFIX }}
+          ESTAT_APP_ID: ${{ secrets.ESTAT_APP_ID }}
           DATUMOJ_RAW_BACKEND: s3
-        run: uv run --frozen rikolto cloud run --max-embed 1000 --max-minutes 40
+        run: uv run --frozen rikolto cloud run --max-embed 1000 --max-minutes 40 --reserve-minutes 10
