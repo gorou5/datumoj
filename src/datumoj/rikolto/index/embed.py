@@ -96,7 +96,9 @@ class OllamaEmbedder:
                 raise EmbeddingError(f"Ollama 返回 {resp.status_code}：{resp.text[:200]}")
             return self._parse(resp, len(batch))
         reason = type(last).__name__ if isinstance(last, httpx.TransportError) else str(last)
-        raise EmbeddingError(f"Ollama 嵌入失败（已重试 {self.retries} 次）：{reason}") from last
+        # Transport diagnostics may quote the request body; keep them out of tracebacks too.
+        cause = None if isinstance(last, httpx.TransportError) else last
+        raise EmbeddingError(f"Ollama 嵌入失败（已重试 {self.retries} 次）：{reason}") from cause
 
     def _parse(self, resp: httpx.Response, n: int) -> list[list[float]]:
         try:

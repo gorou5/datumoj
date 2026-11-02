@@ -1,6 +1,7 @@
 """拆批或其他嵌入失败时，客户端错误消息不带入输入正文。全部使用离线 transport。"""
 
 import json
+import traceback
 
 import httpx
 import pytest
@@ -55,6 +56,8 @@ def test_embedding_failure_messages_do_not_include_input(failure, n):
             e.embed(texts)
     message = str(exc.value)
     assert all(value not in message for value in PRIVATE)
+    rendered = "".join(traceback.format_exception(exc.value))
+    assert all(value not in rendered for value in PRIVATE)
     assert len(batches) <= (2 * n - 1) * (e.retries + 1)
     if failure == "timeout":
         assert batches[-(e.retries + 1):] == [texts[:1]] * (e.retries + 1)
