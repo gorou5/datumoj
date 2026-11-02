@@ -545,6 +545,20 @@ def test_parallel_transfers_match_serial_bytes(corpus, tmp_path, monkeypatch):
     assert trees[0] == trees[1]
 
 
+def test_parallel_upload_puts_each_copy_key_once(corpus, monkeypatch):
+    from datumoj.rikolto.core import state as state_module
+
+    # Small blocks give repeated content-addressed keys within one push.
+    monkeypatch.setattr(state_module, "_BLOCK_SIZE", 4096)
+    root, _, _ = corpus
+    store = CountingStore()
+    candidate = StateManager(store, root, transfer_workers=4).push()
+    keys = [c.key for c in candidate.stores if c.format != state_module._SQLITE_BLOCKS]
+    assert len(keys) > len(set(keys))
+    copies = [key for key in store.puts if key.startswith("copies/")]
+    assert len(copies) == len(set(copies)) == len(set(keys))
+
+
 @pytest.mark.parametrize("namespace", ["copies/", "raw/"])
 def test_parallel_upload_failure_waits_and_does_not_publish(state, namespace):
     import hashlib
