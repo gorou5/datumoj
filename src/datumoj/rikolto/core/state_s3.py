@@ -101,7 +101,7 @@ class S3StateObjectStore:
                 aws_access_key_id=access_key,
                 aws_secret_access_key=secret_key,
                 config=Config(signature_version="s3v4", s3={"addressing_style": "path"},
-                              connect_timeout=10, read_timeout=60, retries={"max_attempts": 2}),
+                              max_pool_connections=16, connect_timeout=10, read_timeout=60, retries={"max_attempts": 2}),
             )
         except (BotoCoreError, ValueError):
             raise ContractError("S3 状态客户端初始化失败") from None

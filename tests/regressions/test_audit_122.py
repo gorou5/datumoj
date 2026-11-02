@@ -57,7 +57,8 @@ def test_progress_bypasses_quiet_flushes_and_never_exposes_plugin_exception(worl
         "source_start", "source_end", "source_start", "source_end", "source_start", "source_end",
         "publish_start", "publish_end", "round_end",
     ]
-    keys = {"event", "source_id", "elapsed_s", "new", "unchanged", "parsed", "failures", "stop_reason"}
+    keys = {"event", "source_id", "elapsed_s", "new", "unchanged", "parsed", "failures", "stop_reason",
+            "publish_timings", "restore_timings"}
     assert all(set(row) == keys for row in events)
     assert [row["elapsed_s"] for row in events] == sorted(row["elapsed_s"] for row in events)
     assert [row["source_id"] for row in events[:6]] == [spec.id for spec in world.specs for _ in range(2)]

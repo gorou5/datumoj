@@ -15,12 +15,16 @@ import re
 import shutil
 import sqlite3
 import tempfile
+import time
 import uuid
-from collections.abc import Callable, Iterator
+from collections import deque
+from collections.abc import Callable, Iterable, Iterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack, closing, contextmanager
 from datetime import UTC, datetime
 from itertools import islice
 from pathlib import Path
+from threading import Lock
 from typing import Literal
 
 import duckdb
@@ -467,16 +471,58 @@ class StateManager:
     """
 
     def __init__(self, store: StateObjectStore, data_dir: str | Path, *,
-                 writer: StateWriter | None = None, before_publish: Callable[[], None] | None = None):
+                 writer: StateWriter | None = None, before_publish: Callable[[], None] | None = None,
+                 transfer_workers: int = 1):
+        if type(transfer_workers) is not int or transfer_workers < 1:
+            raise ValueError("transfer_workers 必须为正整数")
         self.store = store
         self.data_dir = Path(data_dir)
         self.writer = writer or StateWriter(kind="local", run_id=uuid.uuid4().hex)
         self.before_publish = before_publish
         self.before_write: Callable[[], None] | None = None
+        self.before_metadata_write: Callable[[], None] | None = None
+        self.transfer_workers = transfer_workers
+        self._existing_lock = Lock()
+        self.last_timings: dict[str, float] = {}
+        # Composition hooks may restore after push; preserve the push measurements.
+        self.last_push_timings: dict[str, float] = {}
 
-    def _check_write(self) -> None:
-        if self.before_write:
-            self.before_write()
+    @contextmanager
+    def _timed(self, stage: str) -> Iterator[None]:
+        started = time.monotonic()
+        try:
+            yield
+        finally:
+            self.last_timings[stage] = self.last_timings.get(stage, 0.0) + time.monotonic() - started
+
+    @contextmanager
+    def _temporary_stage(self, **kwargs) -> Iterator[Path]:
+        directory = tempfile.TemporaryDirectory(**kwargs)
+        try:
+            yield Path(directory.name)
+        finally:
+            with self._timed("cleanup"):
+                directory.cleanup()
+
+    def _transfer(self, operation: Callable, items: Iterable) -> Iterator:
+        if self.transfer_workers == 1:
+            for item in items:
+                yield operation(item)
+            return
+        # Bound pending objects and downloaded bytes; yield in input order so
+        # SQLite blocks retain their numeric assembly order. Shutdown waits on failure.
+        items = iter(items)
+        with ThreadPoolExecutor(max_workers=self.transfer_workers) as pool:
+            pending = deque(pool.submit(operation, item) for item in islice(items, self.transfer_workers))
+            while pending:
+                yield pending.popleft().result()
+                if (item := next(items, None)) is not None:
+                    pending.append(pool.submit(operation, item))
+
+    def _check_write(self, *, content: bool = False) -> None:
+        callback = self.before_write if content else (self.before_metadata_write or self.before_write)
+        if callback:
+            callback()
 
     def _get(self, key: str) -> tuple[bytes, str] | None:
         return self.store.get(key)
@@ -521,20 +567,25 @@ class StateManager:
                 raise StateError("代次发布失败，指针未切换") from None
 
     def _upload(self, key: str, data: bytes, existing: set[str]) -> None:
-        if key in existing:
-            return
-        self._check_write()
+        with self._existing_lock:
+            if key in existing:
+                return
+        self._check_write(content=True)
         try:
             self.store.put_if_absent(key, data)
         except PreconditionFailed:
             # Content-addressed keys are immutable. Creation races require no
             # content download; the conditional conflict proves the key exists.
             pass
-        existing.add(key)
+        with self._existing_lock:
+            existing.add(key)
 
     def push(self) -> StateGeneration:
+        self.last_timings = {}
+        self.last_push_timings = self.last_timings
         try:
-            return self._push()
+            with self._timed("total"):
+                return self._push()
         except PreconditionFailed:
             raise PreconditionFailed("状态发布竞争失败，本轮作废") from None
         except StateError:
@@ -543,73 +594,82 @@ class StateManager:
             raise StateError("状态推送失败") from None
 
     def _push(self) -> StateGeneration:
-        self._check_write()
-        if not self.data_dir.is_dir():
-            raise StateError("数据目录不存在")
-        number, etag = self._current()
-        if number:
-            self._generation(number)
-        # One paginated listing per content namespace, never HEAD/GET per blob.
-        copies = set(self.store.list("copies/sha256/"))
-        raw_keys = set(self.store.list("raw/"))
-        orphan = self._get(f"generations/{number + 1}.json")
+        with self._timed("prepare"):
+            self._check_write()
+            if not self.data_dir.is_dir():
+                raise StateError("数据目录不存在")
+            number, etag = self._current()
+            if number:
+                self._generation(number)
+            # One paginated listing per content namespace, never HEAD/GET per blob.
+            copies = set(self.store.list("copies/sha256/"))
+            raw_keys = set(self.store.list("raw/"))
+            orphan = self._get(f"generations/{number + 1}.json")
         if orphan is not None:
-            with _frozen(self.data_dir):
+            with self._timed("stage"), _frozen(self.data_dir):
                 pass
             candidate = _validate_generation(orphan[0], number + 1)
-            # A separate invocation may continue only this exact old candidate.
-            # Copy SHA checks and evidence resolution happen in a private stage;
-            # raw is verified by key inventory (never a full raw download).
-            with tempfile.TemporaryDirectory(prefix="datumoj-state-") as directory:
-                self._materialize(candidate, Path(directory), raw="remote", raw_keys=raw_keys)
-            self._publish(candidate, etag)
+            # Continue only this exact candidate, checking raw by key inventory.
+            with self._temporary_stage(prefix="datumoj-state-") as stage:
+                self._materialize(candidate, stage, raw="remote", raw_keys=raw_keys)
+            with self._timed("publish"):
+                self._publish(candidate, etag)
             return candidate
-        with tempfile.TemporaryDirectory(prefix="datumoj-state-") as directory:
-            stage = Path(directory)
-            stores, runs, coverage = _copy_boundary(self.data_dir, stage)
-            refs = _raw_refs(stage)
-            # Validate frozen data, not mutable live databases, before upload.
-            # Empty DuckDB is represented by a deterministic rebuild descriptor.
-            for copy in stores:
-                _validate_copy(copy)
-            created_at = datetime.now(UTC)
-            for copy in stores:
-                if copy.format != _SQLITE_BLOCKS and copy.key not in copies:
-                    self._upload(copy.key, _copy_data(stage, copy), copies)
-            # raw is immutable. Only missing blobs are read, hashed and uploaded;
-            # no 4.7GB duplicate tree is made in the temporary directory.
-            local_refs = set(refs)
-            for path in (self.data_dir / "raw").glob("*/*"):
-                if path.is_file() and _SHA.fullmatch(path.name) and path.parent.name == path.name[:2]:
-                    local_refs.add(path.name)
-            for sha in sorted(local_refs):
-                key = _raw_key("raw", sha)
-                if key in raw_keys:
-                    continue
-                path = self.data_dir / key
-                if not path.is_file():
-                    raise StateError("manifest 引用的 raw 在本机和远端均缺失")
-                data = path.read_bytes()
-                if _digest(data) != sha:
-                    raise StateError("本机 raw 哈希校验失败")
-                self._upload(key, data, raw_keys)
-            # Check evidence against this frozen generation before publishing.
-            # Uploads above already used the descriptor bytes; the following
-            # database is only a private, disposable validation reconstruction.
-            for copy in stores:
-                if copy.format == "duckdb-empty":
-                    path = stage / copy.name
-                    path.unlink()
-                    duckdb.connect(str(path)).close()
-            _sample_provenance(stage, raw="remote", refs=refs)
-            candidate = StateGeneration(
-                generation=number + 1, previous_generation=number or None, created_at=created_at,
-                writer=self.writer, stores=stores, raw_prefix="raw", vector_coverage=coverage, last_successful_runs=runs,
-            )
-            # Never overwrite a conflicting manifest or jump over its number.
-            self._check_write()
-            self.store.put_if_absent(f"generations/{number + 1}.json", candidate.model_dump_json().encode())
-            self._publish(candidate, etag)
+        with self._temporary_stage(prefix="datumoj-state-") as stage:
+            with self._timed("stage"):
+                stores, runs, coverage = _copy_boundary(self.data_dir, stage)
+            with self._timed("validate"):
+                refs = _raw_refs(stage)
+                for copy in stores:
+                    _validate_copy(copy)
+                created_at = datetime.now(UTC)
+            with self._timed("upload_copies"), closing(self._transfer(
+                lambda copy: self._upload(copy.key, _copy_data(stage, copy), copies),
+                (copy for copy in stores if copy.format != _SQLITE_BLOCKS and copy.key not in copies),
+            )) as transfers:
+                for _ in transfers:
+                    pass
+            with self._timed("upload_raw"):
+                # raw is immutable. Read/hash only missing blobs, without copying a raw tree.
+                local_refs = set(refs)
+                for path in (self.data_dir / "raw").glob("*/*"):
+                    if path.is_file() and _SHA.fullmatch(path.name) and path.parent.name == path.name[:2]:
+                        local_refs.add(path.name)
+
+                def upload_raw(sha):
+                    key = _raw_key("raw", sha)
+                    path = self.data_dir / key
+                    if not path.is_file():
+                        raise StateError("manifest 引用的 raw 在本机和远端均缺失")
+                    data = path.read_bytes()
+                    if _digest(data) != sha:
+                        raise StateError("本机 raw 哈希校验失败")
+                    self._upload(key, data, raw_keys)
+
+                with closing(self._transfer(upload_raw, (
+                    sha for sha in sorted(local_refs) if _raw_key("raw", sha) not in raw_keys
+                ))) as transfers:
+                    for _ in transfers:
+                        pass
+            with self._timed("sample_provenance"):
+                # Descriptor bytes were uploaded; reconstruct only for validation.
+                for copy in stores:
+                    if copy.format == "duckdb-empty":
+                        path = stage / copy.name
+                        path.unlink()
+                        duckdb.connect(str(path)).close()
+                _sample_provenance(stage, raw="remote", refs=refs)
+            with self._timed("write_generation"):
+                candidate = StateGeneration(
+                    generation=number + 1, previous_generation=number or None, created_at=created_at,
+                    writer=self.writer, stores=stores, raw_prefix="raw", vector_coverage=coverage,
+                    last_successful_runs=runs,
+                )
+                # Full lease check, never the content-transfer throttle.
+                self._check_write()
+                self.store.put_if_absent(f"generations/{number + 1}.json", candidate.model_dump_json().encode())
+            with self._timed("publish"):
+                self._publish(candidate, etag)
             return candidate
 
     def list(self) -> list[StateGeneration]:
@@ -629,54 +689,69 @@ class StateManager:
         groups = _block_groups(candidate.stores)
         for copy in candidate.stores:
             _validate_copy(copy)
-            if copy.format == _SQLITE_BLOCK:
-                continue  # Reassembled in the checksum entry's numeric order below.
-            path = _copy_path(stage, copy.name)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            if copy.format == _SQLITE_BLOCKS:
-                digest = hashlib.sha256()
-                size = 0
-                with path.open("wb") as stream:
-                    for block in groups[copy.name]:
-                        found = self._get(block.key)
-                        if found is None or len(found[0]) != block.size_bytes or _digest(found[0]) != block.sha256:
-                            raise StateError("分块 SHA256 或大小校验失败")
-                        stream.write(found[0])
-                        digest.update(found[0])
-                        size += len(found[0])
-                if digest.hexdigest() != copy.sha256 or size != copy.size_bytes:
-                    raise StateError("整库 SHA256 或大小校验失败")
-                continue
+
+        def download(copy):
             found = self._get(copy.key)
             if found is None or len(found[0]) != copy.size_bytes or _digest(found[0]) != copy.sha256:
+                if copy.format == _SQLITE_BLOCK:
+                    raise StateError("分块 SHA256 或大小校验失败")
                 raise StateError("副本 SHA256 或大小校验失败")
-            if copy.format == "duckdb-empty":
-                if found[0] != _EMPTY_DUCK:
-                    raise StateError("DuckDB 重建描述无效")
-                duckdb.connect(str(path)).close()
-            else:
-                path.write_bytes(found[0])
-        _check_schema(stage)
-        _rebuild_keyword(stage)
-        _check_schema(stage)
-        if _vector_coverage(stage) != candidate.vector_coverage:
-            raise StateError("向量恢复覆盖校验失败")
-        refs = _raw_refs(stage)
-        if raw == "remote":
-            if raw_keys is None:
-                raw_keys = set(self.store.list(candidate.raw_prefix + "/"))
-            if any(_raw_key(candidate.raw_prefix, sha) not in raw_keys for sha in refs):
-                raise StateError("远端缺少 manifest 引用的 raw")
-        else:
-            for sha in sorted(refs):
-                key = _raw_key(candidate.raw_prefix, sha)
-                found = self._get(key)
-                if found is None or _digest(found[0]) != sha:
-                    raise StateError("raw SHA256 校验失败")
-                path = stage / _raw_key("raw", sha)
+            return found[0]
+
+        ordered = (block for copy in candidate.stores if copy.format != _SQLITE_BLOCK
+                   for block in (groups[copy.name] if copy.format == _SQLITE_BLOCKS else [copy]))
+        with self._timed("download_copies"), closing(self._transfer(download, ordered)) as downloads:
+            for copy in candidate.stores:
+                if copy.format == _SQLITE_BLOCK:
+                    continue
+                path = _copy_path(stage, copy.name)
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(found[0])
-        report = _sample_provenance(stage, raw=raw, refs=refs)
+                if copy.format == _SQLITE_BLOCKS:
+                    digest = hashlib.sha256()
+                    size = 0
+                    with path.open("wb") as stream:
+                        for _ in groups[copy.name]:
+                            data = next(downloads)
+                            stream.write(data)
+                            digest.update(data)
+                            size += len(data)
+                    if digest.hexdigest() != copy.sha256 or size != copy.size_bytes:
+                        raise StateError("整库 SHA256 或大小校验失败")
+                    continue
+                data = next(downloads)
+                if copy.format == "duckdb-empty":
+                    if data != _EMPTY_DUCK:
+                        raise StateError("DuckDB 重建描述无效")
+                    duckdb.connect(str(path)).close()
+                else:
+                    path.write_bytes(data)
+        with self._timed("validate"):
+            _check_schema(stage)
+            _rebuild_keyword(stage)
+            _check_schema(stage)
+            if _vector_coverage(stage) != candidate.vector_coverage:
+                raise StateError("向量恢复覆盖校验失败")
+            refs = _raw_refs(stage)
+        with self._timed("download_raw"):
+            if raw == "remote":
+                if raw_keys is None:
+                    raw_keys = set(self.store.list(candidate.raw_prefix + "/"))
+                if any(_raw_key(candidate.raw_prefix, sha) not in raw_keys for sha in refs):
+                    raise StateError("远端缺少 manifest 引用的 raw")
+            else:
+                def download_raw(sha):
+                    found = self._get(_raw_key(candidate.raw_prefix, sha))
+                    if found is None or _digest(found[0]) != sha:
+                        raise StateError("raw SHA256 校验失败")
+                    path = stage / _raw_key("raw", sha)
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(found[0])
+
+                with closing(self._transfer(download_raw, sorted(refs))) as transfers:
+                    for _ in transfers:
+                        pass
+        with self._timed("sample_provenance"):
+            report = _sample_provenance(stage, raw=raw, refs=refs)
         report.update(generation=candidate.generation, copies=len(candidate.stores), raw_objects=len(refs),
                       size_bytes=sum(c.size_bytes for c in candidate.stores if c.format != _SQLITE_BLOCK),
                       raw_mode=raw, verified=True)
@@ -684,6 +759,11 @@ class StateManager:
 
     def restore(self, target: str | Path, generation: int | None = None, *,
                 raw: Literal["local", "remote"] = "local") -> dict:
+        self.last_timings = {}
+        with self._timed("total"):
+            return self._restore(target, generation, raw=raw)
+
+    def _restore(self, target: str | Path, generation: int | None, *, raw: str) -> dict:
         try:
             if raw not in {"local", "remote"}:
                 raise StateError("raw 模式必须是 local 或 remote")
@@ -698,8 +778,8 @@ class StateManager:
             if candidate is None:
                 raise StateError("没有指定的有效代次")
             target.parent.mkdir(parents=True, exist_ok=True)
-            with tempfile.TemporaryDirectory(prefix=".datumoj-restore-", dir=target.parent) as directory:
-                stage = Path(directory) / "data"
+            with self._temporary_stage(prefix=".datumoj-restore-", dir=target.parent) as directory:
+                stage = directory / "data"
                 stage.mkdir()
                 report = self._materialize(candidate, stage, raw=raw)
                 # No credentials, endpoint or bucket are persisted. Wiring loads

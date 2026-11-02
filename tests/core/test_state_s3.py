@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 import traceback
+from contextlib import closing
 from datetime import timedelta
 
 import boto3
@@ -198,3 +199,36 @@ def test_r2_ignored_delete_condition_allows_probe_and_safe_lease_lifecycle(state
         assert state_store.get(LEASE_KEY) == before
     manager.check(replacement)
     assert len(deletes) == 1  # Lease operations never send DELETE.
+
+
+def test_concurrent_push_and_restore_on_s3(state_store, tmp_path):
+    from datumoj.rikolto.core.manifest import SqliteManifest
+    from datumoj.rikolto.core.state import StateManager
+    from datumoj.rikolto.testing.samples import make_snapshot
+
+    root = tmp_path / "source"
+    root.mkdir()
+    expected = {}
+    with closing(SqliteManifest(root / "manifest.sqlite")) as manifest:
+        for index in range(12):
+            data = f"synthetic concurrent S3 raw {index}".encode()
+            snapshot = make_snapshot(data=data, snapshot_id=f"synthetic-{index}")
+            manifest.record_snapshot(snapshot)
+            raw = root / "raw" / snapshot.sha256[:2] / snapshot.sha256
+            raw.parent.mkdir(parents=True, exist_ok=True)
+            raw.write_bytes(data)
+            expected[raw.relative_to(root)] = data
+    manager = StateManager(state_store, root, transfer_workers=8)
+    candidate = manager.push()
+    target = tmp_path / "replica"
+    report = manager.restore(target)
+    assert candidate.generation == report["generation"] == 1 and report["verified"]
+    for path, data in expected.items():
+        assert (target / path).read_bytes() == data
+    with closing(SqliteManifest(target / "manifest.sqlite")) as manifest:
+        for index in range(12):
+            assert manifest.get_snapshot(f"synthetic-{index}").sha256 in {path.name for path in expected}
+    assert state_store._client.meta.config.max_pool_connections >= 8
+    assert state_store._client.meta.config.connect_timeout == 10
+    assert state_store._client.meta.config.read_timeout == 60
+    assert state_store._client.meta.config.retries["total_max_attempts"] == 3

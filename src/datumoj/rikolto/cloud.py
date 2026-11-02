@@ -14,6 +14,7 @@ from contextlib import ExitStack, contextmanager, redirect_stderr, redirect_stdo
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
+from threading import Lock
 
 from datumoj.rikolto import wiring
 from datumoj.rikolto.analysis.reports import previous_week_period, weekly_report
@@ -25,7 +26,7 @@ from datumoj.rikolto.core.monitor import _ledger_first_attempts, evaluate_cloud_
 from datumoj.rikolto.core.runner import DEFAULT_MAX_RUN_SECONDS
 from datumoj.rikolto.core.schedule import Scheduler, utcnow, workspace_lock, write_control
 from datumoj.rikolto.core.state import StateManager, local_write
-from datumoj.rikolto.core.state_s3 import probe_conditional_writes
+from datumoj.rikolto.core.state_s3 import S3StateObjectStore, probe_conditional_writes
 from datumoj.rikolto.index.vector import maintain_vectors
 from datumoj.rikolto.pipeline import ParseSummary, _recover_staged
 
@@ -53,7 +54,25 @@ def _progress(event, started, record=None):
     row.update(event=event, source_id=record.get("source_id"),
                elapsed_s=round(time.monotonic() - started, 3),
                failures=failures, stop_reason=record.get("stop_reason"))
+    for key in ("publish_timings", "restore_timings"):
+        row[key] = record.get(key, {})
     print(json.dumps(row, ensure_ascii=False), file=sys.__stderr__, flush=True)
+
+
+def _throttled_check(check, *, monotonic=time.monotonic):
+    """Check at most once per 30s for immutable uploads, shared by transfer threads."""
+    last = None
+    lock = Lock()
+
+    def throttled():
+        nonlocal last
+        with lock:
+            now = monotonic()
+            if last is None or now - last >= 30:
+                check()
+                last = now
+
+    return throttled
 
 
 def _due(scheduler, root):
@@ -195,7 +214,8 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
     result = {"status": "failed", "exit_status": 1, "generation": None,
               "sources": [], "due": 0, "new": 0, "unchanged": 0, "parsed": 0,
               "failed_sources": [], "reason": None, "budget_exhausted": False,
-              "weekly_report_key": None, "reserve_minutes": reserve_minutes}
+              "weekly_report_key": None, "reserve_minutes": reserve_minutes,
+              "publish_timings": {}, "restore_timings": {}}
     phase = "configuration"
     manager = leases = lease = deps = None
     started = time.monotonic()
@@ -213,6 +233,8 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
                 phase = "work_directory"
                 raise ValueError("workspace_not_empty")
             manager = wiring.build_state(root)
+            if isinstance(manager.store, S3StateObjectStore):
+                manager.transfer_workers = 8
             phase = "storage_probe"
             probe = probe_conditional_writes(manager.store)
             if not probe["supported"]:
@@ -228,7 +250,8 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
                     return result
                 raise
             with leases.maintain(lease) as check:
-                manager.before_write = manager.before_publish = check
+                manager.before_write = _throttled_check(check)
+                manager.before_metadata_write = manager.before_publish = check
                 phase = "restore"
                 history = manager.list()
                 number = history[0].generation if history else 0
@@ -236,12 +259,17 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
                 # would publish that old candidate and silently discard this round.
                 if manager.store.get(f"generations/{number + 1}.json") is not None:
                     with tempfile.TemporaryDirectory(prefix="datumoj-orphan-") as directory:
-                        recovery = StateManager(manager.store, directory, writer=manager.writer, before_publish=check)
-                        recovery.before_write = check
+                        recovery = StateManager(manager.store, directory, writer=manager.writer,
+                                                before_publish=check, transfer_workers=manager.transfer_workers)
+                        recovery.before_write = _throttled_check(check)
+                        recovery.before_metadata_write = check
                         recovery.push()
                     history = manager.list()
                 if history:
-                    manager.restore(root, raw="remote")
+                    try:
+                        manager.restore(root, raw="remote")
+                    finally:
+                        result["restore_timings"] = dict(getattr(manager, "last_timings", {}))
                 else:
                     root.mkdir(parents=True, exist_ok=True)
                 with workspace_lock(root):
@@ -296,9 +324,22 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
                     phase = "publish"
                     check()
                     _progress("publish_start", started, result)
+                    publish_started = time.monotonic()
                     try:
                         generation = manager.push()
                     finally:
+                        push_timings = getattr(manager, "last_push_timings", {})
+                        last_timings = getattr(manager, "last_timings", push_timings)
+                        timings = dict(push_timings)
+                        elapsed = time.monotonic() - publish_started
+                        # wiring's release hook restores published data after the
+                        # base push. Include that entire tail without changing its semantics.
+                        timings["post_publish"] = max(0.0, elapsed - timings.get("total", 0.0))
+                        if last_timings is not push_timings:
+                            timings.update({f"post_publish_{key}": value
+                                            for key, value in last_timings.items() if key != "total"})
+                        timings["total"] = elapsed
+                        manager.last_timings = result["publish_timings"] = timings
                         _progress("publish_end", started, result)
                     result["generation"] = generation.generation
                     failed = bool(result["failed_sources"])

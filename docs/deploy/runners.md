@@ -4,6 +4,10 @@
 当前部署是 GitHub Actions + Cloudflare R2。`rikolto cloud check` 检查所选后端的
 条件写入能力；`rikolto cloud run` 获取写入租约，从状态存储恢复到空工作目录，
 抓取、解析后发布代次。常驻机器也每次使用空工作目录。
+S3 上的 cloud run 用 8 个线程传输不可变副本与 raw，代次清单和当前指针仍串行条件写入；
+其他 StateManager 调用默认单线程，线程安全的存储可显式设置 `transfer_workers`。
+结果 JSON 与 `publish_end` 进度行中的 `publish_timings`、`restore_timings` 只含阶段名与秒数，
+其中 `total` 是完整调用耗时，`cleanup` 是临时目录清理，`post_publish` 包含发布后还原与保留观测副本的时间（其还原细项带 `post_publish_` 前缀）。
 
 `cloud run --max-minutes 40 --reserve-minutes 10` 的前 40 分钟是从本轮开始计算的
 发布前工作预算（含恢复、抓取、解析与索引），另外固定预留 10 分钟给发布、周报和释放租约。
