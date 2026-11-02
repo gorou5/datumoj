@@ -55,6 +55,15 @@ def _quiet():
 
 def _progress(event, started, record=None):
     record = record or {}
+    if "embedded" in record:
+        row = {key: record[key] for key in (
+            "embedded", "vector_pending", "embedding_deferred", "embedding_failed",
+        )}
+        row.update(event=event, elapsed_s=round(time.monotonic() - started, 3))
+        for key in ("publish_timings", "restore_timings"):
+            row[key] = record.get(key, {})
+        print(json.dumps(row), file=sys.__stderr__, flush=True)
+        return
     failures = dict(record.get("failures", {}))
     for source in record.get("sources", []):
         for reason, count in source["failures"].items():
@@ -182,7 +191,7 @@ def _embedding_counts(pipeline, before, source_id):
     return deferred, failed
 
 
-def _backfill(deps, remaining, started, max_minutes, check, result, before_round):
+def _backfill(deps, remaining, started, max_minutes, check, result, before_round, *, embed_only=False):
     pipeline = getattr(deps, "pipeline_deps", None)
     if pipeline is None:
         return remaining
@@ -190,28 +199,37 @@ def _backfill(deps, remaining, started, max_minutes, check, result, before_round
     # An error gets another attempt next round, never a tight loop this round.
     exclude = {key for key, count in _failure_counts(pipeline).items() if count > before_round.get(key, 0)}
     announced = False
-    while (pipeline.vectors is not None and remaining > 0
-           and max_minutes * 60 - (time.monotonic() - started) >= 120
+    minimum_seconds = 60 if embed_only else 120
+    if embed_only:
+        result["vector_pending"] = sum(item["chunks"] for item in _load_vector_state(pipeline)["missing"].values())
+        _progress("embed_start", started, result)
+    while (pipeline.vectors is not None and (remaining is None or remaining > 0)
+           and (embed_only or max_minutes * 60 - (time.monotonic() - started) >= minimum_seconds)
            and any(key not in exclude and item.get("failures", 0) < VECTOR_FAILURE_LIMIT
                    for key, item in _load_vector_state(pipeline)["missing"].items())):
         check()
-        if max_minutes * 60 - (time.monotonic() - started) < 120:
+        if max_minutes * 60 - (time.monotonic() - started) < minimum_seconds:
+            if embed_only:
+                result["budget_exhausted"] = True
             break
-        if not announced:
+        if not announced and not embed_only:
             _progress("backfill_start", started, result)
             announced = True
-        pipeline.vector_limit = min(_BACKFILL_BATCH, remaining)
+        pipeline.vector_limit = _BACKFILL_BATCH if remaining is None else min(_BACKFILL_BATCH, remaining)
         _start_vectors(pipeline)
         before = _failure_counts(pipeline)
         with local_write(deps.data_dir):
             embedded = _retry_vectors(pipeline, None, ParseSummary(), exclude=exclude)
         used = pipeline.vector_limit - pipeline._vector_remaining
-        remaining -= used
-        result["backfill_embedded"] += embedded
+        if remaining is not None:
+            remaining -= used
+        result["embedded" if embed_only else "backfill_embedded"] += embedded
         for spec in deps.registry.all():
             deferred, failed = _embedding_counts(pipeline, before, spec.id)
             result["embedding_deferred"] += deferred
-            if failed:
+            if embed_only:
+                result["embedding_failed"] += failed
+            elif failed:
                 existing = next((row for row in result["failed_sources"] if row["source_id"] == spec.id), None)
                 if existing is None:
                     existing = {"source_id": spec.id, "reasons": {}}
@@ -219,6 +237,9 @@ def _backfill(deps, remaining, started, max_minutes, check, result, before_round
                 reasons = existing["reasons"]
                 reasons["embedding_failed"] = reasons.get("embedding_failed", 0) + failed
         exclude.update(key for key, count in _failure_counts(pipeline).items() if count > before.get(key, 0))
+        if embed_only:
+            result["vector_pending"] = sum(item["chunks"] for item in _load_vector_state(pipeline)["missing"].values())
+            _progress("embed_batch", started, result)
         if not used:
             break
     result["vector_pending"] = sum(item["chunks"] for item in _load_vector_state(pipeline)["missing"].values())
@@ -293,18 +314,34 @@ def check() -> dict:
 
 def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: float = 40,
         reserve_minutes: float = 10) -> dict:
+    return _round(work_dir=work_dir, max_embed=max_embed, max_minutes=max_minutes,
+                  reserve_minutes=reserve_minutes, embed_only=False)
+
+
+def embed(*, work_dir: Path | None = None, max_minutes: float,
+          reserve_minutes: float = 10, max_embed: int | None = None) -> dict:
+    """Embed existing backlog in bounded batches, publishing only successful work."""
+    return _round(work_dir=work_dir, max_embed=max_embed, max_minutes=max_minutes,
+                  reserve_minutes=reserve_minutes, embed_only=True)
+
+
+def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only):
     result = {"status": "failed", "exit_status": 1, "generation": None,
               "sources": [], "due": 0, "new": 0, "unchanged": 0, "parsed": 0,
               "failed_sources": [], "reason": None, "budget_exhausted": False,
               "weekly_report_key": None, "reserve_minutes": reserve_minutes,
               "publish_timings": {}, "restore_timings": {},
               "embedding_deferred": 0, "backfill_embedded": 0, "vector_pending": 0}
+    if embed_only:
+        result = {"status": "failed", "exit_status": 1, "generation": None,
+                  "embedded": 0, "vector_pending": 0, "embedding_deferred": 0, "embedding_failed": 0,
+                  "budget_exhausted": False, "reason": None, "publish_timings": {}, "restore_timings": {}}
     phase = "configuration"
     manager = leases = lease = deps = None
     started = time.monotonic()
     with _quiet(), ExitStack() as stack:
         try:
-            if (type(max_embed) is not int or max_embed < 0
+            if ((not (embed_only and max_embed is None) and (type(max_embed) is not int or max_embed < 0))
                     or not math.isfinite(max_minutes) or max_minutes < 0
                     or not math.isfinite(reserve_minutes) or reserve_minutes < 0):
                 raise ValueError("invalid_budget")
@@ -359,53 +396,65 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
                     check()
                     phase = "initialization"
                     deps = wiring.build(root)
-                    for feature in ("crawl", "parse", "index"):
+                    for feature in (("index",) if embed_only else ("crawl", "parse", "index")):
                         deps.require(feature)
-                    if not (root / "control.json").exists():
-                        write_control(root, {"enabled": True, "sources": {
-                            spec.id: {"enabled": True} for spec in deps.registry.all()
-                        }})
-                    phase = "due"
-                    scheduler = Scheduler(root, deps.registry.all(), lambda spec: None)
-                    due = _due(scheduler, root)
-                    result["due"] = len(due)
-                    remaining = max_embed
-                    pipeline = getattr(deps, "pipeline_deps", None)
-                    before_round = _failure_counts(pipeline) if pipeline is not None else {}
-                    for source_id in due:
-                        phase = "lease_check"
-                        check()
-                        seconds_left = max_minutes * 60 - (time.monotonic() - started)
-                        if seconds_left < 60:
-                            result["budget_exhausted"] = True
-                            break
-                        phase = "run_ledger"
-                        spec = scheduler.sources[source_id]
-                        max_run = spec.scope.get("max_run_seconds", DEFAULT_MAX_RUN_SECONDS)
-                        # Invalid source limits must still reach runner validation,
-                        # rather than being masked by the round's valid limit.
-                        if (type(max_run) in (int, float) and math.isfinite(max_run) and max_run > 0):
-                            max_run = min(max_run, seconds_left)
-                        scope = {**spec.scope, "max_run_seconds": max_run}
-                        _progress("source_start", started, {"source_id": source_id})
-                        record, remaining = _source(deps, spec.model_copy(update={"scope": scope}), scheduler, remaining)
-                        _progress("source_end", started, record)
-                        result["sources"].append(record)
-                        for key in ("new", "unchanged", "parsed"):
-                            result[key] += record[key]
-                        result["embedding_deferred"] += record.get("embedding_deferred", 0)
-                        if record["exit_status"]:
-                            result["failed_sources"].append({"source_id": source_id, "reasons": record["failures"]})
-                        phase = "lease_check"
-                        check()
+                    if not embed_only:
+                        if not (root / "control.json").exists():
+                            write_control(root, {"enabled": True, "sources": {
+                                spec.id: {"enabled": True} for spec in deps.registry.all()
+                            }})
+                        phase = "due"
+                        scheduler = Scheduler(root, deps.registry.all(), lambda spec: None)
+                        due = _due(scheduler, root)
+                        result["due"] = len(due)
+                        remaining = max_embed
+                        pipeline = getattr(deps, "pipeline_deps", None)
+                        before_round = _failure_counts(pipeline) if pipeline is not None else {}
+                        for source_id in due:
+                            phase = "lease_check"
+                            check()
+                            seconds_left = max_minutes * 60 - (time.monotonic() - started)
+                            if seconds_left < 60:
+                                result["budget_exhausted"] = True
+                                break
+                            phase = "run_ledger"
+                            spec = scheduler.sources[source_id]
+                            max_run = spec.scope.get("max_run_seconds", DEFAULT_MAX_RUN_SECONDS)
+                            # Invalid source limits must still reach runner validation,
+                            # rather than being masked by the round's valid limit.
+                            if (type(max_run) in (int, float) and math.isfinite(max_run) and max_run > 0):
+                                max_run = min(max_run, seconds_left)
+                            scope = {**spec.scope, "max_run_seconds": max_run}
+                            _progress("source_start", started, {"source_id": source_id})
+                            record, remaining = _source(deps, spec.model_copy(update={"scope": scope}), scheduler, remaining)
+                            _progress("source_end", started, record)
+                            result["sources"].append(record)
+                            for key in ("new", "unchanged", "parsed"):
+                                result[key] += record[key]
+                            result["embedding_deferred"] += record.get("embedding_deferred", 0)
+                            if record["exit_status"]:
+                                result["failed_sources"].append({"source_id": source_id, "reasons": record["failures"]})
+                            phase = "lease_check"
+                            check()
                     phase = "lease_renew"
                     leases.renew(lease.holder, lease.token)
                     check()
-                    phase = "staged_recovery"
-                    with local_write(root):
-                        remaining = _recover(deps, remaining)
-                    phase = "backfill"
-                    remaining = _backfill(deps, remaining, started, max_minutes, check, result, before_round)
+                    if embed_only:
+                        phase = "embed"
+                        pipeline = getattr(deps, "pipeline_deps", None)
+                        before_round = _failure_counts(pipeline) if pipeline is not None else {}
+                        _backfill(deps, max_embed, started, max_minutes, check, result, before_round, embed_only=True)
+                        failed = bool(result["embedding_failed"])
+                        result.update(status="failed" if failed else "completed", exit_status=int(failed),
+                                      reason="embedding_failed" if failed else None)
+                        if not result["embedded"]:
+                            return result
+                    else:
+                        phase = "staged_recovery"
+                        with local_write(root):
+                            remaining = _recover(deps, remaining)
+                        phase = "backfill"
+                        remaining = _backfill(deps, remaining, started, max_minutes, check, result, before_round)
                     phase = "maintenance"
                     with local_write(root):
                         maintain_vectors(root / "vectors")
@@ -430,14 +479,14 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
                         manager.last_timings = result["publish_timings"] = timings
                         _progress("publish_end", started, result)
                     result["generation"] = generation.generation
-                    failed = bool(result["failed_sources"])
-                    if not failed:
+                    failed = bool(result["embedding_failed"] if embed_only else result["failed_sources"])
+                    if not failed and not embed_only:
                         phase = "weekly_report"
                         result["weekly_report_key"] = publish_previous_week_report(
                             manager.store, deps, utcnow(), generation,
                         )
                     result.update(status="failed" if failed else "completed", exit_status=int(failed),
-                                  reason="source_failed" if failed else None)
+                                  reason=("embedding_failed" if embed_only else "source_failed") if failed else None)
         except Exception:  # noqa: BLE001 -- 云端运行边界必须把任意 SDK 或插件失败记为本轮失败。
             result.update(status="failed", exit_status=1, reason=f"{phase}_failed")
         finally:
