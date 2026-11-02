@@ -3,6 +3,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import httpx
 import pytest
 
 from datumoj.rikolto.core.contracts import EmbeddingError, ModelMismatch
@@ -15,7 +16,7 @@ SHA = "ab" * 32
 
 
 class FakeOllama:
-    """本地假 Ollama：按 script 依次给出每次请求的动作（"ok" / 状态码 / ("sleep", 秒)），用完后一律 ok。"""
+    """按 script 返回动作（ok / 状态码 / sleep 元组 / 接收请求体的函数），用完后一律 ok。"""
 
     def __init__(self, dim=8, script=()):
         self.dim, self.script, self.requests = dim, list(script), []
@@ -29,6 +30,8 @@ class FakeOllama:
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 outer.requests.append((self.path, body))
                 action = outer.script.pop(0) if outer.script else "ok"
+                if callable(action):
+                    action = action(body)
                 if isinstance(action, tuple):
                     time.sleep(action[1])
                     action = "ok"
@@ -164,6 +167,77 @@ def test_ollama_dim_mismatch_and_connection_refused(ollama):
     with pytest.raises(EmbeddingError):
         e.embed(["a"])
     e.close()
+
+
+@pytest.mark.parametrize("max_items", [1, 4])
+def test_ollama_timeout_splits_batch_in_order(ollama, max_items):
+    texts = [f"第{i}条の長い本文。" for i in range(32)]
+
+    def action(body):
+        return ("sleep", 0.6) if len(body["input"]) > max_items else "ok"
+
+    s = ollama(dim=64, script=[action] * 63)
+    e = OllamaEmbedder(dim=64, base_url=s.url, timeout=0.15, backoff=0)
+    try:
+        expected = HashEmbedder(dim=64).embed(texts)
+        assert len({tuple(v) for v in expected}) == 32
+        assert e.embed(texts) == expected
+        batches = [tuple(body["input"]) for _, body in s.requests]
+        assert batches[0] == tuple(texts) and batches[1] == tuple(texts[:16])
+        multi = [batch for batch in batches if len(batch) > 1]
+        assert len(multi) == len(set(multi))  # 多条批次从不原样重发
+        assert sum(len(batch) > max_items for batch in batches) > 1
+        assert len(s.requests) <= (2 * len(texts) - 1) * (e.retries + 1)
+    finally:
+        e.close()
+
+
+def test_ollama_timeout_after_splitting_to_singleton(ollama):
+    texts = [f"text-{i}" for i in range(8)]
+
+    def action(body):
+        batch = body["input"]
+        return ("sleep", 0.6) if len(batch) > 1 or batch == texts[-1:] else "ok"
+
+    s = ollama(dim=4, script=[action] * 32)
+    e = OllamaEmbedder(dim=4, base_url=s.url, timeout=0.15, retries=2, backoff=0)
+    try:
+        with pytest.raises(EmbeddingError):
+            e.embed(texts)
+        batches = [tuple(body["input"]) for _, body in s.requests]
+        assert batches.count(tuple(texts[-1:])) == e.retries + 1
+        multi = [batch for batch in batches if len(batch) > 1]
+        assert len(multi) == len(set(multi))
+        assert len(s.requests) <= (2 * len(texts) - 1) * (e.retries + 1)
+    finally:
+        e.close()
+
+
+@pytest.mark.parametrize("n", [0, 1, 7, 32, 37])
+def test_ollama_split_request_bound_with_other_retries(n):
+    texts = [f"text-{i}" for i in range(n)]
+    attempts = {}
+    retries, batch_size = 2, 32
+
+    def respond(request):
+        batch = tuple(json.loads(request.content)["input"])
+        attempts[batch] = attempts.get(batch, 0) + 1
+        if attempts[batch] == 1:
+            return httpx.Response(503)
+        if attempts[batch] == 2:
+            raise httpx.ConnectError("synthetic connection failure")
+        if len(batch) > 1:
+            raise httpx.ReadTimeout("synthetic timeout")
+        return httpx.Response(200, json={"embeddings": HashEmbedder(dim=4).embed(batch)})
+
+    with httpx.Client(base_url="http://synthetic.invalid", transport=httpx.MockTransport(respond)) as client:
+        e = OllamaEmbedder(dim=4, client=client, retries=retries, backoff=0, batch_size=batch_size)
+        assert e.embed(texts) == HashEmbedder(dim=4).embed(texts)
+    roots = (n + batch_size - 1) // batch_size
+    requests = sum(attempts.values())
+    assert requests == (2 * n - roots) * (retries + 1)
+    assert requests <= max(0, 2 * n - 1) * (retries + 1)
+    assert all(count == retries + 1 for count in attempts.values())
 
 
 # ---------- LanceVectorIndex ----------

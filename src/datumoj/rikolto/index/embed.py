@@ -39,7 +39,7 @@ class HashEmbedder:
 
 
 class OllamaEmbedder:
-    """通过 Ollama ``/api/embed`` 嵌入。批量请求；超时或网络错误、5xx 按退避重试，4xx 直接失败。
+    """通过 Ollama ``/api/embed`` 嵌入。多条超时对半拆批；单条超时、网络错误、5xx 退避重试，4xx 失败。
 
     ``dim`` 是模型的输出维度（bge-m3 为 1024），返回的向量维度不符会抛 EmbeddingError。
     """
@@ -80,7 +80,13 @@ class OllamaEmbedder:
                 time.sleep(self.backoff * 2 ** (attempt - 1))
             try:
                 resp = self._client.post("/api/embed", json={"model": self.model, "input": batch})
-            except httpx.TransportError as e:  # 含超时
+            except httpx.TimeoutException as e:
+                if len(batch) > 1:
+                    mid = len(batch) // 2
+                    return self._embed_batch(batch[:mid]) + self._embed_batch(batch[mid:])
+                last = e
+                continue
+            except httpx.TransportError as e:
                 last = e
                 continue
             if resp.status_code >= 500:
@@ -89,7 +95,8 @@ class OllamaEmbedder:
             if resp.status_code != 200:
                 raise EmbeddingError(f"Ollama 返回 {resp.status_code}：{resp.text[:200]}")
             return self._parse(resp, len(batch))
-        raise EmbeddingError(f"Ollama 嵌入失败（已重试 {self.retries} 次）：{last}") from last
+        reason = type(last).__name__ if isinstance(last, httpx.TransportError) else str(last)
+        raise EmbeddingError(f"Ollama 嵌入失败（已重试 {self.retries} 次）：{reason}") from last
 
     def _parse(self, resp: httpx.Response, n: int) -> list[list[float]]:
         try:
