@@ -625,7 +625,9 @@ class StateManager:
                 created_at = datetime.now(UTC)
             with self._timed("upload_copies"), closing(self._transfer(
                 lambda copy: self._upload(copy.key, _copy_data(stage, copy), copies),
-                (copy for copy in stores if copy.format != _SQLITE_BLOCKS and copy.key not in copies),
+                # Identical blocks share a key; concurrent conditional PUTs to one key can 409 on S3/R2.
+                {copy.key: copy for copy in reversed(stores)
+                 if copy.format != _SQLITE_BLOCKS and copy.key not in copies}.values(),
             )) as transfers:
                 for _ in transfers:
                     pass
