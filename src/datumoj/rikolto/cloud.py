@@ -28,7 +28,16 @@ from datumoj.rikolto.core.schedule import Scheduler, utcnow, workspace_lock, wri
 from datumoj.rikolto.core.state import StateManager, local_write
 from datumoj.rikolto.core.state_s3 import S3StateObjectStore, probe_conditional_writes
 from datumoj.rikolto.index.vector import maintain_vectors
-from datumoj.rikolto.pipeline import ParseSummary, _recover_staged
+from datumoj.rikolto.pipeline import (
+    VECTOR_FAILURE_LIMIT,
+    ParseSummary,
+    _load_vector_state,
+    _recover_staged,
+    _retry_vectors,
+    _start_vectors,
+)
+
+_BACKFILL_BATCH = 32
 
 
 @contextmanager
@@ -50,12 +59,20 @@ def _progress(event, started, record=None):
     for source in record.get("sources", []):
         for reason, count in source["failures"].items():
             failures[reason] = failures.get(reason, 0) + count
+    if "failed_sources" in record:
+        failures = {}
+        for source in record["failed_sources"]:
+            for reason, count in source["reasons"].items():
+                failures[reason] = failures.get(reason, 0) + count
     row = {key: record.get(key, 0) for key in ("new", "unchanged", "parsed")}
     row.update(event=event, source_id=record.get("source_id"),
                elapsed_s=round(time.monotonic() - started, 3),
                failures=failures, stop_reason=record.get("stop_reason"))
     for key in ("publish_timings", "restore_timings"):
         row[key] = record.get(key, {})
+    for key in ("embedding_deferred", "backfill_embedded", "vector_pending"):
+        if record.get(key) or event in {"backfill_start", "backfill_end"}:
+            row[key] = record.get(key, 0)
     print(json.dumps(row, ensure_ascii=False), file=sys.__stderr__, flush=True)
 
 
@@ -92,7 +109,7 @@ def _source(deps, spec, scheduler, remaining):
     record = {
         "source_id": spec.id, "run_id": uuid.uuid4().hex, "started_at": utcnow().isoformat(),
         "ended_at": None, "state": "running", "status": "running", "exit_status": 0,
-        "new": 0, "unchanged": 0, "parsed": 0, "failures": {}, "stop_reason": None,
+        "new": 0, "unchanged": 0, "parsed": 0, "failures": {}, "stop_reason": None, "embedding_deferred": 0,
     }
     scheduler.append_run(record)
     phase = "crawl"
@@ -112,7 +129,9 @@ def _source(deps, spec, scheduler, remaining):
         if report.failures:
             record["failures"]["crawl_failed"] = sum(report.failures.values())
         phase = "parse_index"
-        summary = deps.parse_pending(replace(deps.pipeline_deps, vector_limit=remaining), spec.id)
+        pipeline = replace(deps.pipeline_deps, vector_limit=remaining)
+        before = _failure_counts(pipeline)
+        summary = deps.parse_pending(pipeline, spec.id)
         remaining = summary.vector_remaining
         record["parsed"] = len(summary.parsed)
         # parse_pending also scans staged publications from other sources.
@@ -124,12 +143,11 @@ def _source(deps, spec, scheduler, remaining):
         failed = sum(belongs(snapshot_id) for snapshot_id in summary.failed) + len(summary.no_parser)
         if failed:
             record["failures"]["parse_index_failed"] = failed
-        # vector_limit is a deliberate deferral, other embedding failures are a
-        # source failure; chunks and keyword results remain publishable.
-        missing = sum(reason != "vector_limit" and belongs(snapshot_id)
-                      for snapshot_id, reason in summary.vectors_missing.items())
-        if missing:
-            record["failures"]["embedding_failed"] = missing
+        deferred, failed = _embedding_counts(pipeline, before, spec.id)
+        if deferred:
+            record["embedding_deferred"] = deferred
+        if failed:
+            record["failures"]["embedding_failed"] = failed
     except Exception:  # noqa: BLE001 -- 单来源失败需隔离，保留本轮其他来源的执行。
         record["failures"][f"{phase}_failed"] = record["failures"].get(f"{phase}_failed", 0) + 1
         # An interrupted parser cannot report its remaining allowance. Reserve
@@ -146,6 +164,69 @@ def _source(deps, spec, scheduler, remaining):
     return record, remaining
 
 
+def _failure_counts(pipeline):
+    return {key: item.get("failures", 0) for key, item in _load_vector_state(pipeline)["missing"].items()}
+
+
+def _embedding_counts(pipeline, before, source_id):
+    deferred = failed = 0
+    for key, item in _load_vector_state(pipeline)["missing"].items():
+        count = item.get("failures", 0)
+        if count <= before.get(key, 0):
+            continue
+        snapshot = pipeline.manifest.get_snapshot(item.get("snapshot_id"))
+        belongs = snapshot.source_id == source_id if snapshot is not None else key.startswith(source_id + ":")
+        if belongs:
+            failed += int(before.get(key, 0) < VECTOR_FAILURE_LIMIT <= count)
+            deferred += int(count < VECTOR_FAILURE_LIMIT)
+    return deferred, failed
+
+
+def _backfill(deps, remaining, started, max_minutes, check, result, before_round):
+    pipeline = getattr(deps, "pipeline_deps", None)
+    if pipeline is None:
+        return remaining
+    pipeline = replace(pipeline)
+    # An error gets another attempt next round, never a tight loop this round.
+    exclude = {key for key, count in _failure_counts(pipeline).items() if count > before_round.get(key, 0)}
+    announced = False
+    while (pipeline.vectors is not None and remaining > 0
+           and max_minutes * 60 - (time.monotonic() - started) >= 120
+           and any(key not in exclude and item.get("failures", 0) < VECTOR_FAILURE_LIMIT
+                   for key, item in _load_vector_state(pipeline)["missing"].items())):
+        check()
+        if max_minutes * 60 - (time.monotonic() - started) < 120:
+            break
+        if not announced:
+            _progress("backfill_start", started, result)
+            announced = True
+        pipeline.vector_limit = min(_BACKFILL_BATCH, remaining)
+        _start_vectors(pipeline)
+        before = _failure_counts(pipeline)
+        with local_write(deps.data_dir):
+            embedded = _retry_vectors(pipeline, None, ParseSummary(), exclude=exclude)
+        used = pipeline.vector_limit - pipeline._vector_remaining
+        remaining -= used
+        result["backfill_embedded"] += embedded
+        for spec in deps.registry.all():
+            deferred, failed = _embedding_counts(pipeline, before, spec.id)
+            result["embedding_deferred"] += deferred
+            if failed:
+                existing = next((row for row in result["failed_sources"] if row["source_id"] == spec.id), None)
+                if existing is None:
+                    existing = {"source_id": spec.id, "reasons": {}}
+                    result["failed_sources"].append(existing)
+                reasons = existing["reasons"]
+                reasons["embedding_failed"] = reasons.get("embedding_failed", 0) + failed
+        exclude.update(key for key, count in _failure_counts(pipeline).items() if count > before.get(key, 0))
+        if not used:
+            break
+    result["vector_pending"] = sum(item["chunks"] for item in _load_vector_state(pipeline)["missing"].values())
+    if announced:
+        _progress("backfill_end", started, result)
+    return remaining
+
+
 def _recover(deps, remaining):
     """Use 107's recovery scan, without starting parses for sources not due."""
     pipeline = replace(deps.pipeline_deps, vector_limit=remaining)
@@ -157,6 +238,7 @@ def _recover(deps, remaining):
                     {key: ParseBudget.from_scope(spec.scope) for key, spec in specs.items()}, summary)
     if deps.manifest.snapshots_in_publish_state(PublishState.staged):
         raise RuntimeError("staged_recovery_failed")
+    return pipeline._vector_remaining
 
 
 def publish_previous_week_report(store, deps, now: datetime, generation=None) -> str:
@@ -215,7 +297,8 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
               "sources": [], "due": 0, "new": 0, "unchanged": 0, "parsed": 0,
               "failed_sources": [], "reason": None, "budget_exhausted": False,
               "weekly_report_key": None, "reserve_minutes": reserve_minutes,
-              "publish_timings": {}, "restore_timings": {}}
+              "publish_timings": {}, "restore_timings": {},
+              "embedding_deferred": 0, "backfill_embedded": 0, "vector_pending": 0}
     phase = "configuration"
     manager = leases = lease = deps = None
     started = time.monotonic()
@@ -287,6 +370,8 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
                     due = _due(scheduler, root)
                     result["due"] = len(due)
                     remaining = max_embed
+                    pipeline = getattr(deps, "pipeline_deps", None)
+                    before_round = _failure_counts(pipeline) if pipeline is not None else {}
                     for source_id in due:
                         phase = "lease_check"
                         check()
@@ -308,6 +393,7 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
                         result["sources"].append(record)
                         for key in ("new", "unchanged", "parsed"):
                             result[key] += record[key]
+                        result["embedding_deferred"] += record.get("embedding_deferred", 0)
                         if record["exit_status"]:
                             result["failed_sources"].append({"source_id": source_id, "reasons": record["failures"]})
                         phase = "lease_check"
@@ -317,7 +403,9 @@ def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: flo
                     check()
                     phase = "staged_recovery"
                     with local_write(root):
-                        _recover(deps, remaining)
+                        remaining = _recover(deps, remaining)
+                    phase = "backfill"
+                    remaining = _backfill(deps, remaining, started, max_minutes, check, result, before_round)
                     phase = "maintenance"
                     with local_write(root):
                         maintain_vectors(root / "vectors")

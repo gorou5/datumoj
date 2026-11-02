@@ -15,7 +15,7 @@ from typer.testing import CliRunner
 
 from datumoj.rikolto import cli, cloud, wiring
 from datumoj.rikolto.core import schedule
-from datumoj.rikolto.core.contracts import FetchResult, PreconditionFailed
+from datumoj.rikolto.core.contracts import EmbeddingError, FetchResult, PreconditionFailed
 from datumoj.rikolto.core.lease import LeaseError, LeaseManager
 from datumoj.rikolto.core.models import FetchOutcome, PublishState
 from datumoj.rikolto.core.state import StateManager
@@ -664,4 +664,159 @@ def test_post_publish_restore_delay_is_visible(world, monkeypatch):
     timings = result["publish_timings"]
     assert timings["post_publish_download_raw"] >= delay[0]
     assert timings["total"] >= timings["post_publish"] >= delay[0]
+    released(world)
+
+
+class FlakyEmbedder(FakeEmbedder):
+    def __init__(self, failures):
+        super().__init__()
+        self.failures = failures
+        self.attempted = 0
+
+    def embed(self, texts):
+        texts = list(texts)
+        self.attempted += len(texts)
+        if self.failures:
+            self.failures -= 1
+            raise EmbeddingError("synthetic transient embedding failure")
+        return super().embed(texts)
+
+
+def test_embedding_error_is_deferred_then_retried_next_round(world):
+    world.overrides.pop("vectors")
+    embedder = FlakyEmbedder(1)
+    world.overrides["embedder"] = embedder
+    first, root = invoke(world, "first")
+    assert first["exit_status"] == 0 and first["failed_sources"] == []
+    assert first["embedding_deferred"] == 1 and first["vector_pending"] == 2
+    assert first["sources"][0]["embedding_deferred"] == 1
+    assert first["sources"][0]["failures"] == {}
+    assert first["backfill_embedded"] == 0 and embedder.attempted == 6
+    state = json.loads((root / "vectors-state.json").read_text())
+    assert [item["failures"] for item in state["missing"].values()] == [1]
+    # No source is due yet; backfill still repairs this error next round.
+    second, repaired = invoke(world, "second")
+    assert second["due"] == 0 and second["sources"] == []
+    assert second["backfill_embedded"] == 2 and second["vector_pending"] == 0
+    assert second["embedding_deferred"] == 0 and second["exit_status"] == 0
+    assert json.loads((repaired / "vectors-state.json").read_text())["missing"] == {}
+    released(world)
+
+
+def test_source_fails_only_on_third_embedding_error(world):
+    world.overrides.pop("vectors")
+    # Every source fails once per due round, including the daily source.
+    embedder = FlakyEmbedder(100)
+    world.overrides["embedder"] = embedder
+    world.clock[0] -= timedelta(days=4)
+    for attempt in (1, 2, 3, 4):
+        if attempt > 1:
+            world.clock[0] += timedelta(days=1)
+        result, root = invoke(world, f"round{attempt}")
+        assert result["exit_status"] == int(attempt == 3)
+        assert result["embedding_deferred"] == (3 if attempt < 3 else 0)
+        assert len(result["failed_sources"]) == (3 if attempt == 3 else 0)
+        if attempt == 3:
+            assert all(row["failures"] == {"embedding_failed": 1} for row in result["sources"])
+        state = json.loads((root / "vectors-state.json").read_text())
+        assert {item["failures"] for item in state["missing"].values()} == {min(attempt, 3)}
+        assert result["vector_pending"] == 6
+    assert embedder.attempted == 18
+    released(world)
+
+
+def test_failed_embedding_attempts_also_consume_shared_allowance(world):
+    world.overrides.pop("vectors")
+    embedder = FlakyEmbedder(100)
+    world.overrides["embedder"] = embedder
+    first, _ = invoke(world, "first", "--max-embed", "3")
+    assert first["exit_status"] == 0 and first["embedding_deferred"] == 2
+    assert first["backfill_embedded"] == 0 and first["vector_pending"] == 6
+    assert embedder.attempted == 3
+    second, _ = invoke(world, "second", "--max-embed", "1")
+    assert second["exit_status"] == 0 and second["embedding_deferred"] == 1
+    assert second["backfill_embedded"] == 0 and second["vector_pending"] == 6
+    assert embedder.attempted == 4
+    released(world)
+
+
+@pytest.mark.parametrize("max_minutes,expected", [(1.99, 0), (2, 3)])
+def test_backfill_all_sources_respects_time_and_shared_allowance(world, monkeypatch, max_minutes, expected):
+    world.overrides.pop("vectors")
+    embedder = FakeEmbedder()
+    world.overrides["embedder"] = embedder
+    first, _ = invoke(world, "initial", "--max-embed", "1")
+    assert first["vector_pending"] == 5
+    assert embedder.embedded == 1
+    # Freeze the round clock: exactly two minutes is sufficient.
+    monkeypatch.setattr(cloud, "time", SimpleNamespace(monotonic=lambda: 0))
+    second, root = invoke(world, "second", "--max-embed", "3", "--max-minutes", str(max_minutes))
+    assert second["due"] == 0 and not second["sources"]
+    assert second["backfill_embedded"] == expected
+    assert second["vector_pending"] == 5 - expected
+    assert embedder.embedded == 1 + expected
+    coverage = world.managers[-1].list()[0].vector_coverage
+    assert coverage.embedded_chunks == 1 + expected and coverage.pending_chunks == 5 - expected
+    assert sum(item["chunks"] for item in json.loads((root / "vectors-state.json").read_text())["missing"].values()) == (
+        5 - expected
+    )
+    released(world)
+
+
+def test_backfill_error_reaches_limit_without_unpublishing_documents(world):
+    world.overrides.pop("vectors")
+    world.overrides["embedder"] = FlakyEmbedder(100)
+    for attempt in (1, 2, 3, 4):
+        result, root = invoke(world, f"round{attempt}")
+        assert result["exit_status"] == int(attempt == 3)
+        assert result["embedding_deferred"] == (3 if attempt < 3 else 0)
+        assert result["vector_pending"] == 6
+        if attempt > 1:
+            assert result["due"] == 0
+        if attempt == 3:
+            assert [row["reasons"] for row in result["failed_sources"]] == [{"embedding_failed": 1}] * 3
+        with sqlite3.connect(root / "manifest.sqlite") as db:
+            assert db.execute("SELECT count(*) FROM publish_states WHERE state='published'").fetchone()[0] == 3
+    assert world.overrides["embedder"].attempted == 18
+    released(world)
+
+
+def test_backfill_checks_time_between_batches_and_runs_after_sources(world, monkeypatch):
+    class ManyChunks(FakeParser):
+        def parse(self, snapshot, data, meta=None):
+            return super().parse(snapshot, b"\n\n".join([b"synthetic paragraph"] * 40), meta)
+
+    world.overrides.pop("vectors")
+    world.overrides["embedder"] = FakeEmbedder()
+    world.overrides["parsers"] = {("fake", "text/plain"): ManyChunks}
+    first, _ = invoke(world, "initial", "--max-embed", "0")
+    assert first["vector_pending"] == 120
+    world.clock[0] += timedelta(hours=1)
+    timer, calls, sources = [0], [], []
+    monkeypatch.setattr(cloud, "time", SimpleNamespace(monotonic=lambda: timer[0]))
+    source = cloud._source
+
+    def tracked_source(*args):
+        row, remaining = source(*args)
+        sources.append(row["source_id"])
+        # Exercise both phases using one allowance while leaving backlog.
+        timer[0] += 5
+        return row, remaining
+
+    monkeypatch.setattr(cloud, "_source", tracked_source)
+    retry = cloud._retry_vectors
+
+    def slow_retry(pipeline, *args, **kwargs):
+        assert sources == ["jp-cloud0", "jp-cloud2"]
+        calls.append((timer[0], pipeline.vector_limit))
+        embedded = retry(pipeline, *args, **kwargs)
+        timer[0] += 190
+        return embedded
+
+    monkeypatch.setattr(cloud, "_retry_vectors", slow_retry)
+    result, _ = invoke(world, "second", "--max-embed", "200", "--max-minutes", "5")
+    assert result["exit_status"] == 0 and result["backfill_embedded"] == 32
+    assert result["vector_pending"] == 8  # 80 during sources, 32 during backfill.
+    assert calls == [(10, 32)] and timer[0] < 300
+    assert world.overrides["embedder"].embedded == 112
     released(world)

@@ -19,6 +19,18 @@ S3 上的 cloud run 用 8 个线程传输不可变副本与 raw，代次清单�
 被 deadline 截止的来源记为未完成，下一轮 cloud run 仍会重试；每个来源、发布和整轮
 结束的安全 JSON 进度行写入 stderr，最终结果 JSON 仍写入 stdout。
 
+`--max-embed 1000` 是整轮提交嵌入的文本块额度：来源处理、发布恢复和补嵌共用，失败的
+尝试也占额度。达到额度的块记为 `vector_limit` 待补，不算来源失败。到期来源处理结束后，
+如果还剩至少 2 分钟和嵌入额度，会直接从已有文本块补嵌所有来源的积压，不重新解析；
+每批最多 32 块，每批前检查剩余时间，不足 2 分钟便停止。`backfill_start` / `backfill_end`
+标示补嵌阶段，结果 `backfill_embedded` 是该阶段成功提交的块数。
+单篇嵌入出错先记 `embedding_deferred`，留到下一轮重试；同一篇累计连续失败达到 3 次的
+那一轮才记 `embedding_failed` 并让来源或本轮失败。达到上限的记录保留但不再自动重试，
+可由人工检查后显式运行向量重建。旧状态没有失败计数时按 0 处理。
+`vector_pending` 是本轮补嵌结束后的待补块总数，包含额度延后、暂时出错和已达重试上限的
+块；它大于 0 不一定表示本轮失败。持续增加时先检查额度是否足够，再查看安全状态文件中
+的 `failures` 计数；补嵌与错误不会撤销已发布的解析、关键词或其他数据。
+
 | 组合 | 要设置的环境变量 | 写入方标记 | 定时触发 |
 | --- | --- | --- | --- |
 | Actions + R2（当前） | `DATUMOJ_STATE_BACKEND=s3`（可省略）；`DATUMOJ_S3_ENDPOINT=https://account-id.example.r2.cloudflarestorage.com`、`DATUMOJ_S3_BUCKET=example-state`、`DATUMOJ_S3_PREFIX=rikolto`、`DATUMOJ_S3_REGION=auto`；凭证变量见下文 | `DATUMOJ_WRITER_KIND=actions`；未显式设置时有 `GITHUB_RUN_ID` 就回退为 actions | `cloud-run.yml` 调用 `rikolto cloud run`；目前只有手动触发，secrets 补齐并手动跑通后再加定时 |
