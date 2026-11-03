@@ -20,6 +20,7 @@ license:
   verified_at: null
   notes: 利用条件尚未逐项核对；核对前仅内部使用
 scope:
+  embed: false
   short_retention: true
   feeds:
     - https://www.data.jma.go.jp/developer/xml/feed/regular_l.xml
