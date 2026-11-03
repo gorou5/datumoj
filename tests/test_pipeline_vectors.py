@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 
 from datumoj.rikolto import cli, wiring
 from datumoj.rikolto.core.contracts import EmbeddingError, ParseStatus
-from datumoj.rikolto.core.models import parse_context_fingerprint
+from datumoj.rikolto.core.models import PublishState, parse_context_fingerprint
 from datumoj.rikolto.pipeline import (
     ParseSummary,
     PipelineDeps,
@@ -271,4 +271,124 @@ def test_retry_counts_only_new_embeddings_when_previous_attempt_partially_wrote(
     _start_vectors(deps)
     assert _retry_vectors(deps, None, ParseSummary()) == 1
     assert deps._vector_remaining == 0  # Attempts remain conservatively reserved.
+    assert not _load_vector_state(deps)["missing"]
+
+
+def _set_embed(deps, value):
+    spec = deps.registry.get("jp-test")
+    deps.registry = FakeRegistry([spec.model_copy(update={"scope": {**spec.scope, "embed": value}})])
+
+
+def test_source_embed_false_keeps_keyword_and_publication_without_using_allowance(tmp_path, monkeypatch):
+    deps, snapshot = _deps(tmp_path / "vectors-state.json")
+    _set_embed(deps, False)
+    deps.vector_limit = 2
+    deps.vectors = FakeVectorIndex(FakeEmbedder())
+
+    def forbidden(*args):
+        raise AssertionError("disabled source touched vectors")
+
+    monkeypatch.setattr(deps.vectors, "add", forbidden)
+    monkeypatch.setattr(deps.vectors, "delete", forbidden)
+    summary = parse_pending(deps)
+    assert summary.parsed == [snapshot.snapshot_id] and not summary.failed and not summary.vectors_missing
+    assert summary.vector_remaining == 2
+    assert deps.manifest.publish_state(snapshot.snapshot_id) is PublishState.published
+    assert deps.keyword.search("本文を収録").items
+    assert not deps.vectors.search("本文を収録").items
+    assert not _load_vector_state(deps)["missing"]
+
+
+def test_disabled_backlog_is_pruned_but_other_and_unidentified_entries_remain(tmp_path):
+    deps, snapshot = _deps(tmp_path / "vectors-state.json")
+    parse_pending(deps)
+    state = _load_vector_state(deps)
+    entry = dict(state["missing"]["jp-test:a.txt"])
+    state["missing"].update({
+        "snapshot-only": dict(entry),
+        "other": {**entry, "snapshot_id": "other-snapshot"},
+        "unidentified": {**entry, "snapshot_id": None},
+    })
+    deps.manifest.record_snapshot(make_snapshot(snapshot_id="other-snapshot", source_id="jp-other"))
+    deps.vector_state_path.write_text(json.dumps(state))
+    _set_embed(deps, False)
+    deps.vector_limit = 0
+    parse_pending(deps)
+    saved = json.loads(deps.vector_state_path.read_text())
+    assert saved["missing"] == {key: value for key, value in state["missing"].items()
+                                if key in {"other", "unidentified"}}
+    assert deps.manifest.publish_state(snapshot.snapshot_id) is PublishState.published
+
+
+@pytest.mark.parametrize("value", [None, 0, 1, "false", "true", [], {}])
+def test_source_embed_requires_boolean(value):
+    deps, _ = _deps()
+    _set_embed(deps, value)
+    with pytest.raises(ValueError, match=r"jp-test.*scope.embed.*布尔值"):
+        parse_pending(deps)
+
+
+@pytest.mark.parametrize("explicit", [False, True])
+def test_default_and_true_embed_normally(explicit):
+    deps, snapshot = _deps()
+    if explicit:
+        _set_embed(deps, True)
+    deps.vectors = FakeVectorIndex(FakeEmbedder())
+    summary = parse_pending(deps)
+    assert summary.parsed == [snapshot.snapshot_id] and not summary.vectors_missing
+    assert deps.vectors.embedder.embedded == 2
+    assert deps.vectors.search("本文を収録").items
+
+
+@pytest.mark.parametrize("limit", [None, 0, 2])
+def test_disabled_vectors_survive_parse_retry_and_reindex(tmp_path, limit):
+    deps, _ = _deps(tmp_path / "vectors-state.json")
+    deps.vectors = FakeVectorIndex(FakeEmbedder())
+    parse_pending(deps)
+    rows = dict(deps.vectors._rows)
+    embedded = deps.vectors.embedder.embedded
+    _set_embed(deps, False)
+    deps.vector_limit = limit
+    data = "更新後の本文".encode()
+    deps.raw.put(data)
+    deps.manifest.record_snapshot(make_snapshot(
+        url="https://example.go.jp/a.txt", data=data, snapshot_id="snapshot-2", source_id="jp-test",
+    ))
+    parse_pending(deps)
+    _start_vectors(deps)
+    assert _retry_vectors(deps, None, ParseSummary()) == 0
+    assert reindex(deps) == 1
+    assert reindex(deps, vectors_only=True) == 0
+    assert deps.vectors._rows == rows
+    assert deps.vectors.embedder.embedded == embedded
+    assert not _load_vector_state(deps)["missing"]
+
+
+def test_reenabled_source_reindex_recreates_backlog():
+    deps, _ = _deps()
+    _set_embed(deps, False)
+    deps.vectors = FakeVectorIndex(FakeEmbedder())
+    parse_pending(deps)
+    _set_embed(deps, True)
+    deps.vector_limit = 0
+    assert reindex(deps) == 2
+    assert _load_vector_state(deps)["missing"]["jp-test:a.txt"]["chunks"] == 2
+
+
+def test_staged_recovery_skips_disabled_vectors_but_repairs_keyword(tmp_path, monkeypatch):
+    deps, snapshot = _deps(tmp_path / "vectors-state.json")
+    add = deps.keyword.add
+
+    def interrupted(*args):
+        raise RuntimeError("synthetic keyword interruption")
+
+    monkeypatch.setattr(deps.keyword, "add", interrupted)
+    assert parse_pending(deps).failed
+    assert deps.manifest.publish_state(snapshot.snapshot_id) is PublishState.staged
+    _set_embed(deps, False)
+    monkeypatch.setattr(deps.keyword, "add", add)
+    summary = parse_pending(deps)
+    assert not summary.failed and not summary.vectors_missing
+    assert deps.manifest.publish_state(snapshot.snapshot_id) is PublishState.published
+    assert deps.keyword.search("本文を収録").items
     assert not _load_vector_state(deps)["missing"]

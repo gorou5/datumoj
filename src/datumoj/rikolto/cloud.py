@@ -458,7 +458,7 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only):
                         failed = bool(result["embedding_failed"])
                         result.update(status="failed" if failed else "completed", exit_status=int(failed),
                                       reason="embedding_failed" if failed else None)
-                        if not result["embedded"]:
+                        if not result["embedded"] and not (pipeline is not None and pipeline._vector_pending_removed):
                             return result
                     else:
                         phase = "staged_recovery"

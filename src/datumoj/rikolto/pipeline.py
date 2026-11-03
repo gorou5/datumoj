@@ -94,6 +94,7 @@ class PipelineDeps:
     _vector_remaining: int | None = field(default=None, init=False, repr=False)
     _vectors_written: bool = field(default=False, init=False, repr=False)
     _vector_embedded: int = field(default=0, init=False, repr=False)
+    _vector_pending_removed: bool = field(default=False, init=False, repr=False)
 
 
 @dataclass
@@ -226,6 +227,25 @@ def _start_vectors(deps: PipelineDeps) -> None:
     deps._vector_embedded = 0
 
 
+def _embed_enabled(spec: SourceSpec) -> bool:
+    value = spec.scope.get("embed", True)
+    if type(value) is not bool:
+        raise ValueError(f"来源 {spec.id!r} 的 scope.embed 必须是布尔值")
+    return value
+
+
+def _source_embeds(deps: PipelineDeps, source_id: str) -> bool:
+    spec = deps.registry.get(source_id)
+    return spec is None or _embed_enabled(spec)
+
+
+def _vector_source_id(deps: PipelineDeps, chunks: list, snapshot_id: str | None) -> str | None:
+    if chunks:
+        return chunks[0].source_id
+    snapshot = deps.manifest.get_snapshot(snapshot_id) if snapshot_id is not None else None
+    return snapshot.source_id if snapshot is not None else None
+
+
 def _maintain_vectors(deps: PipelineDeps) -> None:
     maintain = getattr(deps.vectors, "maintain", None)
     if deps._vectors_written and callable(maintain):
@@ -240,11 +260,12 @@ def _retry_vectors(
     deps: PipelineDeps, source_id: str | None, summary: ParseSummary, *, exclude: set[str] | None = None,
 ) -> int:
     """Retry pending documents only; return successfully embedded blocks, without parsing."""
+    missing = _load_vector_state(deps)["missing"]
     if deps.vectors is None:
         return 0
     before = deps._vector_embedded
     staged = set(deps.manifest.snapshots_in_publish_state(PublishState.staged))
-    for key, item in list(_load_vector_state(deps)["missing"].items()):
+    for key, item in list(missing.items()):
         if deps._vector_remaining == 0:
             break
         if (item.get("failures", 0) >= VECTOR_FAILURE_LIMIT or item.get("snapshot_id") in staged
@@ -268,6 +289,7 @@ def _recover_staged(
 ) -> set[str]:
     """只按 staged 的主键与解析产物恢复，不读取快照历史或 chunk 全表。"""
     pending: set[str] = set()
+    _load_vector_state(deps)
     for snapshot_id in deps.manifest.snapshots_in_publish_state(PublishState.staged):
         pending.add(snapshot_id)
         try:
@@ -289,7 +311,7 @@ def _recover_staged(
                 deps.keyword.delete(key)
                 deps.keyword.add(chunks)
                 missing = _load_vector_state(deps)["missing"].get(key)
-                if (deps.vectors is not None and missing is not None
+                if (_embed_enabled(spec) and deps.vectors is not None and missing is not None
                         and missing.get("failures", 0) < VECTOR_FAILURE_LIMIT
                         and snapshot_id not in summary.vectors_missing and deps._vector_remaining != 0):
                     error = _write_vector_document(deps, key, chunks, snapshot_id, reset=False)
@@ -554,13 +576,14 @@ def _publish_document(
         except Exception as exc:  # noqa: BLE001 -- 可选变化日志写入失败不能撤销发布。
             _LOG.warning("文档变化写入失败：%s（%s）", doc_key, safe_reason(exc))
     chunks = deps.chunks.chunks_for(doc_key, snap.sha256)
-    if deps.vectors is not None and not vectors_retried:
+    write_vectors = deps.vectors is not None and not vectors_retried and _source_embeds(deps, snap.source_id)
+    if write_vectors:
         # 关键词中断或进程退出后，恢复扫描也能定位尚未写完的可选向量。
         _mark_vector_missing(deps, _load_vector_state(deps), doc_key, chunks, "发布后待写入向量", snap.snapshot_id,
                              count_failure=False)
     deps.keyword.delete(doc_key)
     deps.keyword.add(chunks)
-    if deps.vectors is not None and not vectors_retried:
+    if write_vectors:
         error = _write_vector_document(deps, doc_key, chunks, snap.snapshot_id)
         if error:
             return [error]
@@ -600,6 +623,8 @@ def _reconcile_catalog_content_state(deps: PipelineDeps, source_id: str | None) 
 def reindex(deps: PipelineDeps, source_id: str | None = None, *, vectors_only: bool = False) -> int:
     """从 ChunkStore 流式重建索引；vectors_only 只重试已记录的向量暂缺文档。"""
     _start_vectors(deps)
+    _load_vector_state(deps)
+    preserve_vectors = any(not _embed_enabled(spec) for spec in deps.registry.all())
     if deps.vectors is not None and deps.vector_limit is not None:
         return _limited_reindex(deps, source_id, vectors_only=vectors_only)
     if not vectors_only:
@@ -620,15 +645,17 @@ def reindex(deps: PipelineDeps, source_id: str | None = None, *, vectors_only: b
     finish_generation = getattr(deps.vectors, "finish_generation", None) if deps.vectors is not None else None
     abort_generation = getattr(deps.vectors, "abort_generation", None) if deps.vectors is not None else None
     staged = all(callable(method) for method in (begin_generation, finish_generation, abort_generation))
+    if preserve_vectors and not callable(getattr(deps.vectors, "count_rows", None)):
+        staged = False
     generation_started = False
     if not vectors_only and source_id is None:
         deps.keyword.clear()
 
     vector_clear_failed = False
     if staged:
-        begin_generation(copy_current=vectors_only or source_id is not None)
+        begin_generation(copy_current=vectors_only or source_id is not None or preserve_vectors)
         generation_started = True
-    elif deps.vectors is not None and not vectors_only and source_id is None:
+    elif deps.vectors is not None and not vectors_only and source_id is None and not preserve_vectors:
         try:
             deps.vectors.clear()
         except Exception as exc:  # noqa: BLE001 -- 向量清理失败须标记待重试并保留关键词索引。
@@ -678,12 +705,13 @@ def reindex(deps: PipelineDeps, source_id: str | None = None, *, vectors_only: b
 
             if deps.vectors is None or vector_clear_failed:
                 continue
-            vector_batch = [chunk for chunk in batch if not vectors_only or chunk.doc_key in selected]
+            vector_batch = [chunk for chunk in batch if _source_embeds(deps, chunk.source_id)
+                            and (not vectors_only or chunk.doc_key in selected)]
             if not vector_batch:
                 continue
             vector_seen.update(chunk.doc_key for chunk in vector_batch)
             try:
-                if source_id is not None and not vectors_only:
+                if (source_id is not None or preserve_vectors) and not vectors_only:
                     for chunk in vector_batch:
                         if chunk.doc_key not in vector_deleted:
                             deps.vectors.delete(chunk.doc_key)
@@ -702,7 +730,7 @@ def reindex(deps: PipelineDeps, source_id: str | None = None, *, vectors_only: b
                     raise
 
         if staged:
-            finish_generation(expected_count)
+            finish_generation(deps.vectors.count_rows() if preserve_vectors else expected_count)
             generation_started = False
         if state is not None:
             successful = (selected if vectors_only else vector_seen) - vector_failed
@@ -732,7 +760,8 @@ def _limited_reindex(deps: PipelineDeps, source_id: str | None, *, vectors_only:
         "begin_generation", "finish_generation", "abort_generation", "count_rows",
     ))
     if staged:
-        begin(copy_current=vectors_only or source_id is not None)
+        begin(copy_current=vectors_only or source_id is not None
+              or any(not _embed_enabled(spec) for spec in deps.registry.all()))
     processed = embedded = 0
     try:
         if not vectors_only and source_id is None:
@@ -830,7 +859,18 @@ def _load_vector_state(deps: PipelineDeps) -> dict[str, object]:
         failures = item.setdefault("failures", 0)
         if type(failures) is not int or failures < 0:
             raise ValueError("向量重试计数无效")
-    return {"missing": missing, "last_error": state.get("last_error")}
+    state = {"missing": missing, "last_error": state.get("last_error")}
+    disabled = {spec.id for spec in deps.registry.all() if not _embed_enabled(spec)}
+    removed = set()
+    if disabled:
+        for key, item in missing.items():
+            chunks = deps.chunks.chunks_for(key)
+            if _vector_source_id(deps, chunks, item.get("snapshot_id")) in disabled:
+                removed.add(key)
+    if removed:
+        _clear_vector_missing_many(deps, state, removed)
+        deps._vector_pending_removed = True
+    return state
 
 
 def _save_vector_state(deps: PipelineDeps, state: dict[str, object]) -> None:
@@ -863,6 +903,9 @@ def _mark_vector_missing(
     snapshot_id: str | None,
     *, chunk_ids: list[str] | None = None, count_failure: bool = True,
 ) -> None:
+    source_id = _vector_source_id(deps, chunks, snapshot_id)
+    if source_id is not None and not _source_embeds(deps, source_id):
+        return
     missing = state["missing"]
     previous = missing.get(doc_key, {})
     failures = previous.get("failures", 0)
@@ -899,6 +942,9 @@ def _write_vector_document(
     deps: PipelineDeps, doc_key: str, chunks: list, snapshot_id: str | None, *, reset: bool = True,
 ) -> str | None:
     state = _load_vector_state(deps)
+    source_id = _vector_source_id(deps, chunks, snapshot_id)
+    if source_id is not None and not _source_embeds(deps, source_id):
+        return None
     previous = state["missing"].get(doc_key, {})
     ids = set(previous["chunk_ids"]) if not reset and "chunk_ids" in previous else None
     pending = chunks if ids is None else [c for c in chunks if c.chunk_id in ids]
