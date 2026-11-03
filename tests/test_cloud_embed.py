@@ -13,7 +13,7 @@ from datumoj.rikolto.core.contracts import PreconditionFailed
 from datumoj.rikolto.core.lease import LeaseManager
 from datumoj.rikolto.core.state import StateManager
 from datumoj.rikolto.index.embed import HashEmbedder
-from datumoj.rikolto.testing.fakes import FakeParser
+from datumoj.rikolto.testing.fakes import FakeParser, FakeRegistry
 from tests.test_cloud_run import FlakyEmbedder, invoke, released, remote
 from tests.test_cloud_run import world as world  # noqa: PLC0414 -- Shared offline fixture.
 
@@ -226,4 +226,25 @@ def test_reaching_retry_limit_still_publishes_other_successes(world):
     assert result["generation"] == 3 and result["embedded"] == 4
     assert result["embedding_failed"] == 1 and result["embedding_deferred"] == 0
     assert result["vector_pending"] == 2 and result["reason"] == "embedding_failed"
+    released(world)
+
+
+@pytest.mark.parametrize("disable_all", [False, True])
+def test_disabled_backlog_is_skipped_and_cleanup_is_published(world, disable_all):
+    seed(world)
+    disabled = {spec.id for spec in world.specs} if disable_all else {world.specs[0].id}
+    world.overrides["registry"] = FakeRegistry([
+        spec.model_copy(update={"scope": {**spec.scope, "embed": False}}) if spec.id in disabled else spec
+        for spec in world.specs
+    ])
+    result = invoke_embed(world, "disabled", "--max-embed", "1")
+    assert result["status"] == "completed" and result["generation"] == 2
+    assert result["embedded"] == (0 if disable_all else 1)
+    assert result["vector_pending"] == (0 if disable_all else 3)
+    assert result["embedding_deferred"] == result["embedding_failed"] == 0
+    pending = json.loads((world.tmp / "disabled/vectors-state.json").read_text())["missing"]
+    assert all(not any(key.startswith(source_id + ":") for source_id in disabled) for key in pending)
+    assert world.managers[-1].list()[0].vector_coverage.pending_chunks == result["vector_pending"]
+    if disable_all:
+        assert invoke_embed(world, "cleaned")["generation"] is None
     released(world)

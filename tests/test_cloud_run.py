@@ -445,6 +445,29 @@ def test_due_never_run_sources_are_sorted_by_id(world, ledger_exists):
     assert cloud._due(scheduler, root) == sorted(spec.id for spec in world.specs)
 
 
+def test_backfill_skips_disabled_source_and_publishes_reduced_pending(world):
+    world.overrides.pop("vectors")
+    embedder = FakeEmbedder()
+    world.overrides["embedder"] = embedder
+    initial, _ = invoke(world, "initial", "--max-embed", "0")
+    assert initial["vector_pending"] == 6
+    disabled = world.specs[0]
+    world.overrides["registry"] = FakeRegistry([
+        spec.model_copy(update={"scope": {**spec.scope, "embed": False}}) if spec.id == disabled.id else spec
+        for spec in world.specs
+    ])
+    result, root = invoke(world, "backfill", "--max-embed", "1")
+    assert result["status"] == "completed" and result["due"] == 0
+    assert result["backfill_embedded"] == 1 and result["vector_pending"] == 3
+    assert embedder.embedded == 1
+    pending = json.loads((root / "vectors-state.json").read_text())["missing"]
+    assert all(not key.startswith(disabled.id + ":") for key in pending)
+    assert world.managers[-1].list()[0].vector_coverage.pending_chunks == 3
+    with sqlite3.connect(root / "keyword.sqlite") as db:
+        assert db.execute("SELECT count(*) FROM entries WHERE source_id=?", (disabled.id,)).fetchone() == (2,)
+    released(world)
+
+
 def test_due_three_tiers_use_last_start_and_preserve_membership(world):
     # Reverse chronological and ID order deliberately; end times are identical.
     attempts = [

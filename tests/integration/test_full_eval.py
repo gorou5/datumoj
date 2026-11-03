@@ -274,7 +274,9 @@ def test_real_dependencies_and_complete_corpus(full_chain):
         "AND table_key = '000031720773' AND locator = 'cell=L15;row=15'"
     ).rows == [(None, "-")]
     found = deps.retriever.search(["集会 結社 言論 出版 検閲の禁止"], source_ids=["jp-egov-law"])
-    assert any(MatchedBy.vector in hit.matched_by for hit in found.data)
+    assert found.data
+    assert any(MatchedBy.keyword in hit.matched_by for hit in found.data)
+    assert all(MatchedBy.vector not in hit.matched_by for hit in found.data)
     assert not any("degraded=true" in warning for warning in found.warnings)
 
 
