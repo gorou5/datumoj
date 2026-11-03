@@ -54,13 +54,15 @@ def test_progress_bypasses_quiet_flushes_and_never_exposes_plugin_exception(worl
     assert stream.flushed_lines == lines
     events = [json.loads(line) for line in lines]
     assert [row["event"] for row in events] == [
-        "source_start", "source_end", "source_start", "source_end", "source_start", "source_end",
+        "source_start", "crawl_end", "parse_end", "source_end", "source_start", "source_end",
+        "source_start", "crawl_end", "parse_end", "source_end",
         "publish_start", "publish_end", "round_end",
     ]
     keys = {"event", "source_id", "elapsed_s", "new", "unchanged", "parsed", "failures", "stop_reason",
             "publish_timings", "restore_timings"}
     assert all(set(row) == keys for row in events)
     assert [row["elapsed_s"] for row in events] == sorted(row["elapsed_s"] for row in events)
+    events = [row for row in events if row["event"] not in {"crawl_end", "parse_end"}]
     assert [row["source_id"] for row in events[:6]] == [spec.id for spec in world.specs for _ in range(2)]
     assert events[3]["failures"] == {"crawl_failed": 1}
     assert events[3]["stop_reason"] == "source_failed"

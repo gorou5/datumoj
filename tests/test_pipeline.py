@@ -188,3 +188,30 @@ def test_reindex_rebuilds():
     assert reindex(deps) == 2
     assert deps.keyword.search("本文").items and deps.vectors.search("本文").items
     assert reindex(deps, "jp-test") == 2
+
+
+def test_parse_deadline_finishes_current_snapshot_and_leaves_rest_pending():
+    timer = [0]
+
+    class SlowParser(FakeParser):
+        def parse(self, *args, **kwargs):
+            timer[0] += 5
+            return super().parse(*args, **kwargs)
+
+    deps = build([SlowParser])
+    deps.clock = lambda: timer[0]
+    first = add(deps, b"First paragraph", url="https://example.go.jp/first.txt")
+    second = add(deps, b"Second paragraph", url="https://example.go.jp/second.txt")
+    summary = parse_pending(deps, deadline=5)
+    assert summary.parsed == [first.snapshot_id] and summary.stop_reason == "deadline"
+    assert not summary.failed
+    assert deps.chunks.get_document("jp-test:first.txt") is not None
+    assert deps.keyword.search("First").items
+    assert deps.manifest.get_parse(
+        second.sha256, SlowParser.name, SlowParser.version,
+        parse_context_fingerprint(second, deps.manifest.snapshot_meta(second.snapshot_id)),
+    ) is None
+    summary = parse_pending(deps)
+    assert summary.parsed == [second.snapshot_id] and not summary.failed
+    assert summary.stop_reason is None
+    assert deps.keyword.search("Second").items

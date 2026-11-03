@@ -445,3 +445,36 @@ def test_staged_recovery_skips_disabled_vectors_but_repairs_keyword(tmp_path, mo
     assert deps.manifest.publish_state(snapshot.snapshot_id) is PublishState.published
     assert deps.keyword.search("本文を収録").items
     assert not _load_vector_state(deps)["missing"]
+
+
+def test_embedding_deadline_between_batches_retains_pending_ids_without_failure(tmp_path, monkeypatch):
+    from datumoj.rikolto import pipeline
+
+    timer = [0]
+    deps, snapshot = _deps(tmp_path / "deadline-state.json")
+    vectors = FakeVectorIndex(FakeEmbedder())
+    original_add = vectors.add
+    batches = []
+
+    def slow_add(chunks):
+        batches.append([c.chunk_id for c in chunks])
+        result = original_add(chunks)
+        timer[0] += 5
+        return result
+
+    monkeypatch.setattr(pipeline, "_BATCH", 1)
+    monkeypatch.setattr(vectors, "add", slow_add)
+    deps.vectors, deps.clock = vectors, lambda: timer[0]
+    summary = parse_pending(deps, deadline=5)
+    assert summary.parsed == [snapshot.snapshot_id] and summary.stop_reason == "deadline"
+    assert not summary.failed
+    assert len(batches) == 1
+    assert deps.manifest.publish_state(snapshot.snapshot_id) is PublishState.published
+    state = json.loads(deps.vector_state_path.read_text())
+    pending = state["missing"]["jp-test:a.txt"]
+    assert pending["chunks"] == 1 and pending["failures"] == 0 and pending["error"] == "deadline"
+    assert set(pending["chunk_ids"]).isdisjoint(batches[0])
+    restarted = replace(deps, vector_state={"missing": {}})
+    assert not parse_pending(restarted).vectors_missing
+    assert len(batches) == 2 and batches[1] == pending["chunk_ids"]
+    assert not _load_vector_state(restarted)["missing"]

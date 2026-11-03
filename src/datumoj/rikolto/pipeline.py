@@ -8,9 +8,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -91,6 +92,10 @@ class PipelineDeps:
     change_log: ChangeLog | None = None
     vector_limit: int | None = field(default_factory=_configured_vector_limit)
     """每次流水线调用的嵌入块数上限；None 为不限。失败的尝试也占用额度。"""
+    deadline: float | None = None
+    """单调时钟截止时刻；快照与嵌入批次之间检查，None 为不限。"""
+    clock: Callable[[], float] = time.monotonic
+    _deadline_reached: bool = field(default=False, init=False, repr=False)
     _vector_remaining: int | None = field(default=None, init=False, repr=False)
     _vectors_written: bool = field(default=False, init=False, repr=False)
     _vector_embedded: int = field(default=0, init=False, repr=False)
@@ -115,10 +120,15 @@ class ParseSummary:
     """解析成功但向量写入暂缺的 snapshot_id → 错误原因。"""
     vector_remaining: int | None = None
     """本次调用剩余额度；返回给组合入口，不依赖 wiring 是否复制了 deps。"""
+    stop_reason: str | None = None
 
 
-def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSummary:
+def parse_pending(
+    deps: PipelineDeps, source_id: str | None = None, *, deadline: float | None = None,
+) -> ParseSummary:
     """解析或复用上下文产物；每个成功快照都按持久化顺序尝试发布。"""
+    if deadline is not None:
+        deps = replace(deps, deadline=deadline)
     _start_vectors(deps)
     parsers = deps.parsers if deps.parsers is not None else discover_parsers()
     specs = deps.registry.all()
@@ -136,6 +146,8 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
         budget = budgets[spec.id]
         snapshots = deps.manifest.snapshots_for(spec.id)
         for snap in snapshots:
+            if _deadline_reached(deps):
+                break
             if snap.outcome is not FetchOutcome.ok or snap.sha256 is None:
                 continue
             if snap.snapshot_id in recovering:
@@ -215,14 +227,22 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
                 _record_fetch_changes(deps, snapshots)
             except Exception as exc:  # noqa: BLE001 -- 可选抓取变化检测失败不能撤销解析结果。
                 _LOG.warning("抓取变化检测失败：%s（%s）", spec.id, safe_reason(exc))
+    summary.stop_reason = "deadline" if _deadline_reached(deps) else None
     summary.vector_remaining = deps._vector_remaining
     _maintain_vectors(deps)
     return summary
 
 
+def _deadline_reached(deps: PipelineDeps) -> bool:
+    if deps.deadline is not None and deps.clock() >= deps.deadline:
+        deps._deadline_reached = True
+    return deps._deadline_reached
+
+
 def _start_vectors(deps: PipelineDeps) -> None:
     if deps.vector_limit is not None and (type(deps.vector_limit) is not int or deps.vector_limit < 0):
         raise ValueError("vector_limit 必须是非负整数或 None")
+    deps._deadline_reached = False
     deps._vector_remaining = deps.vector_limit
     deps._vectors_written = False
     deps._vector_embedded = 0
@@ -267,7 +287,7 @@ def _retry_vectors(
     before = deps._vector_embedded
     staged = set(deps.manifest.snapshots_in_publish_state(PublishState.staged))
     for key, item in list(missing.items()):
-        if deps._vector_remaining == 0:
+        if deps._vector_remaining == 0 or _deadline_reached(deps):
             break
         if (item.get("failures", 0) >= VECTOR_FAILURE_LIMIT or item.get("snapshot_id") in staged
                 or (exclude is not None and key in exclude)):
@@ -953,26 +973,31 @@ def _write_vector_document(
     previous = state["missing"].get(doc_key, {})
     ids = set(previous["chunk_ids"]) if not reset and "chunk_ids" in previous else None
     pending = chunks if ids is None else [c for c in chunks if c.chunk_id in ids]
-    batch = pending if deps._vector_remaining is None else pending[:deps._vector_remaining]
-    # Reserve attempts before calling the embedder: partial failures must not
-    # allow more than N texts to be submitted during one run.
-    if deps._vector_remaining is not None:
-        deps._vector_remaining -= len(batch)
+    reason = None
     try:
         if reset or ids is None:
             deps.vectors.delete(doc_key)
             deps._vectors_written = True
-        if batch:
+        while pending:
+            if _deadline_reached(deps):
+                reason = "deadline"
+                break
+            if deps._vector_remaining == 0:
+                reason = "vector_limit"
+                break
+            size = min(_BATCH, deps._vector_remaining) if deps._vector_remaining is not None else _BATCH
+            batch = pending[:size]
+            # Failed attempts also consume the allowance.
+            if deps._vector_remaining is not None:
+                deps._vector_remaining -= len(batch)
             deps._vectors_written = True
             deps._vector_embedded += deps.vectors.add(batch)
+            pending = pending[len(batch):]
     except Exception as exc:  # noqa: BLE001 -- 向量 SDK 单文档失败须保留待补状态。
         reason = safe_reason(exc)
-    else:
-        pending = pending[len(batch):]
-        reason = "vector_limit" if pending else None
     if reason:
         _mark_vector_missing(deps, state, doc_key, pending, reason, snapshot_id,
-                             chunk_ids=[c.chunk_id for c in pending])
+                             chunk_ids=[c.chunk_id for c in pending], count_failure=reason != "deadline")
         return reason
     _clear_vector_missing(deps, state, doc_key)
     return None

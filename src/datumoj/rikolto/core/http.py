@@ -8,16 +8,20 @@ from __future__ import annotations
 
 import ipaddress
 import logging
+import math
 import re
 import socket
 import string
 import time
 import zlib
 from collections.abc import Callable, Iterable, Iterator, Mapping
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
+from queue import Empty, Queue
+from threading import Event, Thread
 from typing import Any
 from urllib.parse import quote
 
@@ -38,6 +42,11 @@ ROBOTS_MAX_BYTES = 500 * 1024
 ROBOTS_MAX_REDIRECTS = 5
 _REDIRECTS = frozenset({301, 302, 303, 307, 308})
 _STEP = 64 * 1024
+_REQUEST_DEADLINE = "request total duration exceeded"
+
+
+class _RequestDeadline(httpx.TimeoutException):
+    pass
 
 log = logging.getLogger(__name__)
 
@@ -144,7 +153,9 @@ def _decoder(content_encoding: str | None) -> Callable[[Iterable[bytes]], Iterat
     raise _BodyError(f"不支持的 Content-Encoding：{content_encoding}")
 
 
-def _read_body(response: httpx.Response, limit: int | None, truncate: bool) -> tuple[bytes, bool]:
+def _read_body(
+    response: httpx.Response, limit: int | None, truncate: bool, check: Callable[[], None] = lambda: None,
+) -> tuple[bytes, bool]:
     """边下边解边判：返回 (正文, 是否超限)。超限时立即停止读取，正文只保留前 limit 字节。
 
     truncate=False 时，未压缩且 Content-Length 已超限的响应一个字节都不读。
@@ -157,9 +168,16 @@ def _read_body(response: httpx.Response, limit: int | None, truncate: bool) -> t
             declared = -1
         if declared > limit:
             return b"", True
+    def checked_chunks():
+        for chunk in response.iter_raw():
+            check()  # gzip can consume many raw chunks without yielding output.
+            yield chunk
+        check()
+
     buf = bytearray()
     try:
-        for piece in decode(response.iter_raw()):
+        for piece in decode(checked_chunks()):
+            check()
             if limit is not None and len(buf) + len(piece) > limit:
                 buf += piece[: limit - len(buf)]
                 return bytes(buf), True
@@ -277,6 +295,7 @@ class PoliteHttpFetcher:
     """基于 httpx 同步客户端的 HttpFetcher。
 
     - 同一 host 的请求间隔至少 1/rate_per_sec 秒（robots.txt 和重试也算）；clock、sleep、now 可注入。
+    - max_request_seconds 限制单次尝试的连接、响应头和正文总耗时；默认不限。
     - 429、5xx 和网络错误按 backoff·2^n 秒（不超过 max_wait）重试，最多 max_retries 次；有 Retry-After 就按它等，
       要求等待超过 max_wait 时不再重试；其他 4xx 不重试。
     - 请求 ``Accept-Encoding: identity``；服务器仍回 gzip 时自己解压（支持多段），max_bytes 按解压后的字节数边下边判。
@@ -297,6 +316,7 @@ class PoliteHttpFetcher:
         max_wait: float = 60.0,
         max_redirects: int = 10,
         timeout: float = 30.0,
+        max_request_seconds: float | None = None,
         user_agent: str = USER_AGENT,
         transport: httpx.BaseTransport | None = None,
         resolver: Callable[[str], Iterable[str]] | None = None,
@@ -311,6 +331,10 @@ class PoliteHttpFetcher:
             raise ValueError("max_bytes 必须大于 0")
         if max_retries < 0 or max_redirects < 0:
             raise ValueError("max_retries 和 max_redirects 不能小于 0")
+        if max_request_seconds is not None and (not math.isfinite(max_request_seconds) or max_request_seconds <= 0):
+            raise ValueError("max_request_seconds 必须是有限正数或 None")
+        self.max_request_seconds = max_request_seconds
+        self._connections: list[Any] = []
         self.allowed_hosts = [h.strip().lower().rstrip(".") for h in allowed_hosts]
         self.max_bytes = max_bytes
         self.max_retries = max_retries
@@ -374,11 +398,16 @@ class PoliteHttpFetcher:
 
         for _ in range(self.max_redirects + 1):
             here = redact_url(str(current))
-            if (reason := self._robots_block(current)) is not None:
+            try:
+                reason = self._robots_block(current)
+            except _RequestDeadline:
+                return result(FetchOutcome.network_error, error=_REQUEST_DEADLINE)
+            if reason is not None:
                 return result(FetchOutcome.blocked_by_robots, error=f"{reason}，未请求：{here}")
             reply = self._request(current, headers, self.max_bytes, method=method)
             if reply.status is None:
-                return result(FetchOutcome.network_error, error=f"{reply.error}：{here}")
+                return result(FetchOutcome.network_error,
+                              error=reply.error if reply.error == _REQUEST_DEADLINE else f"{reply.error}：{here}")
             hop = self._next_hop(current, reply)
             if isinstance(hop, str):
                 return result(FetchOutcome.network_error, http_status=reply.status, error=hop)
@@ -456,6 +485,8 @@ class PoliteHttpFetcher:
         current = robots_url
         for _ in range(ROBOTS_MAX_REDIRECTS + 1):
             reply = self._request(current, {}, ROBOTS_MAX_BYTES, truncate=True)
+            if reply.error == _REQUEST_DEADLINE:
+                raise _RequestDeadline(_REQUEST_DEADLINE)
             if reply.status is None:
                 return RobotsRules(unreachable=f"robots.txt 无法获取（{reply.error}），按 RFC 9309 视为全部禁止")
             hop = self._next_hop(current, reply)
@@ -507,6 +538,8 @@ class PoliteHttpFetcher:
             backoff = min(self.backoff * 2**attempt, self.max_wait)
             try:
                 reply = self._attempt(url, headers, limit, truncate, method)
+            except _RequestDeadline:
+                return _Reply(None, error=_REQUEST_DEADLINE)
             except httpx.TransportError as exc:
                 reply = _Reply(None, error=safe_reason(exc))
                 wait = backoff
@@ -528,14 +561,78 @@ class PoliteHttpFetcher:
     def _attempt(
         self, url: httpx.URL, headers: Mapping[str, str], limit: int | None, truncate: bool, method: str,
     ) -> _Reply:
-        response = self._client.send(self._client.build_request(method, url, headers=headers), stream=True)
+        if self.max_request_seconds is None:
+            return self._download(url, headers, limit, truncate, method)
+        # Bound the entire attempt, including a transport stalled before headers.
+        seconds = self.max_request_seconds
+        if seconds <= 0:
+            raise _RequestDeadline(_REQUEST_DEADLINE)
+        deadline = self._clock() + seconds
+        expired = Event()
+        responses: list[httpx.Response] = []
+        completed: Queue = Queue(maxsize=1)
+
+        def check():
+            if expired.is_set() or self._clock() >= deadline:
+                raise _RequestDeadline(_REQUEST_DEADLINE)
+
+        def download():
+            try:
+                completed.put(self._download(url, headers, limit, truncate, method, check, responses))
+            except BaseException as exc:  # noqa: BLE001 -- Deliver worker errors unchanged to the caller.
+                completed.put(exc)
+
+        Thread(target=download, daemon=True).start()
         try:
+            reply = completed.get(timeout=max(0, deadline - self._clock()))
+        except Empty:
+            expired.set()
+            # httpcore exposes the connected stream before response headers.
+            # Retain pooled streams too, so a reused connection is cancellable.
+            for stream in self._connections:
+                with suppress(OSError):
+                    sock = stream.get_extra_info("socket")
+                    if sock is not None:
+                        sock.shutdown(socket.SHUT_RDWR)
+                    stream.close()
+            self._connections.clear()
+            # If still connecting, the worker closes the response on arrival.
+            for response in responses:
+                response.close()
+            raise _RequestDeadline(_REQUEST_DEADLINE) from None
+        if isinstance(reply, BaseException):
+            raise reply
+        return reply
+
+    def _download(
+        self, url, headers, limit, truncate, method, check=lambda: None, responses=None,
+    ) -> _Reply:
+        check()
+        request = self._client.build_request(method, url, headers=headers)
+        if responses is not None:
+            def trace(event, info):
+                if event in {"connection.connect_tcp.complete", "connection.start_tls.complete"}:
+                    stream = info["return_value"]
+                    self._connections.append(stream)
+                    try:
+                        check()
+                    except _RequestDeadline:
+                        stream.close()
+                        raise
+
+            request.extensions["trace"] = trace
+        response = self._client.send(request, stream=True)
+        try:
+            if responses is not None:
+                responses.append(response)
+            check()
             reply = _Reply(response.status_code, response.headers)
             if method != "HEAD" and 200 <= response.status_code < 300:
                 try:
-                    reply.body, reply.too_large = _read_body(response, limit, truncate)
+                    reply.body, reply.too_large = _read_body(response, limit, truncate, check)
                 except _BodyError as exc:
                     reply.error = safe_reason(exc)
+            check()
             return reply
         finally:
             response.close()
