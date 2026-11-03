@@ -320,6 +320,27 @@ def test_disabled_backlog_is_pruned_but_other_and_unidentified_entries_remain(tm
     assert deps.manifest.publish_state(snapshot.snapshot_id) is PublishState.published
 
 
+def test_disabled_backlog_is_pruned_once_per_disabled_set(tmp_path, monkeypatch):
+    deps, _ = _deps(tmp_path / "vectors-state.json")
+    parse_pending(deps)
+    state = _load_vector_state(deps)
+    entry = dict(state["missing"]["jp-test:a.txt"])
+    # An enabled source's entry stays queued, so any rescan would query it again.
+    state["missing"]["other"] = {**entry, "snapshot_id": "other-snapshot"}
+    deps.manifest.record_snapshot(make_snapshot(snapshot_id="other-snapshot", source_id="jp-other"))
+    deps.vector_state_path.write_text(json.dumps(state))
+    _set_embed(deps, False)
+    calls = []
+    chunks_for = deps.chunks.chunks_for
+    monkeypatch.setattr(deps.chunks, "chunks_for", lambda key: calls.append(key) or chunks_for(key))
+    _load_vector_state(deps)
+    first = len(calls)
+    assert first >= 1
+    for _ in range(5):
+        assert set(_load_vector_state(deps)["missing"]) == {"other"}
+    assert len(calls) == first
+
+
 @pytest.mark.parametrize("value", [None, 0, 1, "false", "true", [], {}])
 def test_source_embed_requires_boolean(value):
     deps, _ = _deps()

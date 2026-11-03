@@ -95,6 +95,7 @@ class PipelineDeps:
     _vectors_written: bool = field(default=False, init=False, repr=False)
     _vector_embedded: int = field(default=0, init=False, repr=False)
     _vector_pending_removed: bool = field(default=False, init=False, repr=False)
+    _vector_pruned_for: frozenset[str] | None = field(default=None, init=False, repr=False)
 
 
 @dataclass
@@ -860,9 +861,12 @@ def _load_vector_state(deps: PipelineDeps) -> dict[str, object]:
         if type(failures) is not int or failures < 0:
             raise ValueError("向量重试计数无效")
     state = {"missing": missing, "last_error": state.get("last_error")}
-    disabled = {spec.id for spec in deps.registry.all() if not _embed_enabled(spec)}
+    disabled = frozenset(spec.id for spec in deps.registry.all() if not _embed_enabled(spec))
     removed = set()
-    if disabled:
+    # Disabled sources never add entries, so one prune per disabled set suffices;
+    # rescanning on every load costs N chunks_for queries per vector write.
+    if disabled and deps._vector_pruned_for != disabled:
+        deps._vector_pruned_for = disabled
         for key, item in missing.items():
             chunks = deps.chunks.chunks_for(key)
             if _vector_source_id(deps, chunks, item.get("snapshot_id")) in disabled:
