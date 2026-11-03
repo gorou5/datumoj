@@ -102,16 +102,27 @@ def _throttled_check(check, *, monotonic=time.monotonic):
 
 
 def _due(scheduler, root):
-    due = set(scheduler.due())
-    if (root / "runs.jsonl").exists():
-        # Core schedules every attempt, even incomplete ones. Cloud must retry
-        # a deadline without waiting another interval; retain the real times.
-        for source in scheduler.status()["sources"]:
-            last = source["last_run"]
-            if (source["effective_enabled"] and source["next_due"] is not None
-                    and last and last.get("stop_reason") == "deadline"):
-                due.add(source["source_id"])
-    return sorted(due)
+    regular = set(scheduler.due())
+    if not (root / "runs.jsonl").exists():
+        return sorted(regular)  # All due sources have never run.
+    sources = {source["source_id"]: source for source in scheduler.status()["sources"]}
+    due = regular.copy()
+    # Core schedules every attempt, even incomplete ones. Cloud must retry
+    # a deadline without waiting another interval; retain the real times.
+    for source in sources.values():
+        last = source["last_run"]
+        if (source["effective_enabled"] and source["next_due"] is not None
+                and last and last.get("stop_reason") == "deadline"):
+            due.add(source["source_id"])
+
+    def priority(source_id):
+        last = sources[source_id]["last_run"]
+        if last is None:
+            return (0, 0, source_id)
+        return (1 if source_id in regular else 2,
+                datetime.fromisoformat(last["started_at"]).timestamp(), source_id)
+
+    return sorted(due, key=priority)
 
 
 def _source(deps, spec, scheduler, remaining):

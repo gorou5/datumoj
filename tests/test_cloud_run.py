@@ -433,6 +433,63 @@ def test_scheduler_public_append_validates_and_respects_readonly(world):
                               "status": "failed", "exit_status": 1})
 
 
+@pytest.mark.parametrize("ledger_exists", [False, True])
+def test_due_never_run_sources_are_sorted_by_id(world, ledger_exists):
+    root = world.tmp / "ledger"
+    schedule.write_control(root, {"enabled": True, "sources": {
+        spec.id: {"enabled": True} for spec in world.specs
+    }})
+    if ledger_exists:
+        (root / "runs.jsonl").touch()
+    scheduler = schedule.Scheduler(root, reversed(world.specs), lambda _: None, now=lambda: world.clock[0])
+    assert cloud._due(scheduler, root) == sorted(spec.id for spec in world.specs)
+
+
+def test_due_three_tiers_use_last_start_and_preserve_membership(world):
+    # Reverse chronological and ID order deliberately; end times are identical.
+    attempts = [
+        ("jp-never-z", None, None), ("jp-never-a", None, None),
+        ("jp-regular-b", 1, None), ("jp-regular-a", 1, None),
+        ("jp-regular-deadline", 2, "deadline"), ("jp-regular-z", 3, None),
+        ("jp-retry-b", 12, "deadline"), ("jp-retry-a", 12, "deadline"),
+        ("jp-retry-z", 18, "deadline"), ("jp-fresh", 0.25, None),
+        ("jp-disabled", 0.25, "deadline"), ("jp-manual", 0.25, "deadline"),
+    ]
+    # Retry-only daily sources are older than the regularly due hourly ones:
+    # tier must take precedence over time, even across different intervals.
+    specs = [make_spec(source_id, schedule=("manual" if source_id == "jp-manual" else
+                                          "daily" if source_id.startswith("jp-retry-") else "hourly"))
+             for source_id, _, _ in attempts]
+    root = world.tmp / "ledger"
+    scheduler = schedule.Scheduler(root, specs, lambda _: None, now=lambda: world.clock[0])
+    schedule.write_control(root, {"enabled": True, "sources": {
+        spec.id: {"enabled": spec.id != "jp-disabled"} for spec in specs
+    }})
+    for source_id, hours_ago, reason in attempts:
+        if hours_ago is None:
+            continue
+        scheduler.append_run({
+            "source_id": source_id,
+            "started_at": (world.clock[0] - timedelta(hours=hours_ago)).isoformat(),
+            "ended_at": world.clock[0].isoformat(),
+            "status": "incomplete" if reason else "completed", "exit_status": 0, "stop_reason": reason,
+        })
+
+    regular = set(scheduler.due())
+    assert regular == {"jp-never-a", "jp-never-z", "jp-regular-z", "jp-regular-deadline",
+                       "jp-regular-a", "jp-regular-b"}
+    # The previous implementation's membership rule, independent of ordering.
+    previous_due = regular | {
+        source["source_id"] for source in scheduler.status()["sources"]
+        if source["effective_enabled"] and source["next_due"] is not None
+        and source["last_run"] and source["last_run"].get("stop_reason") == "deadline"
+    }
+    due = cloud._due(scheduler, root)
+    assert set(due) == previous_due
+    assert due == ["jp-never-a", "jp-never-z", "jp-regular-z", "jp-regular-deadline",
+                   "jp-regular-a", "jp-regular-b", "jp-retry-z", "jp-retry-a", "jp-retry-b"]
+
+
 def test_deadline_during_crawl_parses_publishes_and_retries_next_round(world, monkeypatch):
     timer = [0]
     monkeypatch.setattr(cloud, "time", SimpleNamespace(monotonic=lambda: timer[0]))
@@ -488,7 +545,7 @@ def test_deadline_during_crawl_parses_publishes_and_retries_next_round(world, mo
     slow[0], timer[0] = False, 0
     second, _ = invoke(world, "second", "--max-minutes", "2")
     assert second["due"] == 3
-    assert [row["source_id"] for row in second["sources"]] == [spec.id for spec in world.specs]
+    assert [row["source_id"] for row in second["sources"]] == ["jp-cloud1", "jp-cloud2", "jp-cloud0"]
     assert second["generation"] == 2 and second["exit_status"] == 0
     assert set(world.managers[-1].list()[0].last_successful_runs) == {spec.id for spec in world.specs}
     timer[0] = 0
