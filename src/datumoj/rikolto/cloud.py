@@ -20,6 +20,7 @@ from datumoj.rikolto import wiring
 from datumoj.rikolto.analysis.reports import previous_week_period, weekly_report
 from datumoj.rikolto.core.budget import ParseBudget
 from datumoj.rikolto.core.contracts import PreconditionFailed
+from datumoj.rikolto.core.http import PoliteHttpFetcher
 from datumoj.rikolto.core.lease import LeaseError, LeaseManager
 from datumoj.rikolto.core.models import PublishState
 from datumoj.rikolto.core.monitor import _ledger_first_attempts, evaluate_cloud_alerts
@@ -38,6 +39,8 @@ from datumoj.rikolto.pipeline import (
 )
 
 _BACKFILL_BATCH = 32
+_MAX_REQUEST_SECONDS = 300
+_PIPELINE_GRACE_SECONDS = 600
 
 
 @contextmanager
@@ -125,7 +128,9 @@ def _due(scheduler, root):
     return sorted(due, key=priority)
 
 
-def _source(deps, spec, scheduler, remaining):
+def _source(deps, spec, scheduler, remaining, started=None, deadline=None):
+    started = time.monotonic() if started is None else started
+    crawl_started = time.monotonic()
     record = {
         "source_id": spec.id, "run_id": uuid.uuid4().hex, "started_at": utcnow().isoformat(),
         "ended_at": None, "state": "running", "status": "running", "exit_status": 0,
@@ -136,6 +141,12 @@ def _source(deps, spec, scheduler, remaining):
     try:
         crawler = deps.crawler_classes[spec.kind]()
         fetcher = deps.fetcher_for(spec)
+        max_run = spec.scope.get("max_run_seconds", DEFAULT_MAX_RUN_SECONDS)
+        if (isinstance(fetcher, PoliteHttpFetcher) and type(max_run) in (int, float)
+                and math.isfinite(max_run) and max_run > 0):
+            fetcher.max_request_seconds = min(
+                _MAX_REQUEST_SECONDS, max(0, max_run - (time.monotonic() - crawl_started)),
+            )
         try:
             report = deps.run_crawl(spec, crawler, deps.crawl_deps_type(
                 raw=deps.raw, manifest=deps.manifest, fetcher=fetcher,
@@ -148,12 +159,15 @@ def _source(deps, spec, scheduler, remaining):
                       stop_reason="deadline" if report.stop_reason == "deadline" else None)
         if report.failures:
             record["failures"]["crawl_failed"] = sum(report.failures.values())
+        _progress("crawl_end", started, record)
         phase = "parse_index"
-        pipeline = replace(deps.pipeline_deps, vector_limit=remaining)
+        pipeline = replace(deps.pipeline_deps, vector_limit=remaining, deadline=deadline, clock=time.monotonic)
         before = _failure_counts(pipeline)
         summary = deps.parse_pending(pipeline, spec.id)
         remaining = summary.vector_remaining
         record["parsed"] = len(summary.parsed)
+        if summary.stop_reason == "deadline":
+            record["stop_reason"] = "deadline"
         # parse_pending also scans staged publications from other sources.
         # Their recovery errors must not turn this source's success into failure.
         def belongs(snapshot_id):
@@ -168,6 +182,7 @@ def _source(deps, spec, scheduler, remaining):
             record["embedding_deferred"] = deferred
         if failed:
             record["failures"]["embedding_failed"] = failed
+        _progress("parse_end", started, record)
     except Exception:  # noqa: BLE001 -- 单来源失败需隔离，保留本轮其他来源的执行。
         record["failures"][f"{phase}_failed"] = record["failures"].get(f"{phase}_failed", 0) + 1
         # An interrupted parser cannot report its remaining allowance. Reserve
@@ -206,7 +221,7 @@ def _backfill(deps, remaining, started, max_minutes, check, result, before_round
     pipeline = getattr(deps, "pipeline_deps", None)
     if pipeline is None:
         return remaining
-    pipeline = replace(pipeline)
+    pipeline = replace(pipeline, deadline=started + max_minutes * 60 + _PIPELINE_GRACE_SECONDS, clock=time.monotonic)
     # An error gets another attempt next round, never a tight loop this round.
     exclude = {key for key, count in _failure_counts(pipeline).items() if count > before_round.get(key, 0)}
     announced = False
@@ -259,9 +274,9 @@ def _backfill(deps, remaining, started, max_minutes, check, result, before_round
     return remaining
 
 
-def _recover(deps, remaining):
+def _recover(deps, remaining, deadline=None):
     """Use 107's recovery scan, without starting parses for sources not due."""
-    pipeline = replace(deps.pipeline_deps, vector_limit=remaining)
+    pipeline = replace(deps.pipeline_deps, vector_limit=remaining, deadline=deadline, clock=time.monotonic)
     pipeline._vector_remaining = remaining
     specs = {spec.id: spec for spec in deps.registry.all()}
     parsers = pipeline.parsers if pipeline.parsers is not None else wiring._connected_parsers()
@@ -437,7 +452,10 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only):
                                 max_run = min(max_run, seconds_left)
                             scope = {**spec.scope, "max_run_seconds": max_run}
                             _progress("source_start", started, {"source_id": source_id})
-                            record, remaining = _source(deps, spec.model_copy(update={"scope": scope}), scheduler, remaining)
+                            record, remaining = _source(
+                                deps, spec.model_copy(update={"scope": scope}), scheduler, remaining,
+                                started, started + max_minutes * 60 + _PIPELINE_GRACE_SECONDS,
+                            )
                             _progress("source_end", started, record)
                             result["sources"].append(record)
                             for key in ("new", "unchanged", "parsed"):
@@ -463,7 +481,7 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only):
                     else:
                         phase = "staged_recovery"
                         with local_write(root):
-                            remaining = _recover(deps, remaining)
+                            remaining = _recover(deps, remaining, started + max_minutes * 60 + _PIPELINE_GRACE_SECONDS)
                         phase = "backfill"
                         remaining = _backfill(deps, remaining, started, max_minutes, check, result, before_round)
                     phase = "maintenance"

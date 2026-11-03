@@ -900,3 +900,60 @@ def test_backfill_checks_time_between_batches_and_runs_after_sources(world, monk
     assert calls == [(10, 32)] and timer[0] < 300
     assert world.overrides["embedder"].embedded == 112
     released(world)
+
+
+def test_parse_deadline_yields_to_later_sources_and_emits_stage_progress(world, monkeypatch):
+    import io
+    import sys
+
+    timer = [0]
+    stream = io.StringIO()
+    monkeypatch.setattr(cloud, "time", SimpleNamespace(monotonic=lambda: timer[0]))
+    monkeypatch.setattr(sys, "__stderr__", stream)
+
+    class SlowParser(FakeParser):
+        def parse(self, snapshot, *args, **kwargs):
+            if snapshot.source_id == "jp-cloud0":
+                timer[0] += 5
+            return super().parse(snapshot, *args, **kwargs)
+
+    world.overrides["parsers"] = {("fake", "text/plain"): SlowParser}
+    source = cloud._source
+
+    def short_first_source(deps, spec, scheduler, remaining, started, deadline):
+        # Exercise an expired parser deadline while the round still has time
+        # for the next source; the regression below tests the real round cutoff.
+        return source(deps, spec, scheduler, remaining, started, 5 if spec.id == "jp-cloud0" else deadline)
+
+    monkeypatch.setattr(cloud, "_source", short_first_source)
+    result, root = invoke(world)
+    assert result["generation"] == 1 and result["exit_status"] == 0
+    assert [row["source_id"] for row in result["sources"]] == [spec.id for spec in world.specs]
+    assert result["sources"][0]["stop_reason"] == "deadline"
+    assert rows(root)[1]["status"] == "incomplete"
+    events = [json.loads(line) for line in stream.getvalue().splitlines()]
+    for spec in world.specs:
+        assert [row["event"] for row in events if row.get("source_id") == spec.id] == [
+            "source_start", "crawl_end", "parse_end", "source_end",
+        ]
+    assert events[-1]["event"] == "round_end"
+    released(world)
+
+
+@pytest.mark.parametrize("minutes,expected", [(2, 120), (40, 300)])
+def test_cloud_caps_each_fetcher_at_remaining_source_time_or_300(world, monkeypatch, minutes, expected):
+    from datumoj.rikolto.core.http import PoliteHttpFetcher
+
+    limits = []
+    monkeypatch.setattr(cloud, "time", SimpleNamespace(monotonic=lambda: 0))
+
+    class CapturingFetcher(PoliteHttpFetcher):
+        def fetch(self, *args, **kwargs):
+            limits.append(self.max_request_seconds)
+            return LocalFetcher.fetch(self, *args, **kwargs)
+
+    world.overrides["fetcher"] = CapturingFetcher
+    result, _ = invoke(world, "caps", "--max-minutes", str(minutes))
+    assert result["exit_status"] == 0 and result["generation"] == 1
+    assert limits == [expected] * 3
+    released(world)
