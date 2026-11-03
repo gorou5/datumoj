@@ -866,14 +866,15 @@ def _load_vector_state(deps: PipelineDeps) -> dict[str, object]:
     # Disabled sources never add entries, so one prune per disabled set suffices;
     # rescanning on every load costs N chunks_for queries per vector write.
     if deps._vector_pruned_for != disabled:
-        deps._vector_pruned_for = disabled
         for key, item in missing.items() if disabled else ():
             chunks = deps.chunks.chunks_for(key)
             if _vector_source_id(deps, chunks, item.get("snapshot_id")) in disabled:
                 removed.add(key)
-    if removed:
-        _clear_vector_missing_many(deps, state, removed)
-        deps._vector_pending_removed = True
+        if removed:
+            _clear_vector_missing_many(deps, state, removed)
+            deps._vector_pending_removed = True
+        # Recorded only after a full scan, so a failed scan is retried on the next load.
+        deps._vector_pruned_for = disabled
     return state
 
 

@@ -357,6 +357,22 @@ def test_disabled_backlog_is_pruned_again_after_reenable(tmp_path):
     assert not _load_vector_state(deps)["missing"]
 
 
+def test_disabled_backlog_prune_retries_after_failed_scan(tmp_path, monkeypatch):
+    deps, _ = _deps(tmp_path / "vectors-state.json")
+    parse_pending(deps)
+    _set_embed(deps, False)
+    chunks_for = deps.chunks.chunks_for
+
+    def fail(key):
+        raise OSError("boom")
+
+    monkeypatch.setattr(deps.chunks, "chunks_for", fail)
+    with pytest.raises(OSError):
+        _load_vector_state(deps)
+    monkeypatch.setattr(deps.chunks, "chunks_for", chunks_for)
+    assert not _load_vector_state(deps)["missing"]
+
+
 @pytest.mark.parametrize("value", [None, 0, 1, "false", "true", [], {}])
 def test_source_embed_requires_boolean(value):
     deps, _ = _deps()
