@@ -341,6 +341,22 @@ def test_disabled_backlog_is_pruned_once_per_disabled_set(tmp_path, monkeypatch)
     assert len(calls) == first
 
 
+def test_disabled_backlog_is_pruned_again_after_reenable(tmp_path):
+    deps, _ = _deps(tmp_path / "vectors-state.json")
+    parse_pending(deps)
+    state = _load_vector_state(deps)
+    _set_embed(deps, False)
+    assert not _load_vector_state(deps)["missing"]
+    _set_embed(deps, True)
+    _load_vector_state(deps)
+    # Work queued while re-enabled must be pruned when the source is disabled again.
+    deps.vector_state_dirty = False
+    deps.vector_state_path.write_text(json.dumps(state))
+    assert _load_vector_state(deps)["missing"]
+    _set_embed(deps, False)
+    assert not _load_vector_state(deps)["missing"]
+
+
 @pytest.mark.parametrize("value", [None, 0, 1, "false", "true", [], {}])
 def test_source_embed_requires_boolean(value):
     deps, _ = _deps()
