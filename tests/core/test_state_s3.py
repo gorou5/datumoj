@@ -232,3 +232,38 @@ def test_concurrent_push_and_restore_on_s3(state_store, tmp_path):
     assert state_store._client.meta.config.connect_timeout == 10
     assert state_store._client.meta.config.read_timeout == 60
     assert state_store._client.meta.config.retries["total_max_attempts"] == 3
+
+
+def test_inventory_cleanup_does_not_download_or_head_objects(state_store, monkeypatch):
+    state_store.put("copies/a", b"abc")
+    state_store.put("raw/a", b"12345")
+    monkeypatch.setattr(state_store._client, "get_object", lambda **kw: pytest.fail("inventory must not GET"))
+    monkeypatch.setattr(state_store._client, "head_object", lambda **kw: pytest.fail("inventory deletion must not HEAD"))
+    objects = state_store.list_objects("")
+    assert [(obj.key, obj.size_bytes) for obj in objects] == [("copies/a", 3), ("raw/a", 5)]
+    for obj in objects:
+        state_store.delete_if_match(obj.key, obj.etag)
+    assert state_store.list_objects("") == []
+
+
+def test_retired_object_boundary_rejects_coordination_keys_and_checks_lease():
+    from datumoj.rikolto.core.contracts import StateObject
+    from datumoj.rikolto.core.state_s3 import delete_retired_object
+    from datumoj.rikolto.testing.fakes import FakeStateObjectStore
+
+    store = FakeStateObjectStore()
+    for key in ("current.json", LEASE_KEY, "reports/weekly/report.md", "copies/sha256/orphan"):
+        store.put(key, b"preserve")
+    objects = {obj.key: obj for obj in store.list_objects("")}
+    for key in ("current.json", LEASE_KEY, "reports/weekly/report.md"):
+        with pytest.raises(ValueError, match="清理只允许"):
+            delete_retired_object(store, objects[key], lambda: None)
+    with pytest.raises(ValueError):
+        delete_retired_object(store, StateObject("../current.json", 0, "etag"), lambda: None)
+
+    def lost():
+        raise LeaseError("synthetic lease lost")
+
+    with pytest.raises(LeaseError):
+        delete_retired_object(store, objects["copies/sha256/orphan"], lost)
+    assert store.list_objects("") == list(objects.values())

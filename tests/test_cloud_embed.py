@@ -248,3 +248,16 @@ def test_disabled_backlog_is_skipped_and_cleanup_is_published(world, disable_all
     if disable_all:
         assert invoke_embed(world, "cleaned")["generation"] is None
     released(world)
+
+
+def test_embed_no_cleanup_reports_and_preserves_orphan(world, monkeypatch):
+    seed(world)
+    monkeypatch.setenv("R2_RAW_CLEANUP", "on")
+    store = remote(world)
+    store.put("copies/sha256/synthetic-orphan", b"orphan")
+    result = invoke_embed(world, "no-cleanup", "--no-cleanup")
+    assert result["status"] == "completed" and result["generation"] == 2
+    assert result["cleanup"]["enabled"] is False and result["cleanup"]["raw_enabled"] is True
+    assert result["cleanup"]["reclaimable_copies"] >= 1 and result["cleanup"]["copies_deleted"] == 0
+    assert store.exists("copies/sha256/synthetic-orphan")
+    released(world)

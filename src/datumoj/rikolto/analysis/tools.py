@@ -1164,6 +1164,15 @@ class AnalysisTools:
             self.raw.verify(snapshot_sha256)
             raw = self.raw.get(snapshot_sha256)
         except NotFoundError:
+            if snapshot_sha256 in self.manifest.raw_markers():
+                return _result(
+                    {"status": "archived", "snapshot_sha256": snapshot_sha256, "locator": locator,
+                     "snapshot_id": snap.snapshot_id, "source_id": snap.source_id,
+                     "resource_url": snap.resource_url, "fetched_at": snap.fetched_at.isoformat(),
+                     "passages": [], "archive_notice": "原文已归档，云端不再保留"},
+                    GapState.ok, _freshness([(snap.source_id, snap.fetched_at)]),
+                    warnings=["原文已归档，云端不再保留"],
+                )
             return not_found("raw 里没有这个快照的原始字节")
         except CorruptedBlob:
             return not_found("raw 里的内容和 sha256 不一致，不能用来还原")

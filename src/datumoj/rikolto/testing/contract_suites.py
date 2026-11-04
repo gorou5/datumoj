@@ -125,6 +125,22 @@ class StateObjectStoreSuite:
     def test_conforms(self, state_store):
         assert isinstance(state_store, StateObjectStore)
 
+    def test_object_inventory_versions_sizes_and_conditional_delete(self, state_store):
+        assert state_store.list_objects("") == []
+        state_store.put("copies/z", b"abc")
+        state_store.put("copies/a", b"")
+        state_store.put("other", b"ignore")
+        objects = state_store.list_objects("copies/")
+        assert [(obj.key, obj.size_bytes) for obj in objects] == [("copies/a", 0), ("copies/z", 3)]
+        for obj in objects:
+            assert obj.etag == state_store.get(obj.key)[1]
+        stale = objects[0]
+        state_store.put(stale.key, b"replaced")
+        with pytest.raises(PreconditionFailed):
+            state_store.delete_if_match(stale.key, stale.etag)
+        state_store.delete_if_match(objects[1].key, objects[1].etag)
+        assert state_store.list("copies/") == ["copies/a"]
+
     def test_missing_and_empty_listing(self, state_store):
         assert state_store.get("missing") is None
         assert not state_store.exists("missing")
@@ -336,6 +352,20 @@ URL_B = "https://example.go.jp/b.txt"
 
 class ManifestSuite:
     """fixture ``manifest``：一个空的 manifest。"""
+
+    def test_optional_raw_marker_is_idempotent_and_persistent(self, manifest):
+        digest = sha(b"archived")
+        assert manifest.raw_markers() == {}
+        manifest.mark_raw_optional(digest, T0)
+        manifest.mark_raw_optional(digest, T0 + timedelta(days=1))
+        markers = manifest.raw_markers()
+        assert markers == {digest: T0}
+        markers.clear()
+        assert manifest.raw_markers() == {digest: T0}
+        with pytest.raises(ValueError):
+            manifest.mark_raw_optional("invalid", T0)
+        with pytest.raises(ValueError):
+            manifest.mark_raw_optional(digest, T0.replace(tzinfo=None))
 
     @pytest.fixture
     def manifest(self) -> Manifest:

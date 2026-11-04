@@ -4,14 +4,16 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import re
 import uuid
+from collections.abc import Callable
 from pathlib import PurePosixPath
 
 import boto3
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
-from datumoj.rikolto.core.contracts import ContractError, PreconditionFailed
+from datumoj.rikolto.core.contracts import ContractError, PreconditionFailed, StateObject, StateObjectStore
 from datumoj.rikolto.core.storage import StorageConfig, load_s3_credentials
 
 
@@ -85,6 +87,20 @@ def check_key(key: str, *, prefix: bool = False) -> str:
     return key
 
 
+def delete_retired_object(store: StateObjectStore, obj: StateObject, check: Callable[[], None]) -> None:
+    """Leased deletion of immutable garbage only; never a coordination object.
+
+    R2 may ignore DELETE conditions. The lease and immutable namespaces provide
+    the safety boundary here; current and lease coordination still use PUT CAS.
+    """
+    check_key(obj.key)
+    if not (re.fullmatch(r"generations/[1-9][0-9]*\.json", obj.key)
+            or obj.key.startswith(("copies/sha256/", "raw/"))):
+        raise ValueError("清理只允许删除代次清单和内容对象")
+    check()
+    store.delete_if_match(obj.key, obj.etag)
+
+
 class S3StateObjectStore:
     """StateObjectStore, with server-validated writes and opaque service ETags."""
 
@@ -93,6 +109,7 @@ class S3StateObjectStore:
             raise ValueError("状态存储需要 DATUMOJ_S3_ENDPOINT 和 DATUMOJ_S3_BUCKET")
         access_key, secret_key = load_s3_credentials()
         self._bucket = config.s3_bucket
+        self._listed_keys: set[str] = set()
         self._prefix = config.s3_prefix.strip("/")
         check_key(self._prefix, prefix=True)
         try:
@@ -157,14 +174,15 @@ class S3StateObjectStore:
         return self._put(key, data, IfMatch=etag)
 
     def delete_if_match(self, key: str, etag: str) -> None:
-        # Some S3 services (e.g. R2) ignore DELETE If-Match; production paths must not rely on it.
+        # Some services (e.g. R2) ignore DELETE If-Match; never use it for coordination.
         full = self._key(key)
         # S3 treats DELETE of an absent key as success, even with IfMatch.
-        # HEAD is only for the absent-key contract; the deletion remains atomic.
-        if not self.exists(key):
+        # Reuse a leased inventory for GC; otherwise HEAD checks the absent-key contract.
+        if key not in self._listed_keys and not self.exists(key):
             raise PreconditionFailed("S3 状态条件不满足")
         try:
             self._client.delete_object(Bucket=self._bucket, Key=full, IfMatch=etag)
+            self._listed_keys.discard(key)
         except ClientError as exc:
             self._error(exc, conditional=True)
         except BotoCoreError:
@@ -187,5 +205,17 @@ class S3StateObjectStore:
         try:
             pages = self._client.get_paginator("list_objects_v2").paginate(Bucket=self._bucket, Prefix=full)
             return sorted(obj["Key"][len(base):] for page in pages for obj in page.get("Contents", []))
+        except (ClientError, BotoCoreError):
+            raise ContractError("S3 状态列举失败") from None
+
+    def list_objects(self, prefix: str = "") -> list[StateObject]:
+        full = self._key(prefix, prefix=True)
+        base = self._prefix + "/" if self._prefix else ""
+        try:
+            pages = self._client.get_paginator("list_objects_v2").paginate(Bucket=self._bucket, Prefix=full)
+            objects = sorted((StateObject(obj["Key"][len(base):], obj["Size"], obj["ETag"])
+                              for page in pages for obj in page.get("Contents", [])), key=lambda obj: obj.key)
+            self._listed_keys = {obj.key for obj in objects}
+            return objects
         except (ClientError, BotoCoreError):
             raise ContractError("S3 状态列举失败") from None

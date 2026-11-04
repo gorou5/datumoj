@@ -425,19 +425,19 @@ def check() -> dict:
 
 
 def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: float = 40,
-        reserve_minutes: float = 10) -> dict:
+        reserve_minutes: float = 10, no_cleanup: bool = False) -> dict:
     return _round(work_dir=work_dir, max_embed=max_embed, max_minutes=max_minutes,
-                  reserve_minutes=reserve_minutes, embed_only=False)
+                  reserve_minutes=reserve_minutes, embed_only=False, no_cleanup=no_cleanup)
 
 
 def embed(*, work_dir: Path | None = None, max_minutes: float,
-          reserve_minutes: float = 10, max_embed: int | None = None) -> dict:
+          reserve_minutes: float = 10, max_embed: int | None = None, no_cleanup: bool = False) -> dict:
     """Embed existing backlog in bounded batches, publishing only successful work."""
     return _round(work_dir=work_dir, max_embed=max_embed, max_minutes=max_minutes,
-                  reserve_minutes=reserve_minutes, embed_only=True)
+                  reserve_minutes=reserve_minutes, embed_only=True, no_cleanup=no_cleanup)
 
 
-def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only):
+def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_cleanup=False):
     result = {"status": "failed", "exit_status": 1, "generation": None,
               "sources": [], "source_health": [], "due": 0, "new": 0, "unchanged": 0, "parsed": 0,
               "failed_sources": [], "reason": None, "budget_exhausted": False,
@@ -448,6 +448,9 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only):
         result = {"status": "failed", "exit_status": 1, "generation": None,
                   "embedded": 0, "vector_pending": 0, "embedding_deferred": 0, "embedding_failed": 0,
                   "budget_exhausted": False, "reason": None, "publish_timings": {}, "restore_timings": {}}
+    cleanup_enabled = not no_cleanup and os.environ.get("R2_CLEANUP", "on").lower() != "off"
+    raw_cleanup_enabled = os.environ.get("R2_RAW_CLEANUP", "off").lower() == "on"
+    result["cleanup"] = {"enabled": cleanup_enabled, "raw_enabled": raw_cleanup_enabled}
     phase = "configuration"
     manager = leases = lease = deps = None
     started = time.monotonic()
@@ -579,6 +582,13 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only):
                     phase = "maintenance"
                     with local_write(root):
                         maintain_vectors(root / "vectors")
+                    marked = marking_failed = 0
+                    check()
+                    try:
+                        with local_write(root):
+                            marked = manager.mark_raw(deps.registry.all(), utcnow())
+                    except Exception:  # noqa: BLE001 -- Retention maintenance cannot fail the round.
+                        marking_failed = 1
                     phase = "publish"
                     check()
                     _progress("publish_start", started, result)
@@ -600,6 +610,16 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only):
                         manager.last_timings = result["publish_timings"] = timings
                         _progress("publish_end", started, result)
                     result["generation"] = generation.generation
+                    cleanup = getattr(manager, "cleanup", None)
+                    if callable(cleanup):
+                        result["cleanup"] = cleanup(
+                            deps.registry.all(), now=utcnow(), check=check,
+                            enabled=cleanup_enabled, raw_enabled=raw_cleanup_enabled, marked=marked,
+                        )
+                        result["cleanup"]["failures"] += marking_failed
+                    else:
+                        # Older injected managers can publish without optional maintenance.
+                        result["cleanup"]["failures"] = 1
                     if not embed_only:
                         result["source_health"] = _source_health(scheduler, result["source_health"], generation)
                     failed = bool(result["embedding_failed"] if embed_only else result["failed_sources"])

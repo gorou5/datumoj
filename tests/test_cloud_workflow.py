@@ -113,3 +113,10 @@ def test_source_issues_follow_publication_are_nonblocking_and_use_temporary_resu
     assert '[ -f "$RUNNER_TEMP/cloud-result.json" ]' in issues["run"]
     assert 'scripts/source_issues.py "$RUNNER_TEMP/cloud-result.json"' in issues["run"]
     assert issues["env"] == {"GH_REPO": "${{ github.repository }}", "GH_TOKEN": "${{ github.token }}"}
+
+
+def test_only_retention_switches_are_repository_variables(workflow_path):
+    steps = load(workflow_path)["jobs"]["run"]["steps"]
+    command = next(step for step in steps if "rikolto cloud " in step.get("run", ""))
+    assert command["env"]["R2_CLEANUP"] == "${{ vars['R2_CLEANUP'] }}"
+    assert command["env"]["R2_RAW_CLEANUP"] == "${{ vars['R2_RAW_CLEANUP'] }}"

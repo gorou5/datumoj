@@ -93,6 +93,9 @@ class SqliteManifest:
         self._db.execute("PRAGMA journal_mode=WAL")
         try:
             self._init_schema()
+            # Additive migration: old generations keep their existing schema version.
+            self._db.execute("CREATE TABLE IF NOT EXISTS raw_allowed_missing "
+                             "(sha256 TEXT PRIMARY KEY, marked_at TEXT NOT NULL)")
         except BaseException:
             self._db.close()
             raise
@@ -141,6 +144,18 @@ class SqliteManifest:
             if row is None or row[0] != SCHEMA_VERSION:
                 found = "没有版本记录" if row is None else f"版本 {row[0]}"
                 raise SchemaVersionError(f"manifest schema 版本不符：代码要求 {SCHEMA_VERSION}，库里{found}")
+
+    def raw_markers(self) -> dict[str, datetime]:
+        return {sha: _from_ts(marked) for sha, marked in self._db.execute(
+            "SELECT sha256, marked_at FROM raw_allowed_missing")}
+
+    def mark_raw_optional(self, sha256: str, marked_at: datetime) -> None:
+        from datumoj.rikolto.core.models import Sha256
+
+        TypeAdapter(Sha256).validate_python(sha256)
+        TypeAdapter(AwareDatetime).validate_python(marked_at)
+        with self._tx() as db:
+            db.execute("INSERT OR IGNORE INTO raw_allowed_missing VALUES (?,?)", (sha256, _ts(marked_at)))
 
     # ---------- 抓取记录 ----------
 

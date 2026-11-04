@@ -285,3 +285,24 @@ def test_v3_migration_failure_rolls_back(tmp_path):
         assert db.execute("SELECT version FROM schema_version").fetchone() == (3,)
         assert db.execute("SELECT name FROM sqlite_master WHERE name='publish_states'").fetchone() is None
         assert db.execute("SELECT snapshot_id FROM snapshots").fetchall() == [("v3",)]
+
+
+def test_raw_markers_additive_migration_and_reopen(tmp_path):
+    path = tmp_path / "manifest.sqlite"
+    manifest = SqliteManifest(path)
+    snap = make_snapshot()
+    manifest.record_snapshot(snap)
+    manifest.close()
+    with sqlite3.connect(path) as db:
+        db.execute("DROP TABLE raw_allowed_missing")
+        version = db.execute("SELECT version FROM schema_version").fetchall()
+    manifest = SqliteManifest(path)
+    assert manifest.get_snapshot(snap.snapshot_id) == snap
+    assert manifest.raw_markers() == {}
+    manifest.mark_raw_optional(snap.sha256, T0)
+    manifest.close()
+    manifest = SqliteManifest(path)
+    assert manifest.raw_markers() == {snap.sha256: T0}
+    manifest.close()
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT version FROM schema_version").fetchall() == version

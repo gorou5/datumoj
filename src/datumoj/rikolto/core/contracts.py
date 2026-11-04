@@ -214,6 +214,16 @@ class SourceSpec(_Model):
     needs_key: EnvRef | None = None
     retention_note: str | None = None
 
+    @model_validator(mode="after")
+    def _raw_retention(self) -> SourceSpec:
+        days = self.scope.get("raw_retention_days", 30)
+        if type(days) is not int or days <= 0:
+            raise ValueError("scope.raw_retention_days 必须是正整数")
+        types = self.scope.get("raw_expire_latest_types", [])
+        if not isinstance(types, list) or any(not isinstance(item, str) for item in types):
+            raise ValueError("scope.raw_expire_latest_types 必须是字符串列表")
+        return self
+
     def to_source(self) -> Source:
         return Source(
             source_id=self.id, name=self.name, country=self.country, kind=self.kind,
@@ -235,6 +245,15 @@ class Registry(Protocol):
 
 
 # ---------- 状态对象存储 ----------
+
+
+@dataclass(frozen=True)
+class StateObject:
+    """One namespace-relative object version; ETag can be passed unchanged to DELETE."""
+
+    key: str
+    size_bytes: int
+    etag: str
 
 
 @runtime_checkable
@@ -271,6 +290,10 @@ class StateObjectStore(Protocol):
 
     def list(self, prefix: str) -> list[str]:
         """列出以 prefix 字面开头的全部相对键，按键升序；空前缀列出全部。"""
+        ...
+
+    def list_objects(self, prefix: str) -> list[StateObject]:
+        """同 list，附带该版本的字节数和不透明 ETag；不下载正文。"""
         ...
 
 
@@ -348,6 +371,14 @@ class Manifest(Protocol):
 
     “最近一次”按 fetched_at 比较，相同时以后写入的为准。列表一律按 fetched_at 升序。
     """
+
+    def raw_markers(self) -> dict[str, datetime]:
+        """允许缺失的 raw SHA → 首次标记时间（带时区）；返回独立副本。"""
+        ...
+
+    def mark_raw_optional(self, sha256: str, marked_at: datetime) -> None:
+        """幂等记录允许缺失；保留首次标记时间，不代表已经删除。"""
+        ...
 
     def record_snapshot(self, snapshot: Snapshot, meta: Mapping[str, JsonValue] | None = None) -> None:
         """在事务里写入一次抓取。snapshot_id 已存在抛 DuplicateError。
