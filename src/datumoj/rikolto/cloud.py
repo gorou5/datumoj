@@ -13,7 +13,7 @@ import time
 import uuid
 from contextlib import ExitStack, contextmanager, redirect_stderr, redirect_stdout, suppress
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Lock
 
@@ -42,6 +42,7 @@ from datumoj.rikolto.pipeline import (
 _BACKFILL_BATCH = 32
 _MAX_REQUEST_SECONDS = 300
 _PIPELINE_GRACE_SECONDS = 600
+_MISSING_AFTER = timedelta(hours=24)
 
 
 @contextmanager
@@ -280,11 +281,13 @@ def _source_health(scheduler, current, generation=None):
         for alert in alerts:
             if alert.rule != "cloud_run_missing":
                 continue
-            runs = _final_runs(history, alert.source_id)
-            # A deadline stop means the source is working through a backlog, not missing.
-            if runs and runs[0].get("stop_reason") == "deadline":
-                continue
             if health.get(alert.source_id, {}).get("status") in {"failed", "deadline"}:
+                continue
+            runs = _final_runs(history, alert.source_id)
+            # Backlogged sources overrun their schedule while still getting turns;
+            # only a source without an attempt for this long is really missing.
+            last = datetime.fromisoformat(runs[0]["started_at"]) if runs else alert.since
+            if utcnow() - last < _MISSING_AFTER:
                 continue
             row = health.setdefault(alert.source_id, {
                 "source_id": alert.source_id, "categories": {},

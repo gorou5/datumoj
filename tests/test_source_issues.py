@@ -112,11 +112,10 @@ def test_below_threshold_does_not_call_gh(fake_gh, tmp_path, row):
     assert json.loads(fake_gh.read_text())["calls"] == []
 
 
-def test_missing_needs_threshold_and_custom_threshold(fake_gh, tmp_path):
+def test_missing_bypasses_threshold_and_custom_threshold(fake_gh, tmp_path):
     assert run_script(tmp_path, [health(count=2)], 2, "--threshold", "3").returncode == 0
-    assert run_script(tmp_path, [health("missing", 0)], 2).returncode == 0
     assert json.loads(fake_gh.read_text())["calls"] == []
-    assert run_script(tmp_path, [health("missing", 2)], 2).returncode == 0
+    assert run_script(tmp_path, [health("missing", 0)], 2, "--threshold", "3").returncode == 0
     assert len(json.loads(fake_gh.read_text())["issues"]) == 1
 
 
