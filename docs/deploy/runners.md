@@ -40,15 +40,16 @@ S3 上的 cloud run 用 8 个线程传输不可变副本与 raw，代次清单�
 抓取类别来自 `FetchOutcome`；解析只提取 `ParseError: <code>:` 中满足
 `[a-z_]{1,40}` 的代码，其他异常只取类名，无法识别的记 `other`。
 缺少解析器记 `other`，达到嵌入失败上限记 `embedding_failed`。
-同时发生多阶段错误时汇总类别，`phase` 取首个失败阶段；触发缺跑告警时
-`status` / `phase` 为 `missing` / `schedule`，仍保留本轮错误类别。
+同时发生多阶段错误时汇总类别，`phase` 取首个失败阶段。触发缺跑告警且本轮没有失败时
+`status` / `phase` 为 `missing` / `schedule`；若该来源上一次运行失败，`phase` 和类别取那次的
+阶段和失败计数。上一次运行因 deadline 停下的来源正在补抓，不算缺跑。
 连续失败按账本最终记录的开始时间倒序计数，忽略开始记录和重复的最终记录；
 成功或无失败的 deadline 都停止计数，deadline 本身不算失败，也不作为恢复成功。
 
 Actions 将 stdout 结果同时写入日志和 `$RUNNER_TEMP/cloud-result.json`，运行及发布
 步骤结束后，即使本轮返回失败，只要文件存在便调用 `scripts/source_issues.py`。
 脚本通过工作流的 `GH_REPO`、`GH_TOKEN` 使用 `gh`，默认阈值为连续失败 2 轮，
-可用 `--threshold N` 调整。达到阈值或 `status == "missing"` 时，查找标签
+可用 `--threshold N` 调整（缺跑同样要达到阈值）。达到阈值时，查找标签
 `source-broken` 且标题以 `[source-broken] <source_id>` 开头（来源 ID 后可接空格、冒号等描述分隔符）的未关闭 issue；
 已有则评论，没有则创建，标签缺失时先创建标签。本轮 `status == "ok"` 时，
 给对应 issue 留言“已恢复（第 N 代）”并关闭。标题、正文和评论只使用上述健康字段
