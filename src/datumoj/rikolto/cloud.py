@@ -6,6 +6,7 @@ import json
 import logging
 import math
 import os
+import re
 import sys
 import tempfile
 import time
@@ -22,7 +23,7 @@ from datumoj.rikolto.core.budget import ParseBudget
 from datumoj.rikolto.core.contracts import PreconditionFailed
 from datumoj.rikolto.core.http import PoliteHttpFetcher
 from datumoj.rikolto.core.lease import LeaseError, LeaseManager
-from datumoj.rikolto.core.models import PublishState
+from datumoj.rikolto.core.models import FetchOutcome, PublishState
 from datumoj.rikolto.core.monitor import _ledger_first_attempts, evaluate_cloud_alerts
 from datumoj.rikolto.core.runner import DEFAULT_MAX_RUN_SECONDS
 from datumoj.rikolto.core.schedule import Scheduler, utcnow, workspace_lock, write_control
@@ -137,6 +138,9 @@ def _source(deps, spec, scheduler, remaining, started=None, deadline=None):
         "new": 0, "unchanged": 0, "parsed": 0, "failures": {}, "stop_reason": None, "embedding_deferred": 0,
     }
     scheduler.append_run(record)
+    health = {"source_id": spec.id, "status": "ok", "phase": None, "categories": {},
+              "consecutive_failures": 0, "first_failure_at": None}
+    deadline_phase = None
     phase = "crawl"
     try:
         crawler = deps.crawler_classes[spec.kind]()
@@ -159,6 +163,11 @@ def _source(deps, spec, scheduler, remaining, started=None, deadline=None):
                       stop_reason="deadline" if report.stop_reason == "deadline" else None)
         if report.failures:
             record["failures"]["crawl_failed"] = sum(report.failures.values())
+            for category, count in report.failures.items():
+                category = category if category in {outcome.value for outcome in FetchOutcome} else "other"
+                _health_failure(health, phase, category, count)
+        if record["stop_reason"] == "deadline":
+            deadline_phase = phase
         _progress("crawl_end", started, record)
         phase = "parse_index"
         pipeline = replace(deps.pipeline_deps, vector_limit=remaining, deadline=deadline, clock=time.monotonic)
@@ -168,6 +177,7 @@ def _source(deps, spec, scheduler, remaining, started=None, deadline=None):
         record["parsed"] = len(summary.parsed)
         if summary.stop_reason == "deadline":
             record["stop_reason"] = "deadline"
+            deadline_phase = phase
         # parse_pending also scans staged publications from other sources.
         # Their recovery errors must not turn this source's success into failure.
         def belongs(snapshot_id):
@@ -177,14 +187,24 @@ def _source(deps, spec, scheduler, remaining, started=None, deadline=None):
         failed = sum(belongs(snapshot_id) for snapshot_id in summary.failed) + len(summary.no_parser)
         if failed:
             record["failures"]["parse_index_failed"] = failed
+        for snapshot_id, reason in summary.failed.items():
+            if belongs(snapshot_id):
+                _health_failure(health, phase, _error_category(reason))
+        if summary.no_parser:
+            _health_failure(health, phase, "other", len(summary.no_parser))
         deferred, failed = _embedding_counts(pipeline, before, spec.id)
         if deferred:
             record["embedding_deferred"] = deferred
         if failed:
             record["failures"]["embedding_failed"] = failed
+            _health_failure(health, "embedding", "embedding_failed", failed)
         _progress("parse_end", started, record)
-    except Exception:  # noqa: BLE001 -- 单来源失败需隔离，保留本轮其他来源的执行。
+    except Exception as exc:  # noqa: BLE001 -- 单来源失败需隔离，保留本轮其他来源的执行。
         record["failures"][f"{phase}_failed"] = record["failures"].get(f"{phase}_failed", 0) + 1
+        reason = type(exc).__name__
+        if reason == "ParseError" and len(exc.args) == 1 and type(exc.args[0]) is str:
+            reason += ": " + exc.args[0]
+        _health_failure(health, phase, _error_category(reason))
         # An interrupted parser cannot report its remaining allowance. Reserve
         # the rest so later sources cannot exceed the round's embedding budget.
         if phase == "parse_index":
@@ -196,7 +216,73 @@ def _source(deps, spec, scheduler, remaining, started=None, deadline=None):
     # Preserve result status/exit semantics, but never advertise a partial crawl
     # as a successful run in the published generation's last_successful_runs.
     scheduler.append_run({**record, "status": "incomplete"} if record["stop_reason"] == "deadline" else record)
-    return record, remaining
+    if not record["failures"] and deadline_phase is not None:
+        health.update(status="deadline", phase=deadline_phase)
+    # The extra value is consumed by _round, never written into the ledger or
+    # the existing sources result. Only source_health exposes the new summary.
+    return {**record, "source_health": health}, remaining
+
+
+def _error_category(reason):
+    name, separator, detail = reason.partition(":")
+    if name == "ParseError":
+        code, separator, suffix = detail.strip().partition(":")
+        return code if separator and not suffix.startswith("//") and re.fullmatch(r"[a-z_]{1,40}", code) else "other"
+    if name == "budget_exceeded":
+        return "BudgetExceeded"  # safe_reason uses this fixed prefix instead of the class name.
+    return name if not detail.startswith("//") and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,79}", name) else "other"
+
+
+def _health_failure(health, phase, category, count=1):
+    health["status"] = "failed"
+    health["phase"] = health["phase"] or phase
+    health["categories"][category] = health["categories"].get(category, 0) + count
+
+
+def _failure_streak(history, source_id):
+    # Collapse duplicate final records by run ID; running records never count.
+    # Legacy rows without state/run_id represent one completed attempt each.
+    final = {row.get("run_id", index): (index, row) for index, row in enumerate(history)
+             if row["source_id"] == source_id and row.get("state", "final") == "final"}
+    ordered = sorted(final.values(), key=lambda item: (
+        datetime.fromisoformat(item[1]["started_at"]).timestamp(), item[0],
+    ), reverse=True)
+    count, first = 0, None
+    for _, row in ordered:
+        if row.get("stop_reason") == "deadline" and not row.get("failures"):
+            break
+        if not (row.get("failures") or row["exit_status"] or row["status"] == "failed"):
+            break  # Includes deadline without errors: neither failure nor success.
+        count += 1
+        first = row["started_at"]
+    return count, first
+
+
+def _source_health(scheduler, current, generation=None):
+    # Older callers can replace the scheduler/source executor without exposing
+    # a ledger. Do not invent health evidence for those adapters.
+    if not hasattr(scheduler, "_read_history"):
+        return current
+    history = scheduler._read_history()[0]
+    health = {row["source_id"]: dict(row) for row in current}
+    if generation is not None:
+        enabled = {row["source_id"] for row in scheduler.status()["sources"] if row["effective_enabled"]}
+        successes = {key: {"finished_at": run.finished_at.isoformat()}
+                     for key, run in generation.last_successful_runs.items()}
+        alerts = evaluate_cloud_alerts(
+            scheduler.sources.values(), enabled, successes, generation.created_at, utcnow(),
+            generation=generation.generation, first_attempts=_ledger_first_attempts(history),
+        )
+        for alert in alerts:
+            if alert.rule == "cloud_run_missing":
+                row = health.setdefault(alert.source_id, {
+                    "source_id": alert.source_id, "categories": {},
+                    "consecutive_failures": 0, "first_failure_at": None,
+                })
+                row.update(status="missing", phase="schedule")
+    for row in health.values():
+        row["consecutive_failures"], row["first_failure_at"] = _failure_streak(history, row["source_id"])
+    return list(health.values())
 
 
 def _failure_counts(pipeline):
@@ -353,7 +439,7 @@ def embed(*, work_dir: Path | None = None, max_minutes: float,
 
 def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only):
     result = {"status": "failed", "exit_status": 1, "generation": None,
-              "sources": [], "due": 0, "new": 0, "unchanged": 0, "parsed": 0,
+              "sources": [], "source_health": [], "due": 0, "new": 0, "unchanged": 0, "parsed": 0,
               "failed_sources": [], "reason": None, "budget_exhausted": False,
               "weekly_report_key": None, "reserve_minutes": reserve_minutes,
               "publish_timings": {}, "restore_timings": {},
@@ -456,6 +542,12 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only):
                                 deps, spec.model_copy(update={"scope": scope}), scheduler, remaining,
                                 started, started + max_minutes * 60 + _PIPELINE_GRACE_SECONDS,
                             )
+                            health = record.pop("source_health", None)
+                            if health is not None:
+                                health["consecutive_failures"], health["first_failure_at"] = _failure_streak(
+                                    scheduler._read_history()[0], source_id,
+                                )
+                                result["source_health"].append(health)
                             _progress("source_end", started, record)
                             result["sources"].append(record)
                             for key in ("new", "unchanged", "parsed"):
@@ -508,6 +600,8 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only):
                         manager.last_timings = result["publish_timings"] = timings
                         _progress("publish_end", started, result)
                     result["generation"] = generation.generation
+                    if not embed_only:
+                        result["source_health"] = _source_health(scheduler, result["source_health"], generation)
                     failed = bool(result["embedding_failed"] if embed_only else result["failed_sources"])
                     if not failed and not embed_only:
                         phase = "weekly_report"

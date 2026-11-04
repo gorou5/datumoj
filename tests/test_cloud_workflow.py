@@ -24,7 +24,8 @@ def test_triggers_concurrency_permissions_and_timeout(workflow_path):
     workflow = load(workflow_path)
     assert set(workflow["on"]) == {"workflow_dispatch"}
     assert workflow["concurrency"] == {"group": "rikolto-cloud-run", "cancel-in-progress": False}
-    assert workflow["permissions"] == {"contents": "read"}
+    expected = {"contents": "read", "issues": "write"} if workflow_path.stem == "cloud-run" else {"contents": "read"}
+    assert workflow["permissions"] == expected
     assert set(workflow["jobs"]) == {"run"}
     job = workflow["jobs"]["run"]
     assert job["if"] == "github.repository == 'gorou5/datumoj'"
@@ -98,4 +99,17 @@ def test_workflows_share_concurrency_and_identical_setup():
     run = load(WORKFLOWS / "cloud-run.yml")
     embed = load(WORKFLOWS / "cloud-embed.yml")
     assert run["concurrency"] == embed["concurrency"]
-    assert run["jobs"]["run"]["steps"][:-1] == embed["jobs"]["run"]["steps"][:-1]
+    assert run["jobs"]["run"]["steps"][:-2] == embed["jobs"]["run"]["steps"][:-1]
+
+
+def test_source_issues_follow_publication_are_nonblocking_and_use_temporary_result():
+    steps = load(WORKFLOWS / "cloud-run.yml")["jobs"]["run"]["steps"]
+    run = next(step for step in steps if step.get("name") == "Run due sources and publish")
+    issues = next(step for step in steps if step.get("name") == "Sync source health issues")
+    assert steps.index(issues) > steps.index(run)
+    assert run["shell"] == "bash" and "set -euo pipefail" in run["run"]
+    assert '| tee "$RUNNER_TEMP/cloud-result.json"' in run["run"]
+    assert issues["if"] == "always()" and issues["continue-on-error"] is True
+    assert '[ -f "$RUNNER_TEMP/cloud-result.json" ]' in issues["run"]
+    assert 'scripts/source_issues.py "$RUNNER_TEMP/cloud-result.json"' in issues["run"]
+    assert issues["env"] == {"GH_REPO": "${{ github.repository }}", "GH_TOKEN": "${{ github.token }}"}

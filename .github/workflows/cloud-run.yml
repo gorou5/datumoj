@@ -9,6 +9,7 @@ concurrency:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   run:
@@ -61,4 +62,18 @@ jobs:
           DATUMOJ_S3_PREFIX: ${{ secrets.DATUMOJ_S3_PREFIX }}
           ESTAT_APP_ID: ${{ secrets.ESTAT_APP_ID }}
           DATUMOJ_RAW_BACKEND: s3
-        run: uv run --frozen rikolto cloud run --max-embed 1000 --max-minutes 40 --reserve-minutes 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --frozen rikolto cloud run --max-embed 1000 --max-minutes 40 --reserve-minutes 10 | tee "$RUNNER_TEMP/cloud-result.json"
+      - name: Sync source health issues
+        if: always()
+        continue-on-error: true
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/cloud-result.json" ]; then
+            uv run --frozen python scripts/source_issues.py "$RUNNER_TEMP/cloud-result.json"
+          fi

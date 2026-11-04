@@ -32,6 +32,31 @@ S3 上的 cloud run 用 8 个线程传输不可变副本与 raw，代次清单�
 块；它大于 0 不一定表示本轮失败。持续增加时先检查额度是否足够，再查看安全状态文件中
 的 `failures` 计数；补嵌与错误不会撤销已发布的解析、关键词或其他数据。
 
+`cloud run` 的结果新增 `source_health` 列表，包含本轮执行的来源，以及现有
+`cloud_run_missing` 规则触发的缺跑来源。每项只含 `source_id`、`status`
+（`ok` / `failed` / `deadline` / `missing`）、`phase`
+（`crawl` / `parse_index` / `embedding` / `schedule` / null）、`categories` 类别计数、
+`consecutive_failures` 和 `first_failure_at`（连续失败中最早开始时间，无则 null）。
+抓取类别来自 `FetchOutcome`；解析只提取 `ParseError: <code>:` 中满足
+`[a-z_]{1,40}` 的代码，其他异常只取类名，无法识别的记 `other`。
+缺少解析器记 `other`，达到嵌入失败上限记 `embedding_failed`。
+同时发生多阶段错误时汇总类别，`phase` 取首个失败阶段；触发缺跑告警时
+`status` / `phase` 为 `missing` / `schedule`，仍保留本轮错误类别。
+连续失败按账本最终记录的开始时间倒序计数，忽略开始记录和重复的最终记录；
+成功或无失败的 deadline 都停止计数，deadline 本身不算失败，也不作为恢复成功。
+
+Actions 将 stdout 结果同时写入日志和 `$RUNNER_TEMP/cloud-result.json`，运行及发布
+步骤结束后，即使本轮返回失败，只要文件存在便调用 `scripts/source_issues.py`。
+脚本通过工作流的 `GH_REPO`、`GH_TOKEN` 使用 `gh`，默认阈值为连续失败 2 轮，
+可用 `--threshold N` 调整。达到阈值或 `status == "missing"` 时，查找标签
+`source-broken` 且标题以 `[source-broken] <source_id>` 开头（来源 ID 后可接空格、冒号等描述分隔符）的未关闭 issue；
+已有则评论，没有则创建，标签缺失时先创建标签。本轮 `status == "ok"` 时，
+给对应 issue 留言“已恢复（第 N 代）”并关闭。标题、正文和评论只使用上述健康字段
+与代次号，不包含 URL、查询参数、来源正文、异常原文或凭证。
+`gh` 输出全部捕获，失败只打印脱敏计数并返回非零；issue 步骤配置
+`continue-on-error: true`，不影响结果和发布。仅 cloud-run 增加 `issues: write`，
+保留仓库身份判断，fork 不执行。
+
 | 组合 | 要设置的环境变量 | 写入方标记 | 定时触发 |
 | --- | --- | --- | --- |
 | Actions + R2（当前） | `DATUMOJ_STATE_BACKEND=s3`（可省略）；`DATUMOJ_S3_ENDPOINT=https://account-id.example.r2.cloudflarestorage.com`、`DATUMOJ_S3_BUCKET=example-state`、`DATUMOJ_S3_PREFIX=rikolto`、`DATUMOJ_S3_REGION=auto`；凭证变量见下文 | `DATUMOJ_WRITER_KIND=actions`；未显式设置时有 `GITHUB_RUN_ID` 就回退为 actions | `cloud-run.yml` 调用 `rikolto cloud run`；目前只有手动触发，secrets 补齐并手动跑通后再加定时 |
