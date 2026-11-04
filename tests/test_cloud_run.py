@@ -559,6 +559,10 @@ def test_deadline_during_crawl_parses_publishes_and_retries_next_round(world, mo
     assert record["source_id"] == "jp-cloud0" and record["stop_reason"] == "deadline"
     assert record["status"] == "completed" and record["exit_status"] == 0
     assert rows(root)[-1]["status"] == "incomplete"
+    assert first["source_health"] == [{
+        "source_id": "jp-cloud0", "status": "deadline", "phase": "crawl", "categories": {},
+        "consecutive_failures": 0, "first_failure_at": None,
+    }]
     assert rows(root)[-1]["started_at"] == world.clock[0].isoformat()
     assert not world.managers[-1].list()[0].last_successful_runs
     assert all("max_run_seconds" not in spec.scope for spec in world.specs)
@@ -957,3 +961,107 @@ def test_cloud_caps_each_fetcher_at_remaining_source_time_or_300(world, monkeypa
     assert result["exit_status"] == 0 and result["generation"] == 1
     assert limits == [expected] * 3
     released(world)
+
+
+def test_source_health_has_only_public_fields_and_success_is_not_a_failure(world):
+    result, _ = invoke(world)
+    assert len(result["source_health"]) == 3
+    for row in result["source_health"]:
+        assert set(row) == {"source_id", "status", "phase", "categories", "consecutive_failures", "first_failure_at"}
+        assert row["status"] == "ok" and row["phase"] is None and row["categories"] == {}
+        assert row["consecutive_failures"] == 0 and row["first_failure_at"] is None
+
+
+@pytest.mark.parametrize("deadline,has_failure,expected", [
+    (False, False, 2), (True, False, 0), (True, True, 3),
+])
+def test_failure_streak_uses_final_records_in_time_order_and_stops_at_success(
+    tmp_path, deadline, has_failure, expected,
+):
+    spec = make_spec("jp-streak")
+    scheduler = schedule.Scheduler(tmp_path, [spec], lambda _: None)
+    start = datetime(2026, 11, 1, tzinfo=UTC)
+
+    def append(index, failed, stop=None):
+        row = {"source_id": spec.id, "run_id": f"synthetic-{index}", "state": "running",
+               "started_at": (start + timedelta(hours=index)).isoformat(), "status": "running", "exit_status": 0}
+        scheduler.append_run(row)
+        scheduler.append_run({**row, "state": "final", "ended_at": row["started_at"], "new": 0, "unchanged": 0,
+                              "status": "incomplete" if stop else "failed" if failed else "completed",
+                              "exit_status": int(failed), "failures": {"crawl_failed": 1} if failed else {},
+                              "stop_reason": stop})
+
+    append(0, True)  # Older failures must not be counted past the successful run.
+    append(3, True)  # Deliberately append out of order; use time, not file position.
+    append(1, False)
+    append(2, True)
+    if deadline:
+        append(4, has_failure, "deadline")
+    scheduler.append_run({"source_id": spec.id, "run_id": "still-running", "state": "running",
+                          "started_at": (start + timedelta(hours=5)).isoformat(), "status": "running", "exit_status": 0})
+    history = scheduler._read_history()[0]
+    count, first = cloud._failure_streak(history, spec.id)
+    assert count == expected
+    assert first == (start + timedelta(hours=2)).isoformat() if expected else first is None
+    last_final = next(row for row in reversed(history) if row["state"] == "final")
+    assert cloud._failure_streak([*history, last_final], spec.id) == (count, first)
+    if deadline and not has_failure:
+        last_final.update(exit_status=1, status="failed")
+        assert cloud._failure_streak(history, spec.id) == (0, None)
+
+
+@pytest.mark.parametrize("reason,expected", [
+    ("ParseError: empty_content: https://synthetic.invalid/?token=secret", "empty_content"),
+    ("ParseError: " + "a" * 40 + ": secret", "a" * 40),
+    ("ParseError: " + "a" * 41 + ": secret", "other"),
+    ("ParseError: Invalid-1: secret", "other"), ("ParseError: missing_colon", "other"),
+    ("ParseError: https://synthetic.invalid/?token=secret", "other"),
+    ("RuntimeError: https://synthetic.invalid/?token=secret", "RuntimeError"),
+    ("RuntimeError", "RuntimeError"), ("custom_error: private body", "custom_error"),
+    ("budget_exceeded:pages", "BudgetExceeded"),
+    ("https://synthetic.invalid/?token=secret", "other"),
+])
+def test_parse_error_categories_are_bounded_and_never_include_details(reason, expected):
+    assert cloud._error_category(reason) == expected
+
+
+def test_source_health_aggregates_parse_categories_and_ignores_other_sources(world, monkeypatch):
+    build_original = wiring.build
+
+    def build(root):
+        deps = build_original(root)
+        parse = deps.parse_pending
+
+        def parse_pending(pipeline, source_id):
+            summary = parse(pipeline, source_id)
+            if source_id == "jp-cloud2":
+                summary.failed.update({
+                    "synthetic-empty": "ParseError: empty_content: https://synthetic.invalid/?token=secret",
+                    "synthetic-empty2": "ParseError: empty_content: private body",
+                    "synthetic-invalid": "ParseError: invalid-code: private body",
+                    "synthetic-exception": "RuntimeError: private body",
+                })
+                other_snapshot = deps.manifest.snapshots_for("jp-cloud0")[0]
+                summary.failed[other_snapshot.snapshot_id] = "ValueError: private body"
+                summary.no_parser.append("synthetic-no-parser")
+            return summary
+
+        deps.parse_pending = parse_pending
+        return deps
+
+    monkeypatch.setattr(wiring, "build", build)
+    result, _ = invoke(world)
+    row = next(row for row in result["source_health"] if row["source_id"] == "jp-cloud2")
+    assert row["status"] == "failed" and row["phase"] == "parse_index"
+    assert row["categories"] == {"empty_content": 2, "other": 2, "RuntimeError": 1}
+    assert row["consecutive_failures"] == 1 and row["first_failure_at"] == world.clock[0].isoformat()
+    assert all(text not in json.dumps(result["source_health"]) for text in ("://", "?", "private body", "secret"))
+
+
+def test_missing_alert_includes_sources_not_run_this_round(world):
+    invoke(world, "successful")
+    world.clock[0] += timedelta(hours=2)
+    result, _ = invoke(world, "budget-zero", "--max-minutes", "0")
+    assert result["sources"] == [] and result["budget_exhausted"]
+    assert {row["source_id"] for row in result["source_health"]} == {"jp-cloud0", "jp-cloud2"}
+    assert all(row["status"] == "missing" and row["phase"] == "schedule" for row in result["source_health"])
