@@ -1062,6 +1062,52 @@ def test_missing_alert_includes_sources_not_run_this_round(world):
     invoke(world, "successful")
     world.clock[0] += timedelta(hours=2)
     result, _ = invoke(world, "budget-zero", "--max-minutes", "0")
-    assert result["sources"] == [] and result["budget_exhausted"]
-    assert {row["source_id"] for row in result["source_health"]} == {"jp-cloud0", "jp-cloud2"}
+    assert result["sources"] == [] and result["budget_exhausted"] and result["source_health"] == []
+    world.clock[0] += timedelta(hours=23)
+    result, _ = invoke(world, "budget-zero-later", "--max-minutes", "0")
+    assert {row["source_id"] for row in result["source_health"]} == {"jp-cloud0", "jp-cloud1", "jp-cloud2"}
     assert all(row["status"] == "missing" and row["phase"] == "schedule" for row in result["source_health"])
+
+
+def _final_run(source_id, started_at, **fields):
+    return {"source_id": source_id, "run_id": f"{source_id}-{started_at}", "state": "final",
+            "started_at": started_at.isoformat(), "status": "failed", "exit_status": 0, "failures": {},
+            "stop_reason": None, **fields}
+
+
+def _health_with_alert(world, monkeypatch, history, current=()):
+    scheduler = SimpleNamespace(
+        _read_history=lambda: (history, None), sources={}, status=lambda: {"sources": []},
+    )
+    generation = SimpleNamespace(last_successful_runs={}, created_at=world.clock[0], generation=1)
+    alert = SimpleNamespace(rule="cloud_run_missing", source_id="jp-cloud0", since=world.clock[0] - timedelta(hours=30))
+    monkeypatch.setattr(cloud, "evaluate_cloud_alerts", lambda *args, **kwargs: [alert])
+    return cloud._source_health(scheduler, list(current), generation)
+
+
+def test_backlogged_source_with_recent_attempt_is_not_missing(world, monkeypatch):
+    recent = _final_run("jp-cloud0", world.clock[0] - timedelta(hours=23), stop_reason="deadline")
+    assert _health_with_alert(world, monkeypatch, [recent]) == []
+    current = {"source_id": "jp-cloud0", "status": "deadline", "phase": None, "categories": {},
+               "consecutive_failures": 0, "first_failure_at": None}
+    old = _final_run("jp-cloud0", world.clock[0] - timedelta(hours=30), stop_reason="deadline")
+    assert _health_with_alert(world, monkeypatch, [old], [current])[0]["status"] == "deadline"
+
+
+def test_starved_deadline_source_is_missing(world, monkeypatch):
+    old = _final_run("jp-cloud0", world.clock[0] - timedelta(hours=25), stop_reason="deadline", status="incomplete")
+    [row] = _health_with_alert(world, monkeypatch, [old])
+    assert row["status"] == "missing" and row["phase"] == "schedule" and row["categories"] == {}
+
+
+def test_never_run_source_is_missing(world, monkeypatch):
+    [row] = _health_with_alert(world, monkeypatch, [])
+    assert row["status"] == "missing" and row["consecutive_failures"] == 0
+
+
+def test_missing_source_keeps_last_failure_evidence(world, monkeypatch):
+    history = [_final_run("jp-cloud0", world.clock[0] - timedelta(hours=hours), exit_status=1,
+                          failures={"crawl_failed": 3}, stop_reason="source_failed") for hours in (50, 26)]
+    [row] = _health_with_alert(world, monkeypatch, history)
+    assert row["status"] == "missing" and row["phase"] == "crawl"
+    assert row["categories"] == {"crawl_failed": 3} and row["consecutive_failures"] == 2

@@ -13,7 +13,7 @@ import time
 import uuid
 from contextlib import ExitStack, contextmanager, redirect_stderr, redirect_stdout, suppress
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Lock
 
@@ -42,6 +42,7 @@ from datumoj.rikolto.pipeline import (
 _BACKFILL_BATCH = 32
 _MAX_REQUEST_SECONDS = 300
 _PIPELINE_GRACE_SECONDS = 600
+_MISSING_AFTER = timedelta(hours=24)
 
 
 @contextmanager
@@ -239,7 +240,7 @@ def _health_failure(health, phase, category, count=1):
     health["categories"][category] = health["categories"].get(category, 0) + count
 
 
-def _failure_streak(history, source_id):
+def _final_runs(history, source_id):
     # Collapse duplicate final records by run ID; running records never count.
     # Legacy rows without state/run_id represent one completed attempt each.
     final = {row.get("run_id", index): (index, row) for index, row in enumerate(history)
@@ -247,8 +248,12 @@ def _failure_streak(history, source_id):
     ordered = sorted(final.values(), key=lambda item: (
         datetime.fromisoformat(item[1]["started_at"]).timestamp(), item[0],
     ), reverse=True)
+    return [row for _, row in ordered]
+
+
+def _failure_streak(history, source_id):
     count, first = 0, None
-    for _, row in ordered:
+    for row in _final_runs(history, source_id):
         if row.get("stop_reason") == "deadline" and not row.get("failures"):
             break
         if not (row.get("failures") or row["exit_status"] or row["status"] == "failed"):
@@ -274,12 +279,25 @@ def _source_health(scheduler, current, generation=None):
             generation=generation.generation, first_attempts=_ledger_first_attempts(history),
         )
         for alert in alerts:
-            if alert.rule == "cloud_run_missing":
-                row = health.setdefault(alert.source_id, {
-                    "source_id": alert.source_id, "categories": {},
-                    "consecutive_failures": 0, "first_failure_at": None,
-                })
-                row.update(status="missing", phase="schedule")
+            if alert.rule != "cloud_run_missing":
+                continue
+            if health.get(alert.source_id, {}).get("status") in {"failed", "deadline"}:
+                continue
+            runs = _final_runs(history, alert.source_id)
+            # Backlogged sources overrun their schedule while still getting turns;
+            # only a source without an attempt for this long is really missing.
+            last = datetime.fromisoformat(runs[0]["started_at"]) if runs else alert.since
+            if utcnow() - last < _MISSING_AFTER:
+                continue
+            row = health.setdefault(alert.source_id, {
+                "source_id": alert.source_id, "categories": {},
+                "consecutive_failures": 0, "first_failure_at": None,
+            })
+            row.update(status="missing", phase="schedule")
+            # Not run this round: keep the last failure's evidence for the issue.
+            if not row["categories"] and runs and runs[0].get("failures"):
+                row["categories"] = dict(runs[0]["failures"])
+                row["phase"] = next(iter(runs[0]["failures"])).removesuffix("_failed")
     for row in health.values():
         row["consecutive_failures"], row["first_failure_at"] = _failure_streak(history, row["source_id"])
     return list(health.values())
