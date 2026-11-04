@@ -1111,3 +1111,61 @@ def test_missing_source_keeps_last_failure_evidence(world, monkeypatch):
     [row] = _health_with_alert(world, monkeypatch, history)
     assert row["status"] == "missing" and row["phase"] == "crawl"
     assert row["categories"] == {"crawl_failed": 3} and row["consecutive_failures"] == 2
+
+
+@pytest.mark.parametrize("total_switch,raw_switch,option,enabled,raw_enabled", [
+    ("", "", (), True, False),
+    ("off", "on", (), False, True),
+    ("on", "off", (), True, False),
+    ("on", "on", ("--no-cleanup",), False, True),
+])
+def test_cleanup_switches_and_publication_lease_boundary(
+    world, monkeypatch, total_switch, raw_switch, option, enabled, raw_enabled,
+):
+    monkeypatch.setenv("R2_CLEANUP", total_switch)
+    monkeypatch.setenv("R2_RAW_CLEANUP", raw_switch)
+    original = StateManager.cleanup
+    calls = []
+
+    def cleanup(manager, specs, **kw):
+        assert manager.store.get("current.json") is not None
+        assert LeaseManager(manager.store).status()["held"]
+        assert manager.last_timings["sample_provenance"] >= 0  # verification already succeeded
+        manager.store.put("copies/sha256/synthetic-orphan", b"orphan")
+        calls.append(kw)
+        return original(manager, specs, **kw)
+
+    monkeypatch.setattr(StateManager, "cleanup", cleanup)
+    result, _ = invoke(world, "switches", *option)
+    assert result["status"] == "completed" and len(calls) == 1
+    report = result["cleanup"]
+    assert report["enabled"] is enabled and report["raw_enabled"] is raw_enabled
+    assert report["reclaimable_copies"] == 1 and report["copies_deleted"] == int(enabled)
+    assert all(isinstance(value, (int, bool)) for value in report.values())
+    assert remote(world).exists("copies/sha256/synthetic-orphan") is not enabled
+    released(world)
+
+
+def test_cleanup_delete_failure_keeps_published_result_successful(world, monkeypatch):
+    from datumoj.rikolto.core.state_s3 import S3StateObjectStore
+
+    original_cleanup = StateManager.cleanup
+    original_delete = S3StateObjectStore.delete_if_match
+
+    def cleanup(manager, specs, **kw):
+        manager.store.put("copies/sha256/synthetic-orphan", b"orphan")
+        return original_cleanup(manager, specs, **kw)
+
+    def delete(store, key, etag):
+        if key.startswith("copies/"):
+            raise OSError("https://synthetic.invalid/private?key=synthetic-secret")
+        return original_delete(store, key, etag)
+
+    monkeypatch.setattr(StateManager, "cleanup", cleanup)
+    monkeypatch.setattr(S3StateObjectStore, "delete_if_match", delete)
+    result, _ = invoke(world)
+    assert result["status"] == "completed" and result["exit_status"] == 0
+    assert result["generation"] == 1 and result["cleanup"]["failures"] == 1
+    assert "synthetic-secret" not in json.dumps(result)
+    assert StateManager(remote(world), world.tmp / "verify").restore(world.tmp / "retained")["verified"]
+    released(world)

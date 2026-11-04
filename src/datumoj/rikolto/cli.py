@@ -156,6 +156,7 @@ def cloud_check() -> None:
 
 @cloud_app.command("run")
 def cloud_run(
+    no_cleanup: bool = typer.Option(False, "--no-cleanup", help="仅报告可清理量，不删除对象"),
     work_dir: Path | None = typer.Option(None, "--work-dir", help="空的工作目录；默认使用临时目录"),
     max_embed: int = typer.Option(1000, "--max-embed", min=0, help="整轮嵌入块数上限"),
     max_minutes: float = typer.Option(40, "--max-minutes", min=0, help="从本轮开始到发布前的工作预算（分钟）"),
@@ -164,13 +165,14 @@ def cloud_run(
     from datumoj.rikolto.cloud import run
 
     result = run(work_dir=work_dir, max_embed=max_embed, max_minutes=max_minutes,
-                 reserve_minutes=reserve_minutes)
+                 reserve_minutes=reserve_minutes, **({"no_cleanup": True} if no_cleanup else {}))
     typer.echo(_json(result))
     raise typer.Exit(result["exit_status"])
 
 
 @cloud_app.command("embed")
 def cloud_embed(
+    no_cleanup: bool = typer.Option(False, "--no-cleanup", help="仅报告可清理量，不删除对象"),
     work_dir: Path | None = typer.Option(None, "--work-dir", help="空的工作目录；默认使用临时目录"),
     max_minutes: float = typer.Option(..., "--max-minutes", min=0, help="从本轮开始到发布前的工作预算（分钟）"),
     reserve_minutes: float = typer.Option(10, "--reserve-minutes", min=0, help="另留给发布和收尾的余量（分钟）"),
@@ -179,7 +181,7 @@ def cloud_embed(
     from datumoj.rikolto.cloud import embed
 
     result = embed(work_dir=work_dir, max_embed=max_embed, max_minutes=max_minutes,
-                   reserve_minutes=reserve_minutes)
+                   reserve_minutes=reserve_minutes, **({"no_cleanup": True} if no_cleanup else {}))
     typer.echo(_json(result))
     raise typer.Exit(result["exit_status"])
 

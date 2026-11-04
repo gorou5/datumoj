@@ -9,7 +9,7 @@ import uuid
 from contextlib import contextmanager
 from pathlib import Path
 
-from datumoj.rikolto.core.contracts import PreconditionFailed
+from datumoj.rikolto.core.contracts import PreconditionFailed, StateObject
 from datumoj.rikolto.core.state_s3 import check_key
 
 
@@ -172,3 +172,16 @@ class DirStateObjectStore:
 
         visit("")
         return sorted(keys)
+
+    def list_objects(self, prefix: str = "") -> list[StateObject]:
+        objects = []
+        for key in self.list(prefix):
+            with self._directory(key) as fd:
+                stream_fd = os.open("value", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=fd)
+                with os.fdopen(stream_fd, "rb") as stream:
+                    etag = stream.read(32).decode("ascii")
+                    size = os.fstat(stream.fileno()).st_size - 32
+                    if len(etag) != 32 or any(c not in "0123456789abcdef" for c in etag) or size < 0:
+                        raise ValueError("目录状态对象版本损坏")
+                    objects.append(StateObject(key, size, etag))
+        return objects

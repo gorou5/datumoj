@@ -61,6 +61,7 @@ from datumoj.rikolto.core.contracts import (
     ResourceEntry,
     ScoredChunk,
     SourceSpec,
+    StateObject,
     TableSummary,
     TooManyRows,
     UrlNotAllowed,
@@ -186,6 +187,11 @@ class FakeStateObjectStore:
         with self._lock:
             return sorted(key for key in self._objects if key.startswith(prefix))
 
+    def list_objects(self, prefix: str = "") -> list[StateObject]:
+        with self._lock:
+            return [StateObject(key, len(data), etag) for key, (data, etag) in sorted(self._objects.items())
+                    if key.startswith(prefix)]
+
 
 class FakeRegistry:
     def __init__(self, specs: Iterable[SourceSpec] = ()):
@@ -243,6 +249,7 @@ class FakeRawStore:
 
 class FakeManifest:
     def __init__(self) -> None:
+        self._raw_markers: dict[str, datetime] = {}
         self._snaps: list[Snapshot] = []
         self._meta: dict[str, dict[str, JsonValue]] = {}
         self._parse: dict[tuple[str, str, str, str], ParseRecord] = {}
@@ -258,6 +265,16 @@ class FakeManifest:
         self._meta[snapshot.snapshot_id] = json.loads(json.dumps(checked))
         self._snaps.append(snapshot)
         self._by_id[snapshot.snapshot_id] = snapshot
+
+    def raw_markers(self) -> dict[str, datetime]:
+        return dict(self._raw_markers)
+
+    def mark_raw_optional(self, sha256: str, marked_at: datetime) -> None:
+        from datumoj.rikolto.core.models import Sha256
+
+        TypeAdapter(Sha256).validate_python(sha256)
+        TypeAdapter(AwareDatetime).validate_python(marked_at)
+        self._raw_markers.setdefault(sha256, marked_at)
 
     def get_snapshot(self, snapshot_id: str) -> Snapshot | None:
         return self._by_id.get(snapshot_id)

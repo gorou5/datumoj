@@ -142,6 +142,7 @@ def parse_pending(
     pending_vectors = set(_load_vector_state(deps)["missing"])
     _retry_vectors(deps, source_id, summary)
     recovering = _recover_staged(deps, parsers, specs_by_id, budgets, summary)
+    optional_raw = deps.manifest.raw_markers()
     for spec in specs:
         budget = budgets[spec.id]
         snapshots = deps.manifest.snapshots_for(spec.id)
@@ -151,6 +152,9 @@ def parse_pending(
             if snap.outcome is not FetchOutcome.ok or snap.sha256 is None:
                 continue
             if snap.snapshot_id in recovering:
+                continue
+            if snap.sha256 in optional_raw and not deps.raw.exists(snap.sha256):
+                summary.skipped += 1
                 continue
             meta = deps.manifest.snapshot_meta(snap.snapshot_id)
             cls = select_parser(parsers, spec.kind, snap.content_type)
