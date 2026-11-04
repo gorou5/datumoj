@@ -72,7 +72,7 @@ def sync_issues(result, threshold=2):
     # other result keys, including sources, exception details and storage data.
     entries = [(row, issue_text(row, result["generation"])) for row in result["source_health"]]
     active = [(row, text) for row, text in entries
-              if row["status"] in {"ok", "missing"} or row["consecutive_failures"] >= threshold]
+              if row["status"] == "ok" or row["consecutive_failures"] >= threshold]
     if not active:
         return 0
     gh = GitHub()
