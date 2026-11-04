@@ -1,6 +1,6 @@
 {
   "_说明": "plan/index.html 的“版本路线图”和“里程碑”两节由本文件渲染。由主对话在节点上更新，调度器派出的任务 agent 不改本文件。status 只有对应的 PR 已合并进 main 才能写 done（IVY 期间直接推送 main，pr 为 null）。规则见 CLAUDE.md 与 docs/PLAN.md 第 8.1 节。",
-  "updated": "2026-10-28",
+  "updated": "2026-10-30",
   "versions": [
     {
       "version": "0.1",
@@ -198,11 +198,11 @@
       "version": "0.4",
       "id": "M0",
       "title": "契约审查",
-      "status": "doing",
-      "date": "2026-10-28",
+      "status": "done",
+      "date": "2026-10-30",
       "tag": null,
-      "pr": null,
-      "summary": "Eltiro 契约（ADR 0006）与观测值按发布时间查询（ADR 0007）于 2026-10-28 人审通过（集成任务 WISTERIA-901）；在 feature/0.4 上，合并进 main 后改为 done。",
+      "pr": 54,
+      "summary": "Eltiro 契约（ADR 0006）与观测值按发布时间查询（ADR 0007）于 2026-10-28 人审通过（集成任务 WISTERIA-901）；2026-10-30 随检查点 m0 同步进 main（PR #54，不打 tag）。",
       "acceptance": null
     }
   ]
