@@ -21,7 +21,7 @@ from typing import Any
 from datumoj.rikolto.core.contracts import Manifest, SourceSpec
 from datumoj.rikolto.core.errors import safe_reason
 from datumoj.rikolto.core.lease import LeaseManager, remote_configured
-from datumoj.rikolto.core.monitor import evaluate_alerts
+from datumoj.rikolto.core.monitor import _aware_datetime, _ledger_first_attempts, evaluate_alerts
 
 try:
     import fcntl
@@ -74,6 +74,8 @@ def _validate_control(value: Any) -> dict[str, Any]:
     for source_id, state in sources.items():
         if not isinstance(state, dict) or type(state.get("enabled", False)) is not bool:
             raise ValueError(f"sources.{source_id}.enabled 必须是布尔值")
+        if "enabled_since" in state and _aware_datetime(state["enabled_since"]) is None:
+            raise ValueError(f"sources.{source_id}.enabled_since 必须是带时区的 ISO 日期时间")
     return {"enabled": value.get("enabled", False), "sources": sources}
 
 
@@ -170,18 +172,47 @@ def workspace_lock(data_dir: str | Path) -> Iterator[None]:
             held.remove(lock_key)
 
 
-def write_control(data_dir: str | Path, control: dict[str, Any]) -> None:
+def _track_enablement(control, previous, now, first_attempts=None):
+    if now.utcoffset() is None:
+        raise ValueError("开关时间必须带时区")
+    sources = {}
+    for source_id, value in control["sources"].items():
+        state = dict(value)
+        old = previous["sources"].get(source_id, {})
+        if control["enabled"] and state.get("enabled", False):
+            # An idempotent write must not move the clock. Legacy controls use
+            # their oldest known attempt, or the first observation if never run.
+            since = now.isoformat()
+            if previous["enabled"] and old.get("enabled", False):
+                since = old.get("enabled_since")
+                if since is None and first_attempts is not None:
+                    since = first_attempts.get(source_id) or now.isoformat()
+            if since is not None:
+                state["enabled_since"] = since
+            else:
+                # Preserve legacy uncertainty until observe_enabled can consult
+                # the ledger, rather than resetting it on unrelated toggles.
+                state.pop("enabled_since", None)
+        else:
+            state.pop("enabled_since", None)
+        sources[source_id] = state
+    return {"enabled": control["enabled"], "sources": sources}
+
+
+def write_control(data_dir: str | Path, control: dict[str, Any], *, now: datetime | None = None) -> None:
     """原子替换完整开关；增量更新请用 set_enabled，避免读改写竞争。"""
     checked = _validate_control(control)
     root = Path(data_dir)
     with workspace_lock(root):
         ensure_writable(root)
         with _locked(root / "control.lock"):
+            checked = _track_enablement(checked, read_control(root), now or utcnow())
             _atomic_write(root / "control.json", json.dumps(checked, ensure_ascii=False).encode())
 
 
 def set_enabled(
     data_dir: str | Path, enabled: bool, source_ids: Iterable[str] | None = None,
+    *, now: datetime | None = None,
 ) -> dict[str, Any]:
     """source_ids=None 更新总开关，否则仅更新指定来源，不改总开关。"""
     if type(enabled) is not bool:
@@ -190,12 +221,14 @@ def set_enabled(
     with workspace_lock(root):
         ensure_writable(root)
         with _locked(root / "control.lock"):
-            control = read_control(root)
+            previous = read_control(root)
+            control = {"enabled": previous["enabled"], "sources": dict(previous["sources"])}
             if source_ids is None:
                 control["enabled"] = enabled
             else:
                 for source_id in source_ids:
-                    control["sources"][source_id] = {"enabled": enabled}
+                    control["sources"][source_id] = {**control["sources"].get(source_id, {}), "enabled": enabled}
+            control = _track_enablement(control, previous, now or utcnow())
             _atomic_write(root / "control.json", json.dumps(control, ensure_ascii=False).encode())
         return control
 
@@ -351,6 +384,18 @@ class Scheduler:
         return next((row for row in reversed(history) if row["source_id"] == source_id
                      and row.get("reason_code") != "write_lease_unavailable"), None)
 
+    def observe_enabled(self) -> None:
+        """Persist missing legacy clocks before a cloud round publishes state."""
+        with workspace_lock(self.data_dir):
+            ensure_writable(self.data_dir)
+            with _locked(self.data_dir / "control.lock"):
+                control = read_control(self.data_dir)
+                updated = _track_enablement(
+                    control, control, self.now(), _ledger_first_attempts(self._history()),
+                )
+                if updated != control:
+                    _atomic_write(self.data_dir / "control.json", json.dumps(updated, ensure_ascii=False).encode())
+
     def due(self) -> list[str]:
         """Enabled, due source IDs using the same ledger and next_due as tick."""
         control = read_control(self.data_dir)
@@ -394,6 +439,7 @@ class Scheduler:
             rows.append({
                 "source_id": spec.id, "enabled": enabled,
                 "effective_enabled": effective_enabled,
+                "enabled_since": control["sources"].get(spec.id, {}).get("enabled_since"),
                 "schedule": spec.schedule, "last_run": last,
                 "next_due": due.isoformat() if due else None, "running": running, "alerts": alerts,
             })
