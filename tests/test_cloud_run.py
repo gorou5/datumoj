@@ -1169,3 +1169,84 @@ def test_cleanup_delete_failure_keeps_published_result_successful(world, monkeyp
     assert "synthetic-secret" not in json.dumps(result)
     assert StateManager(remote(world), world.tmp / "verify").restore(world.tmp / "retained")["verified"]
     released(world)
+
+
+def test_never_run_sources_age_across_fresh_cloud_generations(world, monkeypatch):
+    # Only the clock and external services are controlled: scheduler, alerts,
+    # control persistence and generation publication/restore all run for real.
+    from datumoj.rikolto.core import state
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return world.clock[0].astimezone(tz)
+
+    monkeypatch.setattr(state, "datetime", Clock)
+    started = world.clock[0]
+    for hour in (0, 2, 23, 24, 25, 73):
+        world.clock[0] = started + timedelta(hours=hour)
+        result, root = invoke(world, f"never-run-{hour}", "--max-minutes", "0")
+        assert result["status"] == "completed"
+        assert result["sources"] == [] and not (root / "runs.jsonl").exists()
+        if hour < 24:
+            assert result["source_health"] == []
+        else:
+            expected = {"jp-cloud0", "jp-cloud2"} if hour == 24 else {"jp-cloud0", "jp-cloud1", "jp-cloud2"}
+            assert {row["source_id"] for row in result["source_health"]} == expected
+            assert all(row["status"] == "missing" for row in result["source_health"])
+        generation = world.managers[-1].list()[0]
+        assert generation.created_at == world.clock[0] and generation.last_successful_runs == {}
+        assert {row["enabled_since"] for row in schedule.read_control(root)["sources"].values()} == {
+            started.isoformat(),
+        }
+
+
+def test_reenabled_source_is_not_missing_until_new_grace_period_expires(tmp_path, monkeypatch):
+    spec = make_spec("jp-reenabled", schedule="hourly")
+    started = datetime(2026, 10, 20, tzinfo=UTC)
+    clock = [started]
+    monkeypatch.setattr(cloud, "utcnow", lambda: clock[0])
+    scheduler = schedule.Scheduler(tmp_path, [spec], lambda _: None, now=lambda: clock[0])
+    schedule.write_control(tmp_path, {"enabled": True, "sources": {spec.id: {"enabled": True}}}, now=started)
+    scheduler.append_run({"source_id": spec.id, "started_at": started.isoformat(),
+                          "status": "failed", "exit_status": 1, "failures": {"crawl_failed": 1}})
+    schedule.set_enabled(tmp_path, False, [spec.id], now=started + timedelta(days=1))
+    reenabled = started + timedelta(days=2)
+    schedule.set_enabled(tmp_path, True, [spec.id], now=reenabled)
+    for hours in (0, 2, 23, 24):
+        clock[0] = reenabled + timedelta(hours=hours)
+        generation = SimpleNamespace(last_successful_runs={}, created_at=clock[0], generation=hours + 1)
+        health = cloud._source_health(scheduler, [], generation)
+        if hours < 24:
+            assert health == []
+        else:
+            assert health[0]["status"] == "missing"
+
+
+def test_cloud_round_migrates_legacy_never_run_control(world, monkeypatch):
+    from datumoj.rikolto.core import state
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return world.clock[0].astimezone(tz)
+
+    monkeypatch.setattr(state, "datetime", Clock)
+    _, root = invoke(world, "legacy-seed", "--max-minutes", "0")
+    # Publish a legacy control file without any historical run or enable time.
+    (root / "control.json").write_text(json.dumps({
+        "enabled": True, "sources": {spec.id: {"enabled": True} for spec in world.specs},
+    }))
+    StateManager(remote(world), root).push()
+    world.clock[0] += timedelta(days=3)
+    observed = world.clock[0]
+    first, root = invoke(world, "legacy-first-observation", "--max-minutes", "0")
+    assert first["source_health"] == []
+    assert {row["enabled_since"] for row in schedule.read_control(root)["sources"].values()} == {
+        observed.isoformat(),
+    }
+    world.clock[0] += timedelta(hours=25)
+    later, root = invoke(world, "legacy-later", "--max-minutes", "0")
+    assert {row["source_id"] for row in later["source_health"]} == {spec.id for spec in world.specs}
+    assert all(row["status"] == "missing" for row in later["source_health"])
+    assert not (root / "runs.jsonl").exists()
