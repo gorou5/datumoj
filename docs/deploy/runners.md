@@ -178,11 +178,11 @@ Lance 提交，避免每篇都写一份列出全部碎片的版本清单。嵌�
 parse_writers 使用局部更新。`parsed` 的 REPLACE 保留：parse_stats 依靠 rowid
 表达跨解析器的最后写入顺序，直接换成 UPSERT 会改变查询结果。
 
-两个 Actions 作业使用相同的、固定提交哈希的 actions/cache 步骤。
-在作业租约获取前读取已发布代次，预计下一代号作为缓存键
-`rikolto-state-<OS>-generation-<N>`，允许回退到同 OS 的旧键。
-有孤代续接或补嵌无发布时，预计代号可能与最终发布不同；缓存只是可验证的内容块集合，
-不决定代次选择。缓存步骤位于依赖安装和服务准备之后、云端命令之前；fork 的整个
+两个 Actions 作业使用相同的、固定提交哈希的 `actions/cache/restore` 和 `actions/cache/save` 步骤。
+缓存键是 `rikolto-state-<OS>-<run_id>-<attempt>`，恢复时回退到同 OS 最新的键；块按 SHA256 校验，
+所以不需要按代次号定键，也不需要在作业开始前读 R2，R2 密钥只给写入步骤。
+保存步骤 `if: always()`：来源失败时本轮仍会发布但退出码非零，合一的 `actions/cache` 这时不会保存。
+缓存只是可验证的内容来源，不决定代次选择。缓存步骤位于依赖安装和服务准备之后、云端命令之前；fork 的整个
 作业仍被仓库身份条件禁止。云端使用标准 `RUNNER_TEMP` 下的
 `rikolto-blocks`（无需新增项目环境变量），只存以 SHA256 命名的不可变副本字节，不缓存工作目录、环境、
 连接配置、凭证或 raw。新上传的副本也进入缓存。缓存跨多代保留；Actions 的容量
