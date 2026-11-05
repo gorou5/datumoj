@@ -192,7 +192,10 @@ class SqliteManifest:
         with self._tx() as db:
             if db.execute("SELECT 1 FROM snapshots WHERE snapshot_id=?", (snapshot_id,)).fetchone() is None:
                 raise NotFoundError(f"没有快照 {snapshot_id}")
-            db.execute("INSERT OR REPLACE INTO publish_states VALUES (?,?,?)", (snapshot_id, state.value, error))
+            db.execute("INSERT INTO publish_states VALUES (?,?,?) ON CONFLICT(snapshot_id) DO UPDATE SET "
+                       "state=excluded.state, error=excluded.error "
+                       "WHERE publish_states.state != excluded.state OR publish_states.error IS NOT excluded.error",
+                       (snapshot_id, state.value, error))
 
     def publish_state(self, snapshot_id: str) -> PublishState | None:
         row = self._db.execute("SELECT state FROM publish_states WHERE snapshot_id=?", (snapshot_id,)).fetchone()
@@ -248,13 +251,16 @@ class SqliteManifest:
     def record_parse(self, record: ParseRecord) -> None:
         with self._tx() as db:
             db.execute(
+                # rowid is the cross-parser last-write order used by parse_stats.
                 "INSERT OR REPLACE INTO parsed (sha256, parser, version, context_fingerprint, status, error, doc_keys) "
                 "VALUES (?,?,?,?,?,?,?)",
                 (record.sha256, record.parser, record.version, record.context_fingerprint, record.status.value, record.error,
                  None if record.doc_keys is None else json.dumps(record.doc_keys, ensure_ascii=False)),
             )
             if record.status is ParseStatus.ok:
-                db.executemany("INSERT OR REPLACE INTO parse_writers VALUES (?,?,?)",
+                db.executemany("INSERT INTO parse_writers VALUES (?,?,?) ON CONFLICT(doc_key,sha256) DO UPDATE SET "
+                               "context_fingerprint=excluded.context_fingerprint "
+                               "WHERE parse_writers.context_fingerprint != excluded.context_fingerprint",
                                [(key, record.sha256, record.context_fingerprint) for key in record.doc_keys or []])
 
     def get_parse(self, sha256: str, parser: str, version: str, context_fingerprint: str = "") -> ParseRecord | None:

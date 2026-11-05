@@ -267,3 +267,80 @@ def test_cli_output_and_logs_hide_configuration_on_rebuild_failure(corpus, tmp_p
     assert not (tmp_path / "failed").exists()
     output = pushed.output + restored.output + listed.output + failed.output + caplog.text
     assert all(secret not in output for secret in secrets.values())
+
+
+@pytest.mark.parametrize('mode', ['hit', 'miss', 'corrupt', 'unavailable'])
+def test_verified_cache_reuses_blocks_or_falls_back_to_remote(corpus, tmp_path, mode):
+    _, deps, manager, store = corpus
+    enlarge(deps)
+    manager.cache_dir = tmp_path / 'cache'
+    first = manager.push()
+    if mode == 'miss':
+        import shutil
+        shutil.rmtree(manager.cache_dir)
+    elif mode == 'corrupt':
+        copy = next(c for c in first.stores if c.format == 'sqlite-block-v1')
+        (manager.cache_dir / copy.sha256).write_bytes(b'broken cache')
+    elif mode == 'unavailable':
+        manager.cache_dir = tmp_path / 'unavailable-cache'
+        manager.cache_dir.write_bytes(b'not a directory')
+    store.gets.clear()
+    assert manager.restore(tmp_path / 'cached-restore', raw='remote')['verified']
+    total = sum(c.size_bytes for c in first.stores if c.format != 'sqlite-blocks-v1')
+    if mode == 'hit':
+        assert not any(key.startswith('copies/') for key in store.gets)
+        assert manager.last_timings['downloaded_bytes'] == 0
+        assert manager.last_timings['reused_bytes'] == total
+    else:
+        assert manager.last_timings['downloaded_bytes'] == total
+        assert manager.last_timings['reused_bytes'] == 0
+
+
+def test_partial_cache_downloads_only_missing_blocks(corpus, tmp_path):
+    _, deps, manager, store = corpus
+    enlarge(deps)
+    manager.cache_dir = tmp_path / 'cache'
+    first = manager.push()
+    copy = next(c for c in first.stores if c.format == 'sqlite-block-v1')
+    (manager.cache_dir / copy.sha256).unlink()
+    store.gets.clear()
+    assert manager.restore(tmp_path / 'partial', raw='remote')['verified']
+    assert {key for key in store.gets if key.startswith('copies/')} == {copy.key}
+    # Repeated content keys may occur at multiple logical positions.
+    assert manager.last_timings['downloaded_bytes'] == sum(c.size_bytes for c in first.stores if c.key == copy.key and c.format != 'sqlite-blocks-v1')
+
+
+@pytest.mark.parametrize('tamper', ['missing_copy', 'wrong_copy_size', 'missing_raw', 'wrong_raw_size', None])
+def test_incremental_publication_checks_inventory_without_content_downloads(corpus, monkeypatch, tamper):
+    root, _, manager, store = corpus
+    from dataclasses import replace
+
+    original = store.list_objects
+
+    def listing(prefix):
+        objects = original(prefix)
+        matches = (prefix.startswith('copies/') and tamper in ('missing_copy', 'wrong_copy_size')
+                   or prefix == 'raw/' and tamper in ('missing_raw', 'wrong_raw_size'))
+        if matches:
+            assert objects
+            if tamper.startswith('missing'):
+                return objects[1:]
+            return [replace(objects[0], size_bytes=objects[0].size_bytes + 1), *objects[1:]]
+        return objects
+
+    original_get = store.get
+
+    def get(key):
+        assert not key.startswith(('copies/', 'raw/'))
+        return original_get(key)
+
+    monkeypatch.setattr(store, 'get', get)
+    monkeypatch.setattr(store, 'list_objects', listing)
+    if tamper:
+        with pytest.raises(StateError, match='发布后'):
+            manager.push(retain_local=True)
+    else:
+        manager.push(retain_local=True)
+        evidence = json.loads((root / '.observation-generations/1/verified.json').read_text())
+        assert evidence['remote_raw'] is True
+        assert not (root / '.observation-generations/1/data/raw').exists()

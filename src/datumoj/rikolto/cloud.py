@@ -90,6 +90,19 @@ def _progress(event, started, record=None):
     print(json.dumps(row, ensure_ascii=False), file=sys.__stderr__, flush=True)
 
 
+_TIMING_FIELDS = frozenset({
+    'total', 'cleanup', 'prepare', 'stage', 'validate', 'upload_copies', 'upload_raw',
+    'sample_provenance', 'write_generation', 'publish', 'download_copies', 'download_raw',
+    'downloaded_bytes', 'reused_bytes', 'post_publish', 'post_publish_inventory',
+    'post_publish_sample_provenance', 'post_publish_retain',
+})
+
+
+def _safe_timings(values):
+    return {key: value for key, value in values.items()
+            if key in _TIMING_FIELDS and type(value) in (int, float) and math.isfinite(value) and value >= 0}
+
+
 def _throttled_check(check, *, monotonic=time.monotonic):
     """Check at most once per 30s for immutable uploads, shared by transfer threads."""
     last = None
@@ -475,7 +488,8 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                   "budget_exhausted": False, "reason": None, "publish_timings": {}, "restore_timings": {}}
     cleanup_enabled = not no_cleanup and os.environ.get("R2_CLEANUP", "on").lower() != "off"
     raw_cleanup_enabled = os.environ.get("R2_RAW_CLEANUP", "off").lower() == "on"
-    result["cleanup"] = {"enabled": cleanup_enabled, "raw_enabled": raw_cleanup_enabled}
+    result["cleanup"] = {"enabled": cleanup_enabled, "raw_enabled": raw_cleanup_enabled,
+                         "elapsed_s": 0.0, "timed_out": False}
     phase = "configuration"
     manager = leases = lease = deps = None
     started = time.monotonic()
@@ -512,6 +526,9 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
             with leases.maintain(lease) as check:
                 manager.before_write = _throttled_check(check)
                 manager.before_metadata_write = manager.before_publish = check
+                cache = os.environ.get('RUNNER_TEMP')
+                if cache:
+                    manager.cache_dir = Path(cache) / 'rikolto-blocks'
                 phase = "restore"
                 history = manager.list()
                 number = history[0].generation if history else 0
@@ -521,6 +538,7 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                     with tempfile.TemporaryDirectory(prefix="datumoj-orphan-") as directory:
                         recovery = StateManager(manager.store, directory, writer=manager.writer,
                                                 before_publish=check, transfer_workers=manager.transfer_workers)
+                        recovery.cache_dir = manager.cache_dir
                         recovery.before_write = _throttled_check(check)
                         recovery.before_metadata_write = check
                         recovery.push()
@@ -529,7 +547,7 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                     try:
                         manager.restore(root, raw="remote")
                     finally:
-                        result["restore_timings"] = dict(getattr(manager, "last_timings", {}))
+                        result["restore_timings"] = _safe_timings(getattr(manager, "last_timings", {}))
                 else:
                     root.mkdir(parents=True, exist_ok=True)
                 with workspace_lock(root):
@@ -621,20 +639,21 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                     _progress("publish_start", started, result)
                     publish_started = time.monotonic()
                     try:
-                        generation = manager.push()
+                        # Keep the frozen boundary in StateManager for inventory verification
+                        # and observation evidence, avoiding wiring's full restore hook.
+                        generation = (StateManager.push(manager, retain_local=True)
+                                      if isinstance(manager, StateManager) else manager.push())
                     finally:
                         push_timings = getattr(manager, "last_push_timings", {})
                         last_timings = getattr(manager, "last_timings", push_timings)
                         timings = dict(push_timings)
                         elapsed = time.monotonic() - publish_started
-                        # wiring's release hook restores published data after the
-                        # base push. Include that entire tail without changing its semantics.
-                        timings["post_publish"] = max(0.0, elapsed - timings.get("total", 0.0))
+                        timings.setdefault('post_publish', 0.0)
                         if last_timings is not push_timings:
                             timings.update({f"post_publish_{key}": value
                                             for key, value in last_timings.items() if key != "total"})
                         timings["total"] = elapsed
-                        manager.last_timings = result["publish_timings"] = timings
+                        manager.last_timings = result["publish_timings"] = _safe_timings(timings)
                         _progress("publish_end", started, result)
                     result["generation"] = generation.generation
                     cleanup = getattr(manager, "cleanup", None)
@@ -642,11 +661,13 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         result["cleanup"] = cleanup(
                             deps.registry.all(), now=utcnow(), check=check,
                             enabled=cleanup_enabled, raw_enabled=raw_cleanup_enabled, marked=marked,
+                            deadline=started + (max_minutes + reserve_minutes) * 60 + _PIPELINE_GRACE_SECONDS,
                         )
                         result["cleanup"]["failures"] += marking_failed
                     else:
                         # Older injected managers can publish without optional maintenance.
                         result["cleanup"]["failures"] = 1
+                    _progress("cleanup_end", started, result)
                     if not embed_only:
                         result["source_health"] = _source_health(scheduler, result["source_health"], generation)
                     failed = bool(result["embedding_failed"] if embed_only else result["failed_sources"])

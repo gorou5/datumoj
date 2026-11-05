@@ -715,8 +715,8 @@ def test_cloud_transfer_workers_and_safe_timings_survive_release_hook(world):
     assert result["restore_timings"] == {}
     timings = result["publish_timings"]
     assert {"upload_copies", "upload_raw", "write_generation", "publish", "cleanup", "total",
-            "post_publish", "post_publish_download_copies", "post_publish_download_raw"} <= timings.keys()
-    assert timings["total"] >= timings["post_publish"] >= timings["post_publish_download_raw"]
+            "post_publish", "post_publish_inventory", "post_publish_sample_provenance", "post_publish_retain"} <= timings.keys()
+    assert timings["total"] >= timings["post_publish"] >= timings["post_publish_inventory"]
     world.clock[0] += timedelta(hours=1)
     restored, _ = invoke(world, "next")
     assert restored["status"] == "completed"
@@ -727,26 +727,32 @@ def test_cloud_transfer_workers_and_safe_timings_survive_release_hook(world):
     released(world)
 
 
-def test_post_publish_restore_delay_is_visible(world, monkeypatch):
+def test_post_publish_inventory_delay_is_visible_without_content_downloads(world, monkeypatch):
     from datumoj.rikolto.core.state_s3 import S3StateObjectStore
 
     monotonic = cloud.time.monotonic
+    original_list = S3StateObjectStore.list_objects
     original_get = S3StateObjectStore.get
     delay = [0.0]
 
     def get(store, key):
         result = original_get(store, key)
-        # Raw gets happen in wiring's published-copy restore after pointer CAS.
-        if key.startswith("raw/"):
+        assert not key.startswith(('raw/', 'copies/'))
+        return result
+
+    def list_objects(store, prefix=''):
+        result = original_list(store, prefix)
+        if prefix == 'raw/':
             delay[0] += 120
         return result
 
+    monkeypatch.setattr(S3StateObjectStore, 'list_objects', list_objects)
     monkeypatch.setattr(cloud.time, "monotonic", lambda: monotonic() + delay[0])
     monkeypatch.setattr(S3StateObjectStore, "get", get)
     result, _ = invoke(world)
     assert result["status"] == "completed" and delay[0] >= 120
     timings = result["publish_timings"]
-    assert timings["post_publish_download_raw"] >= delay[0]
+    assert timings["post_publish_inventory"] >= delay[0]
     assert timings["total"] >= timings["post_publish"] >= delay[0]
     released(world)
 
@@ -1141,7 +1147,9 @@ def test_cleanup_switches_and_publication_lease_boundary(
     report = result["cleanup"]
     assert report["enabled"] is enabled and report["raw_enabled"] is raw_enabled
     assert report["reclaimable_copies"] == 1 and report["copies_deleted"] == int(enabled)
-    assert all(isinstance(value, (int, bool)) for value in report.values())
+    assert all(isinstance(value, (int, bool)) for key, value in report.items() if key != "elapsed_s")
+    assert isinstance(report["elapsed_s"], float) and report["elapsed_s"] >= 0
+    assert report["timed_out"] is False
     assert remote(world).exists("copies/sha256/synthetic-orphan") is not enabled
     released(world)
 
@@ -1168,6 +1176,29 @@ def test_cleanup_delete_failure_keeps_published_result_successful(world, monkeyp
     assert result["generation"] == 1 and result["cleanup"]["failures"] == 1
     assert "synthetic-secret" not in json.dumps(result)
     assert StateManager(remote(world), world.tmp / "verify").restore(world.tmp / "retained")["verified"]
+    released(world)
+
+
+def test_timings_allow_only_fixed_numeric_fields():
+    assert cloud._safe_timings({'downloaded_bytes': 123, 'reused_bytes': 456, 'total': 1.5,
+                                'private-path': 0, 'prepare': 'private', 'stage': float('nan'),
+                                'upload_raw': -1, 'cleanup': True}) == {
+        'downloaded_bytes': 123, 'reused_bytes': 456, 'total': 1.5,
+    }
+
+
+def test_post_publish_verification_failure_skips_cleanup(world, monkeypatch):
+    def fail_verification(*args, **kwargs):
+        raise OSError("synthetic post-publication verification failure")
+
+    def no_cleanup(*args, **kwargs):
+        pytest.fail("cleanup requires successful post-publication verification")
+
+    monkeypatch.setattr(StateManager, "_verify_publication", fail_verification)
+    monkeypatch.setattr(StateManager, "cleanup", no_cleanup)
+    result, _ = invoke(world, "verification-failed")
+    assert result["status"] == "failed" and result["reason"] == "publish_failed"
+    assert result["generation"] is None
     released(world)
 
 

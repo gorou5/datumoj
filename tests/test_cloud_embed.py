@@ -181,7 +181,7 @@ def test_progress_one_line_per_batch(world, monkeypatch):
     result = invoke_embed(world, "embed", "--max-embed", "65")
     events = [json.loads(line) for line in stream.getvalue().splitlines()]
     assert [row["event"] for row in events] == [
-        "embed_start", "embed_batch", "embed_batch", "embed_batch", "publish_start", "publish_end", "round_end",
+        "embed_start", "embed_batch", "embed_batch", "embed_batch", "publish_start", "publish_end", "cleanup_end", "round_end",
     ]
     assert [row["embedded"] for row in events if row["event"] == "embed_batch"] == [32, 64, 65]
     assert events[-1]["embedded"] == result["embedded"] == 65
@@ -260,4 +260,21 @@ def test_embed_no_cleanup_reports_and_preserves_orphan(world, monkeypatch):
     assert result["cleanup"]["enabled"] is False and result["cleanup"]["raw_enabled"] is True
     assert result["cleanup"]["reclaimable_copies"] >= 1 and result["cleanup"]["copies_deleted"] == 0
     assert store.exists("copies/sha256/synthetic-orphan")
+    released(world)
+
+
+def test_embed_cleanup_timeout_keeps_published_result(world, monkeypatch):
+    seed(world)
+    original = StateManager.cleanup
+    calls = []
+
+    def cleanup(manager, specs, **kw):
+        calls.append(kw["deadline"])
+        return original(manager, specs, **{**kw, "clock": lambda: kw["deadline"]})
+
+    monkeypatch.setattr(StateManager, "cleanup", cleanup)
+    result = invoke_embed(world, "timed-out")
+    assert len(calls) == 1
+    assert result["generation"] == 2 and result["status"] == "completed" and result["exit_status"] == 0
+    assert result["cleanup"]["timed_out"] is True and result["cleanup"]["failures"] == 0
     released(world)

@@ -194,3 +194,19 @@ def test_parser_rejects_non_package_json_as_parse_error():
     with pytest.raises(ParseError):
         CkanMetaParser().parse(snapshot, b"not-json")
 
+
+
+def test_metadata_only_update_preserves_fts_rows(tmp_path):
+    from datumoj.rikolto.testing.samples import T0, make_dataset
+
+    store = SqliteCatalogStore(tmp_path / 'catalog.sqlite')
+    try:
+        dataset = make_dataset('jp-test:data', '公開資料')
+        store.upsert([dataset])
+        changes = store._db.total_changes
+        store.upsert([dataset.model_copy(update={'modified_at': T0})])
+        assert store._db.total_changes - changes == 1  # dataset row only, no FTS segment writes
+        assert store.get_dataset(dataset.dataset_key).modified_at == T0
+        assert [hit.dataset.dataset_key for hit in store.search('公開資料')] == [dataset.dataset_key]
+    finally:
+        store.close()

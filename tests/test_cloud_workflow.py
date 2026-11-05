@@ -66,7 +66,7 @@ def test_actions_pinned_dependencies_frozen_model_cached_and_no_data_artifacts(w
     steps = load(workflow_path)["jobs"]["run"]["steps"]
     for step in steps:
         if "uses" in step:
-            assert re.fullmatch(r"[\w-]+/[\w-]+@[a-f0-9]{40}", step["uses"])
+            assert re.fullmatch(r"[\w-]+/[\w-]+(?:/[\w-]+)?@[a-f0-9]{40}", step["uses"])
             assert "upload-artifact" not in step["uses"]
         script = step.get("run", "")
         assert not re.search(r"(?m)^\s*(?:env|printenv|set\s+-x|export\s+-p)\s*(?:$|[|;])", script)
@@ -99,7 +99,7 @@ def test_workflows_share_concurrency_and_identical_setup():
     run = load(WORKFLOWS / "cloud-run.yml")
     embed = load(WORKFLOWS / "cloud-embed.yml")
     assert run["concurrency"] == embed["concurrency"]
-    assert run["jobs"]["run"]["steps"][:-2] == embed["jobs"]["run"]["steps"][:-1]
+    assert run["jobs"]["run"]["steps"][:-3] == embed["jobs"]["run"]["steps"][:-2]
 
 
 def test_source_issues_follow_publication_are_nonblocking_and_use_temporary_result():
@@ -120,3 +120,27 @@ def test_only_retention_switches_are_repository_variables(workflow_path):
     command = next(step for step in steps if "rikolto cloud " in step.get("run", ""))
     assert command["env"]["R2_CLEANUP"] == "${{ vars['R2_CLEANUP'] }}"
     assert command["env"]["R2_RAW_CLEANUP"] == "${{ vars['R2_RAW_CLEANUP'] }}"
+
+
+def test_state_cache_is_saved_even_when_a_source_fails_and_holds_only_blocks(workflow_path):
+    job = load(workflow_path)['jobs']['run']
+    steps = job['steps']
+    restore = next(s for s in steps if s.get('name') == 'Restore state blocks')
+    save = next(s for s in steps if s.get('name') == 'Save state blocks')
+    writer = next(s for s in steps if 'rikolto cloud ' in s.get('run', ''))
+    assert steps.index(restore) < steps.index(writer) < steps.index(save)
+    assert restore['uses'].startswith('actions/cache/restore@') and save['uses'].startswith('actions/cache/save@')
+    assert save['if'] == 'always()' and save['continue-on-error'] is True
+    assert restore['with']['path'] == save['with']['path'] == '${{ runner.temp }}/rikolto-blocks'
+    assert restore['with']['key'] == save['with']['key']
+    assert '${{ github.run_id }}' in save['with']['key']
+    assert restore['with']['restore-keys'].strip() == 'rikolto-state-${{ runner.os }}-'
+    assert save['with']['key'].startswith(restore['with']['restore-keys'].strip())
+
+
+def test_secrets_stay_on_the_writer_step(workflow_path):
+    job = load(workflow_path)['jobs']['run']
+    assert 'env' not in job
+    writer = next(s for s in job['steps'] if 'rikolto cloud ' in s.get('run', ''))
+    assert 'R2_SECRET_ACCESS_KEY' in writer['env']
+    assert not any('secrets.' in str(s) for s in job['steps'] if s is not writer)

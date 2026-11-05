@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from datumoj.rikolto.core.contracts import NO_PARSER, ContentState, ParseResult, ParseStatus
+import pytest
+
+from datumoj.rikolto.core.contracts import NO_PARSER, ContentState, ParseRecord, ParseResult, ParseStatus
 from datumoj.rikolto.core.models import parse_context_fingerprint
 from datumoj.rikolto.pipeline import PipelineDeps, parse_pending, reindex
 from datumoj.rikolto.testing.fakes import (
@@ -215,3 +217,89 @@ def test_parse_deadline_finishes_current_snapshot_and_leaves_rest_pending():
     assert summary.parsed == [second.snapshot_id] and not summary.failed
     assert summary.stop_reason is None
     assert deps.keyword.search("Second").items
+
+
+class CountingRawStore(FakeRawStore):
+    def __init__(self):
+        super().__init__()
+        self.exists_calls = 0
+        self.get_calls = 0
+
+    def exists(self, sha256):
+        self.exists_calls += 1
+        return super().exists(sha256)
+
+    def get(self, sha256):
+        self.get_calls += 1
+        return super().get(sha256)
+
+
+@pytest.mark.parametrize("count", [1, 8])
+@pytest.mark.parametrize("deleted", [False, True])
+def test_marked_reusable_snapshots_do_not_check_raw(count, deleted):
+    deps = build([FakeParser])
+    deps.raw = CountingRawStore()
+    for i in range(count):
+        snap = add(deps, f"本文 {i}".encode(), url=f"https://example.go.jp/{i}.txt")
+        deps.manifest.mark_raw_optional(snap.sha256, T0)
+    first = parse_pending(deps)
+    assert len(first.parsed) == count and not first.failed
+    assert deps.raw.exists_calls == count
+    if deleted:
+        deps.raw.blobs.clear()
+    deps.raw.exists_calls = deps.raw.get_calls = 0
+
+    summary = parse_pending(deps)
+
+    assert summary.skipped == count and summary.parsed == [] and summary.failed == {}
+    assert deps.raw.exists_calls == deps.raw.get_calls == 0
+
+
+def test_marked_snapshot_without_parser_does_not_check_raw():
+    deps = build([])
+    deps.raw = CountingRawStore()
+    snap = add(deps, b"body")
+    deps.manifest.mark_raw_optional(snap.sha256, T0)
+    deps.raw.blobs.clear()
+
+    first = parse_pending(deps)
+    second = parse_pending(deps)
+
+    assert first.no_parser == [snap.snapshot_id] and first.skipped == 0 and first.failed == {}
+    assert second.no_parser == [] and second.skipped == 1 and second.failed == {}
+    assert deps.raw.exists_calls == deps.raw.get_calls == 0
+
+
+@pytest.mark.parametrize("status", [None, ParseStatus.failed, ParseStatus.ok])
+@pytest.mark.parametrize("marked", [False, True])
+def test_missing_raw_when_parsing_is_required(status, marked):
+    deps = build([FakeParser])
+    deps.raw = CountingRawStore()
+    snap = add(deps, b"body")
+    fingerprint = parse_context_fingerprint(snap, deps.manifest.snapshot_meta(snap.snapshot_id))
+    previous = None
+    if status is not None:
+        previous = ParseRecord(
+            sha256=snap.sha256, parser=FakeParser.name, version=FakeParser.version,
+            status=status, error="ParseError" if status is ParseStatus.failed else None,
+            context_fingerprint=fingerprint, doc_keys=None,
+        )
+        deps.manifest.record_parse(previous)
+    if marked:
+        deps.manifest.mark_raw_optional(snap.sha256, T0)
+    deps.raw.blobs.clear()
+
+    summary = parse_pending(deps)
+
+    assert summary.parsed == [] and summary.newly_parsed == [] and summary.retried == []
+    record = deps.manifest.get_parse(snap.sha256, FakeParser.name, FakeParser.version, fingerprint)
+    if marked:
+        assert summary.skipped == 1 and summary.failed == {}
+        assert deps.raw.exists_calls == 1 and deps.raw.get_calls == 0
+        assert record == previous
+        assert deps.manifest.publish_state(snap.snapshot_id) is None
+    else:
+        assert summary.skipped == int(previous is not None)
+        assert summary.failed == {snap.snapshot_id: "NotFoundError"}
+        assert deps.raw.exists_calls == 0 and deps.raw.get_calls == 1
+        assert record.status is ParseStatus.failed and record.error == "NotFoundError"
