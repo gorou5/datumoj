@@ -14,6 +14,7 @@ import re
 import sqlite3
 import stat
 from collections import Counter
+from datetime import datetime
 from pathlib import Path
 from urllib.request import pathname2url
 
@@ -24,6 +25,22 @@ MAX_RUNS = 50
 MAX_ITEMS = 50
 MAX_FILE_BYTES = 1024 * 1024
 UNAVAILABLE = "读取失败（本地状态无效或不可读）"
+# Fixed display labels shared by the admin page and the weekly report.
+ALERT_LABELS = {
+    "binding_stale": "绑定序列停更",
+    "definition_changed": "口径变化",
+    "new_candidate": "新候选",
+    "gap_filled": "缺口转为可得",
+}
+GAP_LABELS = {
+    "missing": "没有候选",
+    "catalog_only": "只有目录",
+    "document_only": "只有文档",
+    "pending_confirmation": "候选待确认",
+    "below_min_sources": "来源数不足",
+    "rejected_only": "候选全被否决",
+}
+PART_LABELS = {"demands": "在用需求", "runs": "运行记录", "pending": "待确认匹配", "alerts": "提醒", "gaps": "缺口报告"}
 _RUN_ID = re.compile(r"run-[0-9a-f]{32}\Z")
 _GAP_REPORT = re.compile(r"gaps-g([1-9][0-9]{0,17})\.json\Z")
 
@@ -79,7 +96,11 @@ def _pending(state: Path, active: set[tuple[str, int]]) -> list[dict]:
     if connection is None:
         return []
     try:
-        payloads = [row[0] for row in connection.execute("SELECT payload FROM matches ORDER BY position")]
+        # Only the queue is parsed: confirmed, rejected and auto-bound rows never reach Python.
+        payloads = [row[0] for row in connection.execute(
+            "SELECT payload FROM matches WHERE json_extract(payload, '$.confirmation') = 'pending' "
+            "AND json_extract(payload, '$.auto_bind') = 0 ORDER BY position",
+        )]
     finally:
         connection.close()
     pending = []
@@ -116,7 +137,7 @@ def _alerts(state: Path) -> list[dict]:
     return alerts
 
 
-def _runs(state: Path) -> list[dict]:
+def _runs(state: Path, since: datetime | None) -> list[dict]:
     path = state / "runs"
     try:
         directory = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
@@ -140,7 +161,18 @@ def _runs(state: Path) -> list[dict]:
     finally:
         os.close(directory)
     runs.sort(key=lambda run: (run["finished_at"], run["run_id"]), reverse=True)
-    return runs[:MAX_RUNS]
+    if since is None:
+        return runs[:MAX_RUNS]
+    # A reporting window needs every run in it, not only the newest MAX_RUNS.
+    return [run for run in runs if _finished_after(run["finished_at"], since)]
+
+
+def _finished_after(value: str, since: datetime) -> bool:
+    try:
+        moment = datetime.fromisoformat(value)
+    except ValueError:
+        return True  # Unknown time: keep it visible rather than hide it from the window.
+    return moment.utcoffset() is None or moment >= since
 
 
 def _gaps(state: Path) -> dict | None:
@@ -176,13 +208,14 @@ def _gaps(state: Path) -> dict | None:
     return {"generation": generation, "file": f"eltiro/reports/{name}",
             "active_demands": int(report["active_demands"]), "indicator_count": len(indicators),
             "by_kind": dict(sorted(kinds.items())), "indicators": indicators[:MAX_ITEMS],
-            "sources": sources[:MAX_ITEMS]}
+            "sources": sources[:MAX_ITEMS], "source_count": len(sources)}
 
 
-def eltiro_overview(data_dir: str | Path) -> dict | None:
+def eltiro_overview(data_dir: str | Path, *, runs_since: datetime | None = None) -> dict | None:
     """Return a JSON-compatible snapshot, or ``None`` when ``<data_dir>/eltiro`` is absent.
 
-    ``errors`` lists the parts that could not be read; those parts hold their empty
+    ``runs_since`` (aware datetime) returns every run finished at or after it instead of
+    the newest MAX_RUNS. ``errors`` lists the parts that could not be read; those parts hold their empty
     value and must be rendered as unknown, not as "nothing to do".
     """
     state = Path(data_dir).absolute() / "eltiro"
@@ -205,8 +238,13 @@ def eltiro_overview(data_dir: str | Path) -> dict | None:
 
     demands = part("demands", lambda: _demands(state), [])
     active = {(item["demand_id"], item["demand_version"]) for item in demands}
-    runs = part("runs", lambda: _runs(state), [])
-    pending = part("pending", lambda: _pending(state, active), [])
+    runs = part("runs", lambda: _runs(state, runs_since), [])
+    if "demands" in errors:
+        # The queue is defined over active demands: unknown demands make it unknown, not empty.
+        errors.append("pending")
+        pending = []
+    else:
+        pending = part("pending", lambda: _pending(state, active), [])
     alerts = part("alerts", lambda: _alerts(state), [])
     gaps = part("gaps", lambda: _gaps(state), None)
     return {"schema": SCHEMA, "demands": demands, "runs": runs,

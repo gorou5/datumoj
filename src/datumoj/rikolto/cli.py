@@ -601,7 +601,8 @@ def report_weekly(
         from datumoj.eltiro.overview import eltiro_overview
 
         # --from-state rebuilds the cloud report byte for byte, and the cloud has no Eltiro state.
-        eltiro = False if from_state else eltiro_overview(deps.data_dir)
+        runs_since = datetime.combine(start_day, datetime.min.time(), tzinfo=UTC)
+        eltiro = False if from_state else eltiro_overview(deps.data_dir, runs_since=runs_since)
         content = weekly_report(deps, start_day, end_day, alerts, eltiro)
         path = out or (
             deps.data_dir / "reports" / "weekly" / f"{week_key}.md"

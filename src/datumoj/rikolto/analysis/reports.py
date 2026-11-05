@@ -8,6 +8,9 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
+from datumoj.eltiro.overview import ALERT_LABELS as _ELTIRO_ALERT_LABELS
+from datumoj.eltiro.overview import GAP_LABELS as _ELTIRO_GAP_LABELS
+from datumoj.eltiro.overview import PART_LABELS as _ELTIRO_PARTS
 from datumoj.rikolto.core.citations import document_snapshot
 from datumoj.rikolto.core.contracts import AmbiguousCitation, citation_for_chunk
 from datumoj.rikolto.core.models import (
@@ -193,22 +196,6 @@ def _ocr_summary(deps: Any, events: Sequence[ChangeEvent]) -> str:
     )
 
 
-_ELTIRO_ALERT_LABELS = {
-    "binding_stale": "绑定序列停更",
-    "definition_changed": "口径变化",
-    "new_candidate": "新候选",
-    "gap_filled": "缺口转为可得",
-}
-_ELTIRO_GAP_LABELS = {
-    "missing": "没有候选",
-    "catalog_only": "只有目录",
-    "document_only": "只有文档",
-    "pending_confirmation": "候选待确认",
-    "below_min_sources": "来源数不足",
-    "rejected_only": "候选全被否决",
-}
-_ELTIRO_PARTS = {"demands": "在用需求", "runs": "运行记录", "pending": "待确认匹配", "alerts": "提醒", "gaps": "缺口报告"}
-
 
 def _demand_ref(item: Mapping[str, Any]) -> str:
     return f"{_plain(item.get('demand_id'))} v{_plain(item.get('demand_version'))}"
@@ -308,6 +295,9 @@ def _eltiro_lines(overview: Mapping[str, Any] | None, start: datetime, end: date
                 f"{_plain('、'.join(source.get('reasons') or []))}"
                 for source in sources
             )
+            total = gaps.get("source_count", len(sources))
+            if isinstance(total, int) and total > len(sources):
+                lines.append(f"- 另有 {total - len(sources)} 个来源未列出")
     return [*lines, ""]
 
 

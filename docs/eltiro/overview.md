@@ -22,13 +22,15 @@ tests: [tests/eltiro/test_overview.py, tests/test_admin_eltiro.py, tests/analysi
 ```python
 from datumoj.eltiro.overview import eltiro_overview
 
-overview = eltiro_overview(data_dir)   # dict（eltiro.overview/v1），或 None
+overview = eltiro_overview(data_dir)                    # dict（eltiro.overview/v1），或 None
+overview = eltiro_overview(data_dir, runs_since=start)  # 统计区间：返回 start 之后完成的全部运行
 ```
 
 - `<data_dir>/eltiro` 不存在：返回 `None`，页面和报告写“未启用”。
 - 各部分：`demands`（在用需求）、`runs`（最近运行，按完成时间倒序，最多 50 条）、`pending`（待确认匹配）、`alerts`（未确认提醒）、`gaps`（最新一份 `eltiro gaps report` 汇总）。
 - `pending` 只算在用需求版本的候选，口径同 `eltiro matches queue`：`confirmation == "pending"` 且不自动绑定。列表最多 50 项，`pending_count`、`alert_count` 是完整计数。
-- `gaps` 读取 `eltiro/reports/` 下代次号最大的 `gaps-gN.json`，不重新计算；没有汇总报告时为 `None`。
+- `gaps` 读取 `eltiro/reports/` 下代次号最大的 `gaps-gN.json`，不重新计算；没有汇总报告时为 `None`。来源列表最多 50 项，`source_count` 是完整计数。
+- 在用需求读不出来时，待确认匹配也记为读取失败（队列按在用需求定义，未知不等于空）。
 
 ## 只读与隐私
 
@@ -40,5 +42,5 @@ overview = eltiro_overview(data_dir)   # dict（eltiro.overview/v1），或 None
 ## 接入点
 
 - 管理页面：`create_app(..., eltiro_overview=callable)` 每次渲染调用一次；不传就不显示 Eltiro 一节。提供函数抛出异常时，只显示“Eltiro 状态读取失败。”，抓取管理部分照常显示。
-- 每周报告：`weekly_report(..., eltiro=overview)` 在末尾加“## Eltiro”一节，运行记录只列统计区间内完成的那些。参数缺省为 `False`，不加这一节。
+- 每周报告：`weekly_report(..., eltiro=overview)` 在末尾加“## Eltiro”一节，运行记录只列统计区间内完成的那些（CLI 传 `runs_since`，不受 50 条上限截断）。参数缺省为 `False`，不加这一节。
 - `rikolto report weekly` 在本机生成时带上这一节；`--from-state` 要和云端发布的周报逐字节一致，而云端没有 Eltiro 状态，所以不带。云端周报（`cloud.publish_previous_week_report`）不变。

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import UTC, datetime
 
 from datumoj.eltiro.alerts import SQLiteAlertStore
 from datumoj.eltiro.match_store import SQLiteMatchStore
@@ -183,3 +184,27 @@ def test_lists_are_bounded_but_counts_are_complete(tmp_path):
     overview = eltiro_overview(tmp_path)
     assert overview["pending_count"] == MAX_ITEMS + 5
     assert len(overview["pending"]) == MAX_ITEMS
+
+
+def test_unreadable_demands_make_the_queue_unknown_not_empty(tmp_path):
+    _state(tmp_path)
+    (tmp_path / "eltiro" / "demands.sqlite3").write_bytes(b"not a database")
+    overview = eltiro_overview(tmp_path)
+    assert overview["errors"][:2] == ["demands", "pending"]
+    assert overview["pending"] == [] and overview["pending_count"] == 0
+
+
+def test_runs_since_returns_every_run_in_the_window(tmp_path):
+    (tmp_path / "eltiro").mkdir()
+    for index in range(60):
+        _run(tmp_path, f"run-{index:032x}", f"2026-10-{1 + index % 28:02d}T00:00:00+00:00")
+    assert len(eltiro_overview(tmp_path)["runs"]) == 50
+    since = datetime(2026, 10, 20, tzinfo=UTC)
+    runs = eltiro_overview(tmp_path, runs_since=since)["runs"]
+    assert len(runs) == sum(1 for index in range(60) if 1 + index % 28 >= 20)
+    assert all(run["finished_at"] >= "2026-10-20" for run in runs)
+
+
+def test_gap_sources_carry_a_full_count(tmp_path):
+    _state(tmp_path)
+    assert eltiro_overview(tmp_path)["gaps"]["source_count"] == 1
