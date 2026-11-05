@@ -60,8 +60,10 @@ GOLD = ROOT / "eval/eltiro/gold"
 CONSUMER = "example-analysis-site"
 REGISTERED = ("eu-eurostat", "intl-wdi")
 # Evidence goes to a temporary directory unless explicitly requested (never tracked paths).
-EVIDENCE = (Path(os.environ["DATUMOJ_EVIDENCE_DIR"]) if os.environ.get("DATUMOJ_EVIDENCE_DIR")
-            else Path(tempfile.mkdtemp(prefix="datumoj-wisteria-902-")))
+def _evidence_dir():
+    if os.environ.get("DATUMOJ_EVIDENCE_DIR"):
+        return Path(os.environ["DATUMOJ_EVIDENCE_DIR"])
+    return Path(tempfile.mkdtemp(prefix="datumoj-wisteria-902-"))
 
 
 def _recording(folder, name):
@@ -159,8 +161,8 @@ def pilot(tmp_path_factory):
             (inbox / path.name).write_bytes(path.read_bytes())
         with SQLiteDemandRegistry(root / "eltiro" / "demands.sqlite3") as demands:
             original = IntakeService(root, demands, registry).scan()
-            original_receipts = {json.loads(p.read_text())["demand_id"]: json.loads(p.read_text())["reason_code"]
-                                 for p in (root / "consumer" / "outbox").glob("*.json")}
+            receipts = [json.loads(p.read_text()) for p in (root / "consumer" / "outbox").glob("*.json")]
+            original_receipts = {r["demand_id"]: r["reason_code"] for r in receipts}
             # 2. The existing-data part of #002 and V07, under their own ids/versions.
             for name in ("three-gdp-reconciliation.yaml", "greece-deficit-revision-chain.yaml"):
                 (inbox / name).write_bytes(_existing_part(name))
@@ -182,6 +184,8 @@ def pilot(tmp_path_factory):
 
 def test_pilot_demands_as_written_wait_for_unregistered_sources(pilot):
     # Every pilot names an IMF/OECD/ILO/COMTRADE/WTO preference; 302–306 are not registered yet.
+    # V13 additionally prefers jp-estat-files, which this consumer is not authorized for, so it
+    # needs both 302–306 and an authorization decision (plus the unrecorded table, H3).
     assert pilot["original"] == {"accepted": 0, "rejected": 4}
     assert pilot["original_receipts"] == {
         "greece-deficit-revision-chain": "source_forbidden", "japan-monthly-earnings-revisions": "source_forbidden",
@@ -212,15 +216,20 @@ def test_deterministic_matching_queues_candidates_and_never_auto_binds(pilot):
 
 def test_matching_quality_findings_are_visible(pilot):
     """Findings for H2/H4, asserted so a change in behaviour is noticed, not hidden."""
-    gdp = pilot["results"]["three-gdp-reconciliation"]
-    usd = sorted((r for r in gdp.records if r.indicator_key == "gdp_usd"), key=lambda r: -r.confidence)
-    # The LCU series currently outranks the US$ series for gdp_usd (keyword overlap only).
-    assert usd[0].series.indicator_code == "NY.GDP.MKTP.CN"
     greece = pilot["results"]["greece-deficit-revision-chain"]
     # Eurostat rows carry codes only (B9/GD; the recorded DSD has no codelists), so the
     # deterministic tier finds no Eurostat candidate and proposes unrelated WDI GDP instead.
     assert {r.series.source_id for r in greece.records} == {"intl-wdi"}
     assert not any(r.auto_bind for r in greece.records)
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    "Known matching-quality gap: keyword overlap ranks GDP (current LCU) above GDP (current US$) for the "
+    "gdp_usd indicator; the unit text differs ('current US$' vs 'USD') and is not used for ranking."))
+def test_us_dollar_series_ranks_first_for_gdp_usd(pilot):
+    gdp = pilot["results"]["three-gdp-reconciliation"]
+    usd = sorted((r for r in gdp.records if r.indicator_key == "gdp_usd"), key=lambda r: -r.confidence)
+    assert usd[0].series.indicator_code == "NY.GDP.MKTP.CD"
 
 
 @pytest.mark.xfail(strict=True, reason=(
@@ -339,8 +348,9 @@ def test_gap_reports_and_scorer_state(pilot):
     # All gold is pending_h2: nothing is evaluated, and the checkpoint cannot claim a pass.
     assert scored.overall.evaluated is False and scored.passed is False
     assert len(scored.skipped_gold) == sum(len(g.entries) for g in gold)
-    EVIDENCE.mkdir(parents=True, exist_ok=True)
-    (EVIDENCE / "wisteria-m1-offline.json").write_text(json.dumps({
+    evidence = _evidence_dir()
+    evidence.mkdir(parents=True, exist_ok=True)
+    (evidence / "wisteria-m1-offline.json").write_text(json.dumps({
         "generation_token": pilot["token"], "original_intake": pilot["original_receipts"],
         "existing_part_intake": pilot["existing"],
         "greece_gaps": {key: sorted(value) for key, value in kinds.items()},
