@@ -233,15 +233,20 @@ def test_us_dollar_series_ranks_first_for_gdp_usd(pilot):
     assert usd[0].series.indicator_code == "NY.GDP.MKTP.CD"
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "Known defect: EurostatParser stores TIME_PERIOD (and geo) in dims, and Eltiro series identity is "
-    "source+table+indicator+code+all dims, so one Eurostat series becomes one profile per year. "
-    "eval/eltiro/gold/greece-deficit-revision-chain.yaml expects {freq, geo, sector, unit}."))
 def test_eurostat_series_identity_does_not_split_by_period(pilot):
+    # TIME_PERIOD restates each row's own period, so it is not part of the series identity.
     deficit = [p for p in pilot["profiles"] if p.series.source_id == "eu-eurostat"
                and p.series.table_key == "gov_10dd_edpt1" and p.series.indicator_code == "B9"
                and p.series.fixed_dimensions.get("unit") == "PC_GDP"]
     assert len(deficit) == 1
+    profile = deficit[0]
+    assert "TIME_PERIOD" not in profile.series.fixed_dimensions
+    assert profile.series.fixed_dimensions == {"freq": "A", "geo": "EL", "na_item": "B9", "sector": "S13",
+                                               "unit": "PC_GDP"}
+    assert (profile.time_start.year, profile.time_end.year) == (2000, 2015)
+    # Four gov_10dd_edpt1 series (B9/GD × PC_GDP/MIO_EUR) and three GDP series (DE/FR/NL).
+    eurostat = [p for p in pilot["profiles"] if p.series.source_id == "eu-eurostat"]
+    assert len(eurostat) == 7
 
 
 def _confirm_wdi_and_run(pilot):

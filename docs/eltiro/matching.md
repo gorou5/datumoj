@@ -39,7 +39,7 @@ with SQLiteMatchStore(data_root) as matches:
 
 只从 allowed_sources 取候选，preferred_sources 只加分，不过滤。
 不按许可等级过滤候选：no_outflow 也可用于内部匹配；805 负责输出许可闸门。
-完整 SeriesIdentity（包括所有 fixed_dimensions）作为主键，不按同名、单位、调查、口径、
+完整 SeriesIdentity（包括所有 fixed_dimensions；本行自身的 `TIME_PERIOD` 不算，见 ADR 0006）作为主键，不按同名、单位、调查、口径、
 发布或 keep_separate_by 合并序列。源端未提供身份区别时，不自行推导新身份。
 
 deterministic 与 vector 分别开关；同时为 False 抛 ValueError。
