@@ -151,7 +151,7 @@ def parse_pending(deps: PipelineDeps, source_id: str | None = None) -> ParseSumm
             previous = deps.manifest.get_parse(snap.sha256, cls.name, cls.version, fingerprint)
             if previous is not None:
                 summary.skipped += 1
-                if previous.status is ParseStatus.failed and (previous.error or "").startswith("budget_exceeded:"):
+                if previous.status is ParseStatus.failed and _sticky_budget_failure(previous.error):
                     summary.failed[snap.snapshot_id] = previous.error or "budget_exceeded:unknown"
                     continue
             is_retry = previous is not None and previous.status is ParseStatus.failed
@@ -286,6 +286,16 @@ def _recover_staged(
     return pending
 
 
+# Count limits are a property of the snapshot and the budget and give the same result on every try, so the
+# result is not retried under the same context. Elapsed time depends on the machine and its load, so a
+# timeout is retried on a later round.
+_RETRYABLE_BUDGET_ERRORS = frozenset({"budget_exceeded:duration_seconds"})
+
+
+def _sticky_budget_failure(error: str | None) -> bool:
+    return (error or "").startswith("budget_exceeded:") and error not in _RETRYABLE_BUDGET_ERRORS
+
+
 def _parse_fingerprint(
     snap: Snapshot, meta: Mapping, spec: SourceSpec, budget: ParseBudget, parser: type[Parser] | None,
 ) -> str:
@@ -365,9 +375,10 @@ def _process(
 ) -> tuple[list[str], dict[str, ChangeEvent]]:
     assert snap.sha256 is not None
     budget = budget or ParseBudget()
-    checker = BudgetChecker(budget)
     data = deps.raw.get(snap.sha256)
     meta = deps.manifest.snapshot_meta(snap.snapshot_id)
+    # The parse budget covers parsing only; slow raw-store I/O must not consume it.
+    checker = BudgetChecker(budget)
     parser_meta = meta
     if parser.name in {"pdf", "gov-web-html-page"}:
         parser_meta = {**meta, PARSE_BUDGET_META_KEY: budget.as_dict()}

@@ -306,3 +306,74 @@ def test_run_crawl_deadline_keeps_completed_snapshot_and_stops_dispatching():
     assert crawler.after_fetch_calls == 0
     assert report.new == 1
 
+
+
+def _clocked_deps(monkeypatch, raw, parser_cls, spec):
+    clock = Clock()
+    monkeypatch.setattr(
+        "datumoj.rikolto.pipeline.BudgetChecker", lambda budget: BudgetChecker(budget, clock),
+    )
+    manifest = FakeManifest()
+    deps = PipelineDeps(
+        manifest=manifest,
+        raw=raw,
+        registry=FakeRegistry([spec]),
+        chunks=FakeChunkStore(),
+        keyword=FakeKeywordIndex(),
+        observations=FakeObservationStore(),
+        catalog=FakeCatalogStore(),
+        parsers={("fake", "text/plain"): parser_cls},
+    )
+    return clock, manifest, deps
+
+
+def test_slow_raw_read_does_not_consume_parse_duration_budget(monkeypatch):
+    """A slow raw-store read (e.g. an S3 GET) is I/O, not parsing, and must not trip duration_seconds."""
+
+    class SlowRaw(FakeRawStore):
+        def get(self, sha256):
+            clock.value += 120.0
+            return super().get(sha256)
+
+    spec = make_spec()
+    clock, manifest, deps = _clocked_deps(monkeypatch, SlowRaw(), FakeParser, spec)
+    data = b"Title\n\nbody"
+    deps.raw.put(data)
+    snapshot = make_snapshot(data=data, snapshot_id="slow-read")
+    manifest.record_snapshot(snapshot)
+
+    summary = parse_pending(deps)
+
+    assert summary.failed == {}
+    assert summary.parsed == [snapshot.snapshot_id]
+
+
+def test_duration_budget_failure_is_retried_on_a_later_round(monkeypatch):
+    """Elapsed time is not a property of the snapshot; a timeout must not become a permanent failure."""
+
+    class SlowOnceParser(FakeParser):
+        calls = 0
+
+        def parse(self, snapshot, data, meta=None):
+            type(self).calls += 1
+            if type(self).calls == 1:
+                clock.value += 120.0
+            return super().parse(snapshot, data, meta)
+
+    SlowOnceParser.calls = 0
+    spec = make_spec()
+    clock, manifest, deps = _clocked_deps(monkeypatch, FakeRawStore(), SlowOnceParser, spec)
+    data = b"Title\n\nbody"
+    deps.raw.put(data)
+    snapshot = make_snapshot(data=data, snapshot_id="slow-once")
+    manifest.record_snapshot(snapshot)
+
+    first = parse_pending(deps)
+    assert first.failed == {snapshot.snapshot_id: "budget_exceeded:duration_seconds"}
+    assert manifest.publish_state(snapshot.snapshot_id) is PublishState.failed
+
+    second = parse_pending(deps)
+    assert second.failed == {}
+    assert second.retried == [snapshot.snapshot_id]
+    assert manifest.publish_state(snapshot.snapshot_id) is PublishState.published
+    assert SlowOnceParser.calls == 2
