@@ -342,22 +342,28 @@ def _retry_vectors(
     if owns_batch:
         _begin_vector_batch(deps)
     before = deps._vector_embedded
-    staged = set(deps.manifest.snapshots_in_publish_state(PublishState.staged))
-    for key, item in list(missing.items()):
-        if deps._vector_remaining == 0 or _deadline_reached(deps):
-            break
-        if (item.get("failures", 0) >= VECTOR_FAILURE_LIMIT or item.get("snapshot_id") in staged
-                or (exclude is not None and key in exclude)):
-            continue
-        chunks = deps.chunks.chunks_for(key)
-        if source_id is not None and chunks and chunks[0].source_id != source_id:
-            continue
-        error = _write_vector_document(deps, key, chunks, _snapshot_id(deps, chunks), reset=False)
-        if error:
-            summary.vectors_missing[_snapshot_id(deps, chunks) or key] = error
-        if deps._vector_commits is not None and len(deps._vector_commits) >= _BATCH:
-            _finish_vector_batch(deps, summary)
-            _begin_vector_batch(deps)
+    try:
+        staged = set(deps.manifest.snapshots_in_publish_state(PublishState.staged))
+        for key, item in list(missing.items()):
+            if deps._vector_remaining == 0 or _deadline_reached(deps):
+                break
+            if (item.get("failures", 0) >= VECTOR_FAILURE_LIMIT or item.get("snapshot_id") in staged
+                    or (exclude is not None and key in exclude)):
+                continue
+            chunks = deps.chunks.chunks_for(key)
+            if source_id is not None and chunks and chunks[0].source_id != source_id:
+                continue
+            error = _write_vector_document(deps, key, chunks, _snapshot_id(deps, chunks), reset=False)
+            if error:
+                summary.vectors_missing[_snapshot_id(deps, chunks) or key] = error
+            if deps._vector_commits is not None and len(deps._vector_commits) >= _BATCH:
+                _finish_vector_batch(deps, summary)
+                _begin_vector_batch(deps)
+    except BaseException:
+        if owns_batch and deps._vector_commits is not None:
+            deps.vectors.abort_batch()
+            deps._vector_commits = None
+        raise
     if owns_batch:
         _finish_vector_batch(deps, summary)
     return deps._vector_embedded - before

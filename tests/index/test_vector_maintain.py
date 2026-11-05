@@ -394,3 +394,49 @@ def test_parse_batches_bound_lance_commits_and_keep_all_documents(tmp_path, monk
     assert deps.vectors._table.stats()['fragment_stats']['num_fragments'] == 3
     assert len(deps.vectors._table.list_versions()) == 4  # initial empty table plus three commits
     assert not json.loads(deps.vector_state_path.read_text())['missing']
+
+
+def _stored_hash(index, chunk):
+    return index._existing_hashes([chunk.chunk_id])[chunk.chunk_id]
+
+
+def test_batched_change_to_stored_chunk_replaces_it(tmp_path):
+    from datumoj.rikolto.index.vector import _chunk_hash
+
+    index = LanceVectorIndex(tmp_path / "vectors", FakeEmbedder())
+    index.add([make_chunk("jp-test:d", "a" * 64, "section=1", "old")])
+    changed = make_chunk("jp-test:d", "a" * 64, "section=1", "new")
+    index.begin_batch()
+    assert index.add([changed]) == 1
+    index.flush()
+    assert index.count_rows() == 1 and _stored_hash(index, changed) == _chunk_hash(changed)
+
+
+def test_resubmitting_stored_chunk_cancels_queued_change(tmp_path):
+    from datumoj.rikolto.index.vector import _chunk_hash
+
+    index = LanceVectorIndex(tmp_path / "vectors", FakeEmbedder())
+    stored = make_chunk("jp-test:d", "a" * 64, "section=1", "old")
+    index.add([stored])
+    index.begin_batch()
+    index.add([make_chunk("jp-test:d", "a" * 64, "section=1", "new")])
+    assert index.add([stored]) == 0
+    index.flush()
+    assert index.count_rows() == 1 and _stored_hash(index, stored) == _chunk_hash(stored)
+
+
+def test_retry_failure_closes_the_batch_it_opened(tmp_path, monkeypatch):
+    from datumoj.rikolto.pipeline import ParseSummary, _retry_vectors
+
+    deps, _ = pipeline(tmp_path, limit=0)
+    add(deps, "text")
+    parse_pending(deps)
+    deps._vector_remaining = None
+
+    def fail(key):
+        raise ValueError("synthetic")
+
+    monkeypatch.setattr(deps.chunks, "chunks_for", fail)
+    with pytest.raises(ValueError, match="synthetic"):
+        _retry_vectors(deps, None, ParseSummary())
+    assert deps._vector_commits is None and deps.vectors._pending_rows is None

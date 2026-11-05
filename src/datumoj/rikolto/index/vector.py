@@ -188,6 +188,11 @@ class LanceVectorIndex:
     def add(self, chunks: Sequence[Chunk]) -> int:
         todo = {c.chunk_id: c for c in chunks}  # 同一 chunk_id 重复时取最后一个
         existing = self._existing_hashes(list(todo))
+        if self._pending_rows:
+            # Resubmitting the stored version must cancel a queued change to that chunk.
+            for chunk_id, chunk in todo.items():
+                if chunk.doc_key not in self._pending_deletes and existing.get(chunk_id) == _chunk_hash(chunk):
+                    self._pending_rows.pop(chunk_id, None)
         todo = {i: c for i, c in todo.items() if c.doc_key in self._pending_deletes or existing.get(i) != _chunk_hash(c)}
         pending = list(todo.values())
         batch_size = min(self.batch_size, _MAX_FILTER_IDS)
@@ -239,7 +244,8 @@ class LanceVectorIndex:
                          .select(['chunk_id']).to_list())
         if rows:
             # Insert first: a failed add must never remove the previous document.
-            if stale & rows.keys():
+            # add() appends, so any chunk already stored must go through merge_insert.
+            if stale & rows.keys() or self._existing_hashes(list(rows)):
                 table.merge_insert('chunk_id').when_matched_update_all().when_not_matched_insert_all().execute(list(rows.values()))
             else:
                 table.add(list(rows.values()))
