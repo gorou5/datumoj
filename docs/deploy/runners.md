@@ -153,7 +153,7 @@ launchd 配置与定时频率保持原有设置。
 上述截止时间来自命令声明的预算，不读取或修改平台作业时限，也不截断发布。
 这替代了每轮重复恢复和下载最多数十份 manifest 的耗时；实际清理耗时见 `cleanup.elapsed_s`。
 
-来源的 `scope.raw_retention_days` 必须是正整数，默认 30 天；jp-jma 为 7 天。
+来源的 `scope.raw_retention_days` 必须是正整数，默认 30 天；jp-jma 为 3 天（算上标记后 72 小时，实际约留 6 天）。
 同一 raw 的年龄从最近一次抓取算起，跨来源采用最长保留期。
 每个 URL 最新的成功快照、待解析和 staged 快照受保护；
 `scope.raw_expire_latest_types` 默认空列表，jp-jma 设为 `["entry"]`，允许旧 entry 过期，feed 仍受保护。
