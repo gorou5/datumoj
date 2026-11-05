@@ -165,9 +165,6 @@ def _parse_pending(deps: PipelineDeps, source_id: str | None) -> ParseSummary:
                 continue
             if snap.snapshot_id in recovering:
                 continue
-            if snap.sha256 in optional_raw and not deps.raw.exists(snap.sha256):
-                summary.skipped += 1
-                continue
             meta = deps.manifest.snapshot_meta(snap.snapshot_id)
             cls = select_parser(parsers, spec.kind, snap.content_type)
             fingerprint = _parse_fingerprint(snap, meta, spec, budget, cls)
@@ -198,6 +195,10 @@ def _parse_pending(deps: PipelineDeps, source_id: str | None) -> ParseSummary:
                 if reusable:
                     doc_keys, events = previous.doc_keys, {}
                 else:
+                    if snap.sha256 in optional_raw and not deps.raw.exists(snap.sha256):
+                        if previous is None:
+                            summary.skipped += 1
+                        continue
                     doc_keys, events = _process(deps, cls(), snap, budget)
                     # 恢复扫描必须能在发布前从解析记录定位全部产物。
                     deps.manifest.record_parse(ParseRecord(

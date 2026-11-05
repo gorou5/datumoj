@@ -481,7 +481,8 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                   "budget_exhausted": False, "reason": None, "publish_timings": {}, "restore_timings": {}}
     cleanup_enabled = not no_cleanup and os.environ.get("R2_CLEANUP", "on").lower() != "off"
     raw_cleanup_enabled = os.environ.get("R2_RAW_CLEANUP", "off").lower() == "on"
-    result["cleanup"] = {"enabled": cleanup_enabled, "raw_enabled": raw_cleanup_enabled}
+    result["cleanup"] = {"enabled": cleanup_enabled, "raw_enabled": raw_cleanup_enabled,
+                         "elapsed_s": 0.0, "timed_out": False}
     phase = "configuration"
     manager = leases = lease = deps = None
     started = time.monotonic()
@@ -651,11 +652,13 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         result["cleanup"] = cleanup(
                             deps.registry.all(), now=utcnow(), check=check,
                             enabled=cleanup_enabled, raw_enabled=raw_cleanup_enabled, marked=marked,
+                            deadline=started + (max_minutes + reserve_minutes) * 60 + _PIPELINE_GRACE_SECONDS,
                         )
                         result["cleanup"]["failures"] += marking_failed
                     else:
                         # Older injected managers can publish without optional maintenance.
                         result["cleanup"]["failures"] = 1
+                    _progress("cleanup_end", started, result)
                     if not embed_only:
                         result["source_health"] = _source_health(scheduler, result["source_health"], generation)
                     failed = bool(result["embedding_failed"] if embed_only else result["failed_sources"])

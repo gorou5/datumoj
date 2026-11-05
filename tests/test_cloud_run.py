@@ -1147,7 +1147,9 @@ def test_cleanup_switches_and_publication_lease_boundary(
     report = result["cleanup"]
     assert report["enabled"] is enabled and report["raw_enabled"] is raw_enabled
     assert report["reclaimable_copies"] == 1 and report["copies_deleted"] == int(enabled)
-    assert all(isinstance(value, (int, bool)) for value in report.values())
+    assert all(isinstance(value, (int, bool)) for key, value in report.items() if key != "elapsed_s")
+    assert isinstance(report["elapsed_s"], float) and report["elapsed_s"] >= 0
+    assert report["timed_out"] is False
     assert remote(world).exists("copies/sha256/synthetic-orphan") is not enabled
     released(world)
 
@@ -1183,3 +1185,18 @@ def test_timings_allow_only_fixed_numeric_fields():
                                 'upload_raw': -1, 'cleanup': True}) == {
         'downloaded_bytes': 123, 'reused_bytes': 456, 'total': 1.5,
     }
+
+
+def test_post_publish_verification_failure_skips_cleanup(world, monkeypatch):
+    def fail_verification(*args, **kwargs):
+        raise OSError("synthetic post-publication verification failure")
+
+    def no_cleanup(*args, **kwargs):
+        pytest.fail("cleanup requires successful post-publication verification")
+
+    monkeypatch.setattr(StateManager, "_verify_publication", fail_verification)
+    monkeypatch.setattr(StateManager, "cleanup", no_cleanup)
+    result, _ = invoke(world, "verification-failed")
+    assert result["status"] == "failed" and result["reason"] == "publish_failed"
+    assert result["generation"] is None
+    released(world)
