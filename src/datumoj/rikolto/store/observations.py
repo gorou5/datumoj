@@ -1063,16 +1063,20 @@ def _file_digest(path):
     return digest.hexdigest()
 
 
-def retain_generation(root: Path, manifest_bytes: bytes, snapshot_root: Path, *, verified: bool = False, immutable_root: Path | None = None) -> str:
+def retain_generation(root: Path, manifest_bytes: bytes, snapshot_root: Path, *, verified: bool = False, immutable_root: Path | None = None, remote_raw: bool = False) -> str:
     """Retain a published boundary. Call only after validating its effective chain.
 
-    ``verified`` is for the state restore/pull boundary, which has already checked
-    every copy, raw SHA and publication state. Queries never call this function.
+    ``verified`` is for the checked publication/restore boundary. ``remote_raw``
+    additionally asserts that the caller checked the remote raw inventory against
+    previously hash-validated uploads. Local pull still checks every raw SHA.
+    Queries never call this function.
     Mutable live files are copied; immutable files and verified previous copies
     can share inodes. ``immutable_root`` permits push to reuse checked live blobs.
     """
     from datumoj.rikolto.core.state import _copy_path
 
+    if remote_raw and not verified:
+        raise GenerationUnavailable('远端 raw 只能用于已经校验的发布边界')
     manifest = StateGeneration.model_validate_json(manifest_bytes)
     _install_published_segments(Path(snapshot_root))
     digest = sha256(manifest_bytes).hexdigest()
@@ -1180,6 +1184,8 @@ def retain_generation(root: Path, manifest_bytes: bytes, snapshot_root: Path, *,
                     raise GenerationUnavailable('raw 哈希无效')
                 name = f'raw/{sha[:2]}/{sha}'
                 source = _dependency(Path(snapshot_root), name)
+                if remote_raw and not source.exists():
+                    continue  # Key and size were checked against the published remote inventory.
                 destination = preserve(source, name, immutable=True, digest=sha)
                 if not verified and _file_digest(destination) != sha:
                     raise GenerationUnavailable('代次 raw 校验失败')
@@ -1201,7 +1207,7 @@ def retain_generation(root: Path, manifest_bytes: bytes, snapshot_root: Path, *,
         (stage / 'verified.json').write_text(json.dumps({
             'generation': manifest.generation, 'manifest_sha256': digest, 'files': files,
             'size_bytes': sum(s[0] for s in files.values()), 'storage': 'copy',
-            'file_storage': modes, 'store_hashes': hashes,
+            'file_storage': modes, 'store_hashes': hashes, 'remote_raw': remote_raw,
             'parquet_files': [p.relative_to(data).as_posix() for p in query_files],
         }))
         os.replace(stage, target)

@@ -120,3 +120,24 @@ def test_only_retention_switches_are_repository_variables(workflow_path):
     command = next(step for step in steps if "rikolto cloud " in step.get("run", ""))
     assert command["env"]["R2_CLEANUP"] == "${{ vars['R2_CLEANUP'] }}"
     assert command["env"]["R2_RAW_CLEANUP"] == "${{ vars['R2_RAW_CLEANUP'] }}"
+
+
+def test_state_cache_precedes_writer_uses_generation_key_and_contains_only_blocks(workflow_path):
+    workflow = load(workflow_path)
+    job = workflow['jobs']['run']
+    steps = job['steps']
+    locate = next(s for s in steps if s.get('id') == 'state')
+    cache = next(s for s in steps if s.get('name') == 'Cache state blocks')
+    writer = next(s for s in steps if 'rikolto cloud ' in s.get('run', ''))
+    assert steps.index(locate) < steps.index(cache) < steps.index(writer)
+    assert 'uv run --frozen python' in locate['run']
+    assert 'history[0].generation + 1' in locate['run']
+    assert cache['with']['path'] == '${{ runner.temp }}/rikolto-blocks'
+    assert cache['with']['key'].endswith('generation-${{ steps.state.outputs.generation }}')
+    assert cache['with']['restore-keys'].strip() == 'rikolto-state-${{ runner.os }}-generation-'
+    assert 'secrets' not in json_text(cache)
+
+
+def json_text(value):
+    import json
+    return json.dumps(value)

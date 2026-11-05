@@ -53,6 +53,7 @@ from datumoj.rikolto.core.models import (
     classify_parse_failure,
     parse_context_fingerprint,
 )
+from datumoj.rikolto.index.vector import LanceVectorIndex
 
 _BATCH = 500
 VECTOR_FAILURE_LIMIT = 3
@@ -96,6 +97,7 @@ class PipelineDeps:
     """单调时钟截止时刻；快照与嵌入批次之间检查，None 为不限。"""
     clock: Callable[[], float] = time.monotonic
     _deadline_reached: bool = field(default=False, init=False, repr=False)
+    _vector_commits: dict | None = field(default=None, init=False, repr=False)
     _vector_remaining: int | None = field(default=None, init=False, repr=False)
     _vectors_written: bool = field(default=False, init=False, repr=False)
     _vector_embedded: int = field(default=0, init=False, repr=False)
@@ -129,6 +131,15 @@ def parse_pending(
     """解析或复用上下文产物；每个成功快照都按持久化顺序尝试发布。"""
     if deadline is not None:
         deps = replace(deps, deadline=deadline)
+    try:
+        return _parse_pending(deps, source_id)
+    finally:
+        if deps._vector_commits is not None:
+            deps.vectors.abort_batch()
+            deps._vector_commits = None
+
+
+def _parse_pending(deps: PipelineDeps, source_id: str | None) -> ParseSummary:
     _start_vectors(deps)
     parsers = deps.parsers if deps.parsers is not None else discover_parsers()
     specs = deps.registry.all()
@@ -139,6 +150,7 @@ def parse_pending(
         specs = [s for s in specs if s.id == source_id]
         if not specs:
             raise ValueError(f"注册表里没有来源 {source_id!r}")
+    _begin_vector_batch(deps)
     pending_vectors = set(_load_vector_state(deps)["missing"])
     _retry_vectors(deps, source_id, summary)
     recovering = _recover_staged(deps, parsers, specs_by_id, budgets, summary)
@@ -226,6 +238,9 @@ def parse_pending(
                     (summary.retried if is_retry else summary.newly_parsed).append(snap.snapshot_id)
                 if vector_errors:
                     summary.vectors_missing[snap.snapshot_id] = "; ".join(vector_errors)
+            if deps._vector_commits is not None and len(deps._vector_commits) >= _BATCH:
+                _finish_vector_batch(deps, summary)
+                _begin_vector_batch(deps)
         if deps.change_log is not None:
             try:
                 _record_fetch_changes(deps, snapshots)
@@ -233,6 +248,7 @@ def parse_pending(
                 _LOG.warning("抓取变化检测失败：%s（%s）", spec.id, safe_reason(exc))
     summary.stop_reason = "deadline" if _deadline_reached(deps) else None
     summary.vector_remaining = deps._vector_remaining
+    _finish_vector_batch(deps, summary)
     _maintain_vectors(deps)
     return summary
 
@@ -271,6 +287,39 @@ def _vector_source_id(deps: PipelineDeps, chunks: list, snapshot_id: str | None)
     return snapshot.source_id if snapshot is not None else None
 
 
+def _begin_vector_batch(deps: PipelineDeps) -> None:
+    # Concrete capability: dynamic Mock attributes cannot opt into deferred writes.
+    if isinstance(deps.vectors, LanceVectorIndex):
+        deps.vectors.begin_batch()
+        deps._vector_commits = {}
+
+
+def _finish_vector_batch(deps: PipelineDeps, summary: ParseSummary) -> None:
+    commits = deps._vector_commits
+    if commits is None:
+        return
+    deps._vector_commits = None
+    try:
+        deps.vectors.flush()
+    except Exception as exc:  # noqa: BLE001 -- shared commit failure leaves every queued document retryable.
+        reason = safe_reason(exc)
+        for key, (chunks, pending, _, snapshot_id, embedded) in commits.items():
+            _mark_vector_missing(deps, _load_vector_state(deps), key, chunks, reason, snapshot_id,
+                                 reset_document=True)
+            summary.vectors_missing[snapshot_id or key] = reason
+            deps._vector_embedded -= embedded
+        return
+    # Only this batch's records can be acknowledged. Disk records from a previous
+    # crash or failed batch stay pending until their own vectors are committed.
+    for key, (_, pending, reason, snapshot_id, _) in commits.items():
+        state = _load_vector_state(deps)
+        if reason:
+            _mark_vector_missing(deps, state, key, pending, reason, snapshot_id,
+                                 chunk_ids=[c.chunk_id for c in pending], count_failure=False)
+        else:
+            _clear_vector_missing(deps, state, key)
+
+
 def _maintain_vectors(deps: PipelineDeps) -> None:
     maintain = getattr(deps.vectors, "maintain", None)
     if deps._vectors_written and callable(maintain):
@@ -288,6 +337,9 @@ def _retry_vectors(
     missing = _load_vector_state(deps)["missing"]
     if deps.vectors is None:
         return 0
+    owns_batch = deps._vector_commits is None
+    if owns_batch:
+        _begin_vector_batch(deps)
     before = deps._vector_embedded
     staged = set(deps.manifest.snapshots_in_publish_state(PublishState.staged))
     for key, item in list(missing.items()):
@@ -302,6 +354,11 @@ def _retry_vectors(
         error = _write_vector_document(deps, key, chunks, _snapshot_id(deps, chunks), reset=False)
         if error:
             summary.vectors_missing[_snapshot_id(deps, chunks) or key] = error
+        if deps._vector_commits is not None and len(deps._vector_commits) >= _BATCH:
+            _finish_vector_batch(deps, summary)
+            _begin_vector_batch(deps)
+    if owns_batch:
+        _finish_vector_batch(deps, summary)
     return deps._vector_embedded - before
 
 
@@ -930,7 +987,7 @@ def _mark_vector_missing(
     chunks: list,
     reason: str,
     snapshot_id: str | None,
-    *, chunk_ids: list[str] | None = None, count_failure: bool = True,
+    *, chunk_ids: list[str] | None = None, count_failure: bool = True, reset_document: bool = False,
 ) -> None:
     source_id = _vector_source_id(deps, chunks, snapshot_id)
     if source_id is not None and not _source_embeds(deps, source_id):
@@ -940,6 +997,8 @@ def _mark_vector_missing(
     failures = previous.get("failures", 0)
     failures += int(count_failure and reason != "vector_limit")
     missing[doc_key] = {"snapshot_id": snapshot_id, "chunks": len(chunks), "error": reason, "failures": failures}
+    if reset_document:
+        missing[doc_key]['reset_document'] = True
     if chunk_ids is not None:
         missing[doc_key]["chunk_ids"] = chunk_ids
     state["last_error"] = reason
@@ -975,9 +1034,17 @@ def _write_vector_document(
     if source_id is not None and not _source_embeds(deps, source_id):
         return None
     previous = state["missing"].get(doc_key, {})
+    reset = reset or bool(previous.get("reset_document"))
     ids = set(previous["chunk_ids"]) if not reset and "chunk_ids" in previous else None
     pending = chunks if ids is None else [c for c in chunks if c.chunk_id in ids]
     reason = None
+    deferred = deps._vector_commits is not None
+    before = deps._vector_embedded
+    if deferred:
+        # Persist full retry intent before any deferred write. A process exit
+        # cannot leave only the unembedded suffix while losing queued vectors.
+        _mark_vector_missing(deps, state, doc_key, chunks, '提交前待写入向量', snapshot_id,
+                             count_failure=False, reset_document=True)
     try:
         if reset or ids is None:
             deps.vectors.delete(doc_key)
@@ -999,6 +1066,15 @@ def _write_vector_document(
             pending = pending[len(batch):]
     except Exception as exc:  # noqa: BLE001 -- 向量 SDK 单文档失败须保留待补状态。
         reason = safe_reason(exc)
+    if deferred:
+        prior = deps._vector_commits.get(doc_key)
+        embedded = deps._vector_embedded - before + (prior[4] if prior else 0)
+        deps._vector_commits[doc_key] = (chunks, pending, reason, snapshot_id, embedded)
+        if reason:
+            # Count embed failures once, retain the full document until flush.
+            _mark_vector_missing(deps, state, doc_key, chunks, reason, snapshot_id,
+                                 count_failure=reason != 'deadline', reset_document=True)
+        return reason
     if reason:
         _mark_vector_missing(deps, state, doc_key, pending, reason, snapshot_id,
                              chunk_ids=[c.chunk_id for c in pending], count_failure=reason != "deadline")

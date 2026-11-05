@@ -261,3 +261,136 @@ def test_limited_full_rebuild_removes_stale_vectors_and_failure_keeps_current(tm
     assert vectors.count_rows() == 1
     monkeypatch.undo()
     assert vectors.search("標題", k=10) == current
+
+
+@pytest.mark.parametrize('next_batch', ['other_source', 'zero_limit', 'exclude', 'deadline', 'failure_limit'])
+@pytest.mark.parametrize('restart', [False, True])
+def test_failed_shared_commit_is_not_acknowledged_by_unrelated_batch(tmp_path, monkeypatch, next_batch, restart):
+    from dataclasses import replace
+
+    from datumoj.rikolto.pipeline import ParseSummary, _load_vector_state, _retry_vectors, _start_vectors
+
+    deps, _ = pipeline(tmp_path, limit=None)
+    add(deps, '資料')
+    original = deps.vectors._table.add
+
+    def fail(*args, **kwargs):
+        raise OSError('commit failure')
+
+    monkeypatch.setattr(deps.vectors._table, 'add', fail)
+    assert parse_pending(deps).vectors_missing
+    assert deps.vectors.count_rows() == 0
+    monkeypatch.setattr(deps.vectors._table, 'add', original)
+    if restart:
+        deps = replace(deps, vector_state={})
+    key = 'jp-test:a.txt'
+    expected = 0
+    if next_batch == 'other_source':
+        deps.registry = FakeRegistry([make_spec(), make_spec('jp-other')])
+        body = b'Other source'
+        snap = make_snapshot('jp-other', data=body)
+        deps.raw.put(body)
+        deps.manifest.record_snapshot(snap)
+        parse_pending(deps, 'jp-other')
+        expected = 1
+    elif next_batch in ('zero_limit', 'deadline'):
+        parse_pending(replace(deps, **({'vector_limit': 0} if next_batch == 'zero_limit'
+                                       else {'deadline': 0})))
+    else:
+        _start_vectors(deps)
+        if next_batch == 'failure_limit':
+            state = _load_vector_state(deps)
+            state['missing'][key]['failures'] = 3
+            deps.vector_state_path.write_text(json.dumps(state))
+        _retry_vectors(deps, None, ParseSummary(), exclude={key} if next_batch == 'exclude' else None)
+    state = json.loads(deps.vector_state_path.read_text())
+    assert state['missing'][key]['reset_document'] is True
+    assert deps.vectors.count_rows() == expected
+    state['missing'][key]['failures'] = 0
+    deps.vector_state_path.write_text(json.dumps(state))
+    assert not parse_pending(deps).vectors_missing
+    assert deps.vectors.count_rows() == expected + 1
+    assert not json.loads(deps.vector_state_path.read_text())['missing']
+
+
+def test_failed_replacement_commit_keeps_previous_vectors(tmp_path, monkeypatch):
+    deps, _ = pipeline(tmp_path, limit=None)
+    add(deps, '旧資料')
+    parse_pending(deps)
+    old = deps.vectors._table.search().to_list()
+    from datumoj.rikolto.pipeline import ParseSummary, _begin_vector_batch, _finish_vector_batch, _write_vector_document
+
+    _begin_vector_batch(deps)
+    chunks = [make_chunk('jp-test:a.txt', 'cd' * 32, 'section=2', '新資料')]
+    assert _write_vector_document(deps, 'jp-test:a.txt', chunks, None) is None
+
+    def fail(*args, **kwargs):
+        raise OSError('commit failure')
+
+    monkeypatch.setattr(deps.vectors._table, 'add', fail)
+    summary = ParseSummary()
+    _finish_vector_batch(deps, summary)
+    assert summary.vectors_missing
+    assert deps.vectors._table.search().to_list() == old
+
+
+def test_automatic_compaction_waits_for_fragment_threshold_or_seven_days(tmp_path, monkeypatch):
+    from datumoj.rikolto.index import vector
+
+    index = LanceVectorIndex(tmp_path / 'vectors', FakeEmbedder())
+    now = [1000000.0]
+    monkeypatch.setattr(vector.time, 'time', lambda: now[0])
+    for i in range(5):
+        index.add([make_chunk(f'jp-test:d{i}', 'ab' * 32, 'section=1', f'資料 {i}')])
+        report = index.maintain()
+        assert report['after']['data_files'] == report['before']['data_files'] == i + 1
+    before = {r.chunk_id: r.score for r in index.search('資料', k=10).items}
+    now[0] += timedelta(days=7).total_seconds()
+    index.maintain()  # elapsed interval alone triggers automatic compaction
+    assert index._table.stats()['fragment_stats']['num_fragments'] == 1
+    assert {r.chunk_id: r.score for r in index.search('資料', k=10).items} == pytest.approx(before)
+    index.add([make_chunk('jp-test:new', 'ab' * 32, 'section=1', '追加資料')])
+    monkeypatch.setattr(vector, '_COMPACT_FRAGMENTS', 2)
+    index.maintain()
+    assert index._table.stats()['fragment_stats']['num_fragments'] == 1
+    (tmp_path / 'vectors' / '_maintenance.json').write_text('broken json')
+    index.maintain()  # malformed history starts a new clock, without failing the round
+    assert isinstance(json.loads((tmp_path / 'vectors' / '_maintenance.json').read_text()), dict)
+
+
+def test_process_exit_before_flush_keeps_full_document_pending(tmp_path, monkeypatch):
+    from dataclasses import replace
+
+    deps, embedder = pipeline(tmp_path, limit=None)
+    add(deps, '未提交資料')
+
+    def crash(*args, **kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(deps.vectors._table, 'add', crash)
+    with pytest.raises(KeyboardInterrupt):
+        parse_pending(deps)
+    key = 'jp-test:a.txt'
+    assert deps.vectors.count_rows() == 0
+    assert json.loads(deps.vector_state_path.read_text())['missing'][key]['reset_document']
+    restarted = replace(deps, vectors=LanceVectorIndex(tmp_path / 'vectors', embedder), vector_state={})
+    parse_pending(replace(restarted, vector_limit=0))
+    assert json.loads(deps.vector_state_path.read_text())['missing'][key]['reset_document']
+    parse_pending(restarted)
+    assert restarted.vectors.count_rows() == 1
+    assert not json.loads(deps.vector_state_path.read_text())['missing']
+
+
+def test_parse_batches_bound_lance_commits_and_keep_all_documents(tmp_path, monkeypatch):
+    import datumoj.rikolto.pipeline as pipeline_module
+
+    deps, _ = pipeline(tmp_path, limit=None)
+    monkeypatch.setattr(pipeline_module, '_BATCH', 2)
+    for i in range(5):
+        add(deps, f'資料 {i}', f'{i}.txt')
+    result = parse_pending(deps)
+    assert len(result.parsed) == 5 and not result.vectors_missing
+    assert deps.vectors.count_rows() == 5
+    assert deps.vectors._table.stats()['fragment_stats']['num_fragments'] == 3
+    assert len(deps.vectors._table.list_versions()) == 4  # initial empty table plus three commits
+    assert not json.loads(deps.vector_state_path.read_text())['missing']

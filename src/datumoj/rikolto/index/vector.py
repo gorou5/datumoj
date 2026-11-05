@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+import time
 from collections.abc import Sequence
 from datetime import date, timedelta
 from pathlib import Path
@@ -23,10 +24,14 @@ _META = "_meta.json"
 _MAX_FILTER_IDS = 100
 _COPY_BATCH_SIZE = 500
 _LOG = logging.getLogger(__name__)
+_COMPACT_FRAGMENTS = 10000
+_COMPACT_INTERVAL = timedelta(days=7)
+_MAINTENANCE = "_maintenance.json"
 
 
 def maintain_vectors(path: str | Path, retain: timedelta | None = None) -> dict:
     """维护本地表，不需要嵌入服务。每张代次表独立清理，保留所有表及其最新版本。"""
+    explicit = retain is not None or "DATUMOJ_VECTOR_RETAIN_HOURS" in os.environ
     if retain is None:
         retain = timedelta(hours=float(os.environ.get("DATUMOJ_VECTOR_RETAIN_HOURS", "1")))
     if retain < timedelta(0):
@@ -48,9 +53,32 @@ def maintain_vectors(path: str | Path, retain: timedelta | None = None) -> dict:
                 "bytes": sum(p.stat().st_size for p in files)}
 
     before = stats()
+    record_path = root / _MAINTENANCE
+    try:
+        record = json.loads(record_path.read_text())
+        if not isinstance(record, dict):
+            record = {}
+    except (OSError, ValueError):
+        record = {}
+    now = time.time()
+    changed = False
     for table in tables:
+        last = record.get(table.name)
+        if type(last) not in (float, int) or not 0 <= last <= now:
+            # Unknown history starts the clock; it must not force a full rewrite.
+            last = record[table.name] = now
+            changed = True
+        if (not explicit and table.stats()['fragment_stats']['num_fragments'] < _COMPACT_FRAGMENTS
+                and now - last < _COMPACT_INTERVAL.total_seconds()):
+            continue
         # Keep Lance's in-flight file protection (delete_unverified=False).
         table.optimize(cleanup_older_than=retain)
+        record[table.name] = now
+        changed = True
+    if changed:
+        temporary = record_path.with_suffix('.tmp')
+        temporary.write_text(json.dumps(record))
+        temporary.replace(record_path)
     return {"before": before, "after": stats()}
 
 
@@ -98,6 +126,8 @@ class LanceVectorIndex:
         else:
             raise ValueError(f"向量索引元数据指向的代不存在：{table_name}")
         self._has_date_fields = {"published_at", "effective_at"} <= set(self._table.schema.names)
+        self._pending_rows = None
+        self._pending_deletes = set()
         self._candidate_table = None
         self._candidate_generation = None
         self._candidate_has_date_fields = False
@@ -140,6 +170,8 @@ class LanceVectorIndex:
         self._current_generation = generation
 
     def _existing_hashes(self, chunk_ids: Sequence[str]) -> dict[str, str]:
+        if not chunk_ids:
+            return {}
         found: dict[str, str] = {}
         table = self._write_table
         for offset in range(0, len(chunk_ids), _MAX_FILTER_IDS):
@@ -156,7 +188,7 @@ class LanceVectorIndex:
     def add(self, chunks: Sequence[Chunk]) -> int:
         todo = {c.chunk_id: c for c in chunks}  # 同一 chunk_id 重复时取最后一个
         existing = self._existing_hashes(list(todo))
-        todo = {i: c for i, c in todo.items() if existing.get(i) != _chunk_hash(c)}
+        todo = {i: c for i, c in todo.items() if c.doc_key in self._pending_deletes or existing.get(i) != _chunk_hash(c)}
         pending = list(todo.values())
         batch_size = min(self.batch_size, _MAX_FILTER_IDS)
         for i in range(0, len(pending), batch_size):
@@ -164,9 +196,6 @@ class LanceVectorIndex:
             vectors = self.embedder.embed([c.text for c in batch])
             if len(vectors) != len(batch):
                 raise ValueError("嵌入结果数量和输入不一致")
-            ids = ", ".join(_lit(c.chunk_id) for c in batch)
-            table = self._write_table
-            table.delete(f"chunk_id IN ({ids})")
             rows = []
             for c, v in zip(batch, vectors, strict=True):
                 row = {"chunk_id": c.chunk_id, "doc_key": c.doc_key, "source_id": c.source_id,
@@ -177,11 +206,55 @@ class LanceVectorIndex:
                         effective_at=c.effective_at.isoformat() if c.effective_at else None,
                     )
                 rows.append(row)
-            table.add(rows)
+            if self._pending_rows is not None:
+                self._pending_rows.update((row['chunk_id'], row) for row in rows)
+            elif any(c.chunk_id in existing for c in batch):
+                self._write_table.merge_insert('chunk_id').when_matched_update_all().when_not_matched_insert_all().execute(rows)
+            else:
+                self._write_table.add(rows)
         return len(pending)
 
+    def begin_batch(self) -> None:
+        """Defer Lance commits; callers must persist retry records before queuing."""
+        if self._pending_rows is not None:
+            raise RuntimeError('向量批次已开始')
+        self._pending_rows = {}
+        self._pending_deletes = set()
+
+    def abort_batch(self) -> None:
+        """Discard uncommitted rows; durable pipeline retry records remain intact."""
+        self._pending_rows, self._pending_deletes = None, set()
+
+    def flush(self) -> None:
+        rows, deleted = self._pending_rows, self._pending_deletes
+        self._pending_rows, self._pending_deletes = None, set()
+        if rows is None:
+            return
+        table = self._write_table
+        stale = set()
+        keys = sorted(deleted)
+        for offset in range(0, len(keys), _MAX_FILTER_IDS):
+            condition = ', '.join(_lit(key) for key in keys[offset:offset + _MAX_FILTER_IDS])
+            stale.update(r['chunk_id'] for r in table.search().where(f'doc_key IN ({condition})')
+                         .select(['chunk_id']).to_list())
+        if rows:
+            # Insert first: a failed add must never remove the previous document.
+            if stale & rows.keys():
+                table.merge_insert('chunk_id').when_matched_update_all().when_not_matched_insert_all().execute(list(rows.values()))
+            else:
+                table.add(list(rows.values()))
+        stale.difference_update(rows)
+        ids = sorted(stale)
+        for offset in range(0, len(ids), _MAX_FILTER_IDS):
+            condition = ', '.join(_lit(key) for key in ids[offset:offset + _MAX_FILTER_IDS])
+            table.delete(f'chunk_id IN ({condition})')
+
     def delete(self, doc_key: str) -> None:
-        self._write_table.delete(f"doc_key = {_lit(doc_key)}")
+        if self._pending_rows is not None:
+            self._pending_deletes.add(doc_key)
+            self._pending_rows = {key: row for key, row in self._pending_rows.items() if row['doc_key'] != doc_key}
+        else:
+            self._write_table.delete(f"doc_key = {_lit(doc_key)}")
 
     def clear(self) -> None:
         if self._candidate_table is not None:

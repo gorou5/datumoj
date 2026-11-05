@@ -20,7 +20,7 @@ import uuid
 from collections import deque
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import ExitStack, closing, contextmanager
+from contextlib import ExitStack, closing, contextmanager, suppress
 from datetime import UTC, datetime, timedelta
 from itertools import islice
 from pathlib import Path
@@ -495,6 +495,7 @@ class StateManager:
         self.before_metadata_write: Callable[[], None] | None = None
         self.transfer_workers = transfer_workers
         self._existing_lock = Lock()
+        self.cache_dir: Path | None = None
         self.last_timings: dict[str, float] = {}
         # Composition hooks may restore after push; preserve the push measurements.
         self.last_push_timings: dict[str, float] = {}
@@ -578,7 +579,34 @@ class StateManager:
             if self._current()[0] != candidate.generation:
                 raise StateError("代次发布失败，指针未切换") from None
 
+    def _cache_path(self, sha: str) -> Path | None:
+        if self.cache_dir is None:
+            return None
+        root = Path(self.cache_dir)
+        if root.is_symlink():
+            return None
+        try:
+            root.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            return None  # Cache availability must not prevent a verified remote restore.
+        return root / sha
+
+    def _cache_write(self, sha: str, data: bytes) -> None:
+        path = self._cache_path(sha)
+        if path is not None:
+            temporary = path.with_name(path.name + '.' + uuid.uuid4().hex + '.tmp')
+            try:
+                temporary.write_bytes(data)
+                temporary.replace(path)
+            except OSError:
+                with suppress(OSError):
+                    temporary.unlink(missing_ok=True)
+
     def _upload(self, key: str, data: bytes, existing: set[str]) -> None:
+        if key.startswith('copies/sha256/'):
+            if _digest(data) != key.rsplit('/', 1)[1]:
+                raise StateError('上传副本 SHA256 校验失败')
+            self._cache_write(key.rsplit('/', 1)[1], data)
         with self._existing_lock:
             if key in existing:
                 return
@@ -592,12 +620,12 @@ class StateManager:
         with self._existing_lock:
             existing.add(key)
 
-    def push(self) -> StateGeneration:
+    def push(self, *, retain_local: bool = False) -> StateGeneration:
         self.last_timings = {}
         self.last_push_timings = self.last_timings
         try:
             with self._timed("total"):
-                return self._push()
+                return self._push(retain_local=retain_local)
         except PreconditionFailed:
             raise PreconditionFailed("状态发布竞争失败，本轮作废") from None
         except StateError:
@@ -605,7 +633,7 @@ class StateManager:
         except Exception:  # noqa: BLE001 -- 状态推送边界统一隐藏任意 SDK 或存储错误。
             raise StateError("状态推送失败") from None
 
-    def _push(self) -> StateGeneration:
+    def _push(self, *, retain_local: bool = False) -> StateGeneration:
         with self._timed("prepare"):
             self._check_write()
             if not self.data_dir.is_dir():
@@ -624,8 +652,10 @@ class StateManager:
             # Continue only this exact candidate, checking raw by key inventory.
             with self._temporary_stage(prefix="datumoj-state-") as stage:
                 self._materialize(candidate, stage, raw="remote", raw_keys=raw_keys)
-            with self._timed("publish"):
-                self._publish(candidate, etag)
+                with self._timed("publish"):
+                    self._publish(candidate, etag)
+                if retain_local:
+                    self._verify_publication(candidate, stage)
             return candidate
         with self._temporary_stage(prefix="datumoj-state-") as stage:
             with self._timed("stage"):
@@ -643,6 +673,7 @@ class StateManager:
             )) as transfers:
                 for _ in transfers:
                     pass
+            uploaded_raw = {}
             with self._timed("upload_raw"):
                 # raw is immutable. Read/hash only missing blobs, without copying a raw tree.
                 local_refs = set(refs)
@@ -659,6 +690,8 @@ class StateManager:
                     if _digest(data) != sha:
                         raise StateError("本机 raw 哈希校验失败")
                     self._upload(key, data, raw_keys)
+                    with self._existing_lock:
+                        uploaded_raw[key] = len(data)
 
                 with closing(self._transfer(upload_raw, (
                     sha for sha in sorted(local_refs) if _raw_key("raw", sha) not in raw_keys
@@ -684,7 +717,35 @@ class StateManager:
                 self.store.put_if_absent(f"generations/{number + 1}.json", candidate.model_dump_json().encode())
             with self._timed("publish"):
                 self._publish(candidate, etag)
+            if retain_local:
+                self._verify_publication(candidate, stage, uploaded_raw=uploaded_raw)
             return candidate
+
+    def _verify_publication(self, candidate: StateGeneration, stage: Path, *,
+                            uploaded_raw: dict[str, int] | None = None) -> None:
+        """Check object inventories and retain the already frozen publication."""
+        from datumoj.rikolto.store.observations import retain_generation
+
+        with self._timed('post_publish'):
+            with self._timed('post_publish_inventory'):
+                copies = {obj.key: obj.size_bytes for obj in self.store.list_objects('copies/sha256/')}
+                for copy in candidate.stores:
+                    if copy.format != _SQLITE_BLOCKS and copies.get(copy.key) != copy.size_bytes:
+                        raise StateError('发布后副本缺失或大小不符')
+                raw = {obj.key: obj.size_bytes for obj in self.store.list_objects(candidate.raw_prefix + '/')}
+                for key, size in (uploaded_raw or {}).items():
+                    if raw.get(key) != size:
+                        raise StateError('发布后 raw 缺失或大小不符')
+                refs = _raw_refs(stage)
+                with _ro(stage / 'manifest.sqlite') as db:
+                    for sha, text in db.execute('SELECT sha256,snapshot FROM snapshots WHERE sha256 IS NOT NULL'):
+                        if sha in refs and raw.get(_raw_key(candidate.raw_prefix, sha)) != json.loads(text)['size']:
+                            raise StateError('发布后 raw 缺失或大小不符')
+            with self._timed('post_publish_sample_provenance'):
+                _sample_provenance(stage, raw='remote', refs=refs)
+            with self._timed('post_publish_retain'):
+                retain_generation(self.data_dir.resolve(), candidate.model_dump_json().encode(), stage.resolve(),
+                                  verified=True, remote_raw=True, immutable_root=self.data_dir)
 
     def raw_retention(self, specs: list[SourceSpec], now: datetime) -> dict[str, datetime]:
         """Eligible raw SHA → expiry; any snapshot's protection vetoes deletion."""
@@ -849,12 +910,42 @@ class StateManager:
         for copy in candidate.stores:
             _validate_copy(copy)
 
+        cache_valid = True
+        for copy in candidate.stores:
+            if copy.format == _SQLITE_BLOCKS:
+                continue
+            cached = self._cache_path(copy.sha256)
+            try:
+                if (cached is not None and (cached.exists() or cached.is_symlink())
+                        and (cached.is_symlink() or not cached.is_file() or cached.stat().st_size != copy.size_bytes
+                             or _digest(cached.read_bytes()) != copy.sha256)):
+                    cache_valid = False
+            except OSError:
+                cache_valid = False
+            if not cache_valid:
+                break  # A damaged cache is untrusted; fall back to the full remote generation.
+        self.last_timings['downloaded_bytes'] = 0.0
+        self.last_timings['reused_bytes'] = 0.0
+
         def download(copy):
+            cached = self._cache_path(copy.sha256)
+            if cache_valid and cached is not None and cached.is_file() and not cached.is_symlink():
+                try:
+                    data = cached.read_bytes()
+                except OSError:
+                    data = b''
+                if len(data) == copy.size_bytes and _digest(data) == copy.sha256:
+                    with self._existing_lock:
+                        self.last_timings['reused_bytes'] += len(data)
+                    return data
             found = self._get(copy.key)
             if found is None or len(found[0]) != copy.size_bytes or _digest(found[0]) != copy.sha256:
                 if copy.format == _SQLITE_BLOCK:
                     raise StateError("分块 SHA256 或大小校验失败")
                 raise StateError("副本 SHA256 或大小校验失败")
+            self._cache_write(copy.sha256, found[0])
+            with self._existing_lock:
+                self.last_timings['downloaded_bytes'] += len(found[0])
             return found[0]
 
         ordered = (block for copy in candidate.stores if copy.format != _SQLITE_BLOCK

@@ -153,11 +153,14 @@ class SqliteCatalogStore:
         return db.execute("SELECT seq FROM datasets WHERE dataset_key=?", (dataset.dataset_key,)).fetchone()[0]
 
     def _index_dataset(self, db: sqlite3.Connection, dataset: Dataset, rowid: int) -> None:
+        values = (_json_search_text(dataset.title), _json_search_text(dataset.description),
+                  _json_search_text(" ".join(dataset.tags)))
+        if db.execute('SELECT title,description,tags FROM catalog_fts WHERE rowid=?', (rowid,)).fetchone() == values:
+            return
         db.execute("DELETE FROM catalog_fts WHERE rowid=?", (rowid,))
         db.execute(
             "INSERT INTO catalog_fts(rowid, title, description, tags) VALUES(?,?,?,?)",
-            (rowid, _json_search_text(dataset.title), _json_search_text(dataset.description),
-             _json_search_text(" ".join(dataset.tags))),
+            (rowid, *values),
         )
 
     def upsert(self, datasets: Sequence[Dataset] = (), resources: Sequence[Resource] = ()) -> None:
@@ -169,6 +172,9 @@ class SqliteCatalogStore:
             if missing:
                 raise ValueError(f"资源所属的数据集不存在：{missing[0]}")
             for dataset in datasets:
+                old = db.execute('SELECT dataset_json FROM datasets WHERE dataset_key=?', (dataset.dataset_key,)).fetchone()
+                if old is not None and old[0] == dataset.model_dump_json():
+                    continue
                 rowid = self._save_dataset(db, dataset)
                 self._index_dataset(db, dataset, rowid)
             for resource in resources:
@@ -176,7 +182,7 @@ class SqliteCatalogStore:
                     "INSERT INTO resources(dataset_key, resource_id, url, format_norm, license_norm, state, resource_json) "
                     "VALUES(?,?,?,?,?,?,?) ON CONFLICT(dataset_key, resource_id) DO UPDATE SET "
                     "url=excluded.url, format_norm=excluded.format_norm, license_norm=excluded.license_norm, "
-                    "resource_json=excluded.resource_json",
+                    "resource_json=excluded.resource_json WHERE resources.resource_json != excluded.resource_json",
                     (resource.dataset_key, resource.resource_id, resource.url, _norm_format(resource.format),
                      _norm_text(resource.license) or "未知", ContentState.catalog_only.value, resource.model_dump_json()),
                 )
