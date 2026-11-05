@@ -129,3 +129,20 @@ def test_time_period_that_differs_from_the_row_period_stays_in_identity(inputs):
     inputs["observations"].write_table("jp-stat", "t1", rows)
     profiles = generate_profiles(1, **inputs)
     assert sorted(p.series.fixed_dimensions["TIME_PERIOD"] for p in profiles) == ["2015", "2020"]
+
+
+def test_profiles_cached_under_an_older_identity_rule_are_rebuilt(inputs, monkeypatch):
+    from datumoj.eltiro import profiles as module
+
+    rows = [make_observation(f"y{year}", "1", indicator_code="POP", time_label=str(year),
+                             time_start=date(year, 1, 1), time_end=date(year, 12, 31),
+                             dims={"TIME_PERIOD": str(year)}) for year in (2020, 2021)]
+    inputs["observations"].write_table("jp-stat", "t1", rows)
+    with monkeypatch.context() as old:
+        # Generation 1 as written before the rule existed: TIME_PERIOD kept, no rule salt.
+        old.setattr(module, "series_dimensions", lambda dims, _label: dict(dims))
+        old.setattr(module, "SERIES_IDENTITY_RULE", "series-identity/1")
+        assert len(generate_profiles(1, **inputs)) == 2
+    # Same table bytes, incremental run: the old split identities must not be reused.
+    profiles = generate_profiles(2, **inputs, previous_generation=1)
+    assert [p.series.fixed_dimensions for p in profiles] == [{}]

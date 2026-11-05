@@ -19,11 +19,11 @@ from datumoj.eltiro.intake import load_consumers
 from datumoj.eltiro.match_store import SQLiteMatchStore, series_key
 from datumoj.eltiro.matching import match_demand
 from datumoj.eltiro.models import (
-    PERIOD_DIMENSION,
     CitationEntry,
     DemandSpec,
     InputObservation,
     operation_inputs,
+    series_dimension_count_sql,
     series_dimensions,
 )
 from datumoj.eltiro.operations import calculate
@@ -182,9 +182,7 @@ def _fetch(demand, record, profile, reader, catalog, registry, tables, gaps):
              f"indicator = {_literal(series.indicator)}",
              "indicator_code IS NULL" if series.indicator_code is None else
              f"indicator_code = {_literal(series.indicator_code)}",
-             # A row's own TIME_PERIOD is not part of the series identity (series_dimensions).
-             (f"json_array_length(json_keys(dims)) = {len(series.fixed_dimensions)} + CASE WHEN "
-              f"json_extract_string(dims, {_literal('/' + PERIOD_DIMENSION)}) = time_label THEN 1 ELSE 0 END"),
+             f"{series_dimension_count_sql(_literal)} = {len(series.fixed_dimensions)}",
              "area_code IN (" + ",".join(_literal(c) for c in sorted(desired)) + ")",
              f"time_start >= DATE {_literal(start.isoformat())}", f"time_end <= DATE {_literal(end.isoformat())}"]
     for key, value in sorted(series.fixed_dimensions.items()):

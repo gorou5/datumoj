@@ -15,6 +15,7 @@ from hashlib import sha256
 from pydantic import TypeAdapter
 
 from datumoj.eltiro.models import (
+    SERIES_IDENTITY_RULE,
     ConceptId,
     Frequency,
     Generation,
@@ -84,11 +85,12 @@ def _source_metadata(datasets):
 
 
 def _observation_profiles(generation, rows: list[Observation], datasets):
-    grouped = defaultdict(list)
+    grouped, series_dims = defaultdict(list), {}
     for row in rows:
-        key = (row.source_id, row.table_key, row.indicator, row.indicator_code,
-               _json(series_dimensions(row.dims, row.time_label)))
-        grouped[_json(key)].append(row)
+        dims = series_dimensions(row.dims, row.time_label)
+        key = _json((row.source_id, row.table_key, row.indicator, row.indicator_code, _json(dims)))
+        grouped[key].append(row)
+        series_dims[key] = dims
     profiles = []
     frequencies = {"year": "annual", "fiscal_year": "annual", "quarter": "quarterly",
                    "month": "monthly", "week": "weekly", "day": "daily"}
@@ -120,7 +122,7 @@ def _observation_profiles(generation, rows: list[Observation], datasets):
         profiles.append(SeriesProfile(
             series=SeriesIdentity(source_id=row.source_id, table_key=row.table_key, indicator=row.indicator,
                                   indicator_code=row.indicator_code,
-                                  fixed_dimensions=series_dimensions(row.dims, row.time_label)),
+                                  fixed_dimensions=series_dims[key]),
             names=names, descriptions=descriptions, concept_ids=concepts,
             survey=_one([item.survey for item in items], "surveys"), unit=unit, scale=scale,
             methodology=_one([d.extras["methodology"] for d in metadata if d.extras.get("methodology")],
@@ -209,7 +211,7 @@ def generate_profiles(
         used = {row[result.columns.index("dataset_key")] for row in result.rows}
         used_datasets.update(used)
         metadata = [datasets[k].model_dump(mode="json") for k in sorted(used) if k in datasets]
-        fingerprint = _fingerprint([table.model_dump(mode="json"), metadata,
+        fingerprint = _fingerprint([SERIES_IDENTITY_RULE, table.model_dump(mode="json"), metadata,
                                     sorted(_json(dict(zip(result.columns, row))) for row in result.rows)])
         key = _json(["observations", source, table_key])
         profiles = cached(key, fingerprint)

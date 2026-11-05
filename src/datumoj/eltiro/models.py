@@ -339,6 +339,9 @@ def load_demand(path_or_bytes: str | Path | bytes) -> DemandSpec:
 # SDMX reserves TIME_PERIOD for the observation's own time coordinate (Eurostat keeps
 # it in dims). It locates a point inside a series; it never distinguishes two series.
 PERIOD_DIMENSION = "TIME_PERIOD"
+# Bump when the rule below changes: profile cache fingerprints include it, so unchanged
+# tables are re-profiled instead of reusing identities built under an older rule.
+SERIES_IDENTITY_RULE = "series-identity/2"
 
 
 def series_dimensions(dims: dict[str, str], time_label: str) -> dict[str, str]:
@@ -350,6 +353,16 @@ def series_dimensions(dims: dict[str, str], time_label: str) -> dict[str, str]:
     if dims.get(PERIOD_DIMENSION) == time_label:
         return {key: value for key, value in dims.items() if key != PERIOD_DIMENSION}
     return dict(dims)
+
+
+def series_dimension_count_sql(literal) -> str:
+    """SQL twin of len(series_dimensions(dims, time_label)) for the observations table.
+
+    ``literal`` is the caller's SQL string-literal quoting function. The executor's
+    Python identity check still uses series_dimensions on every returned row.
+    """
+    return (f"json_array_length(json_keys(dims)) - CASE WHEN "
+            f"json_extract_string(dims, {literal('/' + PERIOD_DIMENSION)}) = time_label THEN 1 ELSE 0 END")
 
 
 class SeriesIdentity(_Model):
