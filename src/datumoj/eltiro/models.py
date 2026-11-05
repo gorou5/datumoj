@@ -336,6 +336,22 @@ def load_demand(path_or_bytes: str | Path | bytes) -> DemandSpec:
     return DemandSpec.model_validate(data)
 
 
+# SDMX reserves TIME_PERIOD for the observation's own time coordinate (Eurostat keeps
+# it in dims). It locates a point inside a series; it never distinguishes two series.
+PERIOD_DIMENSION = "TIME_PERIOD"
+
+
+def series_dimensions(dims: dict[str, str], time_label: str) -> dict[str, str]:
+    """An observation's series-level dimensions: dims without its own TIME_PERIOD.
+
+    TIME_PERIOD is dropped only when it equals the row's time_label, so any other
+    value stays part of the identity and is never silently merged.
+    """
+    if dims.get(PERIOD_DIMENSION) == time_label:
+        return {key: value for key, value in dims.items() if key != PERIOD_DIMENSION}
+    return dict(dims)
+
+
 class SeriesIdentity(_Model):
     source_id: Source
     table_key: Label
