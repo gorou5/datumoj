@@ -99,7 +99,8 @@ def _parsed(specs):
     return out, rows
 
 
-def _publish(root, parsed):
+def _publish(root, parsed, generation=1):
+    """Write parsed tables into the live stores, then retain them as published generation N."""
     store = DuckDBObservationStore(root)
     datasets, seq = {}, 0
     for source_id, snapshot, result in parsed:
@@ -120,8 +121,8 @@ def _publish(root, parsed):
         copies.append(StoreCopy(name=path.relative_to(root).as_posix(), key=f"copies/sha256/{digest}", sha256=digest,
                                 size_bytes=path.stat().st_size,
                                 format="sqlite" if path.suffix == ".sqlite" else "parquet"))
-    generation = make_state_generation(1).model_copy(update={"stores": copies})
-    return retain_generation(root, generation.model_dump_json().encode(), root)
+    state = make_state_generation(generation).model_copy(update={"stores": copies})
+    return retain_generation(root, state.model_dump_json().encode(), root)
 
 
 def _existing_part(name):
