@@ -6,7 +6,7 @@ import base64
 import hashlib
 import re
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import PurePosixPath
 
 import boto3
@@ -87,18 +87,48 @@ def check_key(key: str, *, prefix: bool = False) -> str:
     return key
 
 
+def _check_retired_key(key: str) -> None:
+    check_key(key)
+    if not (re.fullmatch(r"generations/[1-9][0-9]*\.json", key)
+            or key.startswith(("copies/sha256/", "raw/"))):
+        raise ValueError("清理只允许删除代次清单和内容对象")
+
+
 def delete_retired_object(store: StateObjectStore, obj: StateObject, check: Callable[[], None]) -> None:
     """Leased deletion of immutable garbage only; never a coordination object.
 
     R2 may ignore DELETE conditions. The lease and immutable namespaces provide
     the safety boundary here; current and lease coordination still use PUT CAS.
     """
-    check_key(obj.key)
-    if not (re.fullmatch(r"generations/[1-9][0-9]*\.json", obj.key)
-            or obj.key.startswith(("copies/sha256/", "raw/"))):
-        raise ValueError("清理只允许删除代次清单和内容对象")
+    _check_retired_key(obj.key)
     check()
     store.delete_if_match(obj.key, obj.etag)
+
+
+def delete_retired_objects(store: StateObjectStore, objects: list[StateObject],
+                           check: Callable[[], None]) -> Iterator[tuple[list[StateObject], int]]:
+    """Yield confirmed deletions and failure counts, stopping at the first failed batch.
+
+    The caller's check enforces the lease and time budget before each request.
+    Stores without the optional bulk method retain conditional single deletion.
+    """
+    delete_many = getattr(store, "delete_objects", None)
+    batch_size = 200 if callable(delete_many) else 1
+    for offset in range(0, len(objects), batch_size):
+        batch = objects[offset:offset + batch_size]
+        for obj in batch:
+            _check_retired_key(obj.key)
+        if callable(delete_many):
+            check()
+            deleted_keys = delete_many([obj.key for obj in batch])
+            deleted = [obj for obj in batch if obj.key in deleted_keys]
+        else:
+            delete_retired_object(store, batch[0], check)
+            deleted = batch
+        failures = len(batch) - len(deleted)
+        yield deleted, failures
+        if failures:
+            return
 
 
 class S3StateObjectStore:
@@ -187,6 +217,30 @@ class S3StateObjectStore:
             self._error(exc, conditional=True)
         except BotoCoreError:
             raise ContractError("S3 状态删除失败") from None
+
+    def delete_objects(self, keys: list[str]) -> set[str]:
+        """Delete one leased GC batch, returning only explicitly confirmed keys.
+
+        Immutable garbage uses the lease as its boundary, since R2 may ignore
+        DELETE conditions. Coordination keys are rejected before any SDK call.
+        """
+        if not 1 <= len(keys) <= 200:
+            raise ValueError("清理批次需要 1 到 200 个对象键")
+        for key in keys:
+            _check_retired_key(key)
+        full_keys = {self._key(key): key for key in keys}
+        try:
+            response = self._client.delete_objects(
+                Bucket=self._bucket,
+                Delete={"Objects": [{"Key": key} for key in full_keys], "Quiet": False},
+            )
+        except (ClientError, BotoCoreError):
+            raise ContractError("S3 状态批量删除失败") from None
+        failed = {entry["Key"] for entry in response.get("Errors", [])}
+        deleted = {full_keys[entry["Key"]] for entry in response.get("Deleted", [])
+                   if entry["Key"] in full_keys and entry["Key"] not in failed}
+        self._listed_keys.difference_update(deleted)
+        return deleted
 
     def exists(self, key: str) -> bool:
         full = self._key(key)
