@@ -17,6 +17,10 @@ from datumoj.rikolto.core.schedule import Scheduler, read_control, set_enabled
 from datumoj.rikolto.testing.fakes import FakeManifest, FakeRawStore, FakeRegistry
 from datumoj.rikolto.testing.samples import T0, make_spec
 
+# Event.wait returns as soon as the worker signals; the bound only has to survive a loaded CI
+# runner (a 1 s bound failed there once while passing locally every time).
+THREAD_WAIT = 10
+
 
 def _admin(tmp_path, *, names=None, schedules=None, execute=None, token="test-token"):
     names = names or {"jp-one": "测试来源一", "jp-two": "测试来源二"}
@@ -136,7 +140,7 @@ def test_run_now_respects_switches_and_runs_in_background(tmp_path):
 
     def crawl(_):
         started.set()
-        assert release.wait(5)
+        assert release.wait(THREAD_WAIT)
         completed.set()
         return SimpleNamespace(new=1, unchanged=0, failures={}, stop_reason=None)
 
@@ -153,11 +157,11 @@ def test_run_now_respects_switches_and_runs_in_background(tmp_path):
         set_enabled(tmp_path, True, ["jp-one"])
         response = client.post("/", data={"csrf": token, "action": "run", "source_id": "jp-one"}, follow_redirects=False)
         assert response.status_code == 303
-        assert started.wait(1)
+        assert started.wait(THREAD_WAIT)
         assert not release.is_set()
         assert client.get("/?notice=run-started").text.find("已开始") >= 0
         release.set()
-        assert completed.wait(2)
+        assert completed.wait(THREAD_WAIT)
         assert calls == ["jp-one"]
 
 
@@ -167,7 +171,7 @@ def test_run_now_rejects_a_source_with_an_existing_lock(tmp_path):
 
     def crawl(_):
         started.set()
-        assert release.wait(5)
+        assert release.wait(THREAD_WAIT)
         return SimpleNamespace(new=1, unchanged=0, failures={}, stop_reason=None)
 
     app, _, scheduler, calls = _admin(tmp_path, execute=crawl)
@@ -176,7 +180,7 @@ def test_run_now_rejects_a_source_with_an_existing_lock(tmp_path):
     worker = threading.Thread(target=scheduler.run_now, args=("jp-one",), daemon=True)
     worker.start()
     try:
-        assert started.wait(1)
+        assert started.wait(THREAD_WAIT)
         with TestClient(app) as client:
             response = client.post("/", data={
                 "csrf": "test-token", "action": "run", "source_id": "jp-one",
@@ -185,7 +189,7 @@ def test_run_now_rejects_a_source_with_an_existing_lock(tmp_path):
         assert calls == ["jp-one"]
     finally:
         release.set()
-        worker.join(2)
+        worker.join(THREAD_WAIT)
     assert not worker.is_alive()
 
 
