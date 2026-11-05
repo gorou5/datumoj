@@ -193,13 +193,136 @@ def _ocr_summary(deps: Any, events: Sequence[ChangeEvent]) -> str:
     )
 
 
+_ELTIRO_ALERT_LABELS = {
+    "binding_stale": "绑定序列停更",
+    "definition_changed": "口径变化",
+    "new_candidate": "新候选",
+    "gap_filled": "缺口转为可得",
+}
+_ELTIRO_GAP_LABELS = {
+    "missing": "没有候选",
+    "catalog_only": "只有目录",
+    "document_only": "只有文档",
+    "pending_confirmation": "候选待确认",
+    "below_min_sources": "来源数不足",
+    "rejected_only": "候选全被否决",
+}
+_ELTIRO_PARTS = {"demands": "在用需求", "runs": "运行记录", "pending": "待确认匹配", "alerts": "提醒", "gaps": "缺口报告"}
+
+
+def _demand_ref(item: Mapping[str, Any]) -> str:
+    return f"{_plain(item.get('demand_id'))} v{_plain(item.get('demand_version'))}"
+
+
+def _series_ref(series: Mapping[str, Any]) -> str:
+    code = series.get("indicator_code")
+    suffix = f" / {_plain(code)}" if code else ""
+    return f"{_plain(series.get('source_id'))} · {_plain(series.get('table_key'))}{suffix}"
+
+
+def _bullets(items: Any) -> list[str]:
+    return list(items) or ["- 无"]
+
+
+def _in_period(value: Any, start: datetime, end: datetime) -> bool:
+    try:
+        moment = datetime.fromisoformat(str(value))
+    except ValueError:
+        return False
+    if moment.utcoffset() is None:
+        return False
+    return start <= moment <= end
+
+
+def _eltiro_lines(overview: Mapping[str, Any] | None, start: datetime, end: datetime) -> list[str]:
+    """Identifiers and counts only: demand concepts and purposes stay out of the report."""
+    lines = ["## Eltiro", ""]
+    if overview is None:
+        return [*lines, "本机没有 Eltiro 数据目录，未启用。", ""]
+    errors = overview.get("errors") or []
+    if errors:
+        names = "、".join(_plain(_ELTIRO_PARTS.get(name, name)) for name in errors)
+        lines.extend([f"以下部分读取失败，显示为空不代表没有：{names}。", ""])
+    demands = overview.get("demands") or []
+    lines.extend([f"### 在用需求（{len(demands)}）", ""])
+    lines.extend(_bullets(
+        f"- {_demand_ref(item)}；使用方：{_plain(item.get('consumer'))}" for item in demands
+    ))
+    runs = [run for run in overview.get("runs") or [] if _in_period(run.get("finished_at"), start, end)]
+    lines.extend(["", f"### 本周运行（{len(runs)}）", ""])
+    lines.extend(_bullets(
+        f"- {_demand_ref(run)}；第 {_plain(run.get('generation'))} 代；{_plain(run.get('row_count'))} 行；"
+        f"缺口 {_plain(run.get('gap_count'))}；{_plain(run.get('run_id'))}；完成：{_plain(run.get('finished_at'))}"
+        for run in runs
+    ))
+    pending = overview.get("pending") or []
+    pending_count = overview.get("pending_count", len(pending))
+    lines.extend(["", f"### 待确认匹配（{_plain(pending_count)}）", ""])
+    lines.extend(_bullets(
+        f"- {_demand_ref(item)} · {_plain(item.get('indicator_key'))}；候选：{_series_ref(item.get('series') or {})}；"
+        f"第 {_plain(item.get('generation'))} 代"
+        for item in pending
+    ))
+    if isinstance(pending_count, int) and pending_count > len(pending):
+        lines.append(f"- 另有 {pending_count - len(pending)} 项未列出")
+    alerts = overview.get("alerts") or []
+    alert_count = overview.get("alert_count", len(alerts))
+    by_kind = "，".join(
+        f"{_plain(_ELTIRO_ALERT_LABELS.get(kind, kind))} {_plain(count)}"
+        for kind, count in (overview.get("alerts_by_kind") or {}).items()
+    )
+    lines.extend(["", f"### 提醒（未确认 {_plain(alert_count)}）" + (f"：{by_kind}" if by_kind else ""), ""])
+    lines.extend(_bullets(
+        f"- [{_plain(_ELTIRO_ALERT_LABELS.get(alert.get('kind'), alert.get('kind')))}] {_demand_ref(alert)} · "
+        f"{_plain(alert.get('indicator_key'))}；{_series_ref(alert.get('series') or {})}；"
+        f"第 {_plain(alert.get('generation'))} 代"
+        for alert in alerts
+    ))
+    if isinstance(alert_count, int) and alert_count > len(alerts):
+        lines.append(f"- 另有 {alert_count - len(alerts)} 项未列出")
+    gaps = overview.get("gaps")
+    lines.extend(["", "### 缺口", ""])
+    if gaps is None:
+        lines.append("还没有缺口汇总报告。")
+    else:
+        kinds = "，".join(
+            f"{_plain(_ELTIRO_GAP_LABELS.get(kind, kind))} {_plain(count)}"
+            for kind, count in (gaps.get("by_kind") or {}).items()
+        ) or "无"
+        lines.append(
+            f"第 {_plain(gaps.get('generation'))} 代汇总（{_plain(gaps.get('file'))}）："
+            f"有缺口的指标 {_plain(gaps.get('indicator_count'))} 个；{kinds}"
+        )
+        lines.append("")
+        indicators = gaps.get("indicators") or []
+        lines.extend(_bullets(
+            f"- {_demand_ref(item)} · {_plain(item.get('indicator_key'))}："
+            + "、".join(_plain(_ELTIRO_GAP_LABELS.get(kind, kind)) for kind in item.get("kinds", []))
+            for item in indicators
+        ))
+        sources = gaps.get("sources") or []
+        if sources:
+            lines.extend(["", "可能的来源（线索，未核验覆盖）：", ""])
+            lines.extend(
+                f"- {_plain(source.get('source_id'))}：{_plain(source.get('indicators'))} 个指标；"
+                f"{_plain('、'.join(source.get('reasons') or []))}"
+                for source in sources
+            )
+    return [*lines, ""]
+
+
 def weekly_report(
     deps: Any,
     since: date | datetime | None = None,
     until: date | datetime | None = None,
     alerts: Sequence[Alert | Mapping[str, Any]] = (),
+    eltiro: Mapping[str, Any] | None | bool = False,
 ) -> str:
-    """Create a source-grouped weekly report using change, manifest, and chunk contracts."""
+    """Create a source-grouped weekly report using change, manifest, and chunk contracts.
+
+    ``eltiro`` is an ``eltiro.overview/v1`` mapping (``None``: Eltiro not set up locally).
+    The default ``False`` leaves the section out, e.g. for cloud runs without Eltiro state.
+    """
     start, end = _period(since, until)
     events = deps.change_log.list(since=start, until=end) if deps.change_log is not None else []
     counts = {
@@ -271,4 +394,7 @@ def weekly_report(
             lines.append(f"- {_plain(source_name)}：retention_gap；{_plain(alert.message)}")
     else:
         lines.append("无 retention_gap 提醒。")
+    if eltiro is not False:
+        lines.append("")
+        lines.extend(_eltiro_lines(eltiro, start, end))
     return "\n".join(lines).rstrip() + "\n"

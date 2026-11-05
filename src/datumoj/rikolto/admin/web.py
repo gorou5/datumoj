@@ -143,7 +143,114 @@ def _ledger_warnings_section(status: dict) -> str:
     )
 
 
-def _page(deps: object, scheduler: object, token: str, notice: str | None = None) -> str:
+_ELTIRO_ALERT_LABELS = {
+    "binding_stale": "绑定序列停更",
+    "definition_changed": "口径变化",
+    "new_candidate": "新候选",
+    "gap_filled": "缺口转为可得",
+}
+_ELTIRO_GAP_LABELS = {
+    "missing": "没有候选",
+    "catalog_only": "只有目录",
+    "document_only": "只有文档",
+    "pending_confirmation": "候选待确认",
+    "below_min_sources": "来源数不足",
+    "rejected_only": "候选全被否决",
+}
+_ELTIRO_PARTS = {"demands": "在用需求", "runs": "运行记录", "pending": "待确认匹配", "alerts": "提醒", "gaps": "缺口报告"}
+
+
+def _demand_ref(item: dict) -> str:
+    return f'<span class="source-id">{_e(item.get("demand_id"))} v{_e(item.get("demand_version"))}</span>'
+
+
+def _series_ref(series: dict) -> str:
+    code = series.get("indicator_code")
+    suffix = f" / {_e(code)}" if code else ""
+    return f'<span class="source-id">{_e(series.get("source_id"))} · {_e(series.get("table_key"))}{suffix}</span>'
+
+
+def _eltiro_list(items: list[str], empty: str, total: int | None = None) -> str:
+    if not items:
+        return f'<p class="empty-inline">{_e(empty)}</p>'
+    more = ""
+    if total is not None and total > len(items):
+        more = f'<p class="muted">另有 {_e(total - len(items))} 项未列出。</p>'
+    return f'<ul class="plain-list">{"".join(f"<li>{item}</li>" for item in items)}</ul>{more}'
+
+
+def _eltiro_section(overview: dict | None) -> str:
+    """Identifiers and counts only; demand text never reaches the page."""
+    if overview is None:
+        content = '<p class="empty-inline">本机没有 Eltiro 数据目录（eltiro/），未启用。</p>'
+        return f'<section class="alerts eltiro" aria-label="Eltiro"><h2>Eltiro</h2>{content}</section>'
+    errors = overview.get("errors") or []
+    error_html = ""
+    if errors:
+        names = "、".join(_e(_ELTIRO_PARTS.get(name, name)) for name in errors)
+        error_html = f'<p class="notice">以下部分读取失败，显示为空不代表没有：{names}。</p>'
+    demands = overview.get("demands") or []
+    runs = overview.get("runs") or []
+    pending = overview.get("pending") or []
+    alerts = overview.get("alerts") or []
+    gaps = overview.get("gaps")
+    demand_items = [
+        f'{_demand_ref(item)}　使用方 {_e(item.get("consumer"))}　'
+        f'<span class="muted">登记 {_e(item.get("registered_at"))}</span>'
+        for item in demands
+    ]
+    run_items = [
+        f'{_demand_ref(run)}　第 {_e(run.get("generation"))} 代　{_e(run.get("row_count"))} 行，'
+        f'缺口 {_e(run.get("gap_count"))}<br><span class="muted">{_e(run.get("run_id"))}；'
+        f'完成 {_e(run.get("finished_at"))}</span>'
+        for run in runs[:5]
+    ]
+    pending_items = [
+        f'{_demand_ref(item)} · {_e(item.get("indicator_key"))}　{_series_ref(item.get("series") or {})}　'
+        f'<span class="muted">第 {_e(item.get("generation"))} 代；{_e(item.get("tier"))}；'
+        f'置信度 {_e(item.get("confidence"))}</span>'
+        for item in pending
+    ]
+    alert_items = [
+        f'<strong>{_e(_ELTIRO_ALERT_LABELS.get(alert.get("kind"), alert.get("kind")))}</strong>　'
+        f'{_demand_ref(alert)} · {_e(alert.get("indicator_key"))}　{_series_ref(alert.get("series") or {})}　'
+        f'<span class="muted">第 {_e(alert.get("generation"))} 代；{_e(alert.get("alert_id"))}</span>'
+        for alert in alerts
+    ]
+    if gaps is None:
+        gap_html = '<p class="empty-inline">还没有缺口汇总报告（eltiro gaps report）。</p>'
+    else:
+        kinds = "，".join(
+            f'{_e(_ELTIRO_GAP_LABELS.get(kind, kind))} {_e(count)}' for kind, count in gaps.get("by_kind", {}).items()
+        ) or "无"
+        gap_items = [
+            f'{_demand_ref(item)} · {_e(item.get("indicator_key"))}　'
+            + "、".join(_e(_ELTIRO_GAP_LABELS.get(kind, kind)) for kind in item.get("kinds", []))
+            for item in gaps.get("indicators", [])
+        ]
+        gap_html = (
+            f'<p class="muted">第 {_e(gaps.get("generation"))} 代汇总（{_e(gaps.get("file"))}）：'
+            f'有缺口的指标 {_e(gaps.get("indicator_count"))} 个；{kinds}</p>'
+            + _eltiro_list(gap_items, "没有缺口。", gaps.get("indicator_count"))
+        )
+    return (
+        '<section class="alerts eltiro" aria-label="Eltiro"><h2>Eltiro</h2>'
+        f'{error_html}'
+        f'<h3>在用需求（{_e(len(demands))}）</h3>{_eltiro_list(demand_items, "没有在用需求。")}'
+        f'<h3>最近运行</h3>{_eltiro_list(run_items, "还没有运行记录。")}'
+        f'<h3>待确认匹配（{_e(overview.get("pending_count", len(pending)))}）</h3>'
+        f'{_eltiro_list(pending_items, "没有待确认的匹配。", overview.get("pending_count"))}'
+        f'<h3>提醒（未确认 {_e(overview.get("alert_count", len(alerts)))}）</h3>'
+        f'{_eltiro_list(alert_items, "没有未确认的提醒。", overview.get("alert_count"))}'
+        f'<h3>缺口</h3>{gap_html}'
+        '</section>'
+    )
+
+
+def _page(
+    deps: object, scheduler: object, token: str, notice: str | None = None,
+    eltiro: Callable[[], dict | None] | None = None,
+) -> str:
     status = scheduler.status()
     history_reader = getattr(scheduler, "_read_history", None)
     history = history_reader()[0] if callable(history_reader) else []
@@ -215,6 +322,15 @@ def _page(deps: object, scheduler: object, token: str, notice: str | None = None
         colspan = 11 if show_cloud_success else 10
         rows.append(f'<tr><td colspan="{colspan}" class="empty">当前没有登记来源。</td></tr>')
     master = "开启" if status["enabled"] else "关闭"
+    eltiro_section = ""
+    if eltiro is not None:
+        try:
+            eltiro_section = _eltiro_section(eltiro())
+        except Exception:  # noqa: BLE001 -- Eltiro 概览失败不能拖垮抓取管理页，也不显示异常原文。
+            eltiro_section = (
+                '<section class="alerts eltiro" aria-label="Eltiro"><h2>Eltiro</h2>'
+                '<p class="notice">Eltiro 状态读取失败。</p></section>'
+            )
     cloud = status.get("cloud")
     cloud_section = ""
     if cloud:
@@ -265,6 +381,10 @@ def _page(deps: object, scheduler: object, token: str, notice: str | None = None
     button.secondary {{ background: #eaf0ff; color: #294c9b; }}
     button:hover {{ filter: brightness(.95); }}
     .empty {{ color: #667085; text-align: center; padding: 30px; }}
+    .eltiro h3 {{ margin: 16px 0 6px; font-size: 15px; }}
+    .plain-list {{ margin: 0; padding-left: 18px; }}
+    .plain-list li + li {{ margin-top: 4px; }}
+    .empty-inline {{ margin: 0; color: #667085; }}
     footer {{ margin-top: 16px; color: #667085; font-size: 12px; }}
     @media (max-width: 720px) {{ main {{ margin: 24px auto; padding: 0 14px; }} h1 {{ font-size: 23px; }} }}
   </style>
@@ -287,6 +407,7 @@ def _page(deps: object, scheduler: object, token: str, notice: str | None = None
         <tbody>{''.join(rows)}</tbody>
       </table>
     </div>
+    {eltiro_section}
     <footer>立即运行仍会检查总开关、来源开关和来源运行锁。</footer>
   </main>
 </body>
@@ -300,8 +421,13 @@ def create_app(
     *,
     token: str | None = None,
     run_now: Callable[[str], object] | None = None,
+    eltiro_overview: Callable[[], dict | None] | None = None,
 ) -> Starlette:
-    """构建单页应用。生产环境应为后台线程提供线程内创建的 ``run_now``。"""
+    """构建单页应用。生产环境应为后台线程提供线程内创建的 ``run_now``。
+
+    ``eltiro_overview`` 每次渲染时调用，返回 ``datumoj.eltiro.overview.eltiro_overview``
+    的结果；不传就不显示 Eltiro 一节（Rikolto 本身不依赖 Eltiro）。
+    """
     root = Path(data_dir)
     csrf_token = token or secrets.token_urlsafe(32)
     run_failures: dict[str, str] = {}
@@ -322,7 +448,7 @@ def create_app(
         notice = notices.get(notice_key)
         if notice_key in {"run-started", "run-pending"} and source_id in run_failures:
             notice = f"后台运行失败：{run_failures[source_id]}"
-        return HTMLResponse(_page(deps, scheduler, csrf_token, notice))
+        return HTMLResponse(_page(deps, scheduler, csrf_token, notice, eltiro_overview))
 
     async def update(request: Request) -> Response:
         form = await request.form()
@@ -352,10 +478,10 @@ def create_app(
             current = scheduler.status()
             row = next(row for row in current["sources"] if row["source_id"] == source_id)
             if row["running"]:
-                return HTMLResponse(_page(deps, scheduler, csrf_token, "正在运行，未重复启动。"), status_code=409)
+                return HTMLResponse(_page(deps, scheduler, csrf_token, "正在运行，未重复启动。", eltiro_overview), status_code=409)
             if not row["effective_enabled"]:
                 reason = "总开关关闭" if not current["enabled"] else "来源开关关闭"
-                return HTMLResponse(_page(deps, scheduler, csrf_token, f"未运行：{reason}。"), status_code=409)
+                return HTMLResponse(_page(deps, scheduler, csrf_token, f"未运行：{reason}。", eltiro_overview), status_code=409)
             target = run_now or scheduler.run_now
             run_failures.pop(source_id, None)
             worker_done = threading.Event()
@@ -374,7 +500,7 @@ def create_app(
             except Exception as exc:  # noqa: BLE001 - thread creation/start failures happen in this request.
                 run_failures[source_id] = safe_reason(exc)
                 return HTMLResponse(
-                    _page(deps, scheduler, csrf_token, f"后台运行失败：{run_failures[source_id]}"),
+                    _page(deps, scheduler, csrf_token, f"后台运行失败：{run_failures[source_id]}", eltiro_overview),
                     status_code=500,
                 )
             deadline = time.monotonic() + 1
@@ -393,7 +519,7 @@ def create_app(
                 worker_done.wait(min(0.01, remaining))
             if worker_done.is_set() and source_id in run_failures:
                 return HTMLResponse(
-                    _page(deps, scheduler, csrf_token, f"后台运行失败：{run_failures[source_id]}"),
+                    _page(deps, scheduler, csrf_token, f"后台运行失败：{run_failures[source_id]}", eltiro_overview),
                     status_code=500,
                 )
             if worker_done.is_set():
