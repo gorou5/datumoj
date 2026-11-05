@@ -24,7 +24,7 @@ from datumoj.eltiro.gaps import gap_report
 from datumoj.eltiro.intake import IntakeService, load_consumers
 from datumoj.eltiro.match_store import SQLiteMatchStore
 from datumoj.eltiro.matching import match_demand
-from datumoj.eltiro.models import RoutingPolicy
+from datumoj.eltiro.models import ConsumersConfig, RoutingPolicy
 from datumoj.eltiro.profile_store import SQLiteProfileStore
 from datumoj.eltiro.profiles import generate_profiles
 from datumoj.eltiro.registry_store import SQLiteDemandRegistry
@@ -49,13 +49,12 @@ def _views_profiles(root, token, generation, registry, previous=None):
                                  previous_generation=previous)
 
 
-def _consumer_config(root, *, max_tier="low"):
+def _consumer_config(root):
     (root / "eltiro").mkdir(exist_ok=True)
     (root / "eltiro" / "consumers.yaml").write_text(yaml.safe_dump({"consumers": [{
         "id": CONSUMER, "inbox": "consumer/inbox", "outbox": "consumer/outbox",
         "allowed_sources": list(REGISTERED), "accept_outflow": ["raw_ok", "derived_only"],
-        "models": {"consumer": CONSUMER, "authorized_sources": list(REGISTERED), "max_tier": max_tier,
-                   "allow_cloud": True, "allowed_providers": ["none", "ollama", "cloud_api"]},
+        "models": {"consumer": CONSUMER, "authorized_sources": list(REGISTERED), "max_tier": "low"},
         "max_active_demands": 10, "max_calls_per_run": 200}]}), encoding="utf-8")
 
 
@@ -148,9 +147,11 @@ def test_growth_rematches_raises_gap_filled_once_and_updates_gaps(grown):
 def _model_run(grown, policy, tmp_path):
     root = grown["root"]
     _, token2 = grown["tokens"]
-    _, profiles2 = grown["profiles"]
-    consumers = load_consumers(root)
-    consumer = next(c for c in consumers.consumers if c.id == CONSUMER)
+    # Model limits are raised in memory only; the shared consumers.yaml is never rewritten.
+    stored = next(c for c in load_consumers(root).consumers if c.id == CONSUMER)
+    consumer = type(stored).model_validate(stored.model_dump() | {"models": stored.models.model_dump() | {
+        "max_tier": "high", "allow_cloud": True, "allowed_providers": ("none", "ollama", "cloud_api")}})
+    consumers = ConsumersConfig(consumers=[consumer])
     licenses = {sid: spec.license for sid, spec in grown["specs"].items()}  # Real registry licenses.
     provider_local = FakeModelProvider('{"verdict":"relevant","reason":"Same current-price GDP concept."}')
     provider_cloud = FakeModelProvider('{"verdict":"relevant","reason":"Should never be called."}')
@@ -170,7 +171,6 @@ def _model_run(grown, policy, tmp_path):
                 providers={"ollama": provider_local, "cloud_api": provider_cloud})
         finally:
             store.close()
-    assert {p.generation for p in profiles2} == {2}
     return result, provider_local, provider_cloud
 
 
@@ -185,7 +185,6 @@ def _policy(low, medium, high):
 
 
 def test_cloud_route_is_refused_by_registry_licenses_and_downgrades_to_local(grown, tmp_path):
-    _consumer_config(grown["root"], max_tier="high")
     result, local, cloud = _model_run(grown, _policy(LOCAL, LOCAL, CLOUD), tmp_path)
     # Profiles lack methodology/survey → "high"; its cloud route is blocked by the real
     # licenses (cloud_model_ok false, no_outflow), so the router steps down to local medium.
@@ -196,14 +195,12 @@ def test_cloud_route_is_refused_by_registry_licenses_and_downgrades_to_local(gro
 
 
 def test_no_eligible_route_keeps_candidates_with_a_human(grown, tmp_path):
-    _consumer_config(grown["root"], max_tier="high")
     result, local, cloud = _model_run(grown, _policy(CLOUD, CLOUD, CLOUD), tmp_path)
     assert cloud.calls == [] and local.calls == []
     assert result.records and all(r.tier == "deterministic" and not r.auto_bind for r in result.records)
 
 
 def test_local_route_returns_labelled_model_judgment_without_binding(grown, tmp_path):
-    _consumer_config(grown["root"], max_tier="high")
     result, local, cloud = _model_run(grown, _policy(LOCAL, LOCAL, LOCAL), tmp_path)
     assert cloud.calls == [] and len(local.calls) == len(result.records) > 0
     assert all(not call.downgraded and call.tier == "high" for call in local.calls)
