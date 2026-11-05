@@ -598,7 +598,12 @@ def report_weekly(
         status = _monitored_status(scheduler)
         alerts = [alert for source in status["sources"] for alert in source["alerts"]]
         alerts.extend(status.get("cloud_alerts", []))
-        content = weekly_report(deps, start_day, end_day, alerts)
+        from datumoj.eltiro.overview import eltiro_overview
+
+        # --from-state rebuilds the cloud report byte for byte, and the cloud has no Eltiro state.
+        runs_since = datetime.combine(start_day, datetime.min.time(), tzinfo=UTC)
+        eltiro = False if from_state else eltiro_overview(deps.data_dir, runs_since=runs_since)
+        content = weekly_report(deps, start_day, end_day, alerts, eltiro)
         path = out or (
             deps.data_dir / "reports" / "weekly" / f"{week_key}.md"
             if from_state else deps.data_dir / "reports" / f"weekly-{week_key[:4]}-W{week_key[-2:]}.md"
@@ -760,7 +765,11 @@ def admin(
         _, worker_scheduler = _scheduler_at(root)
         return worker_scheduler.run_now(source_id)
 
-    web_app = create_app(root, deps, scheduler, run_now=run_now_in_worker)
+    from datumoj.eltiro.overview import eltiro_overview
+
+    web_app = create_app(
+        root, deps, scheduler, run_now=run_now_in_worker, eltiro_overview=lambda: eltiro_overview(root),
+    )
     typer.echo(f"管理页面：http://127.0.0.1:{port}/")
     uvicorn.run(web_app, host="127.0.0.1", port=port)
 
