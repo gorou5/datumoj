@@ -69,7 +69,7 @@ Schema 表达结构与局部参数限制；实体合计、有效日历日期与�
 
 ## 画像、匹配和出处
 
-序列完整身份为 `source_id + table_key + indicator + indicator_code + fixed_dimensions`；维度字典的顺序不影响身份。画像包含来源概念编号、多语言名称/说明、调查与口径、单位和倍率、地区与时间覆盖、频率、可得程度、生成代次及模型生成字段名单。模型不能声称生成序列的来源身份。画像不保存许可；通过 `series.source_id` 到权威注册表查询。
+序列完整身份为 `source_id + table_key + indicator + indicator_code + fixed_dimensions`；维度字典的顺序不影响身份。（2026-11-05 补充）`fixed_dimensions` 是观测 `dims` 去掉本行自身期间后的部分：SDMX 保留的时间维度 `TIME_PERIOD` 等于该行 `time_label` 时不进身份（Eurostat 把它写在 dims 里，否则一条序列会按年拆开）；值不等于本行期间时照常保留，不合并。画像、匹配依据和执行器统一用 `eltiro.models.series_dimensions` 计算。画像包含来源概念编号、多语言名称/说明、调查与口径、单位和倍率、地区与时间覆盖、频率、可得程度、生成代次及模型生成字段名单。模型不能声称生成序列的来源身份。画像不保存许可；通过 `series.source_id` 到权威注册表查询。
 
 匹配记录以 `(demand_id, demand_version, indicator_key, series, generation)` 定位；三档为 deterministic / vector / model，保存有限的 0–1 置信度、理由、画像字段及快照/locator 依据。记录的序列身份和代次定位画像条目，依据的来源必须与候选来源一致。
 

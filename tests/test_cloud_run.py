@@ -1158,19 +1158,19 @@ def test_cleanup_delete_failure_keeps_published_result_successful(world, monkeyp
     from datumoj.rikolto.core.state_s3 import S3StateObjectStore
 
     original_cleanup = StateManager.cleanup
-    original_delete = S3StateObjectStore.delete_if_match
+    original_delete = S3StateObjectStore.delete_objects
 
     def cleanup(manager, specs, **kw):
         manager.store.put("copies/sha256/synthetic-orphan", b"orphan")
         return original_cleanup(manager, specs, **kw)
 
-    def delete(store, key, etag):
-        if key.startswith("copies/"):
+    def delete(store, keys):
+        if any(key.startswith("copies/") for key in keys):
             raise OSError("https://synthetic.invalid/private?key=synthetic-secret")
-        return original_delete(store, key, etag)
+        return original_delete(store, keys)
 
     monkeypatch.setattr(StateManager, "cleanup", cleanup)
-    monkeypatch.setattr(S3StateObjectStore, "delete_if_match", delete)
+    monkeypatch.setattr(S3StateObjectStore, "delete_objects", delete)
     result, _ = invoke(world)
     assert result["status"] == "completed" and result["exit_status"] == 0
     assert result["generation"] == 1 and result["cleanup"]["failures"] == 1

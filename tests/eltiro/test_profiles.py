@@ -108,3 +108,41 @@ def test_existing_parser_concept_codes_and_indicator_translations(inputs):
     assert profile.names == {"ja": "人口", "en": "Population"}
     assert {(c.scheme, c.code) for c in profile.concept_ids} == {("e-Stat", "000000000001"), ("jp-stat", "POP")}
     assert profile.time_start is None and profile.time_end is None
+
+
+def test_own_time_period_is_not_part_of_series_identity(inputs):
+    rows = [make_observation(f"y{year}", "1", indicator_code="POP", time_label=str(year),
+                             time_start=date(year, 1, 1), time_end=date(year, 12, 31),
+                             dims={"sex": "all", "TIME_PERIOD": str(year)}) for year in (2020, 2021, 2022)]
+    inputs["observations"].write_table("jp-stat", "t1", rows)
+    profiles = generate_profiles(1, **inputs)
+    assert len(profiles) == 1
+    assert profiles[0].series.fixed_dimensions == {"sex": "all"}
+    assert (profiles[0].time_start, profiles[0].time_end) == (date(2020, 1, 1), date(2022, 12, 31))
+
+
+def test_time_period_that_differs_from_the_row_period_stays_in_identity(inputs):
+    # Not the row's own period (e.g. a base period): never merged away silently.
+    rows = [make_observation(f"b{base}", "1", indicator_code="IDX", time_label="2022",
+                             time_start=date(2022, 1, 1), time_end=date(2022, 12, 31),
+                             dims={"TIME_PERIOD": base}) for base in ("2015", "2020")]
+    inputs["observations"].write_table("jp-stat", "t1", rows)
+    profiles = generate_profiles(1, **inputs)
+    assert sorted(p.series.fixed_dimensions["TIME_PERIOD"] for p in profiles) == ["2015", "2020"]
+
+
+def test_profiles_cached_under_an_older_identity_rule_are_rebuilt(inputs, monkeypatch):
+    from datumoj.eltiro import profiles as module
+
+    rows = [make_observation(f"y{year}", "1", indicator_code="POP", time_label=str(year),
+                             time_start=date(year, 1, 1), time_end=date(year, 12, 31),
+                             dims={"TIME_PERIOD": str(year)}) for year in (2020, 2021)]
+    inputs["observations"].write_table("jp-stat", "t1", rows)
+    with monkeypatch.context() as old:
+        # Generation 1 as written before the rule existed: TIME_PERIOD kept, no rule salt.
+        old.setattr(module, "series_dimensions", lambda dims, _label: dict(dims))
+        old.setattr(module, "SERIES_IDENTITY_RULE", "series-identity/1")
+        assert len(generate_profiles(1, **inputs)) == 2
+    # Same table bytes, incremental run: the old split identities must not be reused.
+    profiles = generate_profiles(2, **inputs, previous_generation=1)
+    assert [p.series.fixed_dimensions for p in profiles] == [{}]

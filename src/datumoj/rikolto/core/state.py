@@ -47,7 +47,7 @@ from datumoj.rikolto.core.models import (
     parse_context_fingerprint,
 )
 from datumoj.rikolto.core.schedule import _locked
-from datumoj.rikolto.core.state_s3 import check_key, delete_retired_object
+from datumoj.rikolto.core.state_s3 import check_key, delete_retired_objects
 from datumoj.rikolto.index.coverage import index_is_rebuilding
 from datumoj.rikolto.index.fts import SqliteKeywordIndex
 from datumoj.rikolto.index.vector import maintain_vectors
@@ -808,7 +808,7 @@ class StateManager:
 
         Build the full deletion plan before mutating. A descriptor deletion failure
         stops content deletion so all surviving generations keep their dependencies.
-        Every deletion checks the live lease and uses the inventory version's ETag.
+        Every batch checks the live lease; single-delete stores use inventory ETags.
         ``deadline`` uses the monotonic clock; less than 600s left skips planning.
         """
         report = {"enabled": enabled, "raw_enabled": raw_enabled, "generations_deleted": 0,
@@ -826,6 +826,7 @@ class StateManager:
                 raise _CleanupTimeout
 
         def check_delete():
+            check_time()
             check()
             check_time()
 
@@ -877,13 +878,15 @@ class StateManager:
             if enabled:
                 for kind, group in (("generations", expired), ("copies", copy_objects),
                                     ("raw", raw_objects if raw_enabled else [])):
-                    for obj in group:
-                        check_time()
-                        delete_retired_object(self.store, obj, check_delete)
-                        report[f"{kind}_deleted"] += 1
+                    for deleted, failures in delete_retired_objects(self.store, group, check_delete):
+                        size = sum(obj.size_bytes for obj in deleted)
+                        report[f"{kind}_deleted"] += len(deleted)
                         if kind != "generations":
-                            report[f"{kind}_deleted_bytes"] += obj.size_bytes
-                        report["total_bytes"] -= obj.size_bytes
+                            report[f"{kind}_deleted_bytes"] += size
+                        report["total_bytes"] -= size
+                        report["failures"] += failures
+                        if failures:
+                            return report
         except _CleanupTimeout:
             report["timed_out"] = True
         except Exception:  # noqa: BLE001 -- GC must never invalidate a successful publication.

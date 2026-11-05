@@ -55,7 +55,7 @@ CheckedObservations 为每次 SQL（包括 describe、802 和 803 的 SQL）显�
 
 执行值只取 QueryResult.rows 的 Decimal/NULL，不从 provenance、画像、目录、文档取数。
 SQL 过滤 source_id、table_key、indicator、indicator_code（包含 NULL 情形）、全部固定维度
-及维度数量、需求实体和日期范围。维度用 JSON pointer 逐个比较，不受字典排列顺序影响。
+及维度数量、需求实体和日期范围。维度数量按序列身份计：行的 `TIME_PERIOD` 等于本行 `time_label` 时多出的这一个键不计（见 ADR 0006）。维度用 JSON pointer 逐个比较，不受字典排列顺序影响。
 字符串使用 SQL 字面量转义，不能注入语句。每行 row_evidence 必须恰好证明一个身份，
 代次与五个身份列均须与 SQL 行一致；同一序列同一实体周期的多条引用视为歧义并中止。
 不能靠 obs_id 跨表查找出处。

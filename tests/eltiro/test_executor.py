@@ -140,6 +140,27 @@ def test_full_series_identity_filters_same_obs_id_across_tables_indicators_and_d
     assert all(c["citation"]["inputs"][0]["table_key"] == "gdp" for c in citations)
 
 
+def test_rows_carrying_their_own_time_period_form_one_series(tmp_path):
+    # SDMX sources (Eurostat) keep TIME_PERIOD in dims; it must not split the series.
+    dims = {"valuation": "current"}
+    batch = [observation(str(10 + year - 2020), year=year, obs_id=f"y{year}", time_label=str(year),
+                         dims=dims | {"TIME_PERIOD": str(year)}) for year in (2020, 2021, 2022)]
+    # Same table, but TIME_PERIOD is not the row's own period: a different series, never mixed in.
+    batch.append(observation("999", year=2023, obs_id="base", time_label="2023", dims=dims | {"TIME_PERIOD": "2015"}))
+    store, registry = seed(tmp_path, [batch])
+    publish(store)
+    record = run(tmp_path, registry)
+    rows, citations, _ = outputs(tmp_path, record)
+    by_series = {}
+    for row in rows:
+        by_series.setdefault(json.loads(row["series"])["fixed_dimensions"].get("TIME_PERIOD"), []).append(
+            (row["period"].year, row["value"]))
+    assert by_series == {None: [(2020, Decimal(10)), (2021, Decimal(11)), (2022, Decimal(12))],
+                         "2015": [(2023, Decimal(999))]}
+    cited = {c["citation_id"]: c["citation"]["inputs"][0]["obs_id"] for c in citations}
+    assert sorted(cited[r["citation_id"]] for r in rows) == ["base", "y2020", "y2021", "y2022"]
+
+
 def test_pending_and_rejected_never_compute_confirmed_can_compute(tmp_path):
     store, registry = seed(tmp_path, [[observation()]])
     publish(store)

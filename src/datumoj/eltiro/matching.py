@@ -30,6 +30,7 @@ from datumoj.eltiro.models import (
     SeriesIdentity,
     SeriesProfile,
     content_hash,
+    series_dimensions,
 )
 from datumoj.rikolto.core.contracts import CatalogStore, ChunkStore, Embedder, ObservationStore
 from datumoj.rikolto.core.models import GenerationToken
@@ -97,7 +98,8 @@ class _EvidenceReader:
                     self.tables[key] = result.provenance
             for row in self.tables[key]:
                 identity = SeriesIdentity(source_id=row.source_id, table_key=row.table_key, indicator=row.indicator,
-                                          indicator_code=row.indicator_code, fixed_dimensions=row.dims)
+                                          indicator_code=row.indicator_code,
+                                          fixed_dimensions=series_dimensions(row.dims, row.time_label))
                 if (identity == series and (profile.survey is None or row.survey == profile.survey)
                         and (profile.unit is None or (row.unit is not None
                              and row.unit.strip().casefold() == profile.unit.strip().casefold()))):
