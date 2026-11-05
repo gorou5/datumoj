@@ -140,7 +140,7 @@ def test_run_now_respects_switches_and_runs_in_background(tmp_path):
 
     def crawl(_):
         started.set()
-        assert release.wait(5)
+        assert release.wait(THREAD_WAIT)
         completed.set()
         return SimpleNamespace(new=1, unchanged=0, failures={}, stop_reason=None)
 
@@ -171,7 +171,7 @@ def test_run_now_rejects_a_source_with_an_existing_lock(tmp_path):
 
     def crawl(_):
         started.set()
-        assert release.wait(5)
+        assert release.wait(THREAD_WAIT)
         return SimpleNamespace(new=1, unchanged=0, failures={}, stop_reason=None)
 
     app, _, scheduler, calls = _admin(tmp_path, execute=crawl)
@@ -189,7 +189,7 @@ def test_run_now_rejects_a_source_with_an_existing_lock(tmp_path):
         assert calls == ["jp-one"]
     finally:
         release.set()
-        worker.join(2)
+        worker.join(THREAD_WAIT)
     assert not worker.is_alive()
 
 
