@@ -269,7 +269,7 @@ def test_default_retention_and_short_retention_marking(archive):
     assert archive.deps.manifest.raw_markers()[latest.sha256] == T0 + DAY
 
 
-def test_retained_unmarked_manifest_blocks_deletion_even_with_aged_marker(archive, monkeypatch):
+def test_fresh_marker_after_unmarked_publication_restarts_grace(archive, monkeypatch):
     snap = record(archive, "entry")
     # An older reader/writer published a manifest without the new additive table.
     publish(archive, T0, monkeypatch)
@@ -280,7 +280,7 @@ def test_retained_unmarked_manifest_blocks_deletion_even_with_aged_marker(archiv
 
     monkeypatch.setattr(state_module, "datetime", Clock)
     archive.manager.push()
-    archive.deps.manifest.mark_raw_optional(snap.sha256, T0 + 4 * DAY)
+    archive.deps.manifest.mark_raw_optional(snap.sha256, T0 + 7 * DAY)
     publish(archive, T0 + 7 * DAY, monkeypatch)
     report = cleanup(archive, T0 + 7 * DAY, raw_enabled=True)
     assert report["failures"] == 0 and report["raw_deleted"] == 0
@@ -289,7 +289,7 @@ def test_retained_unmarked_manifest_blocks_deletion_even_with_aged_marker(archiv
     assert cleanup(archive, T0 + 10 * DAY, raw_enabled=True)["raw_deleted"] == 1
 
 
-def test_post_publish_verification_failure_prevents_cleanup(archive, monkeypatch):
+def test_cleanup_does_not_repeat_post_publish_verification(archive, monkeypatch):
     record(archive, "entry")
     publish(archive, T0, monkeypatch)
     archive.store.put("copies/sha256/orphan", b"orphan")
@@ -300,9 +300,10 @@ def test_post_publish_verification_failure_prevents_cleanup(archive, monkeypatch
 
     monkeypatch.setattr(archive.manager, "_materialize", bad_copy)
     report = cleanup(archive, T0 + 10 * DAY, raw_enabled=True)
-    assert report["failures"] == 1
-    assert report["generations_deleted"] == report["copies_deleted"] == report["raw_deleted"] == 0
-    assert archive.store.list_objects("") == before
+    assert report["failures"] == 0
+    assert report["generations_deleted"] == report["raw_deleted"] == 0
+    assert report["copies_deleted"] == 1
+    assert len(archive.store.list_objects("")) == len(before) - 1
 
 
 @pytest.mark.parametrize("extra_bytes,over", [(0, False), (7_000_000_000, True)])

@@ -56,7 +56,7 @@ def test_progress_bypasses_quiet_flushes_and_never_exposes_plugin_exception(worl
     assert [row["event"] for row in events] == [
         "source_start", "crawl_end", "parse_end", "source_end", "source_start", "source_end",
         "source_start", "crawl_end", "parse_end", "source_end",
-        "publish_start", "publish_end", "round_end",
+        "publish_start", "publish_end", "cleanup_end", "round_end",
     ]
     keys = {"event", "source_id", "elapsed_s", "new", "unchanged", "parsed", "failures", "stop_reason",
             "publish_timings", "restore_timings"}
