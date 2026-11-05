@@ -83,6 +83,7 @@ def test_checksum_sent_without_get_or_head(state_store, monkeypatch):
     ("get", ("a",)), ("put", ("a", b"b")), ("put_if_absent", ("a", b"b")),
     ("put_if_match", ("a", b"b", '"etag"')), ("exists", ("a",)), ("list", ("",)),
     ("delete_if_match", ("a", '"etag"')),
+    ("delete_objects", (["raw/a"],)),
 ])
 @pytest.mark.parametrize("network", [False, True])
 def test_errors_do_not_expose_configuration(state_store, monkeypatch, caplog, operation, args, network):
@@ -244,6 +245,25 @@ def test_inventory_cleanup_does_not_download_or_head_objects(state_store, monkey
     for obj in objects:
         state_store.delete_if_match(obj.key, obj.etag)
     assert state_store.list_objects("") == []
+
+
+def test_bulk_cleanup_uses_only_requested_keys_without_get_or_head(state_store, monkeypatch):
+    keys = ["generations/1.json", "copies/sha256/orphan", "raw/old"]
+    for key in [*keys, "current.json", LEASE_KEY, "raw/keep"]:
+        state_store.put(key, b"synthetic")
+    state_store.list_objects("")
+    monkeypatch.setattr(state_store._client, "get_object", lambda **kw: pytest.fail("bulk must not GET"))
+    monkeypatch.setattr(state_store._client, "head_object", lambda **kw: pytest.fail("bulk must not HEAD"))
+    assert state_store.delete_objects(keys) == set(keys)
+    assert state_store.list("") == ["current.json", "raw/keep", LEASE_KEY]
+    assert not state_store._listed_keys.intersection(keys)
+
+
+@pytest.mark.parametrize("count", [0, 201])
+def test_bulk_rejects_invalid_batch_size_before_sdk(state_store, monkeypatch, count):
+    monkeypatch.setattr(state_store._client, "delete_objects", lambda **kw: pytest.fail("must not DELETE"))
+    with pytest.raises(ValueError, match="200"):
+        state_store.delete_objects([f"raw/{i}" for i in range(count)])
 
 
 def test_retired_object_boundary_rejects_coordination_keys_and_checks_lease():
