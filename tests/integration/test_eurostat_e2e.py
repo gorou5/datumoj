@@ -46,7 +46,7 @@ def test_query_citation_and_revised_snapshot_history(tmp_path, monkeypatch):
         data = tmp_path / f"{code}.xml"
         data.write_bytes(data_bytes(code))
         urls[code] = f"{BASE}data/{code}/{entry['query']}?startPeriod={entry['startPeriod']}&endPeriod={entry['endPeriod']}"
-        routes[f"{BASE}datastructure/ESTAT/{code.upper()}?references=all"] = Recorded(dsd, headers={"etag": code})
+        routes[f"{BASE}datastructure/ESTAT/{code.upper()}?references=children"] = Recorded(dsd, headers={"etag": code})
         routes[urls[code]] = Recorded(data, headers={"content-type": "application/vnd.sdmx.genericdata+xml;version=2.1"})
     clock = [T0]
 
@@ -128,6 +128,6 @@ def test_robots_blocks_current_api_without_bypass(tmp_path, monkeypatch):
     robot.write_text("User-agent: *\nDisallow: /eurostat/api/\n")
     transport = ReplayTransport({"https://ec.europa.eu/robots.txt": Recorded(robot)})
     with PoliteHttpFetcher.from_spec(SPEC, transport=transport, clock=lambda: 0.0, sleep=lambda _: None) as fetcher:
-        result = fetcher.fetch(BASE + "datastructure/ESTAT/GOV_10DD_EDPT1?references=all")
+        result = fetcher.fetch(BASE + "datastructure/ESTAT/GOV_10DD_EDPT1?references=children")
     assert result.outcome.value == "blocked_by_robots"
     assert transport.requests == ["https://ec.europa.eu/robots.txt"]

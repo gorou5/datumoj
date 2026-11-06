@@ -43,7 +43,7 @@ class EurostatCrawler(Crawler):
         base = ctx.spec.base_url.rstrip("/")
         for entry in datasets[:ctx.limit]:
             yield FetchTask(
-                url=f"{base}/datastructure/ESTAT/{entry['id'].upper()}?references=all",
+                url=f"{base}/datastructure/ESTAT/{entry['id'].upper()}?references=children",
                 meta={"request_type": "dsd", **entry},
             )
 

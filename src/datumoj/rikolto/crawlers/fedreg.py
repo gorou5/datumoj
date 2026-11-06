@@ -19,7 +19,7 @@ _LABELS = {"Rule": "RULE", "Proposed Rule": "PRORULE", "Notice": "NOTICE"}
 _START = date(2026, 10, 1)
 
 
-def _window(ctx: CrawlContext, start: date, end: date, page: int = 1, *, root: bool = False) -> FetchTask:
+def _window(ctx: CrawlContext, start: date, end: date, page: int = 1, *, root: bool = False, run: str | None = None) -> FetchTask:
     if not 1 <= page <= 50:
         raise ValueError("Federal Register page must be between 1 and 50")
     params = [
@@ -31,7 +31,7 @@ def _window(ctx: CrawlContext, start: date, end: date, page: int = 1, *, root: b
     return FetchTask(
         url=ctx.spec.base_url.rstrip("/") + "/documents.json?" + urlencode(params),
         meta={"role": "search", "start": start.isoformat(), "end": end.isoformat(),
-              "page": page, "root": root, "run": ctx.now.isoformat()},
+              "page": page, "root": root, "run": run or ctx.now.isoformat()},
     )
 
 
@@ -54,34 +54,37 @@ def _children(task: FetchTask, data: bytes, ctx: CrawlContext) -> Iterable[Fetch
         count, pages = payload.get("count"), payload.get("total_pages")
         if any(type(value) is not int or value < 0 for value in (count, pages)):
             raise ValueError("Federal Register response lacks valid count/total_pages")
+        records = payload.get("results")
+        if not isinstance(records, list):
+            raise ValueError("Federal Register response has incomplete results")
         start, end = date.fromisoformat(task.meta["start"]), date.fromisoformat(task.meta["end"])
         if count >= 10000 or pages >= 50:
             if start == end:
                 raise ValueError(f"Federal Register single day {start} exceeds 10000 records/50 pages")
             mid = start + (end - start) // 2
-            yield _window(ctx, start, mid)
-            yield _window(ctx, mid + timedelta(days=1), end)
+            yield _window(ctx, start, mid, run=task.meta["run"])
+            yield _window(ctx, mid + timedelta(days=1), end, run=task.meta["run"])
             return
-        records = payload.get("results")
-        if not isinstance(records, list) or (count > 0 and (pages == 0 or not records)):
+        if count > 0 and (pages == 0 or not records):
             raise ValueError("Federal Register response has incomplete results")
         for record in records:
             if not isinstance(record, dict):
                 raise ValueError("Invalid Federal Register document record")
+            number = record.get("document_number")
+            if not isinstance(number, str) or not re.fullmatch(r"(?:C[1-9][0-9]*-)?[0-9]{4}-[0-9]+", number):
+                log.warning("Skipping invalid Federal Register document number: %r", number)
+                continue
             raw_kind = record.get("type")
             kind = _LABELS.get(raw_kind, raw_kind) if isinstance(raw_kind, str) else None
             if kind not in ctx.spec.scope["types"]:
                 raise ValueError("Federal Register returned an excluded document type")
-            number = record.get("document_number")
-            if not isinstance(number, str) or not re.fullmatch(r"\d{4}-\d+", number):
-                raise ValueError("Invalid Federal Register document number")
             yield FetchTask(
                 url=ctx.spec.base_url.rstrip("/") + f"/documents/{number}.json",
-                meta={"role": "detail", "document_number": number, "run": ctx.now.isoformat()},
+                meta={"role": "detail", "document_number": number, "run": task.meta["run"]},
             )
         page = task.meta["page"]
         if page < pages:
-            yield _window(ctx, start, end, page + 1)
+            yield _window(ctx, start, end, page + 1, run=task.meta["run"])
     elif role == "detail":
         if payload.get("document_number") != task.meta["document_number"]:
             raise ValueError("Federal Register detail document number mismatch")
@@ -97,13 +100,13 @@ def _children(task: FetchTask, data: bytes, ctx: CrawlContext) -> Iterable[Fetch
             return
         fields = ("document_number", "title", "publication_date", "html_url", "type", "agencies", "cfr_references", "citation")
         yield FetchTask(url=url, meta={
-            "role": "xml", "run": ctx.now.isoformat(),
+            "role": "xml", "run": task.meta["run"],
             **{field: payload.get(field) for field in fields},
         })
 
 
-def _covered_until(ctx: CrawlContext) -> date | None:
-    """Replay each run's task graph from immutable snapshots; partial runs never advance."""
+def _progress(ctx: CrawlContext):
+    """Replay logical windows across runs; only complete graphs advance coverage."""
     runs, bodies = {}, {}
     for snap in ctx.manifest.snapshots_for(ctx.spec.id):
         meta = ctx.manifest.snapshot_meta(snap.snapshot_id)
@@ -112,7 +115,7 @@ def _covered_until(ctx: CrawlContext) -> date | None:
         sha = bodies.get(snap.resource_url) if snap.outcome is FetchOutcome.not_modified else snap.sha256
         if isinstance(meta.get("run"), str):
             runs.setdefault(meta["run"], {})[snap.resource_url] = (snap, meta, sha)
-    covered = None
+    covered, resume = None, None
     for records in runs.values():
         roots = [(snap, meta) for snap, meta, _ in records.values() if meta.get("root") is True]
         if len(roots) != 1:
@@ -134,9 +137,31 @@ def _covered_until(ctx: CrawlContext) -> date | None:
                 queue.extend(child.redacted_url for child in _children(task, ctx.raw.get(sha), ctx))
             end = date.fromisoformat(meta["end"])
         except (KeyError, ValueError, NotFoundError):
+            resume = (root, meta, records)
             continue
         covered = end if covered is None else max(covered, end)
-    return covered
+        resume = None
+    return covered, resume
+
+
+def _pending(tasks: Iterable[FetchTask], records, ctx: CrawlContext) -> Iterable[FetchTask]:
+    """Expand saved successes without fetching or recording them a second time."""
+    queue, seen = deque(tasks), set()
+    while queue:
+        task = queue.popleft()
+        if task.redacted_url in seen:
+            continue
+        seen.add(task.redacted_url)
+        record = records.get(task.redacted_url)
+        if record is None or record[0].outcome not in {FetchOutcome.ok, FetchOutcome.not_modified} or record[2] is None:
+            yield task
+            continue
+        try:
+            children = list(_children(task, ctx.raw.get(record[2]), ctx))
+        except (ValueError, NotFoundError):
+            yield task
+            continue
+        queue.extend(children)
 
 
 class FedregCrawler(Crawler):
@@ -153,19 +178,29 @@ class FedregCrawler(Crawler):
             raise ValueError("Federal Register API outside allowed_hosts")
         if ctx.limit is not None and ctx.limit <= 0:
             return
-        covered = _covered_until(ctx)
+        covered, resume = _progress(ctx)
+        self._resume_records = {}
+        if resume is not None:
+            root, meta, self._resume_records = resume
+            # Keep the same bounded window and logical run until every child exists.
+            for pending in _pending([FetchTask(url=root.resource_url, meta=meta)], self._resume_records, ctx):
+                # Planned continuations retain their window provenance for callers.
+                yield pending.model_copy(update={"meta": {"start": meta["start"], "end": meta["end"], **pending.meta}})
+            return
         start = max(_START, covered - timedelta(days=7)) if covered is not None else _START
         if start <= ctx.now.date():
             yield _window(ctx, start, ctx.now.date(), root=True)
 
     def after_fetch(self, task: FetchTask, result: FetchResult, ctx: CrawlContext) -> Iterable[FetchTask]:
+        if result.outcome not in {FetchOutcome.ok, FetchOutcome.not_modified}:
+            return
         data = result.content
         if result.outcome is FetchOutcome.not_modified:
             previous = ctx.manifest.last_success(task.redacted_url)
             if previous is not None and previous.sha256 is not None:
                 data = ctx.raw.get(previous.sha256)
         if data is not None:
-            yield from _children(task, data, ctx)
+            yield from _pending(_children(task, data, ctx), getattr(self, "_resume_records", {}), ctx)
 
     def classify(self, task: FetchTask, result: FetchResult) -> FetchOutcome | None:
         # JSON and XML are structured payloads, not HTML/SPA shells.
