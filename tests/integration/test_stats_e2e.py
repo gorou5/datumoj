@@ -198,6 +198,9 @@ def stats_chain(tmp_path_factory):
         spec = yaml.safe_load(path.read_text(encoding="utf-8"))
         if spec["id"] == "jp-egov-data":
             spec["scope"].update(rows=5, formats=[])  # This checkpoint measures metadata retrieval.
+        if spec["id"] == "jp-jma":
+            # This checkpoint measures feed deltas, including older recorded messages.
+            spec["scope"].pop("raw_retention_days", None)
         (sources / path.name).write_text(yaml.safe_dump(spec, allow_unicode=True), encoding="utf-8")
     registry = load_registry(sources)
     routes, new_entries = _routes(directory, registry)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import datetime, timedelta
 from urllib.parse import urlsplit
 
 from lxml import etree
@@ -33,7 +34,15 @@ def _text(element: etree._Element | None) -> str:
     return "" if element is None else " ".join("".join(element.itertext()).split())
 
 
-def _feed_entries(data: bytes) -> tuple[str, list[tuple[str, str]]]:
+def _updated_at(value: str) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else None
+
+
+def _feed_entries(data: bytes) -> tuple[str, list[tuple[str, str, str]]]:
     root = _xml_root(data)
     updated = _text(root.find(f"{{{ATOM}}}updated"))
     if not updated:
@@ -47,7 +56,7 @@ def _feed_entries(data: bytes) -> tuple[str, list[tuple[str, str]]]:
         url = link.get("href", "").strip() if link is not None else entry_id
         if not entry_id or not url:
             raise ValueError("JMA Atom entry 缺少 id 或 XML 链接")
-        entries.append((entry_id, url))
+        entries.append((entry_id, url, _text(entry.find(f"{{{ATOM}}}updated"))))
     return updated, entries
 
 
@@ -83,6 +92,14 @@ class JmaFeedCrawler(Crawler):
             return ()
 
         updated, entries = _feed_entries(result.content or b"")
+        days = ctx.spec.scope.get("raw_retention_days")
+        feed_updated = _updated_at(updated)
+        if type(days) is int and days > 0 and feed_updated is not None:
+            cutoff = feed_updated - timedelta(days=days)
+            entries = [
+                entry for entry in entries
+                if (entry_updated := _updated_at(entry[2])) is None or entry_updated >= cutoff
+            ]
         previous = ctx.manifest.last_success(task.redacted_url)
         previous_updated = None
         if previous is not None and previous.sha256 is not None:
@@ -96,12 +113,12 @@ class JmaFeedCrawler(Crawler):
             if (metadata := ctx.manifest.snapshot_meta(snapshot.snapshot_id)).get("resource_type") == "entry"
             and isinstance(metadata.get("entry_id"), str)
         }
-        if previous_updated == updated and not any(entry_id not in saved_ids for entry_id, _ in entries):
+        if previous_updated == updated and not any(entry_id not in saved_ids for entry_id, _, _ in entries):
             return ()
 
         scheduled: set[str] = set()
         count = 0
-        for entry_id, url in entries:
+        for entry_id, url, _ in entries:
             if entry_id in saved_ids or entry_id in scheduled:
                 continue
             if not _allowed_url(entry_id, ctx.spec.allowed_hosts) or not _allowed_url(url, ctx.spec.allowed_hosts):
