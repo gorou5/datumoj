@@ -105,14 +105,17 @@ def _children(task: FetchTask, data: bytes, ctx: CrawlContext) -> Iterable[Fetch
         })
 
 
-def _progress(ctx: CrawlContext):
+def _progress(ctx: CrawlContext, read):
     """Replay logical windows across runs; only complete graphs advance coverage."""
-    runs, bodies = {}, {}
+    runs, bodies, successes = {}, {}, {}
     for snap in ctx.manifest.snapshots_for(ctx.spec.id):
         meta = ctx.manifest.snapshot_meta(snap.snapshot_id)
         if snap.outcome is FetchOutcome.ok:
             bodies[snap.resource_url] = snap.sha256
         sha = bodies.get(snap.resource_url) if snap.outcome is FetchOutcome.not_modified else snap.sha256
+        if (meta.get("role") in {"detail", "xml"} and sha is not None
+                and snap.outcome in {FetchOutcome.ok, FetchOutcome.not_modified}):
+            successes[snap.resource_url] = (snap, meta, sha)
         if isinstance(meta.get("run"), str):
             runs.setdefault(meta["run"], {})[snap.resource_url] = (snap, meta, sha)
     covered, resume = None, None
@@ -121,6 +124,7 @@ def _progress(ctx: CrawlContext):
         if len(roots) != 1:
             continue
         root, meta = roots[0]
+        records = {**records, **successes}
         queue, seen = deque([root.resource_url]), set()
         try:
             while queue:
@@ -133,18 +137,20 @@ def _progress(ctx: CrawlContext):
                     raise ValueError("Incomplete run")
                 if sha is None:
                     raise ValueError("Missing successful body")
-                task = FetchTask(url=url, meta=task_meta)
-                queue.extend(child.redacted_url for child in _children(task, ctx.raw.get(sha), ctx))
+                if task_meta.get("role") != "xml":
+                    task = FetchTask(url=url, meta=task_meta)
+                    queue.extend(child.redacted_url for child in _children(task, read(sha), ctx))
             end = date.fromisoformat(meta["end"])
         except (KeyError, ValueError, NotFoundError):
-            resume = (root, meta, records)
+            if resume is None:
+                resume = (root, meta, records)
             continue
-        covered = end if covered is None else max(covered, end)
-        resume = None
-    return covered, resume
+        if resume is None:
+            covered = end if covered is None else max(covered, end)
+    return covered, resume, successes
 
 
-def _pending(tasks: Iterable[FetchTask], records, ctx: CrawlContext) -> Iterable[FetchTask]:
+def _pending(tasks: Iterable[FetchTask], records, ctx: CrawlContext, read) -> Iterable[FetchTask]:
     """Expand saved successes without fetching or recording them a second time."""
     queue, seen = deque(tasks), set()
     while queue:
@@ -156,8 +162,10 @@ def _pending(tasks: Iterable[FetchTask], records, ctx: CrawlContext) -> Iterable
         if record is None or record[0].outcome not in {FetchOutcome.ok, FetchOutcome.not_modified} or record[2] is None:
             yield task
             continue
+        if task.meta["role"] == "xml":
+            continue
         try:
-            children = list(_children(task, ctx.raw.get(record[2]), ctx))
+            children = list(_children(task, read(record[2]), ctx))
         except (ValueError, NotFoundError):
             yield task
             continue
@@ -178,15 +186,26 @@ class FedregCrawler(Crawler):
             raise ValueError("Federal Register API outside allowed_hosts")
         if ctx.limit is not None and ctx.limit <= 0:
             return
-        covered, resume = _progress(ctx)
-        self._resume_records = {}
+        bodies = {}
+
+        def read(sha):
+            if sha not in bodies:
+                try:
+                    bodies[sha] = ctx.raw.get(sha)
+                except NotFoundError:
+                    bodies[sha] = None
+            if bodies[sha] is None:
+                raise NotFoundError("Missing Federal Register body")
+            return bodies[sha]
+
+        self._read = read
+        covered, resume, self._resume_records = _progress(ctx, read)
         if resume is not None:
-            root, meta, self._resume_records = resume
+            root, meta, records = resume
             # Keep the same bounded window and logical run until every child exists.
-            for pending in _pending([FetchTask(url=root.resource_url, meta=meta)], self._resume_records, ctx):
+            for pending in _pending([FetchTask(url=root.resource_url, meta=meta)], records, ctx, read):
                 # Planned continuations retain their window provenance for callers.
                 yield pending.model_copy(update={"meta": {"start": meta["start"], "end": meta["end"], **pending.meta}})
-            return
         start = max(_START, covered - timedelta(days=7)) if covered is not None else _START
         if start <= ctx.now.date():
             yield _window(ctx, start, ctx.now.date(), root=True)
@@ -194,13 +213,15 @@ class FedregCrawler(Crawler):
     def after_fetch(self, task: FetchTask, result: FetchResult, ctx: CrawlContext) -> Iterable[FetchTask]:
         if result.outcome not in {FetchOutcome.ok, FetchOutcome.not_modified}:
             return
+        if task.meta["role"] == "xml":
+            return
         data = result.content
         if result.outcome is FetchOutcome.not_modified:
             previous = ctx.manifest.last_success(task.redacted_url)
             if previous is not None and previous.sha256 is not None:
-                data = ctx.raw.get(previous.sha256)
+                data = self._read(previous.sha256)
         if data is not None:
-            yield from _pending(_children(task, data, ctx), getattr(self, "_resume_records", {}), ctx)
+            yield from _pending(_children(task, data, ctx), getattr(self, "_resume_records", {}), ctx, self._read)
 
     def classify(self, task: FetchTask, result: FetchResult) -> FetchOutcome | None:
         # JSON and XML are structured payloads, not HTML/SPA shells.

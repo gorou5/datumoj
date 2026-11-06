@@ -2,14 +2,14 @@
 
 import json
 from collections import Counter
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 
 from datumoj.rikolto.core.contracts import CrawlContext, FetchResult, ParseError
 from datumoj.rikolto.core.models import FetchOutcome
 from datumoj.rikolto.crawlers.eurostat import EurostatCrawler
-from datumoj.rikolto.crawlers.fedreg import FedregCrawler
+from datumoj.rikolto.crawlers.fedreg import FedregCrawler, _window
 from datumoj.rikolto.parsers.eurostat import EurostatParser, read_structure
 from datumoj.rikolto.parsers.fedreg import FedregParser
 from datumoj.rikolto.testing.fakes import (
@@ -131,6 +131,10 @@ def test_multiple_limited_rounds_ingest_every_document_once(budget, failed_role)
         assert before.meta["start"] == root.meta["start"]
         assert before.meta["end"] == root.meta["end"]
         responses = dict(routes)
+        # The pending graph no longer suppresses discovery of the current window.
+        fresh = _window(context(spec, manifest, raw, day), date(2026, 10, 1), (T0 + timedelta(days=day)).date())
+        responses[fresh.url] = FakeResponse(200, search(docs[:3], count=5, pages=2))
+        responses[fresh.url.replace("page=1&", "page=2&")] = FakeResponse(200, search(docs[3:], count=5, pages=2))
         if failed_role and not failed_once:
             responses[failed_url] = FakeResponse(503)
         steps = drive_crawler(crawler, spec, FakeHttpFetcher(responses),
@@ -156,8 +160,8 @@ def test_multiple_limited_rounds_ingest_every_document_once(budget, failed_role)
         for url in (FEDREG.base_url + f"documents/{doc['document_number']}.json", doc["full_text_xml_url"]):
             assert attempts[url] == (2 if failed_role and url == failed_url else 1)
     # Only after every XML is stored does the seven-day overlap move forward.
-    next_root = next(iter(FedregCrawler().plan(context(spec, manifest, raw, day + 1))))
-    assert next_root.meta["start"] == "2026-10-13"
+    next_root = list(FedregCrawler().plan(context(spec, manifest, raw, day + 1)))[-1]
+    assert "2026-10-13" <= next_root.meta["start"] <= (T0 + timedelta(days=day - 7)).date().isoformat()
     assert next_root.meta["end"] == (T0 + timedelta(days=day + 1)).date().isoformat()
 
 

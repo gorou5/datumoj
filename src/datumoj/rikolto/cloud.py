@@ -156,7 +156,7 @@ def _source(deps, spec, scheduler, remaining, started=None, deadline=None):
               "consecutive_failures": 0, "first_failure_at": None}
     deadline_phase = None
     crashed = False
-    newly_failed = 0
+    crawl_newly_failed = parse_newly_failed = 0
     phase = "crawl"
     try:
         previous = deps.manifest.snapshots_for(spec.id)
@@ -181,12 +181,13 @@ def _source(deps, spec, scheduler, remaining, started=None, deadline=None):
                 close()
         record.update(new=report.new, unchanged=report.unchanged,
                       stop_reason="deadline" if report.stop_reason == "deadline" else None)
+        crashed = any(reason in report.failures for reason in ("plan_error", "after_fetch_error"))
         if report.failures:
             record["failures"]["crawl_failed"] = sum(report.failures.values())
             repeated = sum(snap.resource_url in failed_urls for snap in deps.manifest.snapshots_for(spec.id)
                            if snap.snapshot_id not in seen
                            and snap.outcome not in {FetchOutcome.ok, FetchOutcome.not_modified})
-            newly_failed += max(0, record["failures"]["crawl_failed"] - repeated)
+            crawl_newly_failed = max(0, record["failures"]["crawl_failed"] - repeated)
             for category, count in report.failures.items():
                 category = category if category in {outcome.value for outcome in FetchOutcome} else "other"
                 _health_failure(health, phase, category, count)
@@ -212,7 +213,7 @@ def _source(deps, spec, scheduler, remaining, started=None, deadline=None):
         parse_failures = {key: reason for key, reason in summary.failed.items()
                           if key not in cached_failures and belongs(key) and _error_category(reason) != "empty_content"}
         failed = len(parse_failures) + len(summary.no_parser)
-        newly_failed += sum(key in parse_failures for key in summary.newly_failed) + len(summary.no_parser)
+        parse_newly_failed = sum(key in parse_failures for key in summary.newly_failed) + len(summary.no_parser)
         if failed:
             record["failures"]["parse_index_failed"] = failed
         for reason in parse_failures.values():
@@ -238,8 +239,12 @@ def _source(deps, spec, scheduler, remaining, started=None, deadline=None):
         if phase == "parse_index":
             remaining = 0
     successes = record["new"] + record["unchanged"] + record["parsed"]
-    attempts = successes + sum(record["failures"].values())
-    failed = crashed or bool(record["failures"] and (successes == 0 or newly_failed * 2 > attempts))
+    # F / (successes_in_phase + F) > 1/2 iff F > successes_in_phase; old failures are excluded.
+    failed = crashed or bool(record["failures"] and (
+        successes == 0
+        or crawl_newly_failed > record["new"] + record["unchanged"]
+        or parse_newly_failed > record["parsed"]
+    ))
     status = "failed" if failed else "degraded" if record["failures"] else "completed"
     record.update(state="final", ended_at=utcnow().isoformat(), status=status,
                   exit_status=int(failed),

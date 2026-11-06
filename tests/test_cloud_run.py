@@ -252,7 +252,7 @@ def test_one_failed_source_still_publishes_other_two_and_failed_ledger(world, mo
 
     monkeypatch.setattr(wiring, "build", build)
     result, work = invoke(world)
-    source_failed = failure == "exception"
+    source_failed = failure != "report"  # All first parse/index attempts failed, independently of fetching.
     assert result["generation"] == 1 and result["exit_status"] == int(source_failed)
     assert [row["source_id"] for row in result["failed_sources"]] == (["jp-cloud1"] if source_failed else [])
     records = rows(work)

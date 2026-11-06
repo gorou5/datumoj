@@ -47,22 +47,30 @@ S3 上的 cloud run 用 8 个线程传输不可变副本与 raw，代次清单�
 连续失败按账本最终记录的开始时间倒序计数，忽略开始记录和重复的最终记录；
 `ok`、`degraded` 或无失败的 deadline 都停止计数，deadline 本身不算失败，也不作为恢复成功。
 
-来源判坏规则（138）：
+来源判坏规则（139，替代 138 的混合阶段比例）：
 
 - `ok`：没有单项失败，来源结果 `status=completed`、退出码 0。
-- `failed`：抓取或解析阶段有异常逃到来源边界的 `except Exception`；或本轮有失败且
-  `new + unchanged == 0`、`parsed == 0`；或本轮首次失败项数严格超过总尝试数的一半。
+- `failed`：抓取或解析阶段有异常逃到来源边界的 `except Exception`；或抓取报告中有
+  `plan_error` / `after_fetch_error`（明确名单，直接视为抓取中止，成功项和旧失败抵扣均不能抵消）；
+  或本轮有失败且 `new + unchanged == 0`、`parsed == 0`；或下面任一文件失败比例严格超过一半。
   来源退出码 1，计入连续失败；达到 issue 阈值才开 issue。
 - `degraded`：其余存在单项失败的运行，包括恰好 50%。来源结果与 `source_health`
   都标为 degraded，退出码 0，不计连续失败，作为恢复关闭已有 issue，且计入 `last_successful_runs`。
   `failures` 和 `categories` 的数量完整保留；只因时间耗尽而没有失败时仍为 deadline，
   账本记 incomplete、不计成功运行，下一轮重试，原有截止时刻和宽限不变。
 
-比例按阶段尝试计数：`new + unchanged + parsed + sum(failures.values())`；抓取和解析
-是两次尝试，已缓存成功的解析不再算一次。分母保留实际重试失败，分子只算首次失败。
+抓取与解析分别按文件计算，绝不把同一新文件的抓取和解析加进同一个分母：
+
+- 抓取：`首次抓取失败数 / (new + unchanged + 首次抓取失败数) > 50%`；
+- 解析：`首次解析失败数 / (parsed + 首次解析失败数) > 50%`。
+
+零分母不触发比例条件，恰好一半仍为 degraded。实现等价地比较各阶段首次失败数是否大于
+该阶段成功数。`http_error`、`network_error` 是单项失败，沿用比例规则，不按 `_error` 后缀判中止。
 抓取按来源内 URL 的历史失败快照识别旧失败；解析按同 SHA、解析器及版本、上下文的失败记录
-识别重试。旧失败重试仍失败照常留在结果里并继续沿用既有重试频率；嵌入到第三次才上报的失败
-已经是重试，不算首次失败。没有成功的来源仍然判 failed，不会因旧失败被排除分子而漏报。
+识别重试。旧失败不计入比例的分子或分母，仍失败照常留在结果里并继续沿用既有重试频率；
+嵌入到第三次才上报的失败已经是重试，不算首次失败。没有成功的来源仍然判 failed。
+例如 `new=1, parsed=1, after_fetch_error=1` 直接 failed；3 个新 URL 中 2 个死链 failed、
+1 个死链 degraded；`jp-egov-data` 的 119 个新增、50 个 http_error 为 degraded。
 
 `budget_exceeded:duration_seconds` 后续轮次可重试；同内容同上下文一轮最多尝试一次，
 在快照之间沿用 deadline 检查，单篇仍受原有解析预算约束。其他 `budget_exceeded:*`
@@ -80,6 +88,25 @@ scope 边界的最小兼容：状态发布器不在本任务允许修改的范�
 旧断言兼容调整：cloud run 中“任一抓取报告/单篇解析/索引/嵌入失败就判来源 failed”的断言
 改查 degraded 与保留计数；聚合类别测试剔除 empty_content；gov-web 集成测试中短正文的
 parse/index 退出码改为 0，其余抓取边界、解析记录和索引内容断言保留。
+
+139 的旧公式断言调整：`test_audit_138.py` 中积压解析成功抵消全部首次抓取失败的断言改为 failed；
+`test_cloud_run.py` 中首次解析/索引全部失败的三种情形同样改为 failed，发布和账本校验保留。
+抓取和解析如今各自判定，其他旧失败、deadline、缓存和连续失败断言保留。
+
+Federal Register（139）：先重试最早未完成窗口，再继续搜索从已确认覆盖日期减 7 天（最早
+2026-10-01）到本轮日期的新窗口；永久 404 或 robots 拒绝不会让计划提前结束。沿用文件数、
+字节数和截止时刻上限；本轮达到上限时剩余任务仍留待下轮。详情和 XML 的历史成功快照跨窗口
+共用，已成功的文档不重复请求。每个逻辑窗口仍要验证从搜索、分页到详情和 XML 的完整图；
+最早未完成窗口阻止后续完整窗口推进 covered，补齐后才恢复覆盖推进，不能用发现日期替代覆盖。
+
+回放 XML 只检查成功 outcome 及可还原的 sha，不读取 XML 正文；缺少 XML 快照、失败 outcome、
+或没有可还原 sha 的 304 仍为未完成。JSON 正文按 sha 在同一次 plan 及其 after_fetch 中共用缓存，
+同一 sha（包括缺失正文）最多 raw.get 一次。已有 sha 的 XML raw 是否仍存在交给既有原文生命周期
+校验，不在覆盖回放中额外请求。未修改 runner、契约、快照格式或其他抓取器。
+
+Federal Register 旧测试适配：`test_fedreg.py` 的未完成窗口用真正未抓过的新文档，304 搜索只请求
+搜索页并复用既有详情/XML；`test_audit_136.py` 补登记每轮新窗口的合成响应，并允许覆盖随已完整
+的新窗口推进，文档仅抓一次及失败重试次数断言保留。`test_fedreg_e2e.py` 的 block_xml 断言原样保留。
 
 Actions 将 stdout 结果同时写入日志和 `$RUNNER_TEMP/cloud-result.json`，运行及发布
 步骤结束后，即使本轮返回失败，只要文件存在便调用 `scripts/source_issues.py`。
