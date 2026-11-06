@@ -22,7 +22,11 @@ def load(workflow_path):
 
 def test_triggers_concurrency_permissions_and_timeout(workflow_path):
     workflow = load(workflow_path)
-    assert set(workflow["on"]) == {"workflow_dispatch"}
+    if workflow_path.stem == "cloud-run":
+        assert set(workflow["on"]) == {"workflow_dispatch", "schedule"}
+        assert workflow["on"]["schedule"] == [{"cron": "17 */3 * * *"}]
+    else:
+        assert set(workflow["on"]) == {"workflow_dispatch"}
     assert workflow["concurrency"] == {"group": "rikolto-cloud-run", "cancel-in-progress": False}
     expected = {"contents": "read", "issues": "write"} if workflow_path.stem == "cloud-run" else {"contents": "read"}
     assert workflow["permissions"] == expected

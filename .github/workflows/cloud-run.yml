@@ -2,6 +2,9 @@ name: Cloud run
 
 'on':
   workflow_dispatch:
+  schedule:
+    # 每 3 小时；避开整点。JMA 稳定用量摸清前不加密。
+    - cron: '17 */3 * * *'
 
 concurrency:
   group: rikolto-cloud-run

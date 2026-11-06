@@ -172,7 +172,7 @@ launchd 配置与定时频率保持原有设置。
 
 `cloud-run.yml` 负责抓取到期来源、解析、有限额嵌入及发布；`cloud-embed.yml` 专门
 补嵌所有来源的已有文本块，不抓取、不解析。建议抓取作业结束后手动触发嵌入作业，
-观察稳定后再另加定时；目前两个工作流都只有 `workflow_dispatch`。
+观察稳定后再另加定时；`cloud-embed` 目前只有 `workflow_dispatch`。`cloud-run` 从 `main` 每 3 小时定时运行（GitHub 只认默认分支上的定时）。
 两者共用 `rikolto-cloud-run` concurrency group（不取消正在运行的作业），也使用同一
 状态存储的写入租约，包括续期、过期接管与释放，避免跨作业或本机写入方同时发布。
 
@@ -224,6 +224,12 @@ S3/R2 使用 DeleteObjects 串行批量删除，每批最多 200 个键，每批
 这替代了每轮重复恢复和下载最多数十份 manifest 的耗时；实际清理耗时见 `cleanup.elapsed_s`。
 
 来源的 `scope.raw_retention_days` 必须是正整数，默认 30 天；jp-jma 为 3 天。
+JMA 抓取器在显式配置正整数 `scope.raw_retention_days` 时，只抓 feed 自身 `updated`
+减去该天数之后（含截止点）的条目，不使用本机时钟。长期 feed 窗口里更早的条目不会回补，
+避免反复抓取已超出 raw 保留期的电文及状态副本，挤占团队 R2 的 9 GB 上限。
+entry 时间缺失、无法解析或没有时区时照常抓取；feed 时间无法解析或没有时区时不做截止。
+未配置或非正整数时，抓取器保持原有全窗口行为；配置契约仍会拒绝显式的非正整数值，
+不改变 raw 清理策略。离线增量集成测试仅移除临时 `jp-jma` 来源的保留天数，以继续核验旧样本的条目差异。
 同一 raw 的年龄从最近一次抓取算起，跨来源采用最长保留期。
 每个 URL 最新的成功快照、待解析和 staged 快照受保护；
 `scope.raw_expire_latest_types` 默认空列表，jp-jma 设为 `["entry"]`，允许旧 entry 过期，feed 仍受保护。
