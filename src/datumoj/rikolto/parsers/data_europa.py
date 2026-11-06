@@ -3,6 +3,8 @@
 import json
 from collections.abc import Mapping
 
+from pydantic import AnyHttpUrl
+
 from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult
 from datumoj.rikolto.core.models import Dataset, Resource, Snapshot, redact_url
 
@@ -24,6 +26,16 @@ def _texts(value):
 def _preferred(items):
     return next((x["@value"] for x in items if x.get("@language") == "en"),
                 items[0]["@value"] if items else None)
+
+
+def _http_url(value):
+    if not value or not value.lower().startswith(("http://", "https://")):
+        return None
+    try:
+        AnyHttpUrl(value)
+    except ValueError:
+        return None
+    return redact_url(value)
 
 
 class DataEuropaParser(Parser):
@@ -54,11 +66,16 @@ class DataEuropaParser(Parser):
         titles, descriptions = _texts(record.get("dct:title")), _texts(record.get("dct:description"))
         # The catalog indexes title, description and tags, not extras.
         search_text = [x["@value"] for x in titles + descriptions]
+        warnings = []
+        landing_page = _id(record.get("dcat:landingPage"))
+        dataset_url = _http_url(landing_page)
+        if landing_page and dataset_url is None:
+            warnings.append("dataset landingPage is not an HTTP(S) URL, ignored")
         dataset = Dataset(dataset_key=f"{snapshot.source_id}:{identifier}", source_id=snapshot.source_id,
                           title=_preferred(titles) or identifier, kind="dataset",
                           description="\n".join(search_text) or None,
                           publisher=_id(record.get("dct:publisher")),
-                          url=redact_url(_id(record["dcat:landingPage"])) if _id(record.get("dcat:landingPage")) else None,
+                          url=dataset_url,
                           license=_id(record.get("dct:license")),
                           tags=[x["@value"] for x in _texts(record.get("dcat:keyword"))],
                           extras={"titles": titles, "descriptions": descriptions, "dataset_uri": record.get("@id"),
@@ -68,14 +85,19 @@ class DataEuropaParser(Parser):
                           snapshot_sha256=snapshot.sha256, locator=f"entry={graph.index(record)}")
         by_id = {n.get("@id"): n for n in nodes if isinstance(n.get("@id"), str)}
         resources = []
-        for ref in _items(record.get("dcat:distribution")):
+        for index, ref in enumerate(_items(record.get("dcat:distribution"))):
             uri = _id(ref)
             item = by_id.get(uri, {})
             url = _id(item.get("dcat:downloadURL")) or _id(item.get("dcat:accessURL"))
-            if not uri or not url:
-                raise ParseError("distribution missing ID or URL")
+            if not uri or not uri.strip() or not url:
+                warnings.append(f"distribution[{index}] missing ID or URL, skipped")
+                continue
+            url = _http_url(url)
+            if url is None:
+                warnings.append(f"distribution[{index}] URL is not HTTP(S), skipped")
+                continue
             resources.append(Resource(resource_id=uri, dataset_key=dataset.dataset_key, source_id=snapshot.source_id,
-                                      url=redact_url(url), name=_preferred(_texts(item.get("dct:title"))),
+                                      url=url, name=_preferred(_texts(item.get("dct:title"))),
                                       format=_id(item.get("dct:format")), media_type=_id(item.get("dcat:mediaType")),
                                       license=_id(item.get("dct:license"))))
-        return ParseResult(datasets=[dataset], resources=resources)
+        return ParseResult(datasets=[dataset], resources=resources, warnings=warnings)
