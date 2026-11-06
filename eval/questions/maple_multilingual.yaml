@@ -1,0 +1,111 @@
+questions:
+- id: maple-ml-en
+  question: What hazards arise from replacing the transmission wires?
+  lang: en
+  kind: retrieval
+  queries:
+  - overhead electrical transmission wires
+  source_ids:
+  - us-fedreg
+  expect:
+    hits:
+    - doc_key: us-fedreg:2026-20122
+      locator_prefix: section=SUPPLEMENTARY INFORMATION > II. Background and Authority
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/fedreg/full_text_2026-20122.xml. Expected: Personnel and heavy equipment
+    working across navigable waters create hazards for workers and the public. Cite the original English section.'
+- id: maple-ml-fr
+  question: Quelles données décrivent la nationalité et le statut d’immigré ?
+  lang: fr
+  kind: retrieval
+  queries:
+  - nationalité statut immigré
+  source_ids:
+  - fr-data-gouv
+  expect:
+    hits:
+    - doc_key: fr-data-gouv:6ad16a7506eea90157a47a35
+      locator_prefix: entry=0
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/udata_fr/datasets_org-insee_page1_size2.json + page2_size2.json. Expected:
+    Population - Principaux indicateurs - Iris; citer le titre français original et data.gouv.fr.'
+- id: maple-ml-ja-en
+  question: セントローレンス川の送電線交換の危険は何ですか？英語原文を示してください。
+  lang: ja
+  kind: retrieval
+  queries:
+  - overhead electrical transmission wires
+  source_ids:
+  - us-fedreg
+  expect:
+    hits:
+    - doc_key: us-fedreg:2026-20122
+      locator_prefix: section=SUPPLEMENTARY INFORMATION > II. Background and Authority
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/fedreg/full_text_2026-20122.xml. Expected: 作業員・重機等の航行水域での作業による危険。英語原文の出典を保持。Query
+    is an explicit English search formulation, not automatic translation.'
+- id: maple-ml-zh-fr
+  question: 法国 Iris 人口资料涵盖哪些国籍和移民身份维度？请保留法语出处。
+  lang: zh
+  kind: retrieval
+  queries:
+  - population nationalité statut immigré
+  source_ids:
+  - fr-data-gouv
+  expect:
+    hits:
+    - doc_key: fr-data-gouv:6ad16a7506eea90157a47a35
+      locator_prefix: entry=0
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/udata_fr/datasets_org-insee_page1_size2.json + page2_size2.json. Expected:
+    按性别、年龄、人口类别、国籍及移民身份；保留法语标题和data.gouv.fr出处。查询词已人工给出，不证明自动翻译。'
+- id: maple-ml-zh-en
+  question: 欧盟2023年联合商品目录有什么用途？保留英文出处。
+  lang: zh
+  kind: retrieval
+  queries:
+  - combined nomenclature customs tariff
+  source_ids:
+  - eu-data-europa
+  expect:
+    hits:
+    - doc_key: eu-data-europa:combined-nomenclature-2023
+      locator_prefix: entry=40
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/data_europa/repo_dataset_combined-nomenclature-2023.jsonld. Expected: 用于关税及贸易统计的商品分类；保留Combined
+    Nomenclature, 2023、门户ID与原始URI。查询词已人工给出。'
+- id: maple-ml-ja-fr
+  question: Irisの通勤手段に関するフランス語資料を探してください。
+  lang: ja
+  kind: retrieval
+  queries:
+  - Déplacements domicile-travail transport travailler
+  source_ids:
+  - fr-data-gouv
+  expect:
+    hits:
+    - doc_key: fr-data-gouv:6ad16a7406eea90157a47a33
+      locator_prefix: entry=0
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/udata_fr/datasets_org-insee_page1_size2.json + page2_size2.json. Expected:
+    Déplacements domicile-travail - Principaux indicateurs - Iris。就業する15歳以上人口の勤務地・通勤手段。フランス語出典を保持。検索語は明示した訳語。'
+- id: maple-zero-fr
+  question: photosynthèse chlorophylle dinosaures?
+  lang: fr
+  kind: gap
+  queries:
+  - photosynthèse chlorophylle dinosaures
+  source_ids:
+  - us-fedreg
+  - eu-eurostat
+  - intl-wdi
+  - fr-data-gouv
+  - eu-data-europa
+  - jp-ksj
+  - jp-census
+  - jp-mhlw
+  - jp-abr
+  expect:
+    hits: []
+    gap_state: zero_hits
+  notes: 'Expected: 当前15个样本响应未包含此主题；明确无命中，不猜测答案。检查所有MAPLE样本来源，不限单一来源。'

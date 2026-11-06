@@ -1,0 +1,26 @@
+id: us-fedreg
+name: Federal Register
+country: us
+kind: fedreg
+base_url: https://www.federalregister.gov/api/v1/
+allowed_hosts:
+  - www.federalregister.gov
+rate_per_sec: 1
+max_total_bytes: 1073741824
+max_files: 10000
+schedule: daily
+license:
+  name: 1 CFR § 2.6
+  url: https://www.ecfr.gov/current/title-1/chapter-I/subchapter-A/part-2/section-2.6
+  attribution: 'Source: Federal Register, Office of the Federal Register, National Archives and Records Administration; document title, number, publication date and official URL accompany each document.'
+  usage_scope: internal_only
+  redistribution: unverified
+  outflow: no_outflow
+  cloud_model_ok: false
+  verified_at: null
+  notes: Reproduction under 1 CFR § 2.6; do not use NARA/OFR official logos or seals. Verification pending.
+scope:
+  types: [RULE, PRORULE, NOTICE]
+  start_date: '2026-10-01'
+  lookback_days: 7
+retention_note: API metadata and structured XML snapshots support section retrieval and reproducible citations; retain under the existing raw snapshot lifecycle, without pre-2026-10-01 backfill.

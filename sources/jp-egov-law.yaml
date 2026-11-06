@@ -20,6 +20,7 @@ license:
   verified_at: null
   notes: 法令検索及び法令APIの利用条件尚未逐项核对；核对前仅内部使用
 scope:
+  embed: false
   endpoints:
     - /laws
     - /law_data/{law_id}

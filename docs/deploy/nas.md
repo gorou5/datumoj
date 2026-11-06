@@ -9,7 +9,7 @@ NAS 执行抓取、解析、索引和代次发布，状态写入 NAS 的 S3 兼�
 
 用 NAS 的应用管理器或服务商的正式镜像安装 MinIO（或其他 S3 兼容实现），
 将对象目录挂到持久化磁盘；配置磁盘容量告警、备份和 NAS 时间同步。
-选支持 PUT `If-None-Match`、PUT `If-Match`、DELETE `If-Match` 的版本，
+选支持 PUT `If-None-Match`、PUT `If-Match` 的版本，
 但最终以实际探测为准。反向代理必须原样转发这些条件头。
 
 创建专用 bucket `your-bucket-name`、专用访问密钥，应用不使用管理员密钥。
@@ -19,7 +19,8 @@ NAS 执行抓取、解析、索引和代次发布，状态写入 NAS 的 S3 兼�
 若启用版本管理，配置清理过期 probe 版本与删除标记的生命周期；探测清理的是当前对象。
 
 S3 API 和管理控制台只在局域网或 VPN 内访问，不开公网端口。
-推荐受信任证书的 HTTPS；示例 `https://nas.example:9000` 只是虚构地址。
+非回环地址必须使用受信任证书的 HTTPS，回环地址可以使用 HTTP。
+示例 `https://nas.example:9000` 只是虚构地址。
 Compose 不发布任何端口，容器需能经 NAS 的内部 DNS/VPN 到达存储。
 
 ## 2. 构建并先检查

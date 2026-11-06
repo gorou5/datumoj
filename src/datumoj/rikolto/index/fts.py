@@ -19,6 +19,11 @@ _MIN_FTS_CHARS = 3
 # Only discard a result when both signals are weak.
 MIN_KEYWORD_COVERAGE = 0.5
 MIN_KEYWORD_BM25 = 0.01
+# English/French articles and prepositions; only applied to wholly Latin queries.
+_LATIN_STOP_WORDS = frozenset(
+    ["a", "an", "the", "of", "in", "on", "to", "for", "with",
+     "de", "du", "des", "le", "la", "les", "un", "une", "et", "en", "au", "aux", "à", "l", "d"]
+)
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS entries (
@@ -50,7 +55,11 @@ def _query_terms(query: str) -> list[str]:
             current.append(char)
     if current:
         terms.append("".join(current))
-    return list(dict.fromkeys(terms)) or [query]
+    terms = list(dict.fromkeys(terms)) or [query]
+    # Keep CJK (including mixed-script queries) on the original path.
+    if all(not char.isalpha() or "LATIN" in unicodedata.name(char, "") for char in query):
+        terms = [term for term in terms if term.casefold() not in _LATIN_STOP_WORDS]
+    return terms
 
 
 def _trigrams(term: str) -> list[str]:
@@ -213,6 +222,8 @@ class SqliteKeywordIndex:
             if clauses:
                 where += " AND (" + " OR ".join(clauses) + ")"
         terms = _query_terms(q)
+        if not terms:
+            return IndexResult()
         if len(terms) == 1 and len(terms[0]) >= _MIN_FTS_CHARS:
             terms = _trigrams(terms[0])
 

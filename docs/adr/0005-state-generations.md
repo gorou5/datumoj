@@ -154,7 +154,10 @@ chunks.sqlite 只新增 **0.29 GB**（每小时中位数 **9 MB**），同期实
   本地与 Actions 遵守同样的规则。
 - 续期：读取当前对象与 ETag，核对 holder/token 且尚未到期，用 `put_if_match` 延长
   expires_at；新到期时间须晚于旧到期时间。条件失败或已到期立即停止写入，不能复活旧租约。
-- 释放：核对 holder/token，以当前 ETag 执行 `delete_if_match`；旧持有者不能删除他人新租约。
+- 释放：核对 holder/token，以当前 ETag 执行 `put_if_match`，条件覆盖成仅含带时区
+  `released_at` 的已释放记录，不保留 holder 或 token；旧持有者不能覆盖他人新租约。
+  已释放记录的状态为未持有，再次取得无需 `--force`，以该记录的 ETag 条件覆盖。
+  原因：2026-11-01 实测 R2 不支持 DELETE `If-Match`，不能依赖条件删除。
 - 接管：`--force` **只能接管已经过期的租约**（now ≥ expires_at）。读回、校验过期后，
   用旧 ETag `put_if_match` 换成新 holder、新 token 和新时间。期间若被续期或抢先接管，
   CAS 失败，本轮作废；不能先删再建。未过期的租约、格式损坏或不能可信判断时间时，

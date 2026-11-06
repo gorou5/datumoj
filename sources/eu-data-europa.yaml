@@ -1,0 +1,24 @@
+id: eu-data-europa
+name: Data Europa Publications Office catalogue
+country: eu
+kind: data_europa_repo
+base_url: https://data.europa.eu/api/hub/repo/
+allowed_hosts: [data.europa.eu]
+rate_per_sec: 1
+max_total_bytes: 1073741824
+max_files: 10000
+schedule: daily
+license:
+  name: CC0 1.0
+  url: https://data.europa.eu/en/legal-notice
+  attribution: "data.europa.eu; catalogue ID, dataset ID and original dataset URI are retained"
+  usage_scope: internal_only
+  redistribution: unverified
+  outflow: no_outflow
+  cloud_model_ok: false
+  verified_at: null
+  notes: 门户元数据许可 CC0 1.0；各资源本体许可独立，未下载资源。
+scope:
+  catalogue: publ
+  download_resources: false
+retention_note: 保留原始元数据快照用于追溯；保留期限与清理策略待统一确定。

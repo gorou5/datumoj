@@ -18,7 +18,14 @@ from datumoj.eltiro.areas import BY_SCHEME, country, detect_scheme
 from datumoj.eltiro.intake import load_consumers
 from datumoj.eltiro.match_store import SQLiteMatchStore, series_key
 from datumoj.eltiro.matching import match_demand
-from datumoj.eltiro.models import CitationEntry, DemandSpec, InputObservation, operation_inputs
+from datumoj.eltiro.models import (
+    CitationEntry,
+    DemandSpec,
+    InputObservation,
+    operation_inputs,
+    series_dimension_count_sql,
+    series_dimensions,
+)
 from datumoj.eltiro.operations import calculate
 from datumoj.eltiro.profile_store import SQLiteProfileStore
 from datumoj.eltiro.profiles import generate_profiles
@@ -175,7 +182,7 @@ def _fetch(demand, record, profile, reader, catalog, registry, tables, gaps):
              f"indicator = {_literal(series.indicator)}",
              "indicator_code IS NULL" if series.indicator_code is None else
              f"indicator_code = {_literal(series.indicator_code)}",
-             f"json_array_length(json_keys(dims)) = {len(series.fixed_dimensions)}",
+             f"{series_dimension_count_sql(_literal)} = {len(series.fixed_dimensions)}",
              "area_code IN (" + ",".join(_literal(c) for c in sorted(desired)) + ")",
              f"time_start >= DATE {_literal(start.isoformat())}", f"time_end <= DATE {_literal(end.isoformat())}"]
     for key, value in sorted(series.fixed_dimensions.items()):
@@ -199,6 +206,7 @@ def _fetch(demand, record, profile, reader, catalog, registry, tables, gaps):
             if any(row.get(k) != getattr(identity, k) for k in type(identity).model_fields):
                 raise ExecutionError("observation identity mismatch")
             dims = json.loads(row["dims"]) if isinstance(row["dims"], str) else row["dims"]
+            dims = series_dimensions(dims, row["time_label"])
             if ((row["source_id"], row["table_key"], row["indicator"], row["indicator_code"], dims) !=
                     (series.source_id, series.table_key, series.indicator, series.indicator_code, series.fixed_dimensions)):
                 raise ExecutionError("series identity mismatch")

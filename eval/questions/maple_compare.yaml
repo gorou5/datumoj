@@ -1,0 +1,77 @@
+questions:
+- id: maple-cmp-eur-usd
+  question: 分别列出2024年德国Eurostat GDP与美国WDI GDP，保留单位，不换算货币。
+  lang: zh
+  kind: cross_source
+  queries:
+  - nama_10_gdp DE 2024 CP_MEUR
+  - United States NY.GDP.MKTP.CD 2024
+  source_ids:
+  - eu-eurostat
+  - intl-wdi
+  expect:
+    hits:
+    - doc_key: eu-eurostat:nama_10_gdp
+      locator_prefix: row=5
+    - doc_key: intl-wdi:NY.GDP.MKTP.CD
+      locator_prefix: row=6
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/eurostat/nama_10_gdp_DE-FR-NL_2020-2024.xml; tests/fixtures/wdi/gdp_cd_cn_JPN-USA_2020-2024_p1.json
+    + p2.json. Expected: DE: 4386940.0 CP_MEUR（现价百万欧元）；USA: 29298013000000 current US$。均2024年，分别列出、不换算、不相加、不计算跨币种比率。'
+- id: maple-cmp-years
+  question: 分别列出法国2023年Eurostat GDP和日本2024年WDI GDP，能直接求增长率吗？
+  lang: zh
+  kind: cross_source
+  queries:
+  - nama_10_gdp FR 2023 CP_MEUR
+  - Japan NY.GDP.MKTP.CD 2024
+  source_ids:
+  - eu-eurostat
+  - intl-wdi
+  expect:
+    hits:
+    - doc_key: eu-eurostat:nama_10_gdp
+      locator_prefix: row=9
+    - doc_key: intl-wdi:NY.GDP.MKTP.CD
+      locator_prefix: row=1
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/eurostat/nama_10_gdp_DE-FR-NL_2020-2024.xml; tests/fixtures/wdi/gdp_cd_cn_JPN-USA_2020-2024_p1.json
+    + p2.json. Expected: FR 2023: 2833826.4 CP_MEUR；JPN 2024: 4190008188358.57 current US$。年份、地区及货币不同；分别给出，不对齐年份，不换算，不求增长率。'
+- id: maple-cmp-local
+  question: 日本WDI本币GDP与荷兰Eurostat GDP各是多少（2024）？不要合并成同币种。
+  lang: zh
+  kind: cross_source
+  queries:
+  - Japan NY.GDP.MKTP.CN 2024
+  - nama_10_gdp NL 2024 CP_MEUR
+  source_ids:
+  - intl-wdi
+  - eu-eurostat
+  expect:
+    hits:
+    - doc_key: intl-wdi:NY.GDP.MKTP.CN
+      locator_prefix: row=11
+    - doc_key: eu-eurostat:nama_10_gdp
+      locator_prefix: row=15
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/wdi/gdp_cd_cn_JPN-USA_2020-2024_p1.json + p2.json; tests/fixtures/eurostat/nama_10_gdp_DE-FR-NL_2020-2024.xml.
+    Expected: JPN 634226000000000 current LCU；NL 1115252.0 CP_MEUR，均2024年。各国本币与现价百万欧元分别给出，不换算货币或数量级。'
+- id: maple-cmp-different-products
+  question: 比较法国Iris人口资料与欧盟Combined Nomenclature 2023：两者提供相同统计量吗？
+  lang: zh
+  kind: cross_source
+  queries:
+  - population sexe âge nationalité
+  - combined nomenclature customs tariff
+  source_ids:
+  - fr-data-gouv
+  - eu-data-europa
+  expect:
+    hits:
+    - doc_key: fr-data-gouv:6ad16a7506eea90157a47a35
+      locator_prefix: entry=0
+    - doc_key: eu-data-europa:combined-nomenclature-2023
+      locator_prefix: entry=40
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/udata_fr/datasets_org-insee_page1_size2.json + page2_size2.json; tests/fixtures/data_europa/repo_dataset_combined-nomenclature-2023.jsonld.
+    Expected: 前者是Iris人口维度目录元数据；后者为2023商品分类目录元数据。地域、年份与统计对象不同，分别列示，不换算、不拼成跨国人口或贸易数值。'

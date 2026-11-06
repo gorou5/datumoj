@@ -1,0 +1,24 @@
+id: jp-mhlw
+name: 第11回NDBオープンデータ 特定健診（質問項目１）
+country: jp
+kind: mhlw_ndb
+base_url: https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000177221_00017.html
+allowed_hosts: [www.mhlw.go.jp]
+rate_per_sec: 0.2
+max_total_bytes: 1073741824
+max_files: 10000
+schedule: weekly
+license:
+  name: 公共データ利用規約（第1.0版）（PDL1.0）
+  url: https://www.mhlw.go.jp/chosakuken/index.html
+  attribution: 出典：厚生労働省「第11回NDBオープンデータ」（https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000177221_00017.html）。使用日を明記し、加工した場合は加工内容を明記。
+  usage_scope: internal_only
+  redistribution: unverified
+  outflow: no_outflow
+  cloud_model_ok: false
+  verified_at: null
+  notes: 网站政策适用 PDL1.0；完整利用条件核对前仅内部使用。采集器拒收超过 25 MiB 的文件；ZIP 展开总量限制 250 MiB、10000 条目。遮蔽值不推算。
+scope:
+  url: https://www.mhlw.go.jp/content/12400000/001711941.zip
+  member: 08_特定健診_問診項目/標準的な質問票（質問項目１）　都道府県別性年齢階級別分布.xlsx
+retention_note: 原始 ZIP 用于出处还原和离线重解析；清理沿用项目快照保留策略。

@@ -20,6 +20,9 @@ license:
   verified_at: null
   notes: 利用条件尚未逐项核对；核对前仅内部使用
 scope:
+  raw_retention_days: 3
+  raw_expire_latest_types: ["entry"]
+  embed: false
   short_retention: true
   feeds:
     - https://www.data.jma.go.jp/developer/xml/feed/regular_l.xml

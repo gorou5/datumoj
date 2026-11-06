@@ -1,0 +1,24 @@
+id: jp-abr
+name: アドレス・ベース・レジストリ 町字マスター（青ヶ島村）
+country: jp
+kind: abr_town
+base_url: https://data.address-br.digital.go.jp/
+allowed_hosts: [data.address-br.digital.go.jp]
+rate_per_sec: 0.2
+max_total_bytes: 1073741824
+max_files: 10000
+schedule: weekly
+license:
+  name: unknown
+  url: https://www.digital.go.jp/policies/base_registry_address_tos
+  attribution: 出典：デジタル庁「アドレス・ベース・レジストリ」（https://data.address-br.digital.go.jp/mt_town/city/mt_town_city134023.csv.zip）、加工した場合は加工内容を明記。
+  usage_scope: internal_only
+  redistribution: unverified
+  outflow: no_outflow
+  cloud_model_ok: false
+  verified_at: null
+  notes: 条目元数据 CC BY 4.0，v1 记为 PDL1.0，待核对（决策文档 8.2）。采集器拒收超过 25 MiB 的文件；ZIP 展开总量限制 250 MiB、10000 条目。
+scope:
+  municipality_code: "134023"
+  url: https://data.address-br.digital.go.jp/mt_town/city/mt_town_city134023.csv.zip
+retention_note: 原始 ZIP 用于出处还原和离线重解析；清理沿用项目快照保留策略。

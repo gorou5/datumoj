@@ -1,0 +1,18 @@
+{
+  "access_method": "other",
+  "auth_required": false,
+  "country_region": "FR",
+  "id": "fr-data-gouv",
+  "last_verified": "unknown",
+  "license": {
+    "allows_redistribution": "unknown",
+    "name": "Licence Ouverte 2.0",
+    "requires_attribution": true,
+    "url": "https://www.data.gouv.fr/pages/legal/licences/etalab-2.0"
+  },
+  "name": "INSEE data gouv fr",
+  "official_url": "https://www.data.gouv.fr/api/1/",
+  "publisher": "Source: data.gouv.fr; retain the dataset last modification date.",
+  "rate_limit": "1 req/s",
+  "status": "experimental"
+}

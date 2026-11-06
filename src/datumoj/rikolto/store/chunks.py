@@ -124,20 +124,29 @@ class SqliteChunkStore:
             ids.add(c.chunk_id)
         key = (document.doc_key, document.snapshot_sha256)
         with self._tx() as db:
-            db.execute("DELETE FROM chunks WHERE doc_key=? AND snapshot_sha256=?", key)
+            existing = {row[0] for row in db.execute(
+                'SELECT chunk_id FROM chunks WHERE doc_key=? AND snapshot_sha256=?', key)}
+            db.executemany('DELETE FROM chunks WHERE doc_key=? AND snapshot_sha256=? AND chunk_id=?',
+                           [(*key, chunk_id) for chunk_id in existing - ids])
             db.execute(
                 "INSERT INTO documents(doc_key, snapshot_sha256, document_json) VALUES(?,?,?) "
-                "ON CONFLICT(doc_key, snapshot_sha256) DO UPDATE SET document_json=excluded.document_json",
+                "ON CONFLICT(doc_key, snapshot_sha256) DO UPDATE SET document_json=excluded.document_json "
+                "WHERE documents.document_json != excluded.document_json",
                 (*key, document.model_dump_json()),
             )
             db.executemany(
-                "INSERT INTO chunks(doc_key, snapshot_sha256, chunk_id, ord, source_id, chunk_json) VALUES(?,?,?,?,?,?)",
+                "INSERT INTO chunks(doc_key, snapshot_sha256, chunk_id, ord, source_id, chunk_json) VALUES(?,?,?,?,?,?) "
+                "ON CONFLICT(doc_key,snapshot_sha256,chunk_id) DO UPDATE SET "
+                "ord=excluded.ord,source_id=excluded.source_id,chunk_json=excluded.chunk_json "
+                "WHERE chunks.ord != excluded.ord OR chunks.source_id != excluded.source_id "
+                "OR chunks.chunk_json != excluded.chunk_json",
                 [(*key, c.chunk_id, i, c.source_id, c.model_dump_json()) for i, c in enumerate(chunks)],
             )
             if publish:
                 db.execute(
                     "INSERT INTO current_versions(doc_key, snapshot_sha256) VALUES(?,?) "
-                    "ON CONFLICT(doc_key) DO UPDATE SET snapshot_sha256=excluded.snapshot_sha256",
+                    "ON CONFLICT(doc_key) DO UPDATE SET snapshot_sha256=excluded.snapshot_sha256 "
+                    "WHERE current_versions.snapshot_sha256 != excluded.snapshot_sha256",
                     key,
                 )
 
@@ -154,7 +163,8 @@ class SqliteChunkStore:
                 return False
             db.execute(
                 "INSERT INTO current_versions(doc_key, snapshot_sha256) VALUES(?,?) "
-                "ON CONFLICT(doc_key) DO UPDATE SET snapshot_sha256=excluded.snapshot_sha256",
+                "ON CONFLICT(doc_key) DO UPDATE SET snapshot_sha256=excluded.snapshot_sha256 "
+                    "WHERE current_versions.snapshot_sha256 != excluded.snapshot_sha256",
                 (doc_key, snapshot_sha256),
             )
             db.execute(

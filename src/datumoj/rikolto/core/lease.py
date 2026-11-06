@@ -14,11 +14,19 @@ from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from threading import Event, Thread
 
+from pydantic import AwareDatetime, BaseModel, ConfigDict
+
 from datumoj.rikolto.core.contracts import ContractError, PreconditionFailed, StateObjectStore
 from datumoj.rikolto.core.models import WriteLease
 from datumoj.rikolto.core.storage import s3_remote_configured
 
 LEASE_KEY = "write-lease.json"
+
+
+class _ReleasedLease(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    released_at: AwareDatetime
 
 
 class LeaseError(ContractError):
@@ -44,11 +52,17 @@ class LeaseManager:
             raise LeaseError("租约需要带时区的可信时间")
         return value
 
-    def _read(self) -> tuple[WriteLease, str] | None:
+    def _read(self) -> tuple[WriteLease | None, str] | None:
         found = self.store.get(LEASE_KEY)
         if found is None:
             return None
         try:
+            try:
+                _ReleasedLease.model_validate_json(found[0])
+            except ValueError:
+                pass
+            else:
+                return None, found[1]
             lease = WriteLease.model_validate_json(found[0])
             self._holder(lease.holder)
             return lease, found[1]
@@ -65,7 +79,7 @@ class LeaseManager:
 
     def status(self) -> dict:
         found = self._read()
-        if found is None:
+        if found is None or found[0] is None:
             return {"held": False}
         lease = found[0]
         # No token or untrusted holder string in public status/log output.
@@ -76,7 +90,7 @@ class LeaseManager:
         self._holder(holder)
         found = self._read()
         now = self._now()
-        if found is not None and (not force or now < found[0].expires_at):
+        if found is not None and found[0] is not None and (not force or now < found[0].expires_at):
             raise LeaseError("写入租约已占用；仅可强制接管过期租约")
         lease = WriteLease(holder=holder, token=secrets.token_urlsafe(32), acquired_at=now,
                            expires_at=now + self.ttl)
@@ -91,7 +105,7 @@ class LeaseManager:
 
     def _owned(self, holder: str, token: str, *, active: bool = True) -> tuple[WriteLease, str]:
         found = self._read()
-        if (found is None or found[0].holder != holder or not token
+        if (found is None or found[0] is None or found[0].holder != holder or not token
                 or not hmac.compare_digest(found[0].token.encode(), token.encode())):
             raise LeaseError("写入租约不属于本次持有者")
         if active and self._now() >= found[0].expires_at:
@@ -106,6 +120,8 @@ class LeaseManager:
         found = self._read()
         if found is None:
             raise LeaseError("缺少有效写入租约")
+        if found[0] is None:
+            raise LeaseError("写入租约不属于本次持有者")
         holder = os.environ.get("DATUMOJ_LEASE_HOLDER", found[0].holder)
         return self._owned(holder, os.environ.get("DATUMOJ_LEASE_TOKEN", ""), active=active)[0]
 
@@ -126,8 +142,9 @@ class LeaseManager:
 
     def release(self, holder: str, token: str) -> None:
         _, etag = self._owned(holder, token, active=False)
+        released = _ReleasedLease(released_at=self._now())
         try:
-            self.store.delete_if_match(LEASE_KEY, etag)
+            self.store.put_if_match(LEASE_KEY, released.model_dump_json().encode(), etag)
         except PreconditionFailed:
             raise LeaseError("租约释放竞争失败") from None
 

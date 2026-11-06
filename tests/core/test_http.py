@@ -726,3 +726,142 @@ def test_replay_missing_fixture_fails_at_construction(tmp_path):
 def test_replay_duplicate_after_redaction_rejected():
     with pytest.raises(ValueError):
         ReplayTransport({f"{BASE}/a?appId=1": INFO_FILE, f"{BASE}/a?appId=2": INFO_FILE})
+
+
+@pytest.mark.parametrize("seconds,expected_chunks", [(3, 3), (None, 6)])
+def test_total_request_duration_stops_trickling_body_and_closes(seconds, expected_chunks):
+    clock = FakeClock()
+
+    class Trickle(httpx.SyncByteStream):
+        read = 0
+        closed = False
+
+        def __iter__(self):
+            for _ in range(6):
+                clock.t += 1
+                self.read += 1
+                yield b"private body"
+
+        def close(self):
+            self.closed = True
+
+    stream = Trickle()
+    url = BASE + "/slow?api_key=synthetic-private-key"
+    site = Site({url: lambda request: httpx.Response(200, stream=stream)})
+    with make(site, clock, robots=allow_all(), max_request_seconds=seconds) as fetcher:
+        result = fetcher.fetch(url)
+    assert stream.closed and stream.read == expected_chunks
+    if seconds is None:
+        assert result.outcome is FetchOutcome.ok and result.content == b"private body" * 6
+    else:
+        assert result.outcome is FetchOutcome.network_error and result.content is None
+        assert result.error == "request total duration exceeded"
+        assert len(site.urls) == 1  # A total timeout does not repeat the stalled download.
+
+
+@pytest.mark.parametrize("seconds", [0, -1, float("nan"), float("inf")])
+def test_invalid_total_request_duration(seconds):
+    with pytest.raises(ValueError, match="max_request_seconds"):
+        make(Site(), max_request_seconds=seconds)
+
+
+def test_total_duration_includes_wait_for_response_headers():
+    clock = FakeClock()
+
+    def slow_headers(request):
+        clock.t += 4
+        return raw_response(200, {}, b"private body")
+
+    with make(Site({BASE + "/slow": slow_headers}), clock, robots=allow_all(), max_request_seconds=3) as fetcher:
+        result = fetcher.fetch(BASE + "/slow")
+    assert result.outcome is FetchOutcome.network_error and result.content is None
+    assert result.error == "request total duration exceeded"
+
+
+def test_total_timeout_never_writes_partial_body_to_raw():
+    from datumoj.rikolto.core.runner import CrawlDeps, run_crawl
+    from datumoj.rikolto.testing.fakes import FakeCrawler, FakeManifest, FakeRawStore
+
+    clock = FakeClock()
+
+    class Trickle(httpx.SyncByteStream):
+        def __iter__(self):
+            for _ in range(10):
+                clock.t += 1
+                yield b"private partial text"
+
+    url = BASE + "/slow.txt"
+    site = Site({url: lambda request: httpx.Response(200, stream=Trickle())})
+    raw, manifest = FakeRawStore(), FakeManifest()
+    spec = make_spec(scope={"urls": [url]})
+    with make(site, clock, robots=allow_all(), max_request_seconds=3) as fetcher:
+        report = run_crawl(spec, FakeCrawler(), CrawlDeps(raw, manifest, fetcher, clock=clock, sleep=clock.sleep))
+    assert not raw.blobs and report.new == 0
+    snapshot, = manifest.snapshots_for(spec.id)
+    assert snapshot.outcome is FetchOutcome.network_error and snapshot.sha256 is None
+    assert snapshot.error == "request total duration exceeded"
+
+
+@pytest.mark.parametrize("connected", [False, True])
+def test_total_timeout_yields_even_when_transport_has_not_returned_headers(monkeypatch, connected):
+    from queue import Empty, Queue
+    from threading import Event
+
+    from datumoj.rikolto.core import http
+
+    clock = FakeClock()
+    entered, release, closed = Event(), Event(), Event()
+    shutdowns = []
+
+    class Connection:
+        def get_extra_info(self, name):
+            assert name == "socket"
+            return self
+
+        def shutdown(self, how):
+            shutdowns.append(how)
+
+        def close(self):
+            release.set()
+
+    class Body(httpx.ByteStream):
+        def close(self):
+            closed.set()
+
+    def stalled_headers(request):
+        if connected:
+            request.extensions["trace"]("connection.connect_tcp.complete", {"return_value": Connection()})
+        entered.set()
+        assert release.wait(timeout=5)
+        return httpx.Response(200, stream=Body(b"private body"))
+
+    class ExpiringQueue(Queue):
+        def get(self, timeout=None):
+            assert timeout == 3 and entered.wait(timeout=5)
+            clock.t += 3
+            raise Empty
+
+    monkeypatch.setattr(http, "Queue", ExpiringQueue)
+    with make(Site({BASE + "/slow": stalled_headers}), clock, robots=allow_all(), max_request_seconds=3) as fetcher:
+        try:
+            result = fetcher.fetch(BASE + "/slow")
+            assert result.outcome is FetchOutcome.network_error and result.content is None
+            assert result.error == "request total duration exceeded"
+            assert bool(shutdowns) is connected
+        finally:
+            release.set()
+        assert closed.wait(timeout=5)  # The late response is closed without consuming its body.
+
+
+def test_total_timeout_while_loading_robots_is_also_a_network_error():
+    clock = FakeClock()
+
+    def slow_robots(request):
+        clock.t += 3
+        return raw_response(200, {}, b"User-agent: *")
+
+    site = Site({ROBOTS: slow_robots})
+    with make(site, clock, max_request_seconds=3) as fetcher:
+        result = fetcher.fetch(BASE + "/not-requested")
+    assert result.outcome is FetchOutcome.network_error and result.content is None
+    assert result.error == "request total duration exceeded" and site.urls == [ROBOTS]

@@ -1,0 +1,26 @@
+{
+  "P05-22_41_GML.zip": {
+    "url": "https://nlftp.mlit.go.jp/ksj/gml/data/P05/P05-22/P05-22_41_GML.zip",
+    "status": 200,
+    "fetched_at": "2026-10-26T18:08:08+09:00",
+    "bytes": 69725,
+    "sha256": "a51ffa22eb8ca8cc1fedfc79c6934852c0825dbec2076701c832a336acc1b9f7",
+    "headers": {
+      "content-type": "application/zip",
+      "connection": "close",
+      "x-zen-fury": "c4857b397bcd279e6001537c6aa85139bbc09039",
+      "etag": "\"1105d-6018825493a40\"",
+      "x-cache-status": "NOTCACHED",
+      "last-modified": "Fri, 28 Jul 2023 08:48:33 GMT",
+      "content-length": "69725",
+      "x-frame-options": "sameorigin",
+      "accept-ranges": "bytes",
+      "date": "Mon, 26 Oct 2026 09:08:08 GMT",
+      "strict-transport-security": "max-age=31536000;includeSubDomains",
+      "vary": "User-Agent",
+      "server": "ZENEDGE",
+      "x-cdn": "Served-By-Zenedge"
+    },
+    "sample_type": "captured"
+  }
+}

@@ -8,7 +8,7 @@ import pytest
 
 from datumoj.rikolto import cloud, wiring
 from datumoj.rikolto.core.contracts import PreconditionFailed
-from datumoj.rikolto.core.lease import LeaseError, remote_configured
+from datumoj.rikolto.core.lease import LeaseError, LeaseManager, remote_configured
 from datumoj.rikolto.core.pull import pull
 from datumoj.rikolto.core.schedule import Scheduler
 from datumoj.rikolto.core.state_fs import DirStateObjectStore
@@ -75,7 +75,9 @@ def test_dir_cloud_publish_then_pull(tmp_path, monkeypatch):
     assert fetcher.requests == ["https://example.test/source"]
     remote = wiring.build_state(tmp_path / "unused").store
     assert isinstance(remote, DirStateObjectStore)
-    assert remote.get("write-lease.json") is None
+    released = json.loads(remote.get("write-lease.json")[0])
+    assert set(released) == {"released_at"} and "token" not in released
+    assert LeaseManager(remote).status() == {"held": False}
     manifest = json.loads(remote.get("generations/1.json")[0])
     assert manifest["writer"]["kind"] == "local"
     assert remote.get(result["weekly_report_key"]) is not None

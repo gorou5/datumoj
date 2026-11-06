@@ -165,7 +165,7 @@ def test_faults_and_next_run_recovery(deps, monkeypatch, point):
     assert deps.manifest.publish_state("new") is PublishState.published
     assert_current(deps, new, "modern", "ancient")
     if point == "vectors":
-        assert reindex(restarted, vectors_only=True) == 1
+        assert reindex(restarted, vectors_only=True) == 0  # parse_pending 已自动补嵌。
     assert restarted.vectors.search("modern").items
     assert len(deps.change_log.list(kinds=[ChangeKind.added, ChangeKind.modified])) == 2
 

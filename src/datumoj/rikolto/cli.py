@@ -156,13 +156,32 @@ def cloud_check() -> None:
 
 @cloud_app.command("run")
 def cloud_run(
+    no_cleanup: bool = typer.Option(False, "--no-cleanup", help="仅报告可清理量，不删除对象"),
     work_dir: Path | None = typer.Option(None, "--work-dir", help="空的工作目录；默认使用临时目录"),
     max_embed: int = typer.Option(1000, "--max-embed", min=0, help="整轮嵌入块数上限"),
-    max_minutes: float = typer.Option(40, "--max-minutes", min=0, help="到期后停止开始新来源"),
+    max_minutes: float = typer.Option(40, "--max-minutes", min=0, help="从本轮开始到发布前的工作预算（分钟）"),
+    reserve_minutes: float = typer.Option(10, "--reserve-minutes", min=0, help="另留给发布和收尾的余量（分钟）"),
 ) -> None:
     from datumoj.rikolto.cloud import run
 
-    result = run(work_dir=work_dir, max_embed=max_embed, max_minutes=max_minutes)
+    result = run(work_dir=work_dir, max_embed=max_embed, max_minutes=max_minutes,
+                 reserve_minutes=reserve_minutes, **({"no_cleanup": True} if no_cleanup else {}))
+    typer.echo(_json(result))
+    raise typer.Exit(result["exit_status"])
+
+
+@cloud_app.command("embed")
+def cloud_embed(
+    no_cleanup: bool = typer.Option(False, "--no-cleanup", help="仅报告可清理量，不删除对象"),
+    work_dir: Path | None = typer.Option(None, "--work-dir", help="空的工作目录；默认使用临时目录"),
+    max_minutes: float = typer.Option(..., "--max-minutes", min=0, help="从本轮开始到发布前的工作预算（分钟）"),
+    reserve_minutes: float = typer.Option(10, "--reserve-minutes", min=0, help="另留给发布和收尾的余量（分钟）"),
+    max_embed: int | None = typer.Option(None, "--max-embed", min=0, help="整轮嵌入块数上限；默认不限"),
+) -> None:
+    from datumoj.rikolto.cloud import embed
+
+    result = embed(work_dir=work_dir, max_embed=max_embed, max_minutes=max_minutes,
+                   reserve_minutes=reserve_minutes, **({"no_cleanup": True} if no_cleanup else {}))
     typer.echo(_json(result))
     raise typer.Exit(result["exit_status"])
 
@@ -579,7 +598,12 @@ def report_weekly(
         status = _monitored_status(scheduler)
         alerts = [alert for source in status["sources"] for alert in source["alerts"]]
         alerts.extend(status.get("cloud_alerts", []))
-        content = weekly_report(deps, start_day, end_day, alerts)
+        from datumoj.eltiro.overview import eltiro_overview
+
+        # --from-state rebuilds the cloud report byte for byte, and the cloud has no Eltiro state.
+        runs_since = datetime.combine(start_day, datetime.min.time(), tzinfo=UTC)
+        eltiro = False if from_state else eltiro_overview(deps.data_dir, runs_since=runs_since)
+        content = weekly_report(deps, start_day, end_day, alerts, eltiro)
         path = out or (
             deps.data_dir / "reports" / "weekly" / f"{week_key}.md"
             if from_state else deps.data_dir / "reports" / f"weekly-{week_key[:4]}-W{week_key[-2:]}.md"
@@ -741,7 +765,11 @@ def admin(
         _, worker_scheduler = _scheduler_at(root)
         return worker_scheduler.run_now(source_id)
 
-    web_app = create_app(root, deps, scheduler, run_now=run_now_in_worker)
+    from datumoj.eltiro.overview import eltiro_overview
+
+    web_app = create_app(
+        root, deps, scheduler, run_now=run_now_in_worker, eltiro_overview=lambda: eltiro_overview(root),
+    )
     typer.echo(f"管理页面：http://127.0.0.1:{port}/")
     uvicorn.run(web_app, host="127.0.0.1", port=port)
 

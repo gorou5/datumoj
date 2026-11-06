@@ -1,0 +1,18 @@
+{
+  "access_method": "other",
+  "auth_required": false,
+  "country_region": "US",
+  "id": "us-fedreg",
+  "last_verified": "unknown",
+  "license": {
+    "allows_redistribution": "unknown",
+    "name": "1 CFR § 2.6",
+    "requires_attribution": true,
+    "url": "https://www.ecfr.gov/current/title-1/chapter-I/subchapter-A/part-2/section-2.6"
+  },
+  "name": "Federal Register",
+  "official_url": "https://www.federalregister.gov/api/v1/",
+  "publisher": "Source: Federal Register, Office of the Federal Register, National Archives and Records Administration; document title, number, publication date and official URL accompany each document.",
+  "rate_limit": "1 req/s",
+  "status": "experimental"
+}

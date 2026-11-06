@@ -1,0 +1,18 @@
+{
+  "access_method": "other",
+  "auth_required": false,
+  "country_region": "JP",
+  "id": "jp-ksj",
+  "last_verified": "unknown",
+  "license": {
+    "allows_redistribution": "unknown",
+    "name": "CC BY 4.0",
+    "requires_attribution": true,
+    "url": "https://creativecommons.org/licenses/by/4.0/"
+  },
+  "name": "国土数値情報 P05（佐賀県、2022年度）",
+  "official_url": "https://nlftp.mlit.go.jp/ksj/",
+  "publisher": "国土交通省",
+  "rate_limit": "0.2 req/s",
+  "status": "experimental"
+}

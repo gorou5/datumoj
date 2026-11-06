@@ -1,0 +1,29 @@
+{
+  "c1_001_1.xlsx": {
+    "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040389320&fileKind=0",
+    "status": 200,
+    "fetched_at": "2026-10-26T18:09:21+09:00",
+    "bytes": 102198,
+    "sha256": "3adef4aafcad45a278bcfeee6d5eb663709ac6d41de868c531081e1dc97a2ba1",
+    "headers": {
+      "content-type": "application/octet-stream",
+      "transfer-encoding": "chunked",
+      "connection": "close",
+      "x-frame-options": "SAMEORIGIN",
+      "x-cache": "MISS",
+      "vary": "Accept-Encoding",
+      "date": "Mon, 26 Oct 2026 09:09:21 GMT",
+      "x-content-type-options": "nosniff",
+      "cache-control": "private",
+      "accept-ranges": "bytes",
+      "x-zen-fury": "c49f3d94769a671039faa79ccef27844b86da28c",
+      "strict-transport-security": "max-age=0",
+      "content-disposition": "attachment; filename*=UTF-8''c1_001_1.xlsx",
+      "server": "ZENEDGE",
+      "x-cache-status": "NOTCACHED",
+      "x-xss-protection": "1; mode=block",
+      "x-cdn": "Served-By-Zenedge"
+    },
+    "sample_type": "captured"
+  }
+}

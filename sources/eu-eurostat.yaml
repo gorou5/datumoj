@@ -1,0 +1,35 @@
+id: eu-eurostat
+name: Eurostat（精选 GDP、人口及希腊政府赤字和债务）
+country: eu
+kind: eurostat_sdmx
+base_url: https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/
+allowed_hosts: [ec.europa.eu]
+rate_per_sec: 1
+max_total_bytes: 1073741824
+max_files: 10000
+schedule: daily
+license:
+  name: Eurostat statistical data reuse policy
+  url: https://ec.europa.eu/eurostat/help/copyright-notice
+  attribution: "Source: Eurostat; dataset code, query key and fetched_at are retained with each snapshot"
+  usage_scope: internal_only
+  redistribution: unverified
+  outflow: no_outflow
+  cloud_model_ok: false
+  verified_at: null
+  notes: 统计数据再利用须署名；修改须说明。范围仅含 EU 成员国 EL、DE、FR、NL；逐数据集特别条件尚待核对。
+scope:
+  datasets:
+    - id: nama_10_gdp
+      query: A.CP_MEUR.B1GQ.DE+FR+NL
+      startPeriod: "2020"
+      endPeriod: "2024"
+    - id: demo_pjan
+      query: A.NR.TOTAL.T.DE+FR+NL
+      startPeriod: "2020"
+      endPeriod: "2024"
+    - id: gov_10dd_edpt1
+      query: A.PC_GDP+MIO_EUR.S13.B9+GD.EL
+      startPeriod: "2000"
+      endPeriod: "2015"
+retention_note: 每日保留原始快照与观测值历史用于修订追踪，不以新值覆盖旧快照；不伪造历史发布版本。保留期限与清理策略待项目统一确定，当前不自动删除。

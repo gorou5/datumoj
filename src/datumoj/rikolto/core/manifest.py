@@ -93,6 +93,9 @@ class SqliteManifest:
         self._db.execute("PRAGMA journal_mode=WAL")
         try:
             self._init_schema()
+            # Additive migration: old generations keep their existing schema version.
+            self._db.execute("CREATE TABLE IF NOT EXISTS raw_allowed_missing "
+                             "(sha256 TEXT PRIMARY KEY, marked_at TEXT NOT NULL)")
         except BaseException:
             self._db.close()
             raise
@@ -142,6 +145,18 @@ class SqliteManifest:
                 found = "没有版本记录" if row is None else f"版本 {row[0]}"
                 raise SchemaVersionError(f"manifest schema 版本不符：代码要求 {SCHEMA_VERSION}，库里{found}")
 
+    def raw_markers(self) -> dict[str, datetime]:
+        return {sha: _from_ts(marked) for sha, marked in self._db.execute(
+            "SELECT sha256, marked_at FROM raw_allowed_missing")}
+
+    def mark_raw_optional(self, sha256: str, marked_at: datetime) -> None:
+        from datumoj.rikolto.core.models import Sha256
+
+        TypeAdapter(Sha256).validate_python(sha256)
+        TypeAdapter(AwareDatetime).validate_python(marked_at)
+        with self._tx() as db:
+            db.execute("INSERT OR IGNORE INTO raw_allowed_missing VALUES (?,?)", (sha256, _ts(marked_at)))
+
     # ---------- 抓取记录 ----------
 
     def record_snapshot(self, snapshot: Snapshot, meta: Mapping[str, JsonValue] | None = None) -> None:
@@ -177,7 +192,10 @@ class SqliteManifest:
         with self._tx() as db:
             if db.execute("SELECT 1 FROM snapshots WHERE snapshot_id=?", (snapshot_id,)).fetchone() is None:
                 raise NotFoundError(f"没有快照 {snapshot_id}")
-            db.execute("INSERT OR REPLACE INTO publish_states VALUES (?,?,?)", (snapshot_id, state.value, error))
+            db.execute("INSERT INTO publish_states VALUES (?,?,?) ON CONFLICT(snapshot_id) DO UPDATE SET "
+                       "state=excluded.state, error=excluded.error "
+                       "WHERE publish_states.state != excluded.state OR publish_states.error IS NOT excluded.error",
+                       (snapshot_id, state.value, error))
 
     def publish_state(self, snapshot_id: str) -> PublishState | None:
         row = self._db.execute("SELECT state FROM publish_states WHERE snapshot_id=?", (snapshot_id,)).fetchone()
@@ -233,13 +251,16 @@ class SqliteManifest:
     def record_parse(self, record: ParseRecord) -> None:
         with self._tx() as db:
             db.execute(
+                # rowid is the cross-parser last-write order used by parse_stats.
                 "INSERT OR REPLACE INTO parsed (sha256, parser, version, context_fingerprint, status, error, doc_keys) "
                 "VALUES (?,?,?,?,?,?,?)",
                 (record.sha256, record.parser, record.version, record.context_fingerprint, record.status.value, record.error,
                  None if record.doc_keys is None else json.dumps(record.doc_keys, ensure_ascii=False)),
             )
             if record.status is ParseStatus.ok:
-                db.executemany("INSERT OR REPLACE INTO parse_writers VALUES (?,?,?)",
+                db.executemany("INSERT INTO parse_writers VALUES (?,?,?) ON CONFLICT(doc_key,sha256) DO UPDATE SET "
+                               "context_fingerprint=excluded.context_fingerprint "
+                               "WHERE parse_writers.context_fingerprint != excluded.context_fingerprint",
                                [(key, record.sha256, record.context_fingerprint) for key in record.doc_keys or []])
 
     def get_parse(self, sha256: str, parser: str, version: str, context_fingerprint: str = "") -> ParseRecord | None:

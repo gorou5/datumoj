@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import shutil
 import sys
 from collections import Counter
 from datetime import UTC, datetime, timedelta
@@ -188,7 +189,9 @@ def m3(tmp_path_factory):
 def test_all_ivy_and_tachibana_questions_pass(m3, monkeypatch):
     deps = m3["deps"]
     assert deps.tools.change_log is deps.change_log is deps.pipeline_deps.change_log
-    questions = load_questions(ROOT / "eval/questions")
+    # Later versions add their own banks (MAPLE 701) whose corpora are not built here.
+    banks = {"law.yaml", "stats.yaml", "catalog.yaml", "behavior.yaml", "gov_web.yaml", "tachibana_gaps.yaml", "changes.yaml"}
+    questions = [q for q in load_questions(ROOT / "eval/questions") if Path(q._source_file).name in banks]
     counts = Counter(Path(q._source_file).name for q in questions)
     assert sum(counts[name] for name in ("law.yaml", "stats.yaml", "catalog.yaml", "behavior.yaml")) >= 60
     assert counts["gov_web.yaml"] + counts["tachibana_gaps.yaml"] == 20
@@ -217,7 +220,12 @@ def test_all_ivy_and_tachibana_questions_pass(m3, monkeypatch):
                 assert sum(values) / len(values) >= threshold, (bank, metric, rows)
 
     monkeypatch.setattr(cli.wiring, "build", lambda path: deps)
-    result = CliRunner().invoke(cli.app, ["eval", "--gate", "--report", str(m3["temporary"] / "cli-eval")])
+    bank_dir = m3["temporary"] / "cli-questions"
+    bank_dir.mkdir()
+    for name in banks:
+        shutil.copyfile(ROOT / "eval/questions" / name, bank_dir / name)
+    result = CliRunner().invoke(cli.app, ["eval", "--gate", "--report", str(m3["temporary"] / "cli-eval"),
+                                          "--questions", str(bank_dir)])
     assert result.exit_code == 0, result.output
     _json(m3["evidence"] / "cli-eval.json", {"exit_code": result.exit_code, "output": result.output})
 

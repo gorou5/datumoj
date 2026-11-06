@@ -1,0 +1,208 @@
+questions:
+- id: maple-west-fed-hazards
+  question: What hazards justify the St. Lawrence River safety zones?
+  lang: en
+  kind: retrieval
+  queries:
+  - overhead electrical transmission wires
+  source_ids:
+  - us-fedreg
+  expect:
+    hits:
+    - doc_key: us-fedreg:2026-20122
+      locator_prefix: section=SUPPLEMENTARY INFORMATION > II. Background and Authority
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/fedreg/full_text_2026-20122.xml. Expected: Deployment of personnel and heavy
+    equipment across navigable waters during overhead wire replacement threatens workers and the public.'
+- id: maple-west-fed-paperwork
+  question: Does the rule require a new collection of information?
+  lang: en
+  kind: retrieval
+  queries:
+  - Paperwork Reduction Act collection information
+  source_ids:
+  - us-fedreg
+  expect:
+    hits:
+    - doc_key: us-fedreg:2026-20122
+      locator_prefix: section=SUPPLEMENTARY INFORMATION > IV. Regulatory Analyses > B. Collection of Information
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/fedreg/full_text_2026-20122.xml. Expected: No new collection under the Paperwork
+    Reduction Act of 1995.'
+- id: maple-west-euro-de
+  question: What is Germany’s 2024 GDP in Eurostat’s original units?
+  lang: en
+  kind: retrieval
+  queries:
+  - nama_10_gdp DE 2024 CP_MEUR
+  source_ids:
+  - eu-eurostat
+  expect:
+    hits:
+    - doc_key: eu-eurostat:nama_10_gdp
+      locator_prefix: row=5
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/eurostat/nama_10_gdp_DE-FR-NL_2020-2024.xml. Expected: 4386940.0 CP_MEUR
+    (current-price million euro), B1GQ, DE, 2024. OBS_FLAG=p; do not convert.'
+- id: maple-west-euro-fr
+  question: What is France’s 2024 GDP in Eurostat?
+  lang: en
+  kind: retrieval
+  queries:
+  - nama_10_gdp FR 2024 CP_MEUR
+  source_ids:
+  - eu-eurostat
+  expect:
+    hits:
+    - doc_key: eu-eurostat:nama_10_gdp
+      locator_prefix: row=10
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/eurostat/nama_10_gdp_DE-FR-NL_2020-2024.xml. Expected: 2935236.2 CP_MEUR,
+    B1GQ, FR, 2024; OBS_FLAG=p. Source: Eurostat.'
+- id: maple-west-wdi-japan
+  question: What is Japan’s 2024 GDP in current US dollars?
+  lang: en
+  kind: numeric
+  queries:
+  - Japan NY.GDP.MKTP.CD 2024
+  source_ids:
+  - intl-wdi
+  expect:
+    hits:
+    - doc_key: intl-wdi:NY.GDP.MKTP.CD
+      locator_prefix: row=1
+    gap_state: ok
+    value:
+      sql: SELECT value FROM observations WHERE source_id='intl-wdi' AND table_key='NY.GDP.MKTP.CD' AND area_code='JPN'
+        AND time_label='2024'
+      equals: '4190008188358.57'
+  notes: 'Fixture: tests/fixtures/wdi/gdp_cd_cn_JPN-USA_2020-2024_p1.json + p2.json. Expected: 4190008188358.57
+    current US$, JPN, 2024. The World Bank: World Development Indicators.'
+- id: maple-west-wdi-local
+  question: What is Japan’s 2024 GDP in local currency units?
+  lang: en
+  kind: retrieval
+  queries:
+  - Japan NY.GDP.MKTP.CN 2024
+  source_ids:
+  - intl-wdi
+  expect:
+    hits:
+    - doc_key: intl-wdi:NY.GDP.MKTP.CN
+      locator_prefix: row=11
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/wdi/gdp_cd_cn_JPN-USA_2020-2024_p1.json + p2.json. Expected: 634226000000000
+    current LCU, JPN, 2024; retain local currency without conversion.'
+- id: maple-west-fr-population
+  question: Quelles dimensions sont disponibles pour la population des Iris ?
+  lang: fr
+  kind: retrieval
+  queries:
+  - population sexe âge nationalité statut immigré
+  source_ids:
+  - fr-data-gouv
+  expect:
+    hits:
+    - doc_key: fr-data-gouv:6ad16a7506eea90157a47a35
+      locator_prefix: entry=0
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/udata_fr/datasets_org-insee_page1_size2.json + page2_size2.json. Expected:
+    Population par sexe et âge, catégorie de population, nationalité, statut d’immigré; Iris. Metadata only;
+    no population totals downloaded.'
+- id: maple-west-fr-pcs
+  question: Quelles dimensions décrit le jeu de données PCS des Iris ?
+  lang: fr
+  kind: retrieval
+  queries:
+  - catégorie socioprofessionnelle PCS
+  source_ids:
+  - fr-data-gouv
+  expect:
+    hits:
+    - doc_key: fr-data-gouv:6ad16a7406eea90157a47a34
+      locator_prefix: entry=1
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/udata_fr/datasets_org-insee_page1_size2.json + page2_size2.json. Expected:
+    Sexe, âge et catégorie socioprofessionnelle (PCS), pour les Iris.'
+- id: maple-west-eu-tariff
+  question: Which 2023 EU dataset describes the combined customs nomenclature?
+  lang: en
+  kind: retrieval
+  queries:
+  - combined nomenclature customs tariff
+  source_ids:
+  - eu-data-europa
+  expect:
+    hits:
+    - doc_key: eu-data-europa:combined-nomenclature-2023
+      locator_prefix: entry=40
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/data_europa/repo_dataset_combined-nomenclature-2023.jsonld. Expected: Combined
+    Nomenclature, 2023; classification of goods for the Common Customs Tariff. Portal metadata only, not tariff
+    values.'
+- id: maple-west-eu-goods
+  question: What is the purpose of the classification of goods in Combined Nomenclature 2023?
+  lang: en
+  kind: retrieval
+  queries:
+  - classification goods nomenclature
+  source_ids:
+  - eu-data-europa
+  expect:
+    hits:
+    - doc_key: eu-data-europa:combined-nomenclature-2023
+      locator_prefix: entry=40
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/data_europa/repo_dataset_combined-nomenclature-2023.jsonld. Expected: Classification
+    of goods used for customs tariff and trade statistics; retain dataset ID combined-nomenclature-2023 and
+    original URI.'
+- id: maple-west-fed-enforcement
+  question: When are the safety zones enforced each day?
+  lang: en
+  kind: retrieval
+  queries:
+  - safety zones enforcement weather
+  source_ids:
+  - us-fedreg
+  expect:
+    hits:
+    - doc_key: us-fedreg:2026-20122
+      locator_prefix: section=SUPPLEMENTARY INFORMATION > III. Discussion of the Rule
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/fedreg/full_text_2026-20122.xml. Expected: September 29 through October 3,
+    2026, 6:00 a.m.–4:00 p.m.; days depend on weather and will be announced in advance.'
+- id: maple-west-fr-travel
+  question: Que décrit le jeu Déplacements domicile-travail des Iris ?
+  lang: fr
+  kind: retrieval
+  queries:
+  - Déplacements domicile-travail transport travailler
+  source_ids:
+  - fr-data-gouv
+  expect:
+    hits:
+    - doc_key: fr-data-gouv:6ad16a7406eea90157a47a33
+      locator_prefix: entry=0
+    gap_state: ok
+  notes: 'Fixture: tests/fixtures/udata_fr/datasets_org-insee_page1_size2.json + page2_size2.json. Expected:
+    Population de 15 ans ou plus ayant un emploi, lieu de travail et mode de transport utilisé pour aller travailler.'
+- id: maple-zero-en
+  question: axolotl habitat exoplanet quasar?
+  lang: en
+  kind: gap
+  queries:
+  - axolotl habitat exoplanet quasar
+  source_ids:
+  - us-fedreg
+  - eu-eurostat
+  - intl-wdi
+  - fr-data-gouv
+  - eu-data-europa
+  - jp-ksj
+  - jp-census
+  - jp-mhlw
+  - jp-abr
+  expect:
+    hits: []
+    gap_state: zero_hits
+  notes: 'Expected: 当前15个样本响应未包含此主题；明确无命中，不猜测答案。检查所有MAPLE样本来源，不限单一来源。'

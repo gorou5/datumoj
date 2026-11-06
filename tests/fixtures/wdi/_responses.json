@@ -1,0 +1,81 @@
+{
+  "gdp_cd_cn_JPN-USA_2020-2024_p1.json": {
+    "url": "https://api.worldbank.org/v2/country/JPN;USA/indicator/NY.GDP.MKTP.CD;NY.GDP.MKTP.CN?source=2&format=json&date=2020:2024&per_page=10&page=1",
+    "status": 200,
+    "fetched_at": "2026-10-26T18:08:04+09:00",
+    "bytes": 2171,
+    "sha256": "f288edc31596c6e868ddd0e9b2cb600982ea2f746fc16ead4e8a3cbda80dc71b",
+    "headers": {
+      "date": "Mon, 26 Oct 2026 09:08:05 GMT",
+      "content-type": "application/json;charset=utf-8",
+      "transfer-encoding": "chunked",
+      "connection": "close",
+      "cf-ray": "a50850778f3b74fd-KIX",
+      "cf-cache-status": "MISS",
+      "access-control-allow-origin": "*",
+      "cache-control": "public, max-age=86400",
+      "expires": "Tue, 27 Oct 2026 09:08:05 GMT",
+      "last-modified": "Mon, 26 Oct 2026 09:08:04 GMT",
+      "server": "cloudflare",
+      "vary": "accept-encoding",
+      "access-control-allow-headers": "X-Requested-With",
+      "access-control-allow-methods": "GET",
+      "request-context": "appId=cid-v1:da002513-bd8b-4441-9f30-737944134422",
+      "x-powered-by": "ASP.NET"
+    },
+    "sample_type": "captured"
+  },
+  "gdp_cd_cn_JPN-USA_2020-2024_p2.json": {
+    "url": "https://api.worldbank.org/v2/country/JPN;USA/indicator/NY.GDP.MKTP.CD;NY.GDP.MKTP.CN?source=2&format=json&date=2020:2024&per_page=10&page=2",
+    "status": 200,
+    "fetched_at": "2026-10-26T18:08:05+09:00",
+    "bytes": 2167,
+    "sha256": "9f6135f848fac265228dc4482b3034f95b57de02a5b52b4f1230678e70ea33c5",
+    "headers": {
+      "date": "Mon, 26 Oct 2026 09:08:05 GMT",
+      "content-type": "application/json;charset=utf-8",
+      "transfer-encoding": "chunked",
+      "connection": "close",
+      "cf-ray": "a508507e2991d425-KIX",
+      "cf-cache-status": "MISS",
+      "access-control-allow-origin": "*",
+      "cache-control": "public, max-age=86400",
+      "expires": "Tue, 27 Oct 2026 09:08:05 GMT",
+      "last-modified": "Mon, 26 Oct 2026 09:08:05 GMT",
+      "server": "cloudflare",
+      "vary": "accept-encoding",
+      "access-control-allow-headers": "X-Requested-With",
+      "access-control-allow-methods": "GET",
+      "request-context": "appId=cid-v1:da002513-bd8b-4441-9f30-737944134422",
+      "x-powered-by": "ASP.NET"
+    },
+    "sample_type": "captured"
+  },
+  "indicator_NY.GDP.MKTP.CN.json": {
+    "url": "https://api.worldbank.org/v2/indicator/NY.GDP.MKTP.CN?format=json",
+    "status": 200,
+    "fetched_at": "2026-10-26T18:08:06+09:00",
+    "bytes": 934,
+    "sha256": "09e99958a92411405add22f7b97631913c672441258c556d0ab5241f8662a99e",
+    "headers": {
+      "date": "Mon, 26 Oct 2026 09:08:06 GMT",
+      "content-type": "application/json;charset=utf-8",
+      "transfer-encoding": "chunked",
+      "connection": "close",
+      "cf-ray": "a5085084bd8cb34a-KIX",
+      "cf-cache-status": "HIT",
+      "access-control-allow-origin": "*",
+      "age": "27754",
+      "cache-control": "public, max-age=86400",
+      "expires": "Tue, 27 Oct 2026 09:08:06 GMT",
+      "last-modified": "Mon, 26 Oct 2026 01:25:32 GMT",
+      "server": "cloudflare",
+      "vary": "accept-encoding",
+      "access-control-allow-headers": "X-Requested-With",
+      "access-control-allow-methods": "GET",
+      "request-context": "appId=cid-v1:da002513-bd8b-4441-9f30-737944134422",
+      "x-powered-by": "ASP.NET"
+    },
+    "sample_type": "captured"
+  }
+}
