@@ -38,7 +38,7 @@ def _window(ctx: CrawlContext, start: date, end: date, page: int = 1, *, root: b
 def _allowed(url: str, ctx: CrawlContext) -> bool:
     parts = urlsplit(url)
     return (
-        parts.scheme in {"http", "https"} and parts.username is None
+        parts.scheme == "https" and parts.username is None
         and parts.hostname in ctx.spec.allowed_hosts
     )
 

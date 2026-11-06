@@ -14,6 +14,8 @@ license:
   attribution: 'The World Bank: World Development Indicators: Data source (if known)'
   usage_scope: internal_only
   redistribution: unverified
+  outflow: no_outflow
+  cloud_model_ok: false
   verified_at: null
 scope:
   countries: [JPN, USA, GBR, DEU, FRA, NLD]

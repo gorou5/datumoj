@@ -4,7 +4,7 @@ import os
 import re
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
-from datumoj.rikolto.core.contracts import CrawlContext, Crawler, FetchResult, FetchTask
+from datumoj.rikolto.core.contracts import CrawlContext, Crawler, FetchResult, FetchTask, NotFoundError
 from datumoj.rikolto.core.models import FetchOutcome
 
 
@@ -46,10 +46,23 @@ class EstatAPICrawler(Crawler):
         return tasks[:max(0, ctx.limit)] if ctx.limit is not None else tasks
 
     def after_fetch(self, task: FetchTask, result: FetchResult, ctx: CrawlContext):
-        if task.meta.get("request_type") != "list" or result.outcome != FetchOutcome.ok or not result.content:
+        if task.meta.get("request_type") != "list":
+            return ()
+        content = result.content
+        if result.outcome is FetchOutcome.not_modified:
+            previous = ctx.manifest.last_success(task.redacted_url)
+            if previous is None or previous.sha256 is None:
+                return ()
+            try:
+                content = ctx.raw.get(previous.sha256)
+            except NotFoundError:
+                return ()
+        elif result.outcome is not FetchOutcome.ok:
+            return ()
+        if not content:
             return ()
         try:
-            root = json.loads(result.content)["GET_STATS_LIST"]
+            root = json.loads(content)["GET_STATS_LIST"]
             if str(root["RESULT"]["STATUS"]) != "0":
                 return ()
             next_key = root["DATALIST_INF"]["RESULT_INF"].get("NEXT_KEY")

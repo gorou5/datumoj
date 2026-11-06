@@ -39,7 +39,7 @@ class HashEmbedder:
 
 
 class OllamaEmbedder:
-    """通过 Ollama ``/api/embed`` 嵌入。多条超时对半拆批；单条超时、网络错误、5xx 退避重试，4xx 失败。
+    """通过 Ollama ``/api/embed`` 嵌入。多条读取超时对半拆批；其他超时、网络错误、5xx 退避重试，4xx 失败。
 
     ``dim`` 是模型的输出维度（bge-m3 为 1024），返回的向量维度不符会抛 EmbeddingError。
     """
@@ -80,7 +80,7 @@ class OllamaEmbedder:
                 time.sleep(self.backoff * 2 ** (attempt - 1))
             try:
                 resp = self._client.post("/api/embed", json={"model": self.model, "input": batch})
-            except httpx.TimeoutException as e:
+            except httpx.ReadTimeout as e:
                 if len(batch) > 1:
                     mid = len(batch) // 2
                     return self._embed_batch(batch[:mid]) + self._embed_batch(batch[mid:])
@@ -93,7 +93,7 @@ class OllamaEmbedder:
                 last = EmbeddingError(f"Ollama 返回 {resp.status_code}")
                 continue
             if resp.status_code != 200:
-                raise EmbeddingError(f"Ollama 返回 {resp.status_code}：{resp.text[:200]}")
+                raise EmbeddingError(f"Ollama 返回 {resp.status_code}")
             return self._parse(resp, len(batch))
         reason = type(last).__name__ if isinstance(last, httpx.TransportError) else str(last)
         # Transport diagnostics may quote the request body; keep them out of tracebacks too.
