@@ -133,10 +133,11 @@ def test_incremental_uses_complete_run_coverage_and_ignores_partial_later_run():
     assert _query(task)["conditions[publication_date][gte]"] == ["2026-10-13"]
     # A successful search with an unfetched detail must not advance coverage.
     limited = SPEC.model_copy(update={"max_files": 1})
-    drive_crawler(FedregCrawler(), limited, FakeHttpFetcher(_routes(_ctx(manifest, raw, tomorrow), _one())),
+    new_document = {"count": 1, "total_pages": 1, "results": [{**DETAIL, "document_number": "2026-99999"}]}
+    drive_crawler(FedregCrawler(), limited, FakeHttpFetcher(_routes(_ctx(manifest, raw, tomorrow), new_document)),
                   manifest=manifest, raw=raw, now=tomorrow)
     later = next(iter(FedregCrawler().plan(_ctx(manifest, raw, T0 + timedelta(days=4)))))
-    # Resume the unfinished detail in the same logical window, without a new search.
+    # Retry the unfinished detail before discovering the next window.
     assert later.meta["role"] == "detail"
     assert later.meta["run"] == tomorrow.isoformat()
 
@@ -195,7 +196,7 @@ def test_failed_document_fetch_does_not_advance_coverage(failed_role):
     assert task.meta["run"] == T0.isoformat()
 
 
-def test_304_discovery_still_schedules_details_and_full_text():
+def test_304_discovery_reuses_successful_details_and_full_text():
     manifest, raw = FakeManifest(), FakeRawStore()
     routes = _routes(_ctx(), _one())
     routes = {url: FakeResponse(200, response.body, {"ETag": '"recorded"'}) for url, response in routes.items()}
@@ -208,7 +209,7 @@ def test_304_discovery_still_schedules_details_and_full_text():
     manifest.record_snapshot(cached_root.to_snapshot("cached-incremental-search", SPEC.id))
     routes[root.url] = FakeResponse(304)
     steps = drive_crawler(FedregCrawler(), SPEC, FakeHttpFetcher(routes), manifest=manifest, raw=raw, now=later)
-    assert [step.task.meta["role"] for step in steps] == ["search", "detail", "xml"]
+    assert [step.task.meta["role"] for step in steps] == ["search"]
     assert all(step.result.outcome is FetchOutcome.not_modified for step in steps)
     next_root = next(iter(FedregCrawler().plan(_ctx(manifest, raw, T0 + timedelta(days=2)))))
     assert _query(next_root)["conditions[publication_date][gte]"] == ["2026-10-13"]

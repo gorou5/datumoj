@@ -62,10 +62,10 @@ def test_uncaught_exception_always_fails(phase):
     assert result["source_health"]["phase"] == phase
 
 
-def test_parse_success_counts_when_crawl_has_no_success():
+def test_parse_success_does_not_offset_total_fetch_failure():
     summary = ParseSummary(parsed=["backlog"])
     result, _ = source_run(failures=1, parse=lambda *a: summary)
-    assert result["status"] == "degraded" and result["exit_status"] == 0
+    assert result["status"] == "failed" and result["exit_status"] == 1
 
 
 def test_old_fetch_failures_remain_visible_but_do_not_enter_ratio():
