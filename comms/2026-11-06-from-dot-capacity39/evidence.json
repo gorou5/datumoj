@@ -1,0 +1,68 @@
+{
+  "checked_on": "2026-11-06 UTC",
+  "scope": "Public run evidence and repository definitions only",
+  "run": {
+    "number": 39,
+    "id": 42300759451,
+    "job_id": 128177611558,
+    "event": "schedule",
+    "head": "cc3aa3d87b02a673cff046a70e2b985ce6889ba3",
+    "status": "completed",
+    "conclusion": "success",
+    "generation": 35,
+    "started_utc": "2026-11-06T21:56:18Z",
+    "completed_utc": "2026-11-06T22:50:44Z"
+  },
+  "cleanup": {
+    "enabled": true,
+    "raw_enabled": true,
+    "generations_deleted": 1,
+    "copies_deleted": 155,
+    "copies_deleted_bytes": 23283010,
+    "raw_marked": 400,
+    "raw_deleted": 0,
+    "raw_deleted_bytes": 0,
+    "reclaimable_generations": 1,
+    "reclaimable_copies": 155,
+    "reclaimable_copies_bytes": 23283010,
+    "reclaimable_raw": 0,
+    "reclaimable_raw_bytes": 0,
+    "total_bytes": 8803425237,
+    "over_7gb": true,
+    "failures": 0,
+    "elapsed_s": 64.79,
+    "timed_out": false
+  },
+  "capacity": {
+    "measurement": "configured namespace inventory less sizes reported successfully deleted",
+    "unit_bytes_per_gb": 1000000000,
+    "observation_line_bytes": 8500000000,
+    "above_line_bytes": 303425237,
+    "account_total_bytes": null,
+    "account_billed_usage": null,
+    "complete_account_reinventory": false,
+    "remaining_to_9gb_not_spending_or_write_allowance": 196574763
+  },
+  "schedule": {
+    "configured_cron": "17 */3 * * *",
+    "next_planned_slot_utc": "2026-11-07T00:17:00Z",
+    "enabled_state": "not verified",
+    "active_cloud_runs_in_latest_listing": 0
+  },
+  "pr114": {
+    "head": "0aa9f3a5ba4d06a58477ab263fed82f8d6c1328b",
+    "state": "open",
+    "merged": false,
+    "ci_run_id": 42296497783,
+    "ci_conclusion": "success"
+  },
+  "actions_taken": [
+    "Read public run logs and repository files",
+    "Prepared technical handoff only"
+  ],
+  "actions_not_taken": [
+    "No upstream write or workflow setting change",
+    "No cancellation, rerun, merge or deployment",
+    "No data deletion, retention change or quota change"
+  ]
+}
