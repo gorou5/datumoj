@@ -155,8 +155,14 @@ def _source(deps, spec, scheduler, remaining, started=None, deadline=None):
     health = {"source_id": spec.id, "status": "ok", "phase": None, "categories": {},
               "consecutive_failures": 0, "first_failure_at": None}
     deadline_phase = None
+    crashed = False
+    newly_failed = 0
     phase = "crawl"
     try:
+        previous = deps.manifest.snapshots_for(spec.id)
+        seen = {snap.snapshot_id for snap in previous}
+        failed_urls = {snap.resource_url for snap in previous
+                       if snap.outcome not in {FetchOutcome.ok, FetchOutcome.not_modified}}
         crawler = deps.crawler_classes[spec.kind]()
         fetcher = deps.fetcher_for(spec)
         max_run = spec.scope.get("max_run_seconds", DEFAULT_MAX_RUN_SECONDS)
@@ -177,6 +183,10 @@ def _source(deps, spec, scheduler, remaining, started=None, deadline=None):
                       stop_reason="deadline" if report.stop_reason == "deadline" else None)
         if report.failures:
             record["failures"]["crawl_failed"] = sum(report.failures.values())
+            repeated = sum(snap.resource_url in failed_urls for snap in deps.manifest.snapshots_for(spec.id)
+                           if snap.snapshot_id not in seen
+                           and snap.outcome not in {FetchOutcome.ok, FetchOutcome.not_modified})
+            newly_failed += max(0, record["failures"]["crawl_failed"] - repeated)
             for category, count in report.failures.items():
                 category = category if category in {outcome.value for outcome in FetchOutcome} else "other"
                 _health_failure(health, phase, category, count)
@@ -198,12 +208,15 @@ def _source(deps, spec, scheduler, remaining, started=None, deadline=None):
             snapshot = deps.manifest.get_snapshot(snapshot_id)
             return snapshot is None or snapshot.source_id == spec.id
 
-        failed = sum(belongs(snapshot_id) for snapshot_id in summary.failed) + len(summary.no_parser)
+        cached_failures = set(summary.cached_failures)
+        parse_failures = {key: reason for key, reason in summary.failed.items()
+                          if key not in cached_failures and belongs(key) and _error_category(reason) != "empty_content"}
+        failed = len(parse_failures) + len(summary.no_parser)
+        newly_failed += sum(key in parse_failures for key in summary.newly_failed) + len(summary.no_parser)
         if failed:
             record["failures"]["parse_index_failed"] = failed
-        for snapshot_id, reason in summary.failed.items():
-            if belongs(snapshot_id):
-                _health_failure(health, phase, _error_category(reason))
+        for reason in parse_failures.values():
+            _health_failure(health, phase, _error_category(reason))
         if summary.no_parser:
             _health_failure(health, phase, "other", len(summary.no_parser))
         deferred, failed = _embedding_counts(pipeline, before, spec.id)
@@ -214,6 +227,7 @@ def _source(deps, spec, scheduler, remaining, started=None, deadline=None):
             _health_failure(health, "embedding", "embedding_failed", failed)
         _progress("parse_end", started, record)
     except Exception as exc:  # noqa: BLE001 -- 单来源失败需隔离，保留本轮其他来源的执行。
+        crashed = True
         record["failures"][f"{phase}_failed"] = record["failures"].get(f"{phase}_failed", 0) + 1
         reason = type(exc).__name__
         if reason == "ParseError" and len(exc.args) == 1 and type(exc.args[0]) is str:
@@ -223,13 +237,25 @@ def _source(deps, spec, scheduler, remaining, started=None, deadline=None):
         # the rest so later sources cannot exceed the round's embedding budget.
         if phase == "parse_index":
             remaining = 0
-    record.update(state="final", ended_at=utcnow().isoformat(),
-                  status="failed" if record["failures"] else "completed",
-                  exit_status=1 if record["failures"] else 0,
-                  stop_reason=record["stop_reason"] or ("source_failed" if record["failures"] else None))
+    successes = record["new"] + record["unchanged"] + record["parsed"]
+    attempts = successes + sum(record["failures"].values())
+    failed = crashed or bool(record["failures"] and (successes == 0 or newly_failed * 2 > attempts))
+    status = "failed" if failed else "degraded" if record["failures"] else "completed"
+    record.update(state="final", ended_at=utcnow().isoformat(), status=status,
+                  exit_status=int(failed),
+                  stop_reason=record["stop_reason"] or ("source_failed" if failed else None))
+    health["status"] = "failed" if failed else "degraded" if record["failures"] else "ok"
     # Preserve result status/exit semantics, but never advertise a partial crawl
     # as a successful run in the published generation's last_successful_runs.
-    scheduler.append_run({**record, "status": "incomplete"} if record["stop_reason"] == "deadline" else record)
+    ledger = record
+    if status == "degraded":
+        # StateManager's existing successful-run contract requires completed and
+        # an empty failures map. Retain item counts in the same ledger row.
+        ledger = {**record, "status": "completed", "source_status": status,
+                  "failures": {}, "item_failures": record["failures"]}
+    if record["stop_reason"] == "deadline":
+        ledger = {**ledger, "status": "incomplete"}
+    scheduler.append_run(ledger)
     if not record["failures"] and deadline_phase is not None:
         health.update(status="deadline", phase=deadline_phase)
     # The extra value is consumed by _round, never written into the ledger or
@@ -267,6 +293,8 @@ def _final_runs(history, source_id):
 def _failure_streak(history, source_id):
     count, first = 0, None
     for row in _final_runs(history, source_id):
+        if row.get("source_status") == "degraded" or row["status"] == "degraded":
+            break
         if row.get("stop_reason") == "deadline" and not row.get("failures"):
             break
         if not (row.get("failures") or row["exit_status"] or row["status"] == "failed"):

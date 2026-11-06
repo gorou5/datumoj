@@ -252,15 +252,19 @@ def test_one_failed_source_still_publishes_other_two_and_failed_ledger(world, mo
 
     monkeypatch.setattr(wiring, "build", build)
     result, work = invoke(world)
-    assert result["generation"] == 1 and result["exit_status"] == 1
-    assert [row["source_id"] for row in result["failed_sources"]] == ["jp-cloud1"]
+    source_failed = failure == "exception"
+    assert result["generation"] == 1 and result["exit_status"] == int(source_failed)
+    assert [row["source_id"] for row in result["failed_sources"]] == (["jp-cloud1"] if source_failed else [])
     records = rows(work)
     failed = [row for row in records if row["source_id"] == "jp-cloud1" and row["state"] == "final"]
-    assert len(failed) == 1 and failed[0]["status"] == "failed" and failed[0]["exit_status"] == 1
-    assert failed[0]["failures"] and failed[0]["stop_reason"] == "source_failed"
-    assert len([row for row in records if row["status"] == "completed"]) == 2
+    assert len(failed) == 1 and failed[0]["status"] == ("failed" if source_failed else "completed")
+    assert failed[0]["exit_status"] == int(source_failed)
+    assert (failed[0]["failures"] if source_failed else failed[0]["item_failures"])
+    assert failed[0]["stop_reason"] == ("source_failed" if source_failed else None)
+    assert len([row for row in records if row["status"] == "completed"]) == (2 if source_failed else 3)
     generation = world.managers[-1].list()[0]
-    assert set(generation.last_successful_runs) == {"jp-cloud0", "jp-cloud2"}
+    assert set(generation.last_successful_runs) == ({"jp-cloud0", "jp-cloud2"} if source_failed
+                                                 else {"jp-cloud0", "jp-cloud1", "jp-cloud2"})
     released(world)
     assert_pulled(world, work, 1)
 
@@ -793,7 +797,7 @@ def test_embedding_error_is_deferred_then_retried_next_round(world):
     released(world)
 
 
-def test_source_fails_only_on_third_embedding_error(world):
+def test_source_degrades_only_on_third_embedding_error(world):
     world.overrides.pop("vectors")
     # Every source fails once per due round, including the daily source.
     embedder = FlakyEmbedder(100)
@@ -803,9 +807,9 @@ def test_source_fails_only_on_third_embedding_error(world):
         if attempt > 1:
             world.clock[0] += timedelta(days=1)
         result, root = invoke(world, f"round{attempt}")
-        assert result["exit_status"] == int(attempt == 3)
+        assert result["exit_status"] == 0
         assert result["embedding_deferred"] == (3 if attempt < 3 else 0)
-        assert len(result["failed_sources"]) == (3 if attempt == 3 else 0)
+        assert len(result["failed_sources"]) == 0
         if attempt == 3:
             assert all(row["failures"] == {"embedding_failed": 1} for row in result["sources"])
         state = json.loads((root / "vectors-state.json").read_text())
@@ -1050,6 +1054,7 @@ def test_source_health_aggregates_parse_categories_and_ignores_other_sources(wor
                 other_snapshot = deps.manifest.snapshots_for("jp-cloud0")[0]
                 summary.failed[other_snapshot.snapshot_id] = "ValueError: private body"
                 summary.no_parser.append("synthetic-no-parser")
+                summary.newly_failed.extend(summary.failed)
             return summary
 
         deps.parse_pending = parse_pending
@@ -1059,7 +1064,7 @@ def test_source_health_aggregates_parse_categories_and_ignores_other_sources(wor
     result, _ = invoke(world)
     row = next(row for row in result["source_health"] if row["source_id"] == "jp-cloud2")
     assert row["status"] == "failed" and row["phase"] == "parse_index"
-    assert row["categories"] == {"empty_content": 2, "other": 2, "RuntimeError": 1}
+    assert row["categories"] == {"other": 2, "RuntimeError": 1}
     assert row["consecutive_failures"] == 1 and row["first_failure_at"] == world.clock[0].isoformat()
     assert all(text not in json.dumps(result["source_health"]) for text in ("://", "?", "private body", "secret"))
 

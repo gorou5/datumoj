@@ -299,9 +299,9 @@ def test_crawl_boundaries_and_failures_are_not_successes(chain_factory):
         BASE + "/empty/index.html": FetchOutcome.empty_body,
     }
     # These short synthetic detail pages pass crawl classification (chrome is long)
-    # but have <100 body characters after HTML chrome removal. Parsing must fail.
+    # but have <100 body characters after HTML chrome removal. These are not failures.
     parsed = invoke("parse", SOURCE)
-    assert parsed.exit_code == 1 and "empty_content" in parsed.output
+    assert parsed.exit_code == 0 and "解析失败" not in parsed.output
     for path in (DETAIL, DEEPER):
         snap = deps.manifest.last_success(BASE + path)
         record = deps.manifest.get_parse(
@@ -311,7 +311,7 @@ def test_crawl_boundaries_and_failures_are_not_successes(chain_factory):
         assert record.status is ParseStatus.failed
     assert len(_versions(deps)) == 2  # Only seed HTML and its PDF entered the store.
     indexed = invoke("index", "--rebuild")
-    assert indexed.exit_code == 1 and "解析失败" in indexed.output
+    assert indexed.exit_code == 0 and "解析失败" not in indexed.output
     for query in ("内部資料", "申請要領"):
         hits = deps.tools.search_docs(query, sources=SOURCE)["data"]["hits"]
         assert all(hit["citation"]["resource_url"] in {BASE + SEED, BASE + GUIDE} for hit in hits)
