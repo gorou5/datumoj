@@ -118,6 +118,12 @@ class ParseSummary:
     no_parser: list[str] = field(default_factory=list)
     failed: dict[str, str] = field(default_factory=dict)
     """本次解析后仍失败的 snapshot_id → 错误原因。"""
+    newly_failed: list[str] = field(default_factory=list)
+    """首次失败的快照；重试失败仍留在 failed，但不影响来源判坏比例。"""
+    cached_failures: list[str] = field(default_factory=list)
+    """failed 中未重新尝试的确定性预算诊断；不计入本轮来源失败。"""
+    empty_content: list[str] = field(default_factory=list)
+    """正文不足的快照，不算失败。"""
     vectors_missing: dict[str, str] = field(default_factory=dict)
     """解析成功但向量写入暂缺的 snapshot_id → 错误原因。"""
     vector_remaining: int | None = None
@@ -155,6 +161,7 @@ def _parse_pending(deps: PipelineDeps, source_id: str | None) -> ParseSummary:
     _retry_vectors(deps, source_id, summary)
     recovering = _recover_staged(deps, parsers, specs_by_id, budgets, summary)
     optional_raw = deps.manifest.raw_markers()
+    attempted = set()
     for spec in specs:
         budget = budgets[spec.id]
         snapshots = deps.manifest.snapshots_for(spec.id)
@@ -181,9 +188,18 @@ def _parse_pending(deps: PipelineDeps, source_id: str | None) -> ParseSummary:
             previous = deps.manifest.get_parse(snap.sha256, cls.name, cls.version, fingerprint)
             if previous is not None:
                 summary.skipped += 1
-                if previous.status is ParseStatus.failed and (previous.error or "").startswith("budget_exceeded:"):
-                    summary.failed[snap.snapshot_id] = previous.error or "budget_exceeded:unknown"
-                    continue
+                if previous.status is ParseStatus.failed:
+                    error = previous.error or ""
+                    if error.startswith("ParseError: empty_content:"):
+                        summary.empty_content.append(snap.snapshot_id)
+                        continue
+                    if error.startswith("budget_exceeded:") and error != "budget_exceeded:duration_seconds":
+                        summary.failed[snap.snapshot_id] = error
+                        summary.cached_failures.append(snap.snapshot_id)
+                        continue
+                    # 同内容、同上下文的历史快照只重试一次，避免一轮反复超时。
+                    if (snap.sha256, cls.name, cls.version, fingerprint) in attempted:
+                        continue
             is_retry = previous is not None and previous.status is ParseStatus.failed
             staged = False
             try:
@@ -199,6 +215,7 @@ def _parse_pending(deps: PipelineDeps, source_id: str | None) -> ParseSummary:
                         if previous is None:
                             summary.skipped += 1
                         continue
+                    attempted.add((snap.sha256, cls.name, cls.version, fingerprint))
                     doc_keys, events = _process(deps, cls(), snap, budget)
                     # 恢复扫描必须能在发布前从解析记录定位全部产物。
                     deps.manifest.record_parse(ParseRecord(
@@ -231,8 +248,13 @@ def _parse_pending(deps: PipelineDeps, source_id: str | None) -> ParseSummary:
                 deps.manifest.record_publish_state(
                     snap.snapshot_id, PublishState.staged if current_written else PublishState.failed, reason,
                 )
-                summary.failed[snap.snapshot_id] = reason
-                _record_parse_failure(deps, snap, reason)
+                if reason.startswith("ParseError: empty_content:"):
+                    summary.empty_content.append(snap.snapshot_id)
+                else:
+                    summary.failed[snap.snapshot_id] = reason
+                    if not is_retry:
+                        summary.newly_failed.append(snap.snapshot_id)
+                    _record_parse_failure(deps, snap, reason)
             else:
                 if not reusable:
                     summary.parsed.append(snap.snapshot_id)

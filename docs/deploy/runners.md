@@ -26,7 +26,7 @@ S3 上的 cloud run 用 8 个线程传输不可变副本与 raw，代次清单�
 每批最多 32 块，每批前检查剩余时间，不足 2 分钟便停止。`backfill_start` / `backfill_end`
 标示补嵌阶段，结果 `backfill_embedded` 是该阶段成功提交的块数。
 单篇嵌入出错先记 `embedding_deferred`，留到下一轮重试；同一篇累计连续失败达到 3 次的
-那一轮才记 `embedding_failed` 并让来源或本轮失败。达到上限的记录保留但不再自动重试，
+那一轮才记 `embedding_failed`，来源按下述规则判定；独立补嵌仍沿用原有退出规则。达到上限的记录保留但不再自动重试，
 可由人工检查后显式运行向量重建。旧状态没有失败计数时按 0 处理。
 `vector_pending` 是本轮补嵌结束后的待补块总数，包含额度延后、暂时出错和已达重试上限的
 块；它大于 0 不一定表示本轮失败。持续增加时先检查额度是否足够，再查看安全状态文件中
@@ -34,7 +34,7 @@ S3 上的 cloud run 用 8 个线程传输不可变副本与 raw，代次清单�
 
 `cloud run` 的结果新增 `source_health` 列表，包含本轮执行的来源，以及现有
 `cloud_run_missing` 规则触发的缺跑来源。每项只含 `source_id`、`status`
-（`ok` / `failed` / `deadline` / `missing`）、`phase`
+（`ok` / `degraded` / `failed`，另保留调度状态 `deadline` / `missing`）、`phase`
 （`crawl` / `parse_index` / `embedding` / `schedule` / null）、`categories` 类别计数、
 `consecutive_failures` 和 `first_failure_at`（连续失败中最早开始时间，无则 null）。
 抓取类别来自 `FetchOutcome`；解析只提取 `ParseError: <code>:` 中满足
@@ -45,14 +45,48 @@ S3 上的 cloud run 用 8 个线程传输不可变副本与 raw，代次清单�
 阶段和失败计数。补抓中的来源会超过调度周期但仍在轮转，所以距上一次开始运行（从没运行过的
 按告警起算时间）不足 24 小时不算缺跑。
 连续失败按账本最终记录的开始时间倒序计数，忽略开始记录和重复的最终记录；
-成功或无失败的 deadline 都停止计数，deadline 本身不算失败，也不作为恢复成功。
+`ok`、`degraded` 或无失败的 deadline 都停止计数，deadline 本身不算失败，也不作为恢复成功。
+
+来源判坏规则（138）：
+
+- `ok`：没有单项失败，来源结果 `status=completed`、退出码 0。
+- `failed`：抓取或解析阶段有异常逃到来源边界的 `except Exception`；或本轮有失败且
+  `new + unchanged == 0`、`parsed == 0`；或本轮首次失败项数严格超过总尝试数的一半。
+  来源退出码 1，计入连续失败；达到 issue 阈值才开 issue。
+- `degraded`：其余存在单项失败的运行，包括恰好 50%。来源结果与 `source_health`
+  都标为 degraded，退出码 0，不计连续失败，作为恢复关闭已有 issue，且计入 `last_successful_runs`。
+  `failures` 和 `categories` 的数量完整保留；只因时间耗尽而没有失败时仍为 deadline，
+  账本记 incomplete、不计成功运行，下一轮重试，原有截止时刻和宽限不变。
+
+比例按阶段尝试计数：`new + unchanged + parsed + sum(failures.values())`；抓取和解析
+是两次尝试，已缓存成功的解析不再算一次。分母保留实际重试失败，分子只算首次失败。
+抓取按来源内 URL 的历史失败快照识别旧失败；解析按同 SHA、解析器及版本、上下文的失败记录
+识别重试。旧失败重试仍失败照常留在结果里并继续沿用既有重试频率；嵌入到第三次才上报的失败
+已经是重试，不算首次失败。没有成功的来源仍然判 failed，不会因旧失败被排除分子而漏报。
+
+`budget_exceeded:duration_seconds` 后续轮次可重试；同内容同上下文一轮最多尝试一次，
+在快照之间沿用 deadline 检查，单篇仍受原有解析预算约束。其他 `budget_exceeded:*`
+继续缓存，但后续轮次不再重复计入来源失败。为兼容现有解析调用方和 scope 外的预算测试，
+`ParseSummary.failed` 保留这类缓存诊断，`cached_failures` 明确列出未重试的项，云端汇总时排除；
+不改解析 CLI 的原有诊断接口或范围外测试。`ParseError: empty_content:` 表示正文不足，
+首次和后续轮次均不计失败；流水线单列 `empty_content`，保留原解析记录以免反复解析。
+
+scope 边界的最小兼容：状态发布器不在本任务允许修改的范围，它仅接受账本中
+`completed`、退出码 0、`failures={}` 的最终行作为成功运行。因此云端将 degraded 的
+账本行映射为该格式，用同一行的 `source_status=degraded`、`item_failures` 保存真实状态和
+完整单项计数；结果 JSON 的 `status`、`failures` 不变。连续失败读取这份映射时明确停止计数。
+带失败的 deadline 仍记 incomplete，不进入成功运行。没有改契约、发布器、调度频率或工作流。
+
+旧断言兼容调整：cloud run 中“任一抓取报告/单篇解析/索引/嵌入失败就判来源 failed”的断言
+改查 degraded 与保留计数；聚合类别测试剔除 empty_content；gov-web 集成测试中短正文的
+parse/index 退出码改为 0，其余抓取边界、解析记录和索引内容断言保留。
 
 Actions 将 stdout 结果同时写入日志和 `$RUNNER_TEMP/cloud-result.json`，运行及发布
 步骤结束后，即使本轮返回失败，只要文件存在便调用 `scripts/source_issues.py`。
 脚本通过工作流的 `GH_REPO`、`GH_TOKEN` 使用 `gh`，默认阈值为连续失败 2 轮，
-可用 `--threshold N` 调整。达到阈值或 `status == "missing"` 时，查找标签
+可用 `--threshold N` 调整。`status == "failed"` 且达到阈值，或 `status == "missing"` 时，查找标签
 `source-broken` 且标题以 `[source-broken] <source_id>` 开头（来源 ID 后可接空格、冒号等描述分隔符）的未关闭 issue；
-已有则评论，没有则创建，标签缺失时先创建标签。本轮 `status == "ok"` 时，
+已有则评论，没有则创建，标签缺失时先创建标签。本轮 `status` 为 `ok` 或 `degraded` 时，
 给对应 issue 留言“已恢复（第 N 代）”并关闭。标题、正文和评论只使用上述健康字段
 与代次号，不包含 URL、查询参数、来源正文、异常原文或凭证。
 `gh` 输出全部捕获，失败只打印脱敏计数并返回非零；issue 步骤配置

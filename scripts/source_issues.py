@@ -3,6 +3,11 @@
 Usage: python scripts/source_issues.py RESULT.json [--threshold 2]
 GH_REPO and GH_TOKEN select/authenticate the repository. Requires Python 3.12+
 and gh; returns 1 on input/gh failure, leaving publication to the caller.
+Cloud supplies ok (no item failures), degraded (partial item failures), or failed
+(uncaught source exception, failures with zero crawl/parse successes, or first
+failures exceeding 50% of attempts). ok and degraded close issues; only failed
+opens after the threshold. The existing missing scheduling alert is retained;
+deadline alone does not open an issue.
 """
 
 from __future__ import annotations
@@ -23,7 +28,7 @@ def issue_text(health, generation):
     if not isinstance(source_id, str) or not re.fullmatch(r"[a-z]{2,4}(?:-[a-z0-9]+)+", source_id):
         raise ValueError("invalid_source")
     status, phase = health["status"], health["phase"]
-    if status not in {"ok", "failed", "deadline", "missing"} or phase not in {
+    if status not in {"ok", "degraded", "failed", "deadline", "missing"} or phase not in {
         None, "crawl", "parse_index", "embedding", "schedule",
     }:
         raise ValueError("invalid_state")
@@ -45,7 +50,7 @@ def issue_text(health, generation):
     body = (f"source_id: {source_id}\nstatus: {status}\nphase: {phase}\n"
             f"categories: {json.dumps(categories, sort_keys=True)}\n"
             f"consecutive_failures: {count}\nfirst_failure_at: {first}\n第 {generation} 代")
-    comment = f"已恢复（第 {generation} 代）" if status == "ok" else body
+    comment = f"已恢复（第 {generation} 代）" if status in {"ok", "degraded"} else body
     return title, body, comment
 
 
@@ -72,7 +77,8 @@ def sync_issues(result, threshold=2):
     # other result keys, including sources, exception details and storage data.
     entries = [(row, issue_text(row, result["generation"])) for row in result["source_health"]]
     active = [(row, text) for row, text in entries
-              if row["status"] in {"ok", "missing"} or row["consecutive_failures"] >= threshold]
+              if row["status"] in {"ok", "degraded", "missing"}
+              or row["status"] == "failed" and row["consecutive_failures"] >= threshold]
     if not active:
         return 0
     gh = GitHub()
@@ -88,7 +94,7 @@ def sync_issues(result, threshold=2):
     label_ready = False
     for row, (title, body, comment) in active:
         matching = [issue for issue in issues if re.match(re.escape(title) + r"(?:$|[^a-z0-9-])", issue["title"])]
-        if row["status"] == "ok":
+        if row["status"] in {"ok", "degraded"}:
             for issue in matching:
                 number = str(issue["number"])
                 if gh.call("issue", "comment", number, "--body", comment):
