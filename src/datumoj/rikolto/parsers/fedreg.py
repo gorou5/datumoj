@@ -126,7 +126,7 @@ class FedregParser(Parser):
             raise ParseError("Excluded or unrecognized Federal Register XML root")
         info = dict(meta or {})
         number = info.get("document_number")
-        if not isinstance(number, str) or not re.fullmatch(r"\d{4}-\d+", number):
+        if not isinstance(number, str) or not re.fullmatch(r"(?:C[1-9][0-9]*-)?[0-9]{4}-[0-9]+", number):
             raise ParseError("Federal Register document_number is required")
         title = info.get("title")
         if not isinstance(title, str) or not title.strip() or snapshot.sha256 is None:
@@ -137,7 +137,7 @@ class FedregParser(Parser):
         except (TypeError, ValueError) as exc:
             raise ParseError("Invalid Federal Register publication_date") from exc
         embedded = next((_text(node) for node in root if _tag(node) == "FRDOC"), "")
-        match = re.search(r"FR Doc\.\s*(\d{4}-\d+)", embedded)
+        match = re.search(r"FR Doc\.\s*((?:C[1-9][0-9]*-)?[0-9]{4}-[0-9]+)", embedded)
         if match and match[1] != number:
             raise ParseError("Federal Register XML document number mismatch")
         metadata = {

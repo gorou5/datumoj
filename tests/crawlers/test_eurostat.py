@@ -22,7 +22,7 @@ def routes():
     result = {}
     for entry in SPEC.scope["datasets"]:
         code = entry["id"]
-        result[f"{BASE}datastructure/ESTAT/{code.upper()}?references=all"] = FakeResponse(
+        result[f"{BASE}datastructure/ESTAT/{code.upper()}?references=children"] = FakeResponse(
             200, dsd_bytes(code), {"content-type": "application/xml", "etag": code})
         result[f"{BASE}data/{code}/{entry['query']}?startPeriod={entry['startPeriod']}&endPeriod={entry['endPeriod']}"] = FakeResponse(
             200, data_bytes(code), {"content-type": "application/vnd.sdmx.genericdata+xml;version=2.1"})
@@ -57,7 +57,7 @@ def test_requests_use_each_datasets_filters_and_official_host():
         assert "format=JSON" not in step.task.url
         if step.task.meta["request_type"] == "dsd":
             assert parts.path.endswith(f"/datastructure/ESTAT/{step.task.meta['id'].upper()}")
-            assert parse_qs(parts.query) == {"references": ["all"]}
+            assert parse_qs(parts.query) == {"references": ["children"]}
         else:
             entry = next(entry for entry in SPEC.scope["datasets"] if entry["id"] == step.task.meta["id"])
             assert parts.path.endswith(f"/data/{entry['id']}/{entry['query']}")
@@ -89,7 +89,7 @@ def test_limit_and_304_dsd_still_fetch_data():
 
 def test_failed_dsd_does_not_schedule_its_data():
     responses = routes()
-    responses[f"{BASE}datastructure/ESTAT/{GDP.upper()}?references=all"] = FakeResponse(503)
+    responses[f"{BASE}datastructure/ESTAT/{GDP.upper()}?references=children"] = FakeResponse(503)
     steps = drive_crawler(EurostatCrawler(), SPEC, FakeHttpFetcher(responses), now=T0)
     assert len(steps) == 5
     assert not any(s.task.meta["id"] == GDP and s.task.meta["request_type"] == "data" for s in steps)

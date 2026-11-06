@@ -136,7 +136,9 @@ def test_incremental_uses_complete_run_coverage_and_ignores_partial_later_run():
     drive_crawler(FedregCrawler(), limited, FakeHttpFetcher(_routes(_ctx(manifest, raw, tomorrow), _one())),
                   manifest=manifest, raw=raw, now=tomorrow)
     later = next(iter(FedregCrawler().plan(_ctx(manifest, raw, T0 + timedelta(days=4)))))
-    assert _query(later)["conditions[publication_date][gte]"] == ["2026-10-13"]
+    # Resume the unfinished detail in the same logical window, without a new search.
+    assert later.meta["role"] == "detail"
+    assert later.meta["run"] == tomorrow.isoformat()
 
 
 def test_first_run_and_lookback_never_cross_start_date():
@@ -189,7 +191,8 @@ def test_failed_document_fetch_does_not_advance_coverage(failed_role):
     steps = drive_crawler(FedregCrawler(), SPEC, FakeHttpFetcher(routes), manifest=manifest, raw=raw, now=T0)
     assert steps[-1].result.outcome is FetchOutcome.http_error
     task = next(iter(FedregCrawler().plan(_ctx(manifest, raw, T0 + timedelta(days=3)))))
-    assert _query(task)["conditions[publication_date][gte]"] == ["2026-10-01"]
+    assert task.url == failed_url
+    assert task.meta["run"] == T0.isoformat()
 
 
 def test_304_discovery_still_schedules_details_and_full_text():
