@@ -1,6 +1,6 @@
 {
   "_说明": "plan/index.html 的“版本路线图”和“里程碑”两节由本文件渲染。由主对话在节点上更新，调度器派出的任务 agent 不改本文件。status 只有对应的 PR 已合并进 main 才能写 done（IVY 期间直接推送 main，pr 为 null）。规则见 CLAUDE.md 与 docs/PLAN.md 第 8.1 节。",
-  "updated": "2026-10-30",
+  "updated": "2026-11-06",
   "versions": [
     {
       "version": "0.1",
@@ -23,8 +23,8 @@
     {
       "version": "0.3",
       "codename": "MAPLE（楓）",
-      "status": "planned",
-      "label": "计划 PR 审核中",
+      "status": "doing",
+      "label": "代码已进 main（PR #88、#110），一周试运行中（2026-11-06 起）",
       "summary": "云端运行（GitHub Actions 定时抓取，raw 和索引上 R2、可重建、按来源设频率；一周试运行）、欧美来源、日本新来源（e-Stat API、命名文件）。",
       "tag": null,
       "plan": "docs/plans/0.3-maple.md"
@@ -187,11 +187,22 @@
       "version": "0.3",
       "id": "P1",
       "title": "计划合并",
-      "status": "doing",
-      "date": null,
+      "status": "done",
+      "date": "2026-10-22",
       "tag": null,
       "pr": 16,
       "summary": "MAPLE 计划（云端运行、欧美来源、日本新来源）。",
+      "acceptance": null
+    },
+    {
+      "version": "0.3",
+      "id": "H4",
+      "title": "一周试运行",
+      "status": "doing",
+      "date": "2026-11-06",
+      "tag": null,
+      "pr": 110,
+      "summary": "cloud-run 从 main 每 3 小时定时运行；来源修好一个算一个，看提醒、周报和 JMA 有没有缺口。",
       "acceptance": null
     },
     {
