@@ -5,7 +5,8 @@ from tests.crawlers.test_wdi import SPEC
 from tests.parsers.test_wdi import sample, single_page
 
 
-def test_wdi_sql_citations(tmp_path):
+def test_wdi_sql_citations(tmp_path, monkeypatch):
+    monkeypatch.setenv('DATUMOJ_RAW_BACKEND', 'local')
     deps = wiring.build(tmp_path, {'registry': FakeRegistry([SPEC]), 'vectors': None})
     try:
         data = single_page()

@@ -99,7 +99,7 @@ def test_workflows_share_concurrency_and_identical_setup():
     run = load(WORKFLOWS / "cloud-run.yml")
     embed = load(WORKFLOWS / "cloud-embed.yml")
     assert run["concurrency"] == embed["concurrency"]
-    assert run["jobs"]["run"]["steps"][:-3] == embed["jobs"]["run"]["steps"][:-2]
+    assert run["jobs"]["run"]["steps"][:-2] == embed["jobs"]["run"]["steps"][:-1]
 
 
 def test_source_issues_follow_publication_are_nonblocking_and_use_temporary_result():
@@ -122,20 +122,13 @@ def test_only_retention_switches_are_repository_variables(workflow_path):
     assert command["env"]["R2_RAW_CLEANUP"] == "${{ vars['R2_RAW_CLEANUP'] }}"
 
 
-def test_state_cache_is_saved_even_when_a_source_fails_and_holds_only_blocks(workflow_path):
-    job = load(workflow_path)['jobs']['run']
-    steps = job['steps']
-    restore = next(s for s in steps if s.get('name') == 'Restore state blocks')
-    save = next(s for s in steps if s.get('name') == 'Save state blocks')
-    writer = next(s for s in steps if 'rikolto cloud ' in s.get('run', ''))
-    assert steps.index(restore) < steps.index(writer) < steps.index(save)
-    assert restore['uses'].startswith('actions/cache/restore@') and save['uses'].startswith('actions/cache/save@')
-    assert save['if'] == 'always()' and save['continue-on-error'] is True
-    assert restore['with']['path'] == save['with']['path'] == '${{ runner.temp }}/rikolto-blocks'
-    assert restore['with']['key'] == save['with']['key']
-    assert '${{ github.run_id }}' in save['with']['key']
-    assert restore['with']['restore-keys'].strip() == 'rikolto-state-${{ runner.os }}-'
-    assert save['with']['key'].startswith(restore['with']['restore-keys'].strip())
+def test_state_blocks_are_never_stored_in_actions_cache(workflow_path):
+    steps = load(workflow_path)['jobs']['run']['steps']
+    assert not any(s.get('name') in {'Restore state blocks', 'Save state blocks'} for s in steps)
+    for step in steps:
+        if step.get('uses', '').startswith('actions/cache'):
+            assert 'rikolto-blocks' not in str(step)
+            assert 'rikolto-state-' not in str(step)
 
 
 def test_secrets_stay_on_the_writer_step(workflow_path):

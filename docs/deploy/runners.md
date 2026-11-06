@@ -272,18 +272,17 @@ Lance 提交，避免每篇都写一份列出全部碎片的版本清单。嵌�
 parse_writers 使用局部更新。`parsed` 的 REPLACE 保留：parse_stats 依靠 rowid
 表达跨解析器的最后写入顺序，直接换成 UPSERT 会改变查询结果。
 
-两个 Actions 作业使用相同的、固定提交哈希的 `actions/cache/restore` 和 `actions/cache/save` 步骤。
-缓存键是 `rikolto-state-<OS>-<run_id>-<attempt>`，恢复时回退到同 OS 最新的键；块按 SHA256 校验，
-所以不需要按代次号定键，也不需要在作业开始前读 R2，R2 密钥只给写入步骤。
-保存步骤 `if: always()`：来源失败时本轮仍会发布但退出码非零，合一的 `actions/cache` 这时不会保存。
-缓存只是可验证的内容来源，不决定代次选择。缓存步骤位于依赖安装和服务准备之后、云端命令之前；fork 的整个
-作业仍被仓库身份条件禁止。云端使用标准 `RUNNER_TEMP` 下的
-`rikolto-blocks`（无需新增项目环境变量），只存以 SHA256 命名的不可变副本字节，不缓存工作目录、环境、
-连接配置、凭证或 raw。新上传的副本也进入缓存。缓存跨多代保留；Actions 的容量
-淘汰会降低命中率，不影响正确性。
+两个 Actions 作业不再使用 Actions 缓存保存或恢复状态块。状态块可能包含
+`no_outflow` 来源的正文（包括 chunks 和关键词索引中的文本），而公开仓库的
+fork PR 可以恢复目标分支缓存，因此状态块不能进入 Actions 缓存。
+嵌入模型的 `~/.ollama/models` 缓存继续保留。
 
-恢复时对本地块逐个核对大小与 SHA256，只 GET 缺少的块；部分缓存可以继续复用。
-完全没有缓存时全量恢复；发现损坏时整轮副本下载回退远端，并重新校验、覆盖坏块。
+每轮在新 runner 上从 R2 下载所选代次的状态副本，逐块核对大小与 SHA256，
+再重建关键词索引。恢复耗时由约 180 秒增至约 310 秒，可接受。
+核心恢复逻辑仍支持标准 `RUNNER_TEMP` 下的 `rikolto-blocks` 临时目录，
+目录不存在时自动下载全部所需块，并在本轮内写入可验证副本。该目录只用于
+本轮临时复用，不通过 Actions 缓存跨轮保存。离线回归测试覆盖目录缺失时的
+远端下载及校验。已有目录中的损坏块仍回退远端下载并重新校验。
 整库 SHA256、schema、向量覆盖和出处校验继续执行。`restore_timings` 增加
 `downloaded_bytes` / `reused_bytes`（副本正文的字节计数，不含清单和列表响应），
 云端输出仅允许固定阶段名及有限非负数字。旧的计时值类型保持为浮点数。
@@ -331,6 +330,7 @@ snapshot_id 唯一索引；文本块改动分布在 chunks_chunk_id 与各主键
 manifest 的 schema 初始化迁移、parsed 最后写入顺序也是检查过且需保留的写入；
 范围外的 keyword FTS 在恢复时重建，不上传；未发现必须越界修复的其他写入。
 
+以下为历史缓存复用方案的离线对照，当前 Actions 每轮恢复按全量下载计算。
 实际 StateManager + 假存储的两代传输测量（只保留上一代块缓存；关键词、raw 和观测接口用契约假实现，发布 raw 字节写入合成目录）：
 
 | 已有 / 新增篇数 | 新上传 B（含代次清单和 raw） | 下载副本 B | 复用副本 B |
@@ -351,3 +351,22 @@ manifest 的 schema 初始化迁移、parsed 最后写入顺序也是检查过�
 132 最终离线验收：state 45、cloud run 78、workflow 14、regressions 1,221 条通过；
 `make lint` 0 条；`make check T=tests` 完整运行 401.06 秒，5,235 条通过。
 全量保留现有 fork 测试的 1 条 DeprecationWarning，无失败或跳过。
+
+### DATUMOJ-MAPLE-140 离线验收
+
+状态块缓存撤除后的四条验收命令均正常结束。
+
+| 命令 | 结果 |
+| --- | --- |
+| `make check T=tests/test_cloud_workflow.py` | 16 passed |
+| `make check T=tests/regressions/test_audit_140.py` | 25 passed |
+| `make lint` | All checks passed，0 条问题 |
+| `make check T="tests --deselect=tests/integration/test_wisteria_m1.py::test_us_dollar_series_ranks_first_for_gdp_usd"` | 5481 passed，1 deselected，1 warning，417.64 秒 |
+
+额外在外层设置 `DATUMOJ_RAW_BACKEND=s3` 运行两个 e2e 用例，2 项通过。
+全量的唯一警告来自既有 schedule 锁测试的 multiprocessing fork 弃用提示。
+完整日志和变更清单位于 `results/DATUMOJ-MAPLE-140/`，本机路径已脱敏。
+该目录受仓库忽略规则影响，执行沙箱也禁止写入 worktree 的 Git 索引，
+因此证据文件目前仅保存在工作目录中，需调度器显式收集或纳入提交。
+本节同步保留验收摘要，避免证据目录被默认忽略时丢失关键结果。
+真实 R2、Actions 和 NAS 部署留待部署验收，异模型审查与人工抽验由调度器安排。

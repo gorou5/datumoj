@@ -14,6 +14,7 @@ from tests.parsers.test_estat_api import single
 
 
 def test_offline_pipeline_does_not_leak_key(tmp_path, monkeypatch, caplog):
+    monkeypatch.setenv('DATUMOJ_RAW_BACKEND', 'local')
     key = 'secret-example-e2e-key'
     monkeypatch.setenv('ESTAT_APP_ID', key)
     monkeypatch.setattr(httpx.HTTPTransport, 'handle_request', lambda *a, **k: pytest.fail('network'))

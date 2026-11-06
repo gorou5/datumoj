@@ -52,13 +52,6 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:11434/api/tags > /dev/null
           ollama pull bge-m3 > /dev/null 2>&1
-      - name: Restore state blocks
-        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          path: ${{ runner.temp }}/rikolto-blocks
-          key: rikolto-state-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            rikolto-state-${{ runner.os }}-
       - name: Embed backlog and publish
         env:
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -70,11 +63,3 @@ jobs:
           R2_CLEANUP: ${{ vars['R2_CLEANUP'] }}
           R2_RAW_CLEANUP: ${{ vars['R2_RAW_CLEANUP'] }}
         run: uv run --frozen rikolto cloud embed --max-minutes 100 --reserve-minutes 15
-      # A failed source exits non-zero after publishing, so saving must not depend on job success.
-      - name: Save state blocks
-        if: always()
-        continue-on-error: true
-        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          path: ${{ runner.temp }}/rikolto-blocks
-          key: rikolto-state-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}

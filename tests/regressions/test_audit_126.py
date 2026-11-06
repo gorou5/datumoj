@@ -70,4 +70,5 @@ def test_embedding_failure_messages_do_not_include_input(failure, n):
     else:
         assert batches == [texts]
     if failure == "4xx":
-        assert "synthetic denied" in message
+        assert "400" in message
+        assert "synthetic denied" not in message
