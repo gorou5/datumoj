@@ -2,6 +2,7 @@
 import calendar
 import json
 import re
+import unicodedata
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from hashlib import sha256
@@ -18,12 +19,20 @@ def _list(value):
     return value if isinstance(value, list) else [value] if value is not None else []
 
 
+def _description(value):
+    if isinstance(value, str):
+        return value or None
+    if isinstance(value, dict):
+        return "\n".join(text for item in value.values() if (text := _description(item))) or None
+    return None
+
+
 def _dataset(snapshot, table, index):
     sid = str(table["@id"])
     stat = table["STAT_NAME"]
     return Dataset(dataset_key=f"{snapshot.source_id}:{sid}", source_id=snapshot.source_id,
                    title=table["TITLE"]["$"], kind="estat_table", publisher=table["GOV_ORG"]["$"],
-                   description=table.get("DESCRIPTION") or None, url=f"https://www.e-stat.go.jp/dbview?sid={sid}",
+                   description=_description(table.get("DESCRIPTION")), url=f"https://www.e-stat.go.jp/dbview?sid={sid}",
                    license=_LICENSE, published_at=date.fromisoformat(table["OPEN_DATE"]),
                    extras={"stat_name": stat["$"], "stats_code": str(stat["@code"]),
                            "open_date": table["OPEN_DATE"], "updated_date": table.get("UPDATED_DATE"),
@@ -49,7 +58,15 @@ class EstatAPIParser(Parser):
                 raise ParseError(f"STATUS {status}: {result.get('ERROR_MSG', '')}")
             if "DATALIST_INF" in root:
                 tables = _list(root["DATALIST_INF"].get("TABLE_INF"))
-                return ParseResult(datasets=[_dataset(snapshot, t, i + 1) for i, t in enumerate(tables)])
+                datasets, warnings, seen = [], [], set()
+                for i, table in enumerate(tables, 1):
+                    sid = str(table["@id"])
+                    if sid in seen:
+                        warnings.append(f"TABLE_INF[{i}] duplicate @id {sid}, skipped (kept first)")
+                        continue
+                    seen.add(sid)
+                    datasets.append(_dataset(snapshot, table, i))
+                return ParseResult(datasets=datasets, warnings=warnings)
             body = root["STATISTICAL_DATA"]
             pagination = body["RESULT_INF"]
             if pagination.get("NEXT_KEY") is not None or int(pagination["TO_NUMBER"]) < int(pagination["TOTAL_NUMBER"]):
@@ -84,7 +101,7 @@ class EstatAPIParser(Parser):
                         value = str(row["@" + dimension])
                         dims[dimension] = value
                         dims[dimension + "_name"] = choices[value]
-                if "@unit" in row and row["@unit"] != meta["unit"]:
+                if "@unit" in row and unicodedata.normalize("NFKC", row["@unit"]) != unicodedata.normalize("NFKC", meta["unit"]):
                     raise ValueError("unit mismatch")
                 raw = str(row["$"])
                 note = None

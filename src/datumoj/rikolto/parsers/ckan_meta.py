@@ -6,7 +6,7 @@ import json
 from collections.abc import Mapping
 from datetime import UTC, datetime
 
-from pydantic import JsonValue
+from pydantic import AnyHttpUrl, JsonValue
 
 from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult
 from datumoj.rikolto.core.models import Dataset, Resource, Snapshot, redact_url
@@ -84,11 +84,21 @@ class CkanMetaParser(Parser):
         publisher = _text(organization.get("title")) or _text(package.get("publisher"))
         modified_at = _timestamp(package.get("metadata_modified"))
 
-        dataset_url = _text(package.get("url")) or _text(package.get("landingPage"))
-        if dataset_url and dataset_url.strip():
-            dataset_url = redact_url(dataset_url)
-        else:
-            dataset_url = None
+        warnings: list[str] = []
+        dataset_url = None
+        for key in ("url", "landingPage"):
+            value = package.get(key)
+            if value is None or value == "":
+                continue
+            try:
+                if not isinstance(value, str) or not value.lower().startswith(("http://", "https://")):
+                    raise ValueError("not an HTTP(S) URL")
+                AnyHttpUrl(value)
+            except ValueError:
+                warnings.append(f"CKAN package {package_id} {key} 无效，按没有 URL 处理")
+                continue
+            dataset_url = redact_url(value)
+            break
         extras: dict[str, JsonValue] = {
             "frequency_of_update": package.get("frequency_of_update"),
             "spatial": package.get("spatial"),
@@ -123,7 +133,6 @@ class CkanMetaParser(Parser):
         if not isinstance(raw_resources, list):
             raise ParseError("CKAN package resources 必须是数组")
         resources: list[Resource] = []
-        warnings: list[str] = []
         for index, item in enumerate(raw_resources):
             if not isinstance(item, dict):
                 warnings.append(f"resources[{index}] 不是对象，已跳过")

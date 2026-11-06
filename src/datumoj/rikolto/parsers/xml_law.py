@@ -17,7 +17,7 @@ from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult
 from datumoj.rikolto.core.models import Chunk, Document, Snapshot, format_locator
 from datumoj.rikolto.text import article_number
 
-MAX_XML_BYTES = 16 * 1024 * 1024
+MAX_XML_BYTES = 32 * 1024 * 1024
 MAX_CHUNK_CHARS = 2000
 _TITLE_CONTAINERS = {"Part", "Chapter", "Section", "Subsection", "Division"}
 

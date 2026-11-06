@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -35,3 +36,22 @@ class TestCkanPagesParser(ParserSuite):
         assert len(result.datasets) == 5
         assert [dataset.locator for dataset in result.datasets] == [f"entry={i}" for i in range(5)]
         assert all(dataset.snapshot_sha256 == sample.snapshot.sha256 for dataset in result.datasets)
+
+
+@pytest.mark.parametrize("landing_page", ["https://data.bodik.jp/dataset/dirty", 'file:///invalid'])
+def test_invalid_package_url_uses_landing_page_and_keeps_the_rest_of_the_page(landing_page):
+    bad = {"id": "dirty", "url": '=HYPERLINK("#", "https://example.org/a")',
+           "landingPage": landing_page,
+           "resources": [{"id": "dirty-resource", "url": "https://example.org/data.csv"}]}
+    good = {"id": "good", "url": "https://example.org/good"}
+    data = json.dumps({"success": True, "result": {"results": [bad, good]}}).encode()
+    snapshot = make_snapshot(SOURCE_ID, SEARCH_URL, data)
+    result = _CkanPages().parse(snapshot, data, {"role": "package_search"})
+
+    assert [d.dataset_key for d in result.datasets] == [f"{SOURCE_ID}:dirty", f"{SOURCE_ID}:good"]
+    assert [d.url for d in result.datasets] == [landing_page if landing_page.startswith("https://") else None,
+                                             "https://example.org/good"]
+    assert [d.locator for d in result.datasets] == ["entry=0", "entry=1"]
+    assert all(d.snapshot_sha256 == snapshot.sha256 for d in result.datasets)
+    assert [r.resource_id for r in result.resources] == ["dirty-resource"]
+    assert len(result.warnings) == (1 if landing_page.startswith("https://") else 2)
