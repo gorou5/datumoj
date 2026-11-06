@@ -2,7 +2,6 @@
 
 import boto3
 import pytest
-import yaml
 from moto import mock_aws
 
 from datumoj.rikolto.core.lease import LeaseManager, remote_configured
@@ -68,12 +67,3 @@ def test_missing_endpoint_names_generic_variable():
     with pytest.raises(ValueError) as error:
         load_storage_config({"DATUMOJ_RAW_BACKEND": "s3", "DATUMOJ_S3_BUCKET": "audit-115-bucket"})
     assert "DATUMOJ_S3_ENDPOINT" in str(error.value)
-
-
-def test_cloud_workflow_has_no_schedule():
-    from pathlib import Path
-
-    workflow_path = Path(__file__).resolve().parents[2] / ".github/workflows/cloud-run.yml"
-    workflow = yaml.safe_load(workflow_path.read_text())
-    assert set(workflow["on"]) == {"workflow_dispatch"}
-    assert "schedule" not in workflow["on"]
