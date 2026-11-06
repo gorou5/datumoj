@@ -172,7 +172,7 @@ launchd 配置与定时频率保持原有设置。
 
 `cloud-run.yml` 负责抓取到期来源、解析、有限额嵌入及发布；`cloud-embed.yml` 专门
 补嵌所有来源的已有文本块，不抓取、不解析。建议抓取作业结束后手动触发嵌入作业，
-观察稳定后再另加定时；目前两个工作流都只有 `workflow_dispatch`。
+观察稳定后再另加定时；`cloud-embed` 目前只有 `workflow_dispatch`。`cloud-run` 从 `main` 每 3 小时定时运行（GitHub 只认默认分支上的定时）。
 两者共用 `rikolto-cloud-run` concurrency group（不取消正在运行的作业），也使用同一
 状态存储的写入租约，包括续期、过期接管与释放，避免跨作业或本机写入方同时发布。
 
