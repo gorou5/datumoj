@@ -8,18 +8,28 @@ Cloud supplies ok (no item failures), degraded (partial item failures), or faile
 failures exceeding 50% of attempts). ok and degraded close issues; only failed
 opens after the threshold. The existing missing scheduling alert is retained;
 deadline alone does not open an issue.
+Only published generations may change source issues. An unpublished result
+returns 1 with a fixed warning and Actions summary, without invoking gh. The
+explicit skipped/exit-0 result with no health rows is a successful no-op.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
 
 LABEL = "source-broken"
+UNPUBLISHED_MESSAGE = ("source_issues reason=unpublished_result; no published generation; "
+                       "source issues unchanged; recovery not confirmed.")
+
+
+class UnpublishedResultError(ValueError):
+    """Source health cannot drive issue changes before publication."""
 
 
 def issue_text(health, generation):
@@ -73,9 +83,20 @@ class GitHub:
 def sync_issues(result, threshold=2):
     if type(threshold) is not int or threshold < 1:
         raise ValueError("invalid_threshold")
+    if not isinstance(result, dict) or not isinstance(result.get("source_health"), list):
+        raise ValueError("invalid_result")
+    generation = result["generation"]
+    if generation is None:
+        # Lease contention has no source observations to publish or reconcile.
+        if (result.get("status") == "skipped" and type(result.get("exit_status")) is int
+                and result["exit_status"] == 0 and not result["source_health"]):
+            return 0
+        raise UnpublishedResultError
+    if type(generation) is not int or generation < 1:
+        raise ValueError("invalid_generation")
     # Validate every rendered field before any network operation. Ignore all
     # other result keys, including sources, exception details and storage data.
-    entries = [(row, issue_text(row, result["generation"])) for row in result["source_health"]]
+    entries = [(row, issue_text(row, generation)) for row in result["source_health"]]
     active = [(row, text) for row, text in entries
               if row["status"] in {"ok", "degraded", "missing"}
               or row["status"] == "failed" and row["consecutive_failures"] >= threshold]
@@ -126,6 +147,15 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         failures = sync_issues(json.loads(args.result.read_text(encoding="utf-8")), args.threshold)
+    except UnpublishedResultError:
+        failures = 1
+        print(f"::warning::{UNPUBLISHED_MESSAGE}")
+        if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
+            try:
+                with Path(summary).open("a", encoding="utf-8") as stream:
+                    stream.write(f"\n### Source health issue sync\n\n{UNPUBLISHED_MESSAGE}\n")
+            except (OSError, ValueError):
+                print("::warning::source_issues reason=summary_write_failed")
     except Exception:  # noqa: BLE001 -- Public job boundary must never expose input or exception text.
         failures = 1
     if failures:

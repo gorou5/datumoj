@@ -1,6 +1,10 @@
 """Static checks on the public writer workflow; no Actions execution or network."""
 
+import json
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -141,3 +145,34 @@ def test_secrets_stay_on_the_writer_step(workflow_path):
     writer = next(s for s in job['steps'] if 'rikolto cloud ' in s.get('run', ''))
     assert 'R2_SECRET_ACCESS_KEY' in writer['env']
     assert not any('secrets.' in str(s) for s in job['steps'] if s is not writer)
+
+
+def test_source_issue_step_preserves_unpublished_failure_and_writes_safe_summary(tmp_path):
+    steps = load(WORKFLOWS / "cloud-run.yml")["jobs"]["run"]["steps"]
+    step = next(step for step in steps if step.get("name") == "Sync source health issues")
+    (tmp_path / "cloud-result.json").write_text(json.dumps({
+        "status": "failed", "exit_status": 1, "generation": None, "reason": "maintenance_failed",
+        "source_health": [{"source_id": "jp-synthetic", "status": "ok", "phase": None,
+                           "categories": {}, "consecutive_failures": 0, "first_failure_at": None}],
+        "sources": [{"error": "synthetic-secret"}],
+    }))
+    uv = tmp_path / "uv"
+    uv.write_text(f"#!{sys.executable}\nimport os, sys\n"
+                  'assert sys.argv[1:4] == ["run", "--frozen", "python"]\n'
+                  'os.execv(sys.executable, [sys.executable, *sys.argv[4:]])\n')
+    uv.chmod(0o755)
+    gh = tmp_path / "gh"
+    gh.write_text(f"#!{sys.executable}\nfrom pathlib import Path\n"
+                  f"Path({str(tmp_path / 'gh-called')!r}).touch()\nraise SystemExit(97)\n")
+    gh.chmod(0o755)
+    summary = tmp_path / "summary.md"
+    env = {**os.environ, "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
+           "RUNNER_TEMP": str(tmp_path), "GITHUB_STEP_SUMMARY": str(summary),
+           "GH_REPO": "synthetic/repository", "GH_TOKEN": "synthetic-secret"}
+    response = subprocess.run(["bash", "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", step["run"]],
+                              cwd=WORKFLOWS.parent.parent, env=env, capture_output=True, text=True, check=False)
+    assert response.returncode == 1 and response.stderr == ""
+    assert "::warning::" in response.stdout and "reason=unpublished_result" in response.stdout
+    assert "reason=unpublished_result" in summary.read_text()
+    assert "synthetic-secret" not in response.stdout + summary.read_text()
+    assert not (tmp_path / "gh-called").exists()
