@@ -18,7 +18,7 @@ hotline 188, contact desks — are not the actor's number).
 
 Fetches are polite (1.1 s interval, official site only) and cached under
 raw/kokusen/, so the script is resumable. Records are emitted for every
-matched release (has_phone as found); a third_party_flag (source_id=5,
+matched release (has_phone as found); a third_party_flag (source_id=7,
 tier C) is emitted per published phone number, linked to its record via a
 subquery on (source_id, source_file_name, phone_digits).
 """
@@ -38,7 +38,10 @@ from common import (collapse, norm_digits, phone_digits, record_insert,
 BASE = "https://www.kokusen.go.jp"
 RAW = Path.home() / "workspace/tel-datumoj/thirdparty/raw/kokusen"
 CAPTURED_AT = "2026-10-27"
-SOURCE_ID = 5
+# Registry id of the 国民生活センター「事業者の名称等を公表」 source row.
+# It was 5 while the row was combined with 消費者庁; migration
+# 0010_source_cleanup.sql split it out as id=7.
+SOURCE_ID = 7
 UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) tel-datumoj-etl/1.0"}
 LIST_PAGES = ["news.html"] + [f"news{y}.html" for y in range(25, 15, -1)]
 LABELS = {"名称", "サービスの名称", "サービス名", "所在地", "本店所在地",
@@ -161,10 +164,10 @@ def main():
             }
     print(f"kokusen: {len(items)} releases listed")
     rec_stmts = [
-        "DELETE FROM third_party_record WHERE source_id=5 "
+        f"DELETE FROM third_party_record WHERE source_id={SOURCE_ID} "
         "AND source_file_name LIKE 'n-%';"]
     flag_stmts = [
-        "DELETE FROM third_party_flag WHERE source_id=5 "
+        f"DELETE FROM third_party_flag WHERE source_id={SOURCE_ID} "
         "AND flag_type='名称等公表';"]
     stats = {"listed": len(items), "matched": 0, "records": 0,
              "with_phone": 0, "flags": 0, "multi_actor": 0}
@@ -239,7 +242,7 @@ def main():
             stats["records"] += 1
             stats["with_phone"] += has_phone
             if has_phone:
-                sub = (f"(SELECT id FROM third_party_record WHERE source_id=5 "
+                sub = (f"(SELECT id FROM third_party_record WHERE source_id={SOURCE_ID} "
                        f"AND source_file_name={sql_str(it['pdf_name'])} "
                        f"AND phone_digits={sql_str(a['phone_digits'])} LIMIT 1)")
                 flag_stmts.append(
@@ -249,7 +252,7 @@ def main():
                     "service_name, website_url, violation_summary, "
                     "announcing_agency, source_document_url, source_record_id, "
                     "method_summary) VALUES ("
-                    f"{sql_str(a['phone_digits'])}, 5, '名称等公表', "
+                    f"{sql_str(a['phone_digits'])}, {SOURCE_ID}, '名称等公表', "
                     f"{sql_str('国民生活センターが事業者の名称等を公表した際に併せて公表された電話番号')}, "
                     f"{sql_str(it['detail_url'])}, "
                     f"{sql_str(it['published_on'])}, '{CAPTURED_AT}', "
