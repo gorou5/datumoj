@@ -64,6 +64,8 @@ th{width:11rem;color:#555;font-weight:600}
 .seg-explain p{margin:0}
 .hero-note{color:#8a94a0;font-size:.88rem;margin-top:.9rem}
 .shuffle{margin-left:.6rem;font:inherit;font-size:.85rem;padding:.25rem .8rem;border-radius:999px;border:1px solid #cfc9ba;background:#fff;cursor:pointer;color:#33424f}
+.dialrow{text-align:center;margin:.9rem 0 0}
+.dialbtn{display:inline-block;padding:.55rem 1.5rem;border-radius:999px;border:1px solid #5b84a6;background:#5b84a6;color:#fff;font-weight:600;text-decoration:none}
 .home{max-width:940px;margin:5vh auto 0;text-align:center}
 .home svg{width:100%;height:auto;display:block}
 .bigsearch{display:flex;gap:.5rem;max-width:620px;margin:26px auto 0}
@@ -113,6 +115,7 @@ th{color:#aaa}
 .hero-fact{color:#cfd8cf}.hero-fact b{color:#eef4f9}
 .hero-note,.home-links{color:#93a0ab}
 .shuffle{background:#1e2126;border-color:#4a5058;color:#e8e8e8}
+.dialbtn{background:#3d6a94;border-color:#3d6a94;color:#fff}
 .searchbox input,.bigsearch input{background:#1e2126;color:#e8e8e8;border-color:#4a5058;box-shadow:none}
 }
 `;
@@ -297,11 +300,30 @@ ${popular.map((p) => `<li><a href="/tel/${esc(p.digits)}">${esc(p.formatted)}</a
 </ul>
 <p class="meta">このサイトで実際に調べられた回数が多い番号です。</p>
 </section>` : ''}
-<section class="card" style="text-align:left" aria-label="特殊詐欺の情報提供窓口">
-<h2>特殊詐欺の情報提供は警察庁へ</h2>
-<p>特殊詐欺の被疑者や犯行拠点に関する情報をお持ちの方は、警察庁の「匿名通報ダイヤル」で情報提供できます。電話番号は <a href="/tel/0120924839"><b>0120-924-839</b></a>（通話料無料、匿名で通報できます）です。有力な情報には、警察庁の制度により最高で100万円の報奨金が支払われる場合があります。</p>
-<p class="meta">当サイトは警察庁とは関係のない民間の電話番号データベースです。この窓口は警察庁が運営しています。</p>
-<p class="meta"><a href="https://www.npa.go.jp/bureau/safetylife/sos47/apps/" rel="noopener">出典：警察庁 SOS47</a></p>
+<section class="card" style="text-align:left" aria-label="公的相談窓口">
+<h2>公的相談窓口</h2>
+<p>迷惑電話や特殊詐欺で困ったときの、公的機関・団体の相談・通報窓口です。番号を押すと、そのまま電話をかけられます。</p>
+<ul class="tight">
+<li><b>特殊詐欺の情報提供：警察庁「匿名通報ダイヤル」</b><br>
+<a href="tel:0120924839"><b>0120-924-839</b></a>（通話料無料） <a href="/tel/0120924839">番号の詳細</a><br>
+特殊詐欺の被疑者や犯行拠点に関する情報をお持ちの方は、この窓口で情報提供できます（匿名で通報できます）。有力な情報には、警察庁の制度により最高で100万円の報奨金が支払われる場合があります。<br>
+<span class="meta">出典：<a href="https://www.npa.go.jp/bureau/safetylife/sos47/apps/" rel="noopener">警察庁 SOS47</a></span></li>
+<li><b>迷惑電話の相談：でんわんセンター（迷惑電話対策相談センター）</b><br>
+<a href="tel:0361621111"><b>03-6162-1111</b></a> <a href="/tel/0361621111">番号の詳細</a><br>
+総務省の無料相談窓口です。総務省の請負事業として、一般社団法人日本ユニファイド通信事業者協会（JUSA）が受託運営しています。受付時間は平日10時〜17時、相談は無料です（通話料は利用者負担）。<br>
+<span class="meta">出典：<a href="https://www.denwan.jp/" rel="noopener">でんわんセンター</a></span></li>
+<li><b>警察相談専用窓口：</b><a href="tel:%239110"><b>#9110</b></a><br>
+緊急の事件・事故（110番）ではない、警察への相談窓口です。<br>
+<span class="meta">出典：警察庁</span></li>
+<li><b>消費者ホットライン：</b><a href="tel:188"><b>188</b></a><br>
+消費生活に関する相談を、最寄りの消費生活センター等へつなぐ窓口です。<br>
+<span class="meta">出典：消費者庁</span></li>
+<li><b>未公開株通報専用窓口（日本証券業協会）</b><br>
+<a href="tel:0120344999"><b>0120-344-999</b></a> <a href="/tel/0120344999">番号の詳細</a><br>
+未公開株に関する通報を受け付ける、日本証券業協会の専用窓口です。<br>
+<span class="meta">出典：<a href="https://www.npa.go.jp/bureau/safetylife/sos47/apps/" rel="noopener">警察庁 SOS47</a>（日本証券業協会の窓口として掲載）</span></li>
+</ul>
+<p class="meta">当サイトは上記の機関・団体とは関係のない民間の電話番号データベースです。各窓口は、それぞれの運営主体が運営しています。</p>
 </section>
 <p class="home-links"><a href="/tel/popular">よく検索される電話番号</a> ・ <a href="/tel/gov">政府機関の番号</a> ・ <a href="/tel/history">日本の電話番号の歴史</a> ・ <a href="/tel/about">このサイトについて</a></p>
 </div>
@@ -360,6 +382,11 @@ ${popular.map((p) => `<li><a href="/tel/${esc(p.digits)}">${esc(p.formatted)}</a
     body,
   });
 }
+
+// tel: 直拨（「電話する」ボタン）は公的相談・通報窓口の3番号だけに出す
+// （ユーザー指示 2026-11-07）。通常の番号に出すと、不審な番号への誤発信を
+// 招くおそれがあるため、対象はこの集合に固定し、安易に広げないこと。
+const DIAL_NUMBERS = new Set(['0120924839', '0361621111', '0120344999']);
 
 export function numberPage(facts) {
   const f = facts;
@@ -499,10 +526,14 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
       },
     ],
   };
+  const dialHtml = DIAL_NUMBERS.has(f.digits)
+    ? `<p class="dialrow"><a class="dialbtn" href="tel:${f.digits}">電話する（${esc(formatted)}）</a></p>`
+    : '';
   const body = `
 <p class="crumbs">${crumbHtml}</p>
 <h1 class="sr-only">${esc(formatted)} の電話番号情報</h1>
 <div class="hero-num" role="group" aria-label="電話番号の各部分">${segHtml}</div>
+${dialHtml}
 ${f.tpFlags && f.tpFlags.length ? `<div class="flagbadges" role="group" aria-label="第三者機関による標識">${f.tpFlags.map((x) => `<span class="fbadge fb-${esc(x.source_tier || 'C')}">第三者標識 ${esc(x.source_tier || '')}級｜${esc(x.publisher)}（${esc(x.source_name)}）${x.label ? '：' + esc(x.label) : ''}</span>`).join('')}</div>` : ''}
 <div class="seg-explain" id="segExplain" data-seg="${hero.defaultSeg}" aria-live="polite"><h2 id="segTitle">${esc(hero.segments[hero.defaultSeg].title)}</h2><p id="segText">${esc(hero.segments[hero.defaultSeg].explain)}</p></div>
 <script>(function(){var SEGS=${heroJson};var btns=document.querySelectorAll('.segbtn');var t=document.getElementById('segTitle'),x=document.getElementById('segText'),c=document.getElementById('segExplain');function sel(i){for(var j=0;j<btns.length;j++){btns[j].classList.toggle('is-active',j===i);btns[j].setAttribute('aria-pressed',j===i?'true':'false');}t.textContent=SEGS[i].title;x.textContent=SEGS[i].explain;c.setAttribute('data-seg',String(i));}for(var k=0;k<btns.length;k++){(function(k){btns[k].addEventListener('click',function(){sel(k);});})(k);}})();</script>
