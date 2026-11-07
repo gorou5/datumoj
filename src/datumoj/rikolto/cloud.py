@@ -512,7 +512,6 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
         result = {"status": "failed", "exit_status": 1, "generation": None,
                   "embedded": 0, "vector_pending": 0, "embedding_deferred": 0, "embedding_failed": 0,
                   "budget_exhausted": False, "reason": None, "publish_timings": {}, "restore_timings": {}}
-    result.update(error_type=None, maintenance_error=None)
     cleanup_enabled = not no_cleanup and os.environ.get("R2_CLEANUP", "on").lower() != "off"
     raw_cleanup_enabled = os.environ.get("R2_RAW_CLEANUP", "off").lower() == "on"
     result["cleanup"] = {"enabled": cleanup_enabled, "raw_enabled": raw_cleanup_enabled,
@@ -650,13 +649,9 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         phase = "backfill"
                         remaining = _backfill(deps, remaining, started, max_minutes, check, result, before_round)
                     phase = "maintenance"
-                    try:
-                        with local_write(root):
-                            maintain_vectors(root / "vectors")
-                    except Exception as exc:  # noqa: BLE001 -- Vector maintenance cannot fail the round.
-                        result["maintenance_error"] = type(exc).__name__
+                    with local_write(root):
+                        maintain_vectors(root / "vectors")
                     marked = marking_failed = 0
-                    phase = "lease_check"
                     check()
                     try:
                         with local_write(root):
@@ -707,9 +702,8 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         )
                     result.update(status="failed" if failed else "completed", exit_status=int(failed),
                                   reason=("embedding_failed" if embed_only else "source_failed") if failed else None)
-        except Exception as exc:  # noqa: BLE001 -- 云端运行边界必须把任意 SDK 或插件失败记为本轮失败。
-            result.update(status="failed", exit_status=1, reason=f"{phase}_failed",
-                          error_type=type(exc).__name__)
+        except Exception:  # noqa: BLE001 -- 云端运行边界必须把任意 SDK 或插件失败记为本轮失败。
+            result.update(status="failed", exit_status=1, reason=f"{phase}_failed")
         finally:
             if deps is not None:
                 for name in ("manifest", "chunks", "keyword", "catalog", "change_log", "raw"):
