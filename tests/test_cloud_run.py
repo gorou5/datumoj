@@ -269,7 +269,7 @@ def test_one_failed_source_still_publishes_other_two_and_failed_ledger(world, mo
     assert_pulled(world, work, 1)
 
 
-@pytest.mark.parametrize("failure", ["renew", "publish", "restore", "initialization", "due", "maintenance"])
+@pytest.mark.parametrize("failure", ["renew", "publish", "restore", "initialization", "due"])
 def test_whole_round_failure_preserves_current_and_releases(world, monkeypatch, failure):
     first, _ = invoke(world, "initial")
     assert first["generation"] == 1
@@ -291,12 +291,33 @@ def test_whole_round_failure_preserves_current_and_releases(world, monkeypatch, 
         monkeypatch.setattr(wiring, "build", fail)
     elif failure == "due":
         monkeypatch.setattr(schedule.Scheduler, "due", fail)
-    else:
-        monkeypatch.setattr(cloud, "maintain_vectors", fail)
     result, _ = invoke(world)
     assert result["exit_status"] == 1 and result["generation"] is None
     assert remote(world).get("current.json") == before
     assert len(world.managers[-1].list()) == 1
+    released(world)
+
+
+def test_vector_maintenance_failure_still_publishes_and_cleans_up(world, monkeypatch):
+    cleanup_calls = []
+    original_cleanup = StateManager.cleanup
+
+    def fail(*args, **kwargs):
+        raise OSError("synthetic private maintenance details")
+
+    def cleanup(manager, *args, **kwargs):
+        assert manager.list()[0].generation == 1
+        cleanup_calls.append(True)
+        return original_cleanup(manager, *args, **kwargs)
+
+    monkeypatch.setattr(cloud, "maintain_vectors", fail)
+    monkeypatch.setattr(StateManager, "cleanup", cleanup)
+    result, _ = invoke(world)
+    assert result["status"] == "completed" and result["exit_status"] == 0
+    assert result["generation"] == 1 and result["maintenance_error"] == "OSError"
+    assert result["error_type"] is None and result["reason"] is None
+    assert cleanup_calls == [True]
+    assert "synthetic private maintenance details" not in json.dumps(result)
     released(world)
 
 

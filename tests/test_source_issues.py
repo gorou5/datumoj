@@ -106,6 +106,22 @@ def test_recovery_comments_and_closes_only_matching_source(fake_gh, tmp_path):
     assert not issues[1].get("closed") and not issues[1]["comments"]
 
 
+@pytest.mark.parametrize("row", [health(), health("ok", 0), health("missing", 0)])
+def test_unpublished_round_leaves_issues_untouched(fake_gh, tmp_path, row):
+    assert run_script(tmp_path, [health()]).returncode == 0
+    before = fake_gh.read_text()
+    response = run_script(tmp_path, [row], None)
+    assert response.returncode == 0 and response.stdout == response.stderr == ""
+    assert fake_gh.read_text() == before
+
+
+@pytest.mark.parametrize("generation", [0, -1, True, 2.0, "2"])
+def test_invalid_generation_still_fails_without_calling_gh(fake_gh, tmp_path, generation):
+    response = run_script(tmp_path, [health()], generation)
+    assert response.returncode == 1 and response.stdout == "source_issues failures=1\n"
+    assert response.stderr == "" and json.loads(fake_gh.read_text())["calls"] == []
+
+
 @pytest.mark.parametrize("row", [health(count=1), health("deadline", 0)])
 def test_below_threshold_does_not_call_gh(fake_gh, tmp_path, row):
     assert run_script(tmp_path, [row]).returncode == 0
