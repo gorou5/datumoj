@@ -56,7 +56,10 @@ th{width:11rem;color:#555;font-weight:600}
 .hero-fact b{color:#22303c}
 .segbtn.is-active{border-color:#5b84a6;box-shadow:0 3px 14px rgba(60,70,90,.18)}
 .hero-hyphen{align-self:center;font-size:clamp(1.4rem,6vw,2.6rem);color:#a3aeb8}
-.seg-explain{max-width:640px;margin:1.1rem auto 0;text-align:left;background:#fff;border:1px solid #e7e1d2;border-left:6px solid #7d9db5;border-radius:10px;padding:.9rem 1.1rem}
+/* min-height reserves room for the longest segment explanation (fixed-line
+   市内局番 with a long MA region, ~300 chars) so switching segments does not
+   push the buttons below up and down; smaller reserve on narrow screens. */
+.seg-explain{max-width:640px;margin:1.1rem auto 0;text-align:left;background:#fff;border:1px solid #e7e1d2;border-left:6px solid #7d9db5;border-radius:10px;padding:.9rem 1.1rem;min-height:20rem}
 .seg-explain[data-seg="1"]{border-left-color:#a3b899}
 .seg-explain[data-seg="2"]{border-left-color:#dfc08a}
 .seg-explain[data-seg="3"]{border-left-color:#b39ddb}
@@ -68,7 +71,7 @@ th{width:11rem;color:#555;font-weight:600}
 .dialbtn{display:inline-block;padding:.55rem 1.5rem;border-radius:999px;border:1px solid #5b84a6;background:#5b84a6;color:#fff;font-weight:600;text-decoration:none}
 .home{max-width:940px;margin:5vh auto 0;text-align:center}
 .home svg{width:100%;height:auto;display:block}
-.bigsearch{display:flex;gap:.5rem;max-width:620px;margin:26px auto 0}
+.bigsearch{display:flex;gap:.5rem;max-width:620px;margin:26px auto 1.6rem}
 .bigsearch input{flex:1;font-size:1.15rem;padding:.85rem 1.3rem;border:1px solid #cfc9ba;border-radius:999px;box-shadow:0 2px 12px rgba(70,60,30,.10);background:#fff;color:#1a1a1a}
 .bigsearch button{font-size:1.05rem;padding:.85rem 1.6rem;border-radius:999px;border:1px solid #5b84a6;background:#5b84a6;color:#fff;cursor:pointer}
 .home-links{margin-top:16px;font-size:.88rem;color:#8a94a0}
@@ -78,6 +81,7 @@ th{width:11rem;color:#555;font-weight:600}
 .segbtn .segcap{font-size:.62rem}
 .hero-hyphen{font-size:1rem}
 .hero-num{gap:.2rem}
+.seg-explain{min-height:16rem}
 }
 .flagbadges{display:flex;flex-wrap:wrap;gap:.4rem;margin:.2rem 0 .6rem}
 .fbadge{display:inline-block;padding:.28rem .6rem;border-radius:999px;font-size:.82rem;font-weight:600;border:1px solid}
@@ -280,6 +284,10 @@ export function homePage(hero, fallbacks, popular) {
   const body = `
 <div class="home">
 <h1 class="sr-only">日本の電話番号データベース</h1>
+<form class="bigsearch" action="/tel/search" method="get" role="search">
+<input type="search" name="q" inputmode="numeric" autocomplete="off" placeholder="電話番号を入力（例：090-1234-5678）" aria-label="電話番号">
+<button type="submit">調べる</button>
+</form>
 <p class="hero-kicker" id="heroKicker">${esc(hero.kicker)}</p>
 <div class="hero-num" id="heroSegs" role="group" aria-label="電話番号の各部分">
 ${segHtml}
@@ -289,10 +297,6 @@ ${segHtml}
 <p id="segText">${esc(hero.segments[hero.defaultSeg].explain)}</p>
 </div>
 <p class="hero-note">表示される番号は、総務省の指定データにある実在の番号区画から毎回ランダムに選ばれています。色のついた部分を押すと、その部分の意味が表示されます。<button type="button" class="shuffle" id="shuffleBtn">別の番号を表示</button> <a id="heroDetail" href="/tel/${esc(hero.digits)}">この番号（${esc(hero.formatted)}）の詳細ページ</a></p>
-<form class="bigsearch" action="/tel/search" method="get" role="search">
-<input type="search" name="q" inputmode="numeric" autocomplete="off" placeholder="電話番号を入力（例：090-1234-5678）" aria-label="電話番号">
-<button type="submit">調べる</button>
-</form>
 ${popular && popular.length ? `<section class="card" aria-label="よく調べられている番号">
 <h2>よく調べられている番号</h2>
 <ul class="tight">
