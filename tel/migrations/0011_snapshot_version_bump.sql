@@ -1,0 +1,15 @@
+-- Snapshot version bump 2 -> 3 (2026-11-07).
+--
+-- The number-page template changed again: a back-link line was added
+-- under the breadcrumb — 番号区段インデックス on every number page, plus
+-- この番号の区段ページ when (and only when) the bucket manifest
+-- (blocks-index/manifest.json) positively lists that block. Rendered
+-- HTML lives in R2 snapshots keyed to the record's snapshot_version, so
+-- the site version must move ahead: records with an older
+-- snapshot_version are re-composed and refreshed the next time they are
+-- queried, which invalidates every snapshot rendered by the old
+-- template (same mechanism as 0010).
+--
+-- Deploy note: apply after 0010 (which set the version to '2'); the net
+-- effect of applying both in order is '3'.
+UPDATE site_meta SET value = '3' WHERE key = 'snapshot_version';
