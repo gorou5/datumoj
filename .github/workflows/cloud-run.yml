@@ -73,6 +73,8 @@ jobs:
           uv run --frozen rikolto cloud run --max-embed 1000 --max-minutes 40 --reserve-minutes 25 | tee "$RUNNER_TEMP/cloud-result.json"
       - name: Sync source health issues
         if: always()
+        # Keep sync nonblocking. Failure is visible in its outcome and the
+        # unpublished-result warning/summary, not the step's conclusion.
         continue-on-error: true
         env:
           GH_REPO: ${{ github.repository }}

@@ -103,6 +103,19 @@ def _safe_timings(values):
             if key in _TIMING_FIELDS and type(value) in (int, float) and math.isfinite(value) and value >= 0}
 
 
+def _maintenance_failure(operation, exc):
+    """Describe a failed boundary using fixed codes, never exception text or names."""
+    if operation not in {"local_write_enter", "maintain_vectors", "local_write_exit", "lease_check"}:
+        operation = "unknown"
+    category = next((name for kind, name in (
+        (LeaseError, "lease_error"), (OSError, "os_error"), (ValueError, "value_error"),
+        (LookupError, "lookup_error"), (RuntimeError, "runtime_error"), (MemoryError, "memory_error"),
+    ) if isinstance(exc, kind)), "unexpected_error")
+    details = {"phase": "maintenance", "operation": operation, "error_category": category}
+    print(json.dumps({"event": "maintenance_failed", **details}), file=sys.__stderr__, flush=True)
+    return details
+
+
 def _throttled_check(check, *, monotonic=time.monotonic):
     """Check at most once per 30s for immutable uploads, shared by transfer threads."""
     last = None
@@ -649,9 +662,13 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         phase = "backfill"
                         remaining = _backfill(deps, remaining, started, max_minutes, check, result, before_round)
                     phase = "maintenance"
+                    maintenance_operation = "local_write_enter"
                     with local_write(root):
+                        maintenance_operation = "maintain_vectors"
                         maintain_vectors(root / "vectors")
+                        maintenance_operation = "local_write_exit"
                     marked = marking_failed = 0
+                    maintenance_operation = "lease_check"
                     check()
                     try:
                         with local_write(root):
@@ -702,8 +719,10 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         )
                     result.update(status="failed" if failed else "completed", exit_status=int(failed),
                                   reason=("embedding_failed" if embed_only else "source_failed") if failed else None)
-        except Exception:  # noqa: BLE001 -- 云端运行边界必须把任意 SDK 或插件失败记为本轮失败。
+        except Exception as exc:  # noqa: BLE001 -- 云端运行边界必须把任意 SDK 或插件失败记为本轮失败。
             result.update(status="failed", exit_status=1, reason=f"{phase}_failed")
+            if phase == "maintenance":
+                result["maintenance_failure"] = _maintenance_failure(maintenance_operation, exc)
         finally:
             if deps is not None:
                 for name in ("manifest", "chunks", "keyword", "catalog", "change_log", "raw"):
