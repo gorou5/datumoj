@@ -1,0 +1,51 @@
+name: Cloud cleanup
+
+'on':
+  workflow_dispatch:
+    inputs:
+      delete:
+        description: Delete eligible objects (default is dry run)
+        type: boolean
+        default: false
+
+concurrency:
+  group: rikolto-cloud-run
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    if: github.repository == 'gorou5/datumoj'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v6.0.1
+        with:
+          version: '0.7.12'
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --frozen --python 3.12
+      - name: Clean published state
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          DATUMOJ_S3_BUCKET: ${{ secrets.DATUMOJ_S3_BUCKET }}
+          DATUMOJ_S3_PREFIX: ${{ secrets.DATUMOJ_S3_PREFIX }}
+          DATUMOJ_RAW_BACKEND: s3
+          R2_CLEANUP: ${{ vars['R2_CLEANUP'] }}
+          R2_RAW_CLEANUP: ${{ vars['R2_RAW_CLEANUP'] }}
+          CLEANUP_DELETE: ${{ inputs.delete }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=()
+          if [ "$CLEANUP_DELETE" = "true" ]; then
+            args+=(--delete)
+          fi
+          uv run --frozen rikolto cloud cleanup --max-minutes 100 "${args[@]}"

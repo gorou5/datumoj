@@ -186,6 +186,19 @@ def cloud_embed(
     raise typer.Exit(result["exit_status"])
 
 
+@cloud_app.command("cleanup")
+def cloud_cleanup(
+    work_dir: Path | None = typer.Option(None, "--work-dir", help="空的工作目录；默认使用临时目录"),
+    max_minutes: float = typer.Option(..., "--max-minutes", min=0, help="工作预算，恢复后另留完整清理窗口（分钟）"),
+    delete: bool = typer.Option(False, "--delete", help="执行删除；默认仅预演"),
+) -> None:
+    from datumoj.rikolto.cloud import cleanup_only
+
+    result = cleanup_only(work_dir=work_dir, max_minutes=max_minutes, delete=delete)
+    typer.echo(_json(result))
+    raise typer.Exit(result["exit_status"])
+
+
 @state_app.command("push")
 def state_push(data_dir: Path | None = typer.Option(None, "--data-dir")) -> None:
     root = data_dir if data_dir is not None else _data_dir()

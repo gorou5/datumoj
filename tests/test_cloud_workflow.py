@@ -176,3 +176,45 @@ def test_source_issue_step_preserves_unpublished_failure_and_writes_safe_summary
     assert "reason=unpublished_result" in summary.read_text()
     assert "synthetic-secret" not in response.stdout + summary.read_text()
     assert not (tmp_path / "gh-called").exists()
+
+
+def test_cleanup_workflow_is_manual_dry_run_and_reuses_writer_protection():
+    workflow = load(WORKFLOWS / "cloud-cleanup.yml")
+    embed = load(WORKFLOWS / "cloud-embed.yml")
+    assert set(workflow["on"]) == {"workflow_dispatch"}
+    inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+    assert set(inputs) == {"delete"}
+    assert inputs["delete"]["type"] == "boolean" and inputs["delete"]["default"] is False
+    assert workflow["concurrency"] == embed["concurrency"]
+    assert workflow["permissions"] == {"contents": "read"}
+    job = workflow["jobs"]["run"]
+    assert job["if"] == "github.repository == 'gorou5/datumoj'"
+    assert "permissions" not in job and "env" not in job
+    assert job["steps"][:3] == embed["jobs"]["run"]["steps"][:3]
+    assert len(job["steps"]) == 4
+    command = job["steps"][-1]
+    assert command["shell"] == "bash" and "set -euo pipefail" in command["run"]
+    assert "${{" not in command["run"]
+    assert '"$CLEANUP_DELETE" = "true"' in command["run"]
+    assert command["env"]["CLEANUP_DELETE"] == "${{ inputs.delete }}"
+    expected_env = embed["jobs"]["run"]["steps"][-1]["env"]
+    assert {k: v for k, v in command["env"].items() if k != "CLEANUP_DELETE"} == expected_env
+    assert "ollama" not in json.dumps(workflow).lower()
+    assert "schedule" not in workflow["on"]
+
+
+@pytest.mark.parametrize("delete,extra", [("false", []), ("true", ["--delete"]),
+                                         ('$(touch injected); true', [])])
+def test_cleanup_shell_passes_delete_only_via_env(tmp_path, delete, extra):
+    step = load(WORKFLOWS / "cloud-cleanup.yml")["jobs"]["run"]["steps"][-1]
+    uv = tmp_path / "uv"
+    uv.write_text(f"#!{sys.executable}\nimport json, sys\nprint(json.dumps(sys.argv[1:]))\n")
+    uv.chmod(0o755)
+    env = {**os.environ, "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"], "CLEANUP_DELETE": delete}
+    response = subprocess.run(["bash", "--noprofile", "--norc", "-c", step["run"]],
+                              cwd=tmp_path, env=env, capture_output=True, text=True, check=False)
+    assert response.returncode == 0 and response.stderr == ""
+    assert json.loads(response.stdout) == [
+        "run", "--frozen", "rikolto", "cloud", "cleanup", "--max-minutes", "100", *extra,
+    ]
+    assert not (tmp_path / "injected").exists()
