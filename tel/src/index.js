@@ -21,6 +21,7 @@ import {
 import { HOT_NUMBERS } from './data/hot_numbers.js';
 import { FAVICON_SVG, appleTouchIconBytes } from './lib/favicon.js';
 import { flagFingerprint, getSnapshot, putSnapshot } from './lib/snapshot.js';
+import { getR2Object } from './lib/r2.js';
 
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
 const CACHE_HUB = 'public, max-age=3600, s-maxage=86400';
@@ -280,6 +281,28 @@ export default {
         if (shard < 1 || shard > shards) return html(notFoundPage(path), 404);
         const slice = digits.slice((shard - 1) * SITEMAP_SHARD_SIZE, shard * SITEMAP_SHARD_SIZE);
         return xmlResponse(urlsetXml(slice.map((d) => `https://datumoj.com/tel/${d}`)));
+      }
+      if (path === '/blocks') {
+        // Block index （区段索引）: pre-generated static pages in the nbfun
+        // bucket under blocks-index/ (see scripts/gen_blocks_index.py).
+        // The top page groups every number family, family pages list —
+        // or, for large families, chunk into sub-pages by the 4th digit —
+        // every block key as a real link, so all block pages are reachable
+        // by clicks alone. Storage miss is a real 404, never a composed
+        // page — the same contract as the block pages themselves. "blocks"
+        // is a literal segment, so these routes cannot collide with the
+        // 7-digit block route or the 10–14-digit number route below.
+        const obj = await getR2Object(env, 'blocks-index/index.html');
+        if (!obj) return html(notFoundPage('blocks'), 404);
+        return html(obj.body, 200, CACHE_NUM, { 'x-blocks-index': 'hit' });
+      }
+      if ((m = path.match(/^\/blocks\/(\d{2,4})(?:\/(\d{4}))?$/))) {
+        const obj = await getR2Object(
+          env,
+          m[2] ? `blocks-index/${m[1]}/${m[2]}.html` : `blocks-index/${m[1]}.html`
+        );
+        if (!obj) return html(notFoundPage(path), 404);
+        return html(obj.body, 200, CACHE_NUM, { 'x-blocks-index': 'hit' });
       }
       if (path === '/popular') {
         const totalPages = popularTotalPages();
