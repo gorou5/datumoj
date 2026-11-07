@@ -22,9 +22,10 @@ from datumoj.rikolto.analysis.reports import previous_week_period, weekly_report
 from datumoj.rikolto.core.budget import ParseBudget
 from datumoj.rikolto.core.contracts import PreconditionFailed
 from datumoj.rikolto.core.http import PoliteHttpFetcher
-from datumoj.rikolto.core.lease import LeaseError, LeaseManager
+from datumoj.rikolto.core.lease import LEASE_KEY, LeaseError, LeaseManager
 from datumoj.rikolto.core.models import FetchOutcome, PublishState
 from datumoj.rikolto.core.monitor import _ledger_first_attempts, evaluate_cloud_alerts
+from datumoj.rikolto.core.registry import load_registry
 from datumoj.rikolto.core.runner import DEFAULT_MAX_RUN_SECONDS
 from datumoj.rikolto.core.schedule import Scheduler, utcnow, workspace_lock, write_control
 from datumoj.rikolto.core.state import StateManager, local_write
@@ -521,6 +522,124 @@ def embed(*, work_dir: Path | None = None, max_minutes: float,
                   reserve_minutes=reserve_minutes, embed_only=True, no_cleanup=no_cleanup)
 
 
+def _empty_work_root(work_dir, stack):
+    root = Path(work_dir) if work_dir is not None else Path(stack.enter_context(
+        tempfile.TemporaryDirectory(prefix="datumoj-cloud-")
+    ))
+    if root.is_symlink() or (root.exists() and (not root.is_dir() or any(root.iterdir()))):
+        raise ValueError("workspace_not_empty")
+    return root
+
+
+def _probe_lease_writes(store, check):
+    """Test conditions using unchanged owned lease bytes, without probe objects or DELETE.
+
+    Acquire first so an occupied lease is never used as a probe. Even a backend
+    ignoring conditions receives only the current lease, never a dummy payload.
+    """
+    check()
+    data, etag = store.get(LEASE_KEY)
+    for write in (
+        lambda: store.put_if_absent(LEASE_KEY, data),
+        lambda: store.put_if_match(LEASE_KEY, data, f'"{uuid.uuid4().hex}"'),
+    ):
+        check()
+        try:
+            write()
+        except PreconditionFailed:
+            pass
+        else:
+            return False
+        if store.get(LEASE_KEY) != (data, etag):
+            return False
+    check()
+    updated = store.put_if_match(LEASE_KEY, data, etag)
+    return store.get(LEASE_KEY) == (data, updated)
+
+
+def cleanup_only(*, work_dir: Path | None = None, max_minutes: float, delete: bool = False) -> dict:
+    """Clean already published state; default to inventory only, never publish or mark raw.
+
+    max_minutes is the work allowance, with a full 600s cleanup window reserved
+    after restore. Exceptions expose only fixed phase/reason codes.
+    """
+    enabled = delete and os.environ.get("R2_CLEANUP", "on").lower() != "off"
+    raw_enabled = os.environ.get("R2_RAW_CLEANUP", "off").lower() == "on"
+    result = {"status": "failed", "exit_status": 1, "reason": None, "phase": "configuration",
+              "mode": "delete" if delete else "dry_run", "generation": None,
+              "cleanup": {"enabled": enabled, "raw_enabled": raw_enabled,
+                          "failures": 0, "elapsed_s": 0.0, "timed_out": False}, "restore_timings": {}}
+    leases = lease = None
+    with _quiet():
+        stack = ExitStack()
+        try:
+            if (type(max_minutes) not in (int, float) or not math.isfinite(max_minutes)
+                    or max_minutes < 0 or type(delete) is not bool):
+                raise ValueError("invalid_budget")
+            result["phase"] = "work_directory"
+            root = _empty_work_root(work_dir, stack)
+            result["phase"] = "configuration"
+            manager = wiring.build_state(root)
+            if isinstance(manager.store, S3StateObjectStore):
+                manager.transfer_workers = 8
+            leases = LeaseManager(manager.store)
+            result["phase"] = "lease_acquire"
+            try:
+                lease = leases.acquire(f"{manager.writer.kind}/{uuid.uuid4().hex}", force=True)
+            except LeaseError:
+                if leases.status().get("active"):
+                    result.update(status="skipped", exit_status=0, reason="跳过：写入租约已占用")
+                    return result
+                raise
+            with leases.maintain(lease) as check:
+                result["phase"] = "storage_probe"
+                if not _probe_lease_writes(manager.store, check):
+                    result["reason"] = "storage_conditional_unsupported"
+                    return result
+                result["phase"] = "restore"
+                history = manager.list()
+                result["generation"] = number = history[0].generation if history else 0
+                if manager.store.get(f"generations/{number + 1}.json") is not None:
+                    result["reason"] = "orphan_generation"
+                    return result
+                if history:
+                    try:
+                        manager.restore(root, raw="remote")
+                    finally:
+                        result["restore_timings"] = _safe_timings(getattr(manager, "last_timings", {}))
+                else:
+                    root.mkdir(parents=True, exist_ok=True)
+                with workspace_lock(root):
+                    check()
+                    result["phase"] = "initialization"
+                    specs = load_registry(Path(__file__).resolve().parents[3] / "sources").all()
+                    result["phase"] = "cleanup"
+                    result["cleanup"] = manager.cleanup(
+                        specs, now=utcnow(), check=check, enabled=enabled, raw_enabled=raw_enabled,
+                        deadline=time.monotonic() + max_minutes * 60 + _PIPELINE_GRACE_SECONDS + 1,
+                    )
+                    report = result["cleanup"]
+                    reason = ("cleanup_failed" if report["failures"] else
+                              "cleanup_timed_out" if report["timed_out"] else None)
+                    result.update(status="failed" if reason else "completed",
+                                  exit_status=int(reason is not None), reason=reason)
+        except Exception:  # noqa: BLE001 -- Cloud boundary must never expose SDK/configuration errors.
+            result.update(status="failed", exit_status=1, reason=f"{result['phase']}_failed")
+        finally:
+            if lease is not None:
+                try:
+                    leases.release(lease.holder, lease.token)
+                except Exception:  # noqa: BLE001 -- Failed release must not be reported as success.
+                    result.update(status="failed", exit_status=1,
+                                  reason="lease_release_failed", phase="lease_release")
+            try:
+                stack.close()
+            except Exception:  # noqa: BLE001 -- Temporary-directory errors can include private paths.
+                result.update(status="failed", exit_status=1,
+                              reason="work_directory_cleanup_failed", phase="work_directory_cleanup")
+    return result
+
+
 def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_cleanup=False):
     result = {"status": "failed", "exit_status": 1, "generation": None,
               "sources": [], "source_health": [], "due": 0, "new": 0, "unchanged": 0, "parsed": 0,
@@ -545,13 +664,12 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                     or not math.isfinite(max_minutes) or max_minutes < 0
                     or not math.isfinite(reserve_minutes) or reserve_minutes < 0):
                 raise ValueError("invalid_budget")
-            root = Path(work_dir) if work_dir is not None else Path(stack.enter_context(
-                tempfile.TemporaryDirectory(prefix="datumoj-cloud-")
-            ))
             # Never reuse a previous attempt's local state or a pulled replica.
-            if root.is_symlink() or (root.exists() and (not root.is_dir() or any(root.iterdir()))):
+            try:
+                root = _empty_work_root(work_dir, stack)
+            except ValueError:
                 phase = "work_directory"
-                raise ValueError("workspace_not_empty")
+                raise
             manager = wiring.build_state(root)
             if isinstance(manager.store, S3StateObjectStore):
                 manager.transfer_workers = 8
