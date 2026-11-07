@@ -19,10 +19,11 @@ import {
   drawRandomRecord, factsFromRecordSnapshot,
 } from './lib/record.js';
 import { HOT_NUMBERS } from './data/hot_numbers.js';
-import { FAVICON_SVG, appleTouchIconBytes } from './lib/favicon.js';
+import { faviconPngBytes, appleTouchIconBytes } from './lib/favicon.js';
 import { flagFingerprint, getSnapshot, putSnapshot } from './lib/snapshot.js';
 import { getR2Object } from './lib/r2.js';
 import { blockPageExists } from './lib/block_manifest.js';
+import { BLOCKS_JS } from './lib/blocks_js.js';
 
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
 const CACHE_HUB = 'public, max-age=3600, s-maxage=86400';
@@ -363,9 +364,9 @@ export default {
         if (!digits) return html(notFoundPage(url.searchParams.get('q') || ''), 404);
         return Response.redirect(`https://datumoj.com/tel/${digits}`, 302);
       }
-      if (path === '/favicon.svg') {
-        return new Response(FAVICON_SVG, {
-          headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'public, max-age=604800, s-maxage=604800' },
+      if (path === '/favicon.png') {
+        return new Response(faviconPngBytes(), {
+          headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=604800, s-maxage=604800' },
         });
       }
       if (path === '/apple-touch-icon.png') {
@@ -436,6 +437,30 @@ export default {
         if (!obj) return html(notFoundPage(path), 404);
         return html(obj.body, 200, CACHE_NUM, { 'x-blocks-index': 'hit' });
       }
+      if (path === '/blocks.js') {
+        // Shared delegated script for block pages. Canonical copy lives in
+        // the nbfun bucket (object `blocks.js`); the in-repo constant is
+        // the fallback so block pages never lose click activation.
+        const obj = await getR2Object(env, 'blocks.js');
+        return new Response(obj ? obj.body : BLOCKS_JS, {
+          headers: { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': CACHE_HUB },
+        });
+      }
+      if ((m = path.match(/^\/(\d{7})$/))) {
+        // Block page, flat URL /tel/<7-digit block key>: bare-digit paths
+        // dispatch by length — 7 digits is a block key (a block is an
+        // official allocation, not a number; "block" as a path segment
+        // was dropped because it reads as 封堵/blocking in a phone
+        // context, and 7 digits can never collide with the 10–14-digit
+        // number route below). The page is a pre-generated static listing
+        // of one 10k-number block, stored in the nbfun bucket as
+        // blocks/<key>.html and served verbatim. No object (or storage
+        // unavailable) is a real 404 — block pages are never composed on
+        // the fly.
+        const obj = await getR2Object(env, `blocks/${m[1]}.html`);
+        if (!obj) return html(notFoundPage(m[1]), 404);
+        return html(obj.body, 200, CACHE_NUM, { 'x-block': 'hit' });
+      }
       if (path === '/popular') {
         const totalPages = popularTotalPages();
         const raw = parseInt(url.searchParams.get('page') || '1', 10);
@@ -476,7 +501,7 @@ export default {
         // cross-site drive-by trying to inflate the counter — do not count
         // it. Requests without Origin (curl, the ops cleanup job) count.
         const origin = request.headers.get('Origin');
-        if (origin && origin !== 'https://datumoj.com/tel') {
+        if (origin && origin !== 'https://datumoj.com') {
           return new Response(JSON.stringify({ views: 0 }), {
             status: 403,
             headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
