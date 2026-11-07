@@ -1,0 +1,24 @@
+# e-Stat 选定统计表参考包（jp-estat-tables）
+
+| 项目 | 内容 |
+|---|---|
+| 提供者 | 37（jp-gov-data-api）团队 |
+| 资料整理日期 | 2026-10-30 |
+| 资料核对日期 | 2026-10-30；范围为本包引用的 e-Stat 页面文本及 stat.go.jp 页面文本。 |
+| 官方入口 | [人口推計 dbview](https://www.e-stat.go.jp/dbview?sid=0003443838)；[労働力調査 dbview](https://www.e-stat.go.jp/dbview?sid=0003005865)；[消費者物価指数 dbview](https://www.e-stat.go.jp/dbview?sid=0003427113)；[労働力調査](https://www.stat.go.jp/data/roudou/2.html)；[労働力調査月次结果](https://www.stat.go.jp/data/roudou/sokuhou/tsuki/index.html) |
+| 需要 Key | 未核对。本包未调用 API，未使用 appId；Key 要求未核对。 |
+| 许可 / 利用规约 | 未核对。terms.md 不新建 e-Stat 条款记录；本包不作许可判断，也不建议选择某张表或系列；stat.go.jp 页面文本未捕获到利用规约链接。可否再分发：未核对。 |
+| 本资料的可信度 | 仅读文档：基于 2026-10-30 捕获页面文本；未调用 API。 |
+| 对应的 DATUMOJ 任务 |  |
+| 包标识 | jp-estat-tables 是工作名。维护者可重命名，或将内容并入 jp-estat-api。本版仅为候选。 |
+| 调查身份 | 包含人口推計、労働力調査、消費者物価指数三张表。政府统计代码及各表页面字段见 notes.md。 |
+| 表格观察 | 各 dbview 捕获页分别显示公开时间 2026-10-20 14:00、2026-10-30 08:30、2026-10-23 08:30；这是不同页面在单次捕获中的观察，不代表其后的状态。 |
+| 计划对照 | notes.md 记录每表可见维度与项目；PLAN_CHECK_TABLE.md 是独立侧车，逐项对照维护者计划，不随参考包提交。 |
+| 未核实范围 | 未调用 API，未使用 appId；getMetaInfo 维度代码为 NOT CHECKED；未捕获页面数据单元格或 API 响应；只持有 2026-10-30 这一批页面捕获。 |
+| 未决项 | 表1的 sid 是否下月沿用为 NOT CHECKED；表2是否为原数值或季调值为 NOT STATED；表3全国地域代码 00000 为 NOT STATED。 |
+
+## 内容
+
+- [notes.md](notes.md)：证据标签、三张表的页面字段、维度项目及未决事项。
+- [terms.md](terms.md)：本包的条款范围说明及未捕获状态。
+- PLAN_CHECK_TABLE.md：维护者计划核对侧车，不随参考包提交。
