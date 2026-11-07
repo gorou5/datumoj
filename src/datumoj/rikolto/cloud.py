@@ -330,12 +330,15 @@ def _source_health(scheduler, current, generation=None):
     history = scheduler._read_history()[0]
     health = {row["source_id"]: dict(row) for row in current}
     if generation is not None:
-        enabled = {row["source_id"] for row in scheduler.status()["sources"] if row["effective_enabled"]}
+        source_status = scheduler.status()["sources"]
+        enabled = {row["source_id"] for row in source_status if row["effective_enabled"]}
+        enabled_since = {row["source_id"]: row["enabled_since"] for row in source_status if row.get("enabled_since")}
         successes = {key: {"finished_at": run.finished_at.isoformat()}
                      for key, run in generation.last_successful_runs.items()}
         alerts = evaluate_cloud_alerts(
             scheduler.sources.values(), enabled, successes, generation.created_at, utcnow(),
             generation=generation.generation, first_attempts=_ledger_first_attempts(history),
+            enabled_since=enabled_since,
         )
         for alert in alerts:
             if alert.rule != "cloud_run_missing":
@@ -346,6 +349,8 @@ def _source_health(scheduler, current, generation=None):
             # Backlogged sources overrun their schedule while still getting turns;
             # only a source without an attempt for this long is really missing.
             last = datetime.fromisoformat(runs[0]["started_at"]) if runs else alert.since
+            if alert.source_id in enabled_since:
+                last = max(last, datetime.fromisoformat(enabled_since[alert.source_id]))
             if utcnow() - last < _MISSING_AFTER:
                 continue
             row = health.setdefault(alert.source_id, {
@@ -476,6 +481,8 @@ def publish_previous_week_report(store, deps, now: datetime, generation=None) ->
                 deps.registry.all(), enabled, last_successful,
                 generation.created_at, report_at, generation=generation.generation,
                 first_attempts=first_attempts,
+                enabled_since={row["source_id"]: row["enabled_since"] for row in status["sources"]
+                               if row.get("enabled_since")},
             ))
         content = weekly_report(deps, start, end, alerts)
         try:
@@ -599,9 +606,11 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         if not (root / "control.json").exists():
                             write_control(root, {"enabled": True, "sources": {
                                 spec.id: {"enabled": True} for spec in deps.registry.all()
-                            }})
+                            }}, now=utcnow())
                         phase = "due"
                         scheduler = Scheduler(root, deps.registry.all(), lambda spec: None)
+                        if hasattr(scheduler, "observe_enabled"):
+                            scheduler.observe_enabled()
                         due = _due(scheduler, root)
                         result["due"] = len(due)
                         remaining = max_embed

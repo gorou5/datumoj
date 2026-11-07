@@ -175,6 +175,7 @@ def evaluate_cloud_alerts(
     *,
     generation: int | None = None,
     first_attempts: Mapping[str, str] | None = None,
+    enabled_since: Mapping[str, str] | None = None,
 ) -> list[Alert]:
     """Alert on missed cloud source cycles and a stalled generation pointer."""
     if generation_created_at.utcoffset() is None or now.utcoffset() is None:
@@ -189,9 +190,12 @@ def evaluate_cloud_alerts(
     alerts: list[Alert] = []
     for spec, interval in scheduled:
         run = last_successful_runs.get(spec.id)
-        anchor = _aware_datetime(run.get("finished_at")) if run is not None else None
+        last_success = _aware_datetime(run.get("finished_at")) if run is not None else None
         first_attempt = _aware_datetime(first_attempts.get(spec.id)) if first_attempts else None
-        anchor = anchor or first_attempt or generation_created_at
+        enabled_at = _aware_datetime(enabled_since.get(spec.id)) if enabled_since else None
+        anchor = last_success or first_attempt or enabled_at or generation_created_at
+        if enabled_at is not None:
+            anchor = max(anchor, enabled_at)
         if now - anchor > interval:
             alerts.append(Alert(
                 source_id=spec.id,
@@ -202,7 +206,8 @@ def evaluate_cloud_alerts(
                 details={
                     "schedule": spec.schedule or "",
                     "expected_after_seconds": int(interval.total_seconds()),
-                    "last_success_at": anchor.isoformat() if run is not None else None,
+                    "last_success_at": last_success.isoformat() if last_success is not None else None,
+                    "enabled_since": enabled_at.isoformat() if enabled_at else None,
                     "first_attempt_at": first_attempt.isoformat() if run is None and first_attempt else None,
                     "generation": generation,
                 },
@@ -275,6 +280,8 @@ def attach_cloud_status(
         alerts = evaluate_cloud_alerts(
             sources, enabled_sources, last_successful, created_at, now, generation=generation,
             first_attempts=first_attempts,
+            enabled_since={row["source_id"]: row["enabled_since"] for row in status.get("sources", [])
+                           if row.get("enabled_since")},
         )
     source_rows = {row["source_id"]: row for row in status.get("sources", [])}
     global_alerts = []
