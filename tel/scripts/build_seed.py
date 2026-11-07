@@ -99,18 +99,22 @@ for lt, prefix, don, status, note, src in bands:
     out.append("INSERT INTO number_block_allocation (line_type, prefix, designated_on, status, note, source) VALUES "
                f"({q(lt)},{q(prefix)},{q(don)},{q(status)},{q(note)},{q(src)});")
 
+# ids are EXPLICIT and aligned with the production registry: the ETL scripts
+# (scripts/thirdparty/etl_*.py) reference sources by these ids, so a seed-built
+# DB must assign the same ids as production. id=6 is intentionally vacant —
+# it was the removed UGC review-platform row (deleted in production by
+# migration 0010); kokusen is id=7 per that same migration. Do not renumber.
 third_party_sources = [
-    ('犯行利用番号リスト', '警察庁', 'https://www.npa.go.jp/bureau/safetylife/sos47/', 'A', '推奨アプリ経由のリアルタイム照合（非公開）', 1, 'closed', '実際に特殊詐欺へ使用された番号。警察庁推奨アプリ制度を通じ認定アプリへ提供され、一般公開はされていない', '2026-10-22'),
-    ('迷惑情報データベース', 'トビラシステムズ', 'https://tobila.com/', 'A', 'B2Bフィード（警察提供番号＋利用者報告＋独自調査）', 1, 'licensed', '事業者番号データ約600万件（iタウンページ含む）。Web表示には商用ライセンスが必要。本プロジェクトは無料リソースのみを使う方針のため未契約', '2026-10-22'),
-    ('無登録業者リスト', '金融庁', 'https://www.fsa.go.jp/', 'B', 'Excel/PDF公開（商号・所在地・業務内容・備考・掲載時期）', 0, 'public', '2010年以降の警告約1,245件。電話番号の列は無く、事業者名照合が主用途', '2026-10-22'),
-    ('防犯メール（メールけいしちょう等）', '警視庁・都道府県警察', 'https://www.keishicho.metro.tokyo.lg.jp/', 'C', 'HTML/メール配信（手口の叙述中心、番号は概ね非公開）', 0, 'public', '単号の標識には使わず、手口・警戒情報として参照', '2026-10-22'),
-    ('注意喚起・悪質通販サイト情報', '消費者庁', 'https://www.caa.go.jp/', 'C', 'PDF（叙述）／サイトURLリスト', 0, 'public', '電話番号単位のデータではないため third_party_flag には投入しない', '2026-10-22'),
-    # 本番DBでは migration 0010 により id=7 で登録（seed の挿入順では 6 番目）。
-    ('事業者の名称等を公表', '国民生活センター', 'https://www.kokusen.go.jp/', 'C', '公表ページ（事業者の情報として名称・所在地・電話番号等を掲載）', 1, 'public', '事業者名と電話番号をセットで公表する公的定型。番号のある公表から third_party_flag を生成する', '2026-10-27'),
+    (1, '犯行利用番号リスト', '警察庁', 'https://www.npa.go.jp/bureau/safetylife/sos47/', 'A', '推奨アプリ経由のリアルタイム照合（非公開）', 1, 'closed', '実際に特殊詐欺へ使用された番号。警察庁推奨アプリ制度を通じ認定アプリへ提供され、一般公開はされていない', '2026-10-22'),
+    (2, '迷惑情報データベース', 'トビラシステムズ', 'https://tobila.com/', 'A', 'B2Bフィード（警察提供番号＋利用者報告＋独自調査）', 1, 'licensed', '事業者番号データ約600万件（iタウンページ含む）。Web表示には商用ライセンスが必要。本プロジェクトは無料リソースのみを使う方針のため未契約', '2026-10-22'),
+    (3, '無登録業者リスト', '金融庁', 'https://www.fsa.go.jp/', 'B', 'Excel/PDF公開（商号・所在地・業務内容・備考・掲載時期）', 0, 'public', '2010年以降の警告約1,245件。電話番号の列は無く、事業者名照合が主用途', '2026-10-22'),
+    (4, '防犯メール（メールけいしちょう等）', '警視庁・都道府県警察', 'https://www.keishicho.metro.tokyo.lg.jp/', 'C', 'HTML/メール配信（手口の叙述中心、番号は概ね非公開）', 0, 'public', '単号の標識には使わず、手口・警戒情報として参照', '2026-10-22'),
+    (5, '注意喚起・悪質通販サイト情報', '消費者庁', 'https://www.caa.go.jp/', 'C', 'PDF（叙述）／サイトURLリスト', 0, 'public', '電話番号単位のデータではないため third_party_flag には投入しない', '2026-10-22'),
+    (7, '事業者の名称等を公表', '国民生活センター', 'https://www.kokusen.go.jp/', 'C', '公表ページ（事業者の情報として名称・所在地・電話番号等を掲載）', 1, 'public', '事業者名と電話番号をセットで公表する公的定型。番号のある公表から third_party_flag を生成する', '2026-10-27'),
 ]
-for name, pub, url, tier, form, has_numbers, access, note, upd in third_party_sources:
-    out.append("INSERT INTO third_party_source (name, publisher, url, tier, form, has_numbers, access, note, updated_at) VALUES "
-               f"({q(name)},{q(pub)},{q(url)},{q(tier)},{q(form)},{has_numbers},{q(access)},{q(note)},{q(upd)});")
+for sid, name, pub, url, tier, form, has_numbers, access, note, upd in third_party_sources:
+    out.append("INSERT INTO third_party_source (id, name, publisher, url, tier, form, has_numbers, access, note, updated_at) VALUES "
+               f"({sid},{q(name)},{q(pub)},{q(url)},{q(tier)},{q(form)},{has_numbers},{q(access)},{q(note)},{q(upd)});")
 
 (HERE / 'seed' / 'seed.sql').write_text('\n'.join(out) + '\n', encoding='utf-8')
 print(f"seed.sql written: {len(out)} statements; areas={len(by_area)}; mas={len(rows)}")
