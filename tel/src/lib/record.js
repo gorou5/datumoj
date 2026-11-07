@@ -50,6 +50,7 @@ export async function ensureYearTable(db, year) {
   const t = tableFor(year);
   await db.prepare(RECORD_DDL(t)).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_${t}_views ON ${t} (view_count DESC)`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_${t}_tier ON ${t} (tier)`).run();
   ensuredYears.add(year);
 }
 
@@ -213,8 +214,17 @@ export async function bumpRecordComment(db, digits) {
 
 // Names of the record tables that actually exist, newest year first.
 // Discovered from sqlite_master so years with no table yet are skipped
-// without probing blindly.
+// without probing blindly. The result is cached for a few minutes: the
+// set of year tables changes at most once a year (a new table appears
+// with the first queried number of a new year), and hot paths such as
+// the homepage hero draw should not pay a catalog scan on every request.
+let recordTablesCache = null;
+const RECORD_TABLES_TTL_MS = 10 * 60 * 1000;
 export async function listRecordTables(db) {
+  const nowMs = Date.now();
+  if (recordTablesCache && nowMs - recordTablesCache.at < RECORD_TABLES_TTL_MS) {
+    return recordTablesCache.tables;
+  }
   const r = await db
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name GLOB 'number_record_[0-9]*'")
     .all();
@@ -225,14 +235,24 @@ export async function listRecordTables(db) {
     const y = Number(m[1]);
     if (y >= FIRST_RECORD_YEAR && y <= 2200) years.push(y);
   }
-  return years.sort((a, b) => b - a).map((y) => tableFor(y));
+  const tables = years.sort((a, b) => b - a).map((y) => tableFor(y));
+  recordTablesCache = { at: nowMs, tables };
+  return tables;
 }
 
 // Draw one random Tier 1 record for the homepage hero. The record pool is
 // the site's real query history, so the line-type mix is whatever people
 // actually looked up — no synthetic balancing. Tables are tried in random
-// order so no single year dominates; each table holds at most a few
-// thousand rows, so ORDER BY RANDOM() stays a handful of reads.
+// order so no single year dominates.
+//
+// The draw is a rowid probe, not ORDER BY RANDOM(): with no index on tier,
+// ORDER BY RANDOM() reads the whole year table on every draw (the pattern
+// that exhausted the D1 daily read quota on 2026-10-24), and year tables
+// only ever grow. Here MIN/MAX(rowid) are b-tree-end lookups, a uniform
+// random target in that range is picked, and the first Tier 1 row at or
+// after it is read through the (tier) index — a handful of reads per draw
+// however large the table gets. If the target lands past the last Tier 1
+// row, the draw wraps to the first Tier 1 row of the table.
 export async function drawRandomRecord(db) {
   const tables = await listRecordTables(db);
   for (let i = tables.length - 1; i > 0; i--) {
@@ -240,7 +260,17 @@ export async function drawRandomRecord(db) {
     [tables[i], tables[j]] = [tables[j], tables[i]];
   }
   for (const t of tables) {
-    const row = await db.prepare(`SELECT * FROM ${t} WHERE tier = 1 ORDER BY RANDOM() LIMIT 1`).first();
+    const loRow = await db.prepare(`SELECT MIN(rowid) AS v FROM ${t}`).first();
+    const hiRow = await db.prepare(`SELECT MAX(rowid) AS v FROM ${t}`).first();
+    if (!loRow || loRow.v === null || !hiRow || hiRow.v === null) continue;
+    const target = loRow.v + Math.floor(Math.random() * (hiRow.v - loRow.v + 1));
+    let row = await db
+      .prepare(`SELECT * FROM ${t} WHERE tier = 1 AND rowid >= ? ORDER BY rowid LIMIT 1`)
+      .bind(target)
+      .first();
+    if (!row) {
+      row = await db.prepare(`SELECT * FROM ${t} WHERE tier = 1 ORDER BY rowid LIMIT 1`).first();
+    }
     if (row) return row;
   }
   return null;
