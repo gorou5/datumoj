@@ -1,4 +1,4 @@
-// tel.datumoj.com — Japanese phone-number database (Worker entry).
+// datumoj.com/tel — Japanese phone-number database (Worker entry).
 // Pages are composed at request time from sharded range tables in D1
 // (see DESIGN.md / migrations/0001_init.sql). Hub pages are indexable;
 // number pages are tiered (Tier 1 index / Tier 2 noindex / Tier 3 = 404).
@@ -10,44 +10,38 @@ import {
   listGovAgencies, listGovNumbers, govNumbersByAgency, findAreaCode,
 } from './lib/compose.js';
 import {
-  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES, unavailablePage,
+  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES, unavailablePage, popularPage,
 } from './lib/render.js';
 import {
   findRecord, insertRecord, updateRecordFacts, factsFromRecord, getSnapshotVersion,
   bumpRecordView, bumpRecordComment, popularFromRecords,
+  FIRST_RECORD_YEAR, currentRecordYear,
+  drawRandomRecord, factsFromRecordSnapshot,
 } from './lib/record.js';
+import { HOT_NUMBERS } from './data/hot_numbers.js';
+import { flagFingerprint, getSnapshot, putSnapshot } from './lib/snapshot.js';
+import { getR2Object } from './lib/r2.js';
+import { BLOCKS_JS } from './lib/blocks_js.js';
 
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
 const CACHE_HUB = 'public, max-age=3600, s-maxage=86400';
 const CACHE_NUM = 'public, max-age=3600, s-maxage=604800';
 
-function html(body, status = 200, cache = CACHE_HUB) {
-  return new Response(body, { status, headers: { ...HTML, 'cache-control': cache } });
+function html(body, status = 200, cache = CACHE_HUB, extra = {}) {
+  return new Response(body, { status, headers: { ...HTML, 'cache-control': cache, ...extra } });
 }
 
-// Draw one random really-designated number and build its hero payload.
+// Draw one random number from the record pool — numbers real visitors
+// have actually queried (DESIGN v2.0 per-year record tables) — and build
+// its hero payload from the stored snapshot. No synthetic candidate is
+// composed any more, so every hero is a real, fully-explained number page.
 // Never throws: returns null when D1 is unavailable (e.g. free-tier daily
 // quota exhausted), so callers can fall back to FALLBACK_HEROES and the
 // homepage hero never dead-ends on placeholders.
 async function drawRandomHero(db) {
   try {
-    // Draw from the small hero_candidate sample table (migration 0006):
-    // ORDER BY RANDOM() over ~30k designated blocks scanned the whole table
-    // on every homepage render.
-    const types = ['fixed', 'mobile', 'ip050', 'free0120', 'free0800', 'navi0570', 'm2m020'];
-    for (let attempt = 0; attempt < 6; attempt++) {
-      const lt = types[Math.floor(Math.random() * types.length)];
-      const brow = await db
-        .prepare('SELECT prefix FROM hero_candidate WHERE line_type = ? ORDER BY RANDOM() LIMIT 1')
-        .bind(lt)
-        .first();
-      if (!brow) continue;
-      const ltRow = await db.prepare('SELECT digits FROM line_type WHERE code = ?').bind(lt).first();
-      let digits = brow.prefix;
-      while (digits.length < ltRow.digits) digits += Math.floor(Math.random() * 10);
-      const facts = await composeNumber(db, digits);
-      if (facts) return randomHero(facts);
-    }
+    const row = await drawRandomRecord(db);
+    if (row) return randomHero(factsFromRecordSnapshot(row));
   } catch {
     return null;
   }
@@ -56,6 +50,122 @@ async function drawRandomHero(db) {
 
 function pickFallbackHero() {
   return FALLBACK_HEROES[Math.floor(Math.random() * FALLBACK_HEROES.length)];
+}
+
+// --- Sitemaps ---------------------------------------------------------------
+// /sitemap.xml is an index: /sitemap-main.xml carries the site structure
+// (home, hubs, government numbers, the /popular hub), and
+// /sitemap-numbers-N.xml shards carry number pages: the hot list
+// (src/data/hot_numbers.js — demand-verified, Tier 1 validated) first in
+// demand order, then every Tier 1 digit already laid down in the per-year
+// record tables, in digit order. Shards stay under the 50k protocol limit.
+const SITEMAP_SHARD_SIZE = 45000;
+const POPULAR_PER_PAGE = 100;
+// Block sitemap (/sitemap-blocks-1.xml) is generated but NOT yet listed in
+// the /sitemap.xml index — flip this to true when the block rollout is
+// approved for discovery. Until then the shard is reachable directly only.
+const SITEMAP_BLOCKS_IN_INDEX = false;
+
+function xmlResponse(xml) {
+  return new Response(xml, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': CACHE_HUB } });
+}
+
+function urlsetXml(urls) {
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
+    .map((u) => `<url><loc>${u}</loc></url>`)
+    .join('\n')}\n</urlset>`;
+}
+
+function popularTotalPages() {
+  return Math.max(1, Math.ceil(HOT_NUMBERS.length / POPULAR_PER_PAGE));
+}
+
+async function mainSitemapUrls(db) {
+  const areas = await allAreaCodes(db);
+  const prefs = [...new Set(areas.map((a) => a.prefecture))];
+  const types = await listLineTypes(db);
+  const govNumbers = await listGovNumbers(db);
+  const popularUrls = ['https://datumoj.com/tel/popular'];
+  for (let p = 2; p <= popularTotalPages(); p++) {
+    popularUrls.push(`https://datumoj.com/tel/popular?page=${p}`);
+  }
+  return [
+    'https://datumoj.com/tel/',
+    'https://datumoj.com/tel/about',
+    'https://datumoj.com/tel/history',
+    'https://datumoj.com/tel/gov',
+    ...popularUrls,
+    ...types.map((t) => `https://datumoj.com/tel/type/${t.code}`),
+    ...prefs.map((p) => `https://datumoj.com/tel/pref/${encodeURIComponent(p)}`),
+    ...areas.map((a) => `https://datumoj.com/tel/area/${a.area_code}`),
+    ...govNumbers.map((n) => `https://datumoj.com/tel/${n}`),
+    // Numbers tracked by the SEO watch (tel/seo/SEO_LOG.md):
+    // indexable designated-block pages surfaced for discovery.
+    'https://datumoj.com/tel/08007779633',
+    'https://datumoj.com/tel/0120923499',
+  ];
+}
+
+// Tier 1 digits already laid down in the per-year record tables. The
+// tables are small (one row per queried number), but reads still go
+// through the digits primary key in bounded pages — never a LIKE scan.
+async function listRecordTier1Digits(db) {
+  const out = [];
+  const now = currentRecordYear();
+  for (let y = now; y >= FIRST_RECORD_YEAR; y--) {
+    let last = '';
+    for (;;) {
+      let r;
+      try {
+        r = await db
+          .prepare(`SELECT digits FROM number_record_${y} WHERE tier = 1 AND digits > ? ORDER BY digits LIMIT 5000`)
+          .bind(last)
+          .all();
+      } catch {
+        break; // year table does not exist yet
+      }
+      const rows = r.results || [];
+      if (!rows.length) break;
+      for (const row of rows) {
+        out.push(row.digits);
+        last = row.digits;
+      }
+      if (rows.length < 5000) break;
+    }
+  }
+  return out;
+}
+
+async function sitemapNumberDigits(db) {
+  const seen = new Set();
+  const out = [];
+  for (const h of HOT_NUMBERS) {
+    if (!seen.has(h.digits)) {
+      seen.add(h.digits);
+      out.push(h.digits);
+    }
+  }
+  const recDigits = await listRecordTier1Digits(db).catch(() => []);
+  recDigits.sort();
+  for (const d of recDigits) {
+    if (!seen.has(d)) {
+      seen.add(d);
+      out.push(d);
+    }
+  }
+  return out;
+}
+
+// Block keys (first 7 digits) that carry a demand signal: at least one
+// landed Tier 1 record or one hot-list number inside the block. This is
+// the staged-rollout口径 for block pages — signal blocks are generated
+// and sitemapped first; the long tail follows in later stages.
+async function sitemapBlockKeys(db) {
+  const keys = new Set();
+  for (const h of HOT_NUMBERS) keys.add(h.digits.slice(0, 7));
+  const recDigits = await listRecordTier1Digits(db).catch(() => []);
+  for (const d of recDigits) keys.add(d.slice(0, 7));
+  return [...keys].sort();
 }
 
 // Prefix-only line-type detection for the homepage "popular numbers" box.
@@ -109,7 +219,7 @@ async function getPopularNumbers(db, limit = 6) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     let path;
     try {
@@ -117,6 +227,10 @@ export default {
     } catch {
       path = url.pathname; // malformed %-encoding: route on the raw path (404s)
     }
+    // Subdirectory migration (2026-10-29): the app is mounted at datumoj.com/tel.
+    // Strip the mount prefix before routing; generated links carry /tel themselves.
+    if (path === '/tel') path = '/';
+    else if (path.startsWith('/tel/')) path = path.slice(4);
     const db = env.DB;
 
     try {
@@ -142,39 +256,75 @@ export default {
       if (path === '/search') {
         const digits = normalize(url.searchParams.get('q') || '');
         if (!digits) return html(notFoundPage(url.searchParams.get('q') || ''), 404);
-        return Response.redirect(`https://tel.datumoj.com/${digits}`, 302);
+        return Response.redirect(`https://datumoj.com/tel/${digits}`, 302);
       }
       if (path === '/robots.txt') {
         return new Response(
-          'User-agent: *\nAllow: /\nDisallow: /search\nSitemap: https://tel.datumoj.com/sitemap.xml\n',
+          'User-agent: *\nAllow: /\nDisallow: /search\nSitemap: https://datumoj.com/tel/sitemap.xml\n',
           { headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': CACHE_HUB } }
         );
       }
-      if (path === '/sitemap.xml') {
-        const areas = await allAreaCodes(db);
-        const prefs = [...new Set(areas.map((a) => a.prefecture))];
-        const types = await listLineTypes(db);
-        const govNumbers = await listGovNumbers(db);
-        const urls = [
-          'https://tel.datumoj.com/',
-          'https://tel.datumoj.com/about',
-          'https://tel.datumoj.com/history',
-          'https://tel.datumoj.com/gov',
-          ...types.map((t) => `https://tel.datumoj.com/type/${t.code}`),
-          ...prefs.map((p) => `https://tel.datumoj.com/pref/${encodeURIComponent(p)}`),
-          ...areas.map((a) => `https://tel.datumoj.com/area/${a.area_code}`),
-          ...govNumbers.map((n) => `https://tel.datumoj.com/${n}`),
-          // Numbers tracked by the SEO watch (tel/seo/SEO_LOG.md):
-          // indexable designated-block pages surfaced for discovery.
-          'https://tel.datumoj.com/08007779633',
-          'https://tel.datumoj.com/0120923499',
-        ];
-        const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
-          .map((u) => `<url><loc>${u}</loc></url>`)
-          .join('\n')}\n</urlset>`;
-        return new Response(xml, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': CACHE_HUB } });
-      }
       let m;
+      if (path === '/sitemap.xml') {
+        const digits = await sitemapNumberDigits(db);
+        const shards = Math.max(1, Math.ceil(digits.length / SITEMAP_SHARD_SIZE));
+        const children = [
+          'https://datumoj.com/tel/sitemap-main.xml',
+          ...Array.from({ length: shards }, (_, i) => `https://datumoj.com/tel/sitemap-numbers-${i + 1}.xml`),
+          ...(SITEMAP_BLOCKS_IN_INDEX ? ['https://datumoj.com/tel/sitemap-blocks-1.xml'] : []),
+        ];
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${children
+          .map((u) => `<sitemap><loc>${u}</loc></sitemap>`)
+          .join('\n')}\n</sitemapindex>`;
+        return xmlResponse(xml);
+      }
+      if (path === '/sitemap-main.xml') {
+        return xmlResponse(urlsetXml(await mainSitemapUrls(db)));
+      }
+      if ((m = path.match(/^\/sitemap-numbers-(\d+)\.xml$/))) {
+        const shard = Number(m[1]);
+        const digits = await sitemapNumberDigits(db);
+        const shards = Math.max(1, Math.ceil(digits.length / SITEMAP_SHARD_SIZE));
+        if (shard < 1 || shard > shards) return html(notFoundPage(path), 404);
+        const slice = digits.slice((shard - 1) * SITEMAP_SHARD_SIZE, shard * SITEMAP_SHARD_SIZE);
+        return xmlResponse(urlsetXml(slice.map((d) => `https://datumoj.com/tel/${d}`)));
+      }
+      if (path === '/sitemap-blocks-1.xml') {
+        const keys = await sitemapBlockKeys(db);
+        return xmlResponse(urlsetXml(keys.map((k) => `https://datumoj.com/tel/${k}`)));
+      }
+      if (path === '/blocks.js') {
+        // Shared delegated script for block pages. Canonical copy lives in
+        // the nbfun bucket (object `blocks.js`); the in-repo constant is
+        // the fallback so block pages never lose click activation.
+        const obj = await getR2Object(env, 'blocks.js');
+        return new Response(obj ? obj.body : BLOCKS_JS, {
+          headers: { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': CACHE_HUB },
+        });
+      }
+      if ((m = path.match(/^\/(\d{7})$/))) {
+        // Block page, flat URL /tel/<7-digit block key>: bare-digit paths
+        // dispatch by length — 7 digits is a block key (a block is an
+        // official allocation, not a number; "block" as a path segment
+        // was dropped because it reads as 封堵/blocking in a phone
+        // context, and 7 digits can never collide with the 10–14-digit
+        // number route below). The page is a pre-generated static listing
+        // of one 10k-number block, stored in the nbfun bucket as
+        // blocks/<key>.html and served verbatim. No object (or storage
+        // unavailable) is a real 404 — block pages are never composed on
+        // the fly.
+        const obj = await getR2Object(env, `blocks/${m[1]}.html`);
+        if (!obj) return html(notFoundPage(m[1]), 404);
+        return html(obj.body, 200, CACHE_NUM, { 'x-block': 'hit' });
+      }
+      if (path === '/popular') {
+        const totalPages = popularTotalPages();
+        const raw = parseInt(url.searchParams.get('page') || '1', 10);
+        const page = Number.isInteger(raw) && raw >= 1 ? raw : 1;
+        if (page > totalPages) return html(notFoundPage('popular'), 404);
+        const entries = HOT_NUMBERS.slice((page - 1) * POPULAR_PER_PAGE, page * POPULAR_PER_PAGE);
+        return html(popularPage(entries, page, totalPages));
+      }
       if ((m = path.match(/^\/pref\/(.+)$/))) {
         const areas = await listAreaCodes(db, m[1]);
         if (!areas.length) return html(notFoundPage(m[1]), 404);
@@ -191,9 +341,9 @@ export default {
         return html(typePage(hub));
       }
       if (path === '/random.json') {
-        // Homepage hero: draw a real designated block at random (type first,
-        // so all line types rotate), fill it out with random subscriber
-        // digits, and return the fullest explanation compose can give.
+        // Homepage hero: draw at random from the record pool (numbers real
+        // visitors have queried) and return the fullest explanation the
+        // stored snapshot supports.
         // Degrades to a verified static hero (still 200) when D1 is down.
         const payload = (await drawRandomHero(db)) || pickFallbackHero();
         return new Response(JSON.stringify(payload), {
@@ -207,7 +357,7 @@ export default {
         // cross-site drive-by trying to inflate the counter — do not count
         // it. Requests without Origin (curl, the ops cleanup job) count.
         const origin = request.headers.get('Origin');
-        if (origin && origin !== 'https://tel.datumoj.com') {
+        if (origin && origin !== 'https://datumoj.com') {
           return new Response(JSON.stringify({ views: 0 }), {
             status: 403,
             headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
@@ -272,14 +422,35 @@ export default {
         // its record snapshot (per-year foundation tables); only a first
         // query — or a snapshot older than the current snapshot_version —
         // goes through composition, and the result is laid down / refreshed.
+        // SSG snapshots (lib/snapshot.js): a fresh Tier 1 record's rendered
+        // HTML is served from R2 when the stored snapshot provably matches
+        // the record state + flag fingerprint; renders on any other path
+        // (re)generate the snapshot in the background. Content, URL, tier
+        // and 404 behaviour are identical either way, and any snapshot
+        // failure falls back to the plain SSR render below.
+        const defer = (p) => { if (ctx && ctx.waitUntil) ctx.waitUntil(p); };
         const version = await getSnapshotVersion(db);
         const rec = await findRecord(db, m[1]);
         if (rec && rec.row.snapshot_version >= version) {
+          if (rec.row.tier === 1) {
+            const fp = await flagFingerprint(db, m[1]);
+            const snap = fp !== null ? await getSnapshot(env, m[1]) : null;
+            if (snap && Number(snap.meta.sv) === rec.row.snapshot_version && snap.meta.fp === fp) {
+              return html(snap.body, 200, CACHE_NUM, { 'x-snapshot': 'hit' });
+            }
+            const facts = await factsFromRecord(db, rec.row);
+            const body = numberPage(facts);
+            if (facts.tier === 1 && fp !== null) {
+              defer(putSnapshot(env, m[1], body, { sv: rec.row.snapshot_version, fp }));
+            }
+            return html(body, 200, CACHE_NUM, { 'x-snapshot': 'miss' });
+          }
           const facts = await factsFromRecord(db, rec.row);
           return html(numberPage(facts), 200, CACHE_NUM);
         }
         const facts = await composeNumber(db, m[1]);
         if (facts) {
+          let laidDown = false;
           try {
             if (rec) {
               await updateRecordFacts(db, rec.year, facts, version);
@@ -290,8 +461,18 @@ export default {
               facts.viewCount = 0;
               facts.commentCount = 0;
             }
+            laidDown = true;
           } catch { /* record write must never break the page */ }
-          return html(numberPage(facts), 200, CACHE_NUM);
+          const body = numberPage(facts);
+          if (laidDown && facts.tier === 1) {
+            // Snapshot the just-landed page so later queries can be served
+            // statically (the v2.0 record path above validates it against
+            // the record row and the flag fingerprint before serving).
+            const fp = await flagFingerprint(db, m[1]);
+            if (fp !== null) defer(putSnapshot(env, m[1], body, { sv: version, fp }));
+            return html(body, 200, CACHE_NUM, { 'x-snapshot': 'miss' });
+          }
+          return html(body, 200, CACHE_NUM);
         }
         // Catch-all: any 11-digit 0-leading input (and any other digit string
         // whose band can be identified) gets an explanatory page keyed by the
