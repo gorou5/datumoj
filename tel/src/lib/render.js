@@ -297,6 +297,12 @@ ${popular.map((p) => `<li><a href="/tel/${esc(p.digits)}">${esc(p.formatted)}</a
 </ul>
 <p class="meta">このサイトで実際に調べられた回数が多い番号です。</p>
 </section>` : ''}
+<section class="card" style="text-align:left" aria-label="特殊詐欺の情報提供窓口">
+<h2>特殊詐欺の情報提供は警察庁へ</h2>
+<p>特殊詐欺の被疑者や犯行拠点に関する情報をお持ちの方は、警察庁の「匿名通報ダイヤル」で情報提供できます。電話番号は <a href="/tel/0120924839"><b>0120-924-839</b></a>（通話料無料、匿名で通報できます）です。有力な情報には、警察庁の制度により最高で100万円の報奨金が支払われる場合があります。</p>
+<p class="meta">当サイトは警察庁とは関係のない民間の電話番号データベースです。この窓口は警察庁が運営しています。</p>
+<p class="meta"><a href="https://www.npa.go.jp/bureau/safetylife/sos47/apps/" rel="noopener">出典：警察庁 SOS47</a></p>
+</section>
 <p class="home-links"><a href="/tel/popular">よく検索される電話番号</a> ・ <a href="/tel/gov">政府機関の番号</a> ・ <a href="/tel/history">日本の電話番号の歴史</a> ・ <a href="/tel/about">このサイトについて</a></p>
 </div>
 <script>
@@ -348,7 +354,7 @@ ${popular.map((p) => `<li><a href="/tel/${esc(p.digits)}">${esc(p.formatted)}</a
 })();
 </script>`;
   return layout({
-    title: '電話番号検索｜datumoj.com/tel',
+    title: '日本の電話番号データベース',
     description: '日本の電話番号データベース。番号の種類・地域・単位料金区域（MA）・割当事業者・指定時期を公的データで表示。第三者機関の詐欺標識も出典付きで転載。',
     canonical: 'https://datumoj.com/tel/',
     body,
