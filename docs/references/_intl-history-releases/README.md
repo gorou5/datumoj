@@ -12,7 +12,7 @@
 | 对应的 DATUMOJ 任务 |  |
 | 包标识 | _intl-history-releases 是按跨来源主题规则命名的目录名；维护者可将内容并入 Eurostat 与 IMF 参考包；本版仅为候选。 |
 | 范围 | Eurostat EDP 通报页与 gov_10dd、gov_10a_main ESMS 页面；整理发布时点、可见发布标签、历史修订说明、单位与捕获边界。 |
-| 证据边界 | notes.md 中的官方页面引文均来自 held/ 下相对文件行；衍生链接与维护者计划摘录另行标记，不当作官方措辞。 |
+| 证据边界 | notes.md 中的官方页面引文均来自 held/ 下相对文件行；衍生链接与维护者计划摘录另行标记，不当作官方措辞。`held/` 捕获文件和 `capture_log.jsonl` 是本地保存记录，再分发范围未核对，按参考资料目录的规则不随本包提交；复核时打开“官方入口”一行的 URL（取得日期均为 2026-10-30），现行页面可能已和捕获版不同。 |
 | 历史存档状态 | Eurostat previous notification tables 目标捕获结果为 HTTP 404；目标页未捕获，2009—2010 是否存在、历史范围及文件格式均为 NOT CHECKED。 |
 | IMF 状态 | 三个 IMF WEO 页面捕获结果均为 HTTP 403；页面未捕获，历史版本可用性与条款均未知。 |
 | 条款边界 | terms.md 仅记载 2026-10-30 Eurostat copyright notice 捕获中的短引文；关联存档材料是否在其范围内为 NOT STATED。条款分析请见 eu-eurostat 包，本包不重述。 |
