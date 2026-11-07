@@ -67,8 +67,6 @@ function render(){
    `<h2>${gname}（${ts.length}）</h2><table><tr><th>ID</th><th>任务</th><th>状态</th><th>依赖</th><th>预计 token</th><th>推荐模型</th><th></th></tr>${
     ts.map(t=>`<tr><td class="id">${t.id}</td><td>${t.title}${t.note?`<div class="note">${t.note}</div>`:''}</td><td><span class="badge">${t.status}</span></td><td class="note">${t.depends_on.join(', ')||'—'}</td><td class="tok">${t.est_tokens}</td><td class="model">${t.model}</td><td><button>简报</button></td></tr>`).join('')
    }</table>`).join('')||'<p class="note">无匹配任务</p>';
-  // fix brief buttons: attach data properly
-  document.querySelectorAll('#groups table').forEach((tbl,gi)=>{});
 }
 fetch('/tasks.json').then(r=>{
   if(!r.ok)throw new Error(`HTTP ${r.status}`);
