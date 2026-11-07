@@ -19,6 +19,7 @@ import {
   drawRandomRecord, factsFromRecordSnapshot,
 } from './lib/record.js';
 import { HOT_NUMBERS } from './data/hot_numbers.js';
+import { faviconPngBytes, appleTouchIconBytes } from './lib/favicon.js';
 import { flagFingerprint, getSnapshot, putSnapshot } from './lib/snapshot.js';
 import { getR2Object } from './lib/r2.js';
 import { BLOCKS_JS } from './lib/blocks_js.js';
@@ -257,6 +258,16 @@ export default {
         const digits = normalize(url.searchParams.get('q') || '');
         if (!digits) return html(notFoundPage(url.searchParams.get('q') || ''), 404);
         return Response.redirect(`https://datumoj.com/tel/${digits}`, 302);
+      }
+      if (path === '/favicon.png') {
+        return new Response(faviconPngBytes(), {
+          headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=604800, s-maxage=604800' },
+        });
+      }
+      if (path === '/apple-touch-icon.png') {
+        return new Response(appleTouchIconBytes(), {
+          headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=604800, s-maxage=604800' },
+        });
       }
       if (path === '/robots.txt') {
         return new Response(
