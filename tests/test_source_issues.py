@@ -174,3 +174,118 @@ def test_existing_title_suffix_and_existing_label(fake_gh, tmp_path, suffix):
     state = json.loads(fake_gh.read_text())
     assert len(state["issues"]) == 1 and len(state["issues"][0]["comments"]) == 1
     assert not any(call[:2] == ["issue", "create"] for call in state["calls"])
+
+
+@pytest.mark.parametrize("rows", [[], [health("ok", 0)]])
+@pytest.mark.parametrize("generation", [None, True, False, "2", 0, -1, 1.0])
+def test_invalid_generation_fails_closed_even_without_health_rows(fake_gh, tmp_path, rows, generation):
+    response = run_script(tmp_path, rows, generation)
+    assert response.returncode == 1
+    assert response.stderr == ""
+    assert "source_issues failures=1" in response.stdout
+    assert json.loads(fake_gh.read_text())["calls"] == []
+
+
+@pytest.mark.parametrize("result", [
+    {"source_health": []},
+    {"source_health": [health()]},
+    {"generation": 2},
+    {"generation": None},
+    {"generation": 2, "source_health": None},
+    {"generation": 2, "source_health": {}},
+    {"generation": 2, "source_health": ""},
+    [], None, "synthetic-secret",
+])
+def test_invalid_envelope_fails_closed(fake_gh, tmp_path, result):
+    path = tmp_path / "result.json"
+    path.write_text(json.dumps(result))
+    response = subprocess.run([sys.executable, str(SCRIPT), str(path)], capture_output=True, text=True, check=False)
+    assert response.returncode == 1
+    assert response.stdout == "source_issues failures=1\n" and response.stderr == ""
+    assert json.loads(fake_gh.read_text())["calls"] == []
+
+
+def test_malformed_json_fails_closed_without_echoing_input(fake_gh, tmp_path):
+    path = tmp_path / "result.json"
+    path.write_text('{"generation": 2, "source_health": synthetic-secret}')
+    response = subprocess.run([sys.executable, str(SCRIPT), str(path)], capture_output=True, text=True, check=False)
+    assert response.returncode == 1
+    assert response.stdout == "source_issues failures=1\n" and response.stderr == ""
+    assert json.loads(fake_gh.read_text())["calls"] == []
+
+
+@pytest.mark.parametrize("status", ["ok", "degraded", "failed", "missing", "deadline"])
+def test_unpublished_result_warns_without_any_issue_changes(fake_gh, tmp_path, monkeypatch, status):
+    state = json.loads(fake_gh.read_text())
+    state["labels"] = ["source-broken"]
+    state["issues"] = [{"number": 7, "title": "[source-broken] jp-synthetic", "comments": []}]
+    fake_gh.write_text(json.dumps(state))
+    summary = tmp_path / "summary.md"
+    summary.write_text("Existing summary\n")
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    response = run_script(tmp_path, [health(status)], None)
+    assert response.returncode == 1
+    assert "::warning::" in response.stdout and "reason=unpublished_result" in response.stdout
+    assert "source_issues failures=1" in response.stdout and response.stderr == ""
+    assert json.loads(fake_gh.read_text()) == state
+    assert summary.read_text().startswith("Existing summary\n")
+    assert "unpublished_result" in summary.read_text()
+    assert "recovery not confirmed" in summary.read_text()
+    assert "synthetic-secret" not in response.stdout + summary.read_text()
+    assert "https://" not in response.stdout + summary.read_text()
+
+
+def test_unpublished_result_remains_failure_when_summary_cannot_be_written(fake_gh, tmp_path, monkeypatch):
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(tmp_path))  # A directory, not a writable summary file.
+    response = run_script(tmp_path, [], None)
+    assert response.returncode == 1
+    assert "reason=unpublished_result" in response.stdout
+    assert "reason=summary_write_failed" in response.stdout
+    assert str(tmp_path) not in response.stdout and response.stderr == ""
+    assert json.loads(fake_gh.read_text())["calls"] == []
+
+
+def test_published_failed_round_still_opens_source_issue(fake_gh, tmp_path):
+    path = tmp_path / "result.json"
+    path.write_text(json.dumps({"status": "failed", "exit_status": 1, "reason": "source_failed",
+                                "generation": 3, "source_health": [health()]}))
+    response = subprocess.run([sys.executable, str(SCRIPT), str(path)], capture_output=True, text=True, check=False)
+    assert response.returncode == 0 and response.stdout == "" and response.stderr == ""
+    issues = json.loads(fake_gh.read_text())["issues"]
+    assert len(issues) == 1 and "第 3 代" in issues[0]["body"]
+
+
+def test_published_degraded_result_still_recovers_matching_issue(fake_gh, tmp_path):
+    assert run_script(tmp_path, [health()]).returncode == 0
+    response = run_script(tmp_path, [health("degraded", 0)], 3)
+    assert response.returncode == 0 and response.stdout == "" and response.stderr == ""
+    issue = json.loads(fake_gh.read_text())["issues"][0]
+    assert issue["comments"] == ["已恢复（第 3 代）"] and issue["closed"]
+
+
+def test_skipped_round_without_source_health_remains_a_noop(fake_gh, tmp_path, monkeypatch):
+    path = tmp_path / "result.json"
+    path.write_text(json.dumps({"status": "skipped", "exit_status": 0,
+                                "reason": "跳过：写入租约已占用", "generation": None, "source_health": []}))
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    response = subprocess.run([sys.executable, str(SCRIPT), str(path)], capture_output=True, text=True, check=False)
+    assert response.returncode == 0 and response.stdout == "" and response.stderr == ""
+    assert not summary.exists()
+    assert json.loads(fake_gh.read_text())["calls"] == []
+
+
+@pytest.mark.parametrize("status,exit_status,rows", [
+    ("skipped", False, []), ("skipped", "0", []), ("skipped", 1, []),
+    ("failed", 0, []), ("completed", 0, []),
+    ("skipped", 0, [health("ok", 0)]),
+])
+def test_unpublished_result_cannot_claim_skipped_with_invalid_outcome_or_health(
+        fake_gh, tmp_path, status, exit_status, rows):
+    path = tmp_path / "result.json"
+    path.write_text(json.dumps({"status": status, "exit_status": exit_status,
+                                "generation": None, "source_health": rows}))
+    response = subprocess.run([sys.executable, str(SCRIPT), str(path)], capture_output=True, text=True, check=False)
+    assert response.returncode == 1
+    assert "reason=unpublished_result" in response.stdout and response.stderr == ""
+    assert json.loads(fake_gh.read_text())["calls"] == []
