@@ -1,0 +1,11 @@
+-- Curated business_registration rows — operator-registered overlays only.
+-- House rule (tel/seo/SEO_LOG.md): a number is registered here only when a
+-- checkable official source publishes it. Facts are limited to what the
+-- source page states; nothing is inferred.
+-- Apply with:
+--   wrangler d1 execute tel_datumoj --remote --file=seed/business_seed.sql
+--
+-- 0120-344-999: 日本証券業協会の未公開株通報専用窓口。警察庁「SOS47」特設
+-- ページの相談窓口一覧に、同協会の窓口として掲載されていることを
+-- 2026-11-07 に確認。
+INSERT OR IGNORE INTO business_registration (number, name, address, category, source, verified, updated_at) VALUES ('0120344999','日本証券業協会 未公開株通報専用窓口',NULL,'未公開株に関する通報窓口','警察庁「SOS47」特設ページに日本証券業協会の窓口として掲載 https://www.npa.go.jp/bureau/safetylife/sos47/apps/',1,'2026-11-07');

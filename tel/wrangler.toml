@@ -4,7 +4,7 @@ compatibility_date = "2025-01-01"
 workers_dev = false
 
 routes = [
-  { pattern = "tel.datumoj.com", custom_domain = true },
+  { pattern = "datumoj.com/tel*", zone_name = "datumoj.com" },
 ]
 
 [[d1_databases]]
@@ -12,3 +12,15 @@ binding = "DB"
 database_name = "tel_datumoj"
 database_id = "508216ec-1d88-454c-9d3a-465b1c29adff"
 migrations_dir = "migrations"
+
+# Storage (since the consolidation): snapshots (tel/snapshots/<digits>.html)
+# and block pages (blocks/<key>.html, blocks.js) live in the nbfun account's
+# bucket `tel` and are reached via the S3-compatible API (src/lib/r2.js) —
+# there is intentionally NO [[r2_buckets]] binding, because a Worker can
+# only bind buckets in its own account. The Worker degrades to plain SSR /
+# 404 when storage is absent or failing, so this is never a dependency.
+# Required Worker secrets (set via `wrangler secret put`, never in repo):
+#   NBFUN_R2_ENDPOINT           https://<nbfun-account-id>.r2.cloudflarestorage.com
+#   NBFUN_R2_ACCESS_KEY_ID      R2 S3 access key for the nbfun account
+#   NBFUN_R2_SECRET_ACCESS_KEY  matching secret
+# Optional: NBFUN_R2_BUCKET (defaults to "tel").
