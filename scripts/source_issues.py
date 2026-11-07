@@ -73,6 +73,8 @@ class GitHub:
 def sync_issues(result, threshold=2):
     if type(threshold) is not int or threshold < 1:
         raise ValueError("invalid_threshold")
+    if result["generation"] is None:
+        return 0  # No published generation to base issue changes on.
     # Validate every rendered field before any network operation. Ignore all
     # other result keys, including sources, exception details and storage data.
     entries = [(row, issue_text(row, result["generation"])) for row in result["source_health"]]
