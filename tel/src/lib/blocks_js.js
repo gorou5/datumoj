@@ -1,5 +1,5 @@
 // Canonical source of blocks.js — the shared delegated script loaded by
-// every block page (/tel/block/<key>). The production copy lives in the
+// every block page (/tel/<key>). The production copy lives in the
 // nbfun bucket `tel` as object `blocks.js` and is served from there; this
 // in-repo constant is the fallback the Worker serves when the bucket copy
 // cannot be read, and the reference the data-side generator uploads.

@@ -291,7 +291,7 @@ export default {
       }
       if (path === '/sitemap-blocks-1.xml') {
         const keys = await sitemapBlockKeys(db);
-        return xmlResponse(urlsetXml(keys.map((k) => `https://datumoj.com/tel/block/${k}`)));
+        return xmlResponse(urlsetXml(keys.map((k) => `https://datumoj.com/tel/${k}`)));
       }
       if (path === '/blocks.js') {
         // Shared delegated script for block pages. Canonical copy lives in
@@ -302,11 +302,17 @@ export default {
           headers: { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': CACHE_HUB },
         });
       }
-      if ((m = path.match(/^\/block\/(\d{7})$/))) {
-        // Block page: a pre-generated static listing of one 10k-number
-        // block, stored in the nbfun bucket as blocks/<key>.html and
-        // served verbatim. No object (or storage unavailable) is a real
-        // 404 — block pages are never composed on the fly.
+      if ((m = path.match(/^\/(\d{7})$/))) {
+        // Block page, flat URL /tel/<7-digit block key>: bare-digit paths
+        // dispatch by length — 7 digits is a block key (a block is an
+        // official allocation, not a number; "block" as a path segment
+        // was dropped because it reads as 封堵/blocking in a phone
+        // context, and 7 digits can never collide with the 10–14-digit
+        // number route below). The page is a pre-generated static listing
+        // of one 10k-number block, stored in the nbfun bucket as
+        // blocks/<key>.html and served verbatim. No object (or storage
+        // unavailable) is a real 404 — block pages are never composed on
+        // the fly.
         const obj = await getR2Object(env, `blocks/${m[1]}.html`);
         if (!obj) return html(notFoundPage(m[1]), 404);
         return html(obj.body, 200, CACHE_NUM, { 'x-block': 'hit' });
