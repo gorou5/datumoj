@@ -270,5 +270,23 @@
   "number": "0570-016811",
   "number_kind": "相談窓口",
   "source_url": "https://www.fsa.go.jp/receipt/soudan/index.html"
+ },
+ {
+  "agency": "警察庁",
+  "agency_short": "警察庁",
+  "note": "匿名通報ダイヤル：特殊詐欺の被疑者や犯行拠点に関する情報提供を受け付ける窓口。匿名で通報でき、有力な情報には警察庁の制度により最高100万円の報奨金が支払われる場合があります",
+  "number": "0120-924-839",
+  "number_kind": "相談窓口",
+  "source_url": "https://www.npa.go.jp/bureau/safetylife/sos47/apps/",
+  "verified_on": "2026-11-07"
+ },
+ {
+  "agency": "総務省",
+  "agency_short": "総務省",
+  "note": "迷惑電話対策相談センター（でんわんセンター）の相談窓口。総務省の請負事業として一般社団法人日本ユニファイド通信事業者協会（JUSA）が受託運営。受付時間：平日10時〜17時。相談は無料（通話料は利用者負担）",
+  "number": "03-6162-1111",
+  "number_kind": "相談窓口",
+  "source_url": "https://www.denwan.jp/",
+  "verified_on": "2026-11-07"
  }
 ]
