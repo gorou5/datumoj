@@ -1,5 +1,5 @@
 // HTML rendering for tel.datumoj.com. No inline client JS; search is a plain GET form.
-import { formatNumber, splitNumber, anatomySegments, neighbors } from './number.js';
+import { formatNumber, splitNumber, anatomySegments } from './number.js';
 
 export function esc(s) {
   return String(s ?? '')
@@ -45,7 +45,8 @@ th{width:11rem;color:#555;font-weight:600}
 .searchbox button{font-size:1.05rem;padding:.6rem 1.1rem;border-radius:8px;border:1px solid #0b57d0;background:#0b57d0;color:#fff;cursor:pointer}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.4rem .8rem}
 .hero-kicker{color:#71808d;font-size:.95rem;margin:0 0 .5rem}
-.hero-num{display:flex;align-items:stretch;justify-content:center;gap:.35rem}
+.hero-num{display:flex;align-items:stretch;justify-content:center;gap:.35rem;flex-wrap:wrap}
+.hero-seg{display:flex;gap:inherit}
 .segbtn{border:2px solid transparent;border-radius:14px;padding:.5rem .9rem .35rem;cursor:pointer;font:inherit;background:#eef1f4;text-align:center}
 .segbtn .segdigits{display:block;font-size:clamp(1.9rem,8.5vw,3.6rem);font-weight:700;letter-spacing:.04em;line-height:1.15;color:#33424f}
 .segbtn .segcap{display:block;font-size:.72rem;color:#71808d;margin-top:.15rem}
@@ -69,6 +70,18 @@ th{width:11rem;color:#555;font-weight:600}
 .bigsearch input{flex:1;font-size:1.15rem;padding:.85rem 1.3rem;border:1px solid #cfc9ba;border-radius:999px;box-shadow:0 2px 12px rgba(70,60,30,.10);background:#fff;color:#1a1a1a}
 .bigsearch button{font-size:1.05rem;padding:.85rem 1.6rem;border-radius:999px;border:1px solid #5b84a6;background:#5b84a6;color:#fff;cursor:pointer}
 .home-links{margin-top:16px;font-size:.88rem;color:#8a94a0}
+@media (max-width:560px){
+.segbtn{padding:.38rem .5rem .28rem;border-radius:10px}
+.segbtn .segdigits{font-size:clamp(1.2rem,5.8vw,1.6rem);letter-spacing:0}
+.segbtn .segcap{font-size:.62rem}
+.hero-hyphen{font-size:1rem}
+.hero-num{gap:.2rem}
+}
+.flagbadges{display:flex;flex-wrap:wrap;gap:.4rem;margin:.2rem 0 .6rem}
+.fbadge{display:inline-block;padding:.28rem .6rem;border-radius:999px;font-size:.82rem;font-weight:600;border:1px solid}
+.fb-A{background:#fdecea;color:#8e1414;border-color:#e3a49f}
+.fb-B{background:#fff6e0;color:#7a5200;border-color:#e0cd8f}
+.fb-C{background:#eef1f4;color:#44515c;border-color:#c3ccd4}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 footer{border-top:1px solid #ddd;margin-top:2rem;padding:1rem;font-size:.85rem;color:#777}
 ul.tight{margin:.3rem 0;padding-left:1.2rem}
@@ -256,7 +269,7 @@ export function homePage(hero, fallbacks, popular) {
   const segHtml = hero.segments
     .map(
       (s, i) =>
-        `${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<button type="button" class="segbtn ${segColors[i % 4]}${i === hero.defaultSeg ? ' is-active' : ''}" data-seg="${i}" aria-pressed="${i === hero.defaultSeg}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></button>`
+        `<span class="hero-seg">${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<button type="button" class="segbtn ${segColors[i % 4]}${i === hero.defaultSeg ? ' is-active' : ''}" data-seg="${i}" aria-pressed="${i === hero.defaultSeg}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></button></span>`
     )
     .join('');
   const heroJson = JSON.stringify(hero).replace(/<\//g, '<\\/');
@@ -309,13 +322,14 @@ ${popular.map((p) => `<li><a href="/${esc(p.digits)}">${esc(p.formatted)}</a> <s
     kick.textContent=d.kicker;
     segsEl.innerHTML='';
     d.segments.forEach(function(s,i){
-      if(i>0){var h=document.createElement('span');h.className='hero-hyphen';h.textContent='-';segsEl.appendChild(h);}
+      var group=document.createElement('span');group.className='hero-seg';
+      if(i>0){var h=document.createElement('span');h.className='hero-hyphen';h.textContent='-';group.appendChild(h);}
       var b=document.createElement('button');b.type='button';b.className='segbtn '+COLORS[i%COLORS.length];b.setAttribute('aria-pressed','false');
       var ds=document.createElement('span');ds.className='segdigits';ds.textContent=s.text;
       var cs=document.createElement('span');cs.className='segcap';cs.textContent=s.label;
       b.appendChild(ds);b.appendChild(cs);
       b.addEventListener('click',function(){select(i);});
-      segsEl.appendChild(b);
+      group.appendChild(b);segsEl.appendChild(group);
     });
     detail.href='/'+d.digits;detail.textContent='この番号（'+d.formatted+'）の詳細ページ';
     select(d.defaultSeg||0);
@@ -349,7 +363,7 @@ export function numberPage(facts) {
   const segHtml = hero.segments
     .map(
       (s, i) =>
-        `${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<button type="button" class="segbtn ${segColors[i % 4]}${i === hero.defaultSeg ? ' is-active' : ''}" data-seg="${i}" aria-pressed="${i === hero.defaultSeg}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></button>`
+        `<span class="hero-seg">${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<button type="button" class="segbtn ${segColors[i % 4]}${i === hero.defaultSeg ? ' is-active' : ''}" data-seg="${i}" aria-pressed="${i === hero.defaultSeg}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></button></span>`
     )
     .join('');
   const heroJson = JSON.stringify(hero.segments).replace(/<\//g, '<\\/');
@@ -360,7 +374,7 @@ export function numberPage(facts) {
 
   const rows = [];
   rows.push(`<tr><th>電話番号</th><td>${esc(formatted)}（${esc(f.digits)}）</td></tr>`);
-  rows.push(`<tr><th>調べられた回数</th><td><span id="viewCount">集計中…</span></td></tr>`);
+  rows.push(`<tr><th>調べられた回数</th><td><span id="viewCount">${typeof f.viewCount === 'number' ? esc(String(f.viewCount)) + ' 回' : '集計中…'}</span></td></tr>`);
   rows.push(`<tr><th>番号の種類</th><td>${esc(f.lineTypeName)}</td></tr>`);
   if (f.prefecture) rows.push(`<tr><th>都道府県</th><td>${esc(f.prefecture)}</td></tr>`);
   if (f.mas && f.mas.length === 1) {
@@ -421,13 +435,6 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
     sections += `<div class="card"><h2>利用者からの報告</h2><p>この番号について ${f.reportCount} 件の報告が寄せられています。</p><ul class="tight">${items}</ul>
 <p class="meta">報告は利用者の投稿を審査のうえ集計したもので、事実認定ではありません。</p></div>`;
   }
-  // Neighbors (SEO watch: internal-link density around target numbers)
-  const nb = neighbors(f.digits, 5);
-  const nbLinks = [...nb.prev.reverse(), ...nb.next]
-    .map((n) => `<a href="/${n}">${esc(formatNumber(n, f))}</a>`)
-    .join(' ／ ');
-  sections += `<div class="card"><h2>近い番号</h2><p>${nbLinks}</p></div>`;
-
   // FAQ: visible Q&A generated from this number's facts, mirrored into
   // FAQPage structured data below (the two must stay in sync).
   const who = f.block.carrierName
@@ -452,7 +459,6 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
       a: 'すぐに折り返さず、まず番号の情報を確認してください。不在着信だけでは通話料は発生しません。金銭の振り込みや個人情報を求められた場合は応じず一度切り、消費生活の相談は消費者ホットライン「188」、事件性がある場合は警察相談専用電話「#9110」へご相談ください。',
     },
   ];
-  sections += `<div class="card"><h2>よくある質問</h2>${faq.map((x) => `<h3>${esc(x.q)}</h3><p>${esc(x.a)}</p>`).join('')}</div>`;
   // Anonymous comments (owner rules: <=10 chars, no hostile language —
   // enforced server-side in lib/social.js). Loaded by script because the
   // page HTML itself is edge-cached.
@@ -461,6 +467,9 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
 <ul class="tight" id="cmtList"><li class="meta">読み込み中…</li></ul>
 <form id="cmtForm" autocomplete="off"><input type="text" id="cmtInput" maxlength="10" placeholder="10文字以内で感想を" aria-label="匿名コメント"> <button type="submit">投稿</button></form>
 <p class="meta" id="cmtMsg"></p></div>`;
+  // Owner rule (2026-10-25): FAQ is the last section of the page.
+  sections += `<div class="card"><h2>よくある質問</h2>${faq.map((x) => `<h3>${esc(x.q)}</h3><p>${esc(x.a)}</p>`).join('')}</div>`;
+
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -488,6 +497,7 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
 <p class="crumbs">${crumbHtml}</p>
 <h1 class="sr-only">${esc(formatted)} の電話番号情報</h1>
 <div class="hero-num" role="group" aria-label="電話番号の各部分">${segHtml}</div>
+${f.tpFlags && f.tpFlags.length ? `<div class="flagbadges" role="group" aria-label="第三者機関による標識">${f.tpFlags.map((x) => `<span class="fbadge fb-${esc(x.source_tier || 'C')}">第三者標識 ${esc(x.source_tier || '')}級｜${esc(x.publisher)}（${esc(x.source_name)}）${x.label ? '：' + esc(x.label) : ''}</span>`).join('')}</div>` : ''}
 <div class="seg-explain" id="segExplain" data-seg="${hero.defaultSeg}" aria-live="polite"><h2 id="segTitle">${esc(hero.segments[hero.defaultSeg].title)}</h2><p id="segText">${esc(hero.segments[hero.defaultSeg].explain)}</p></div>
 <script>(function(){var SEGS=${heroJson};var btns=document.querySelectorAll('.segbtn');var t=document.getElementById('segTitle'),x=document.getElementById('segText'),c=document.getElementById('segExplain');function sel(i){for(var j=0;j<btns.length;j++){btns[j].classList.toggle('is-active',j===i);btns[j].setAttribute('aria-pressed',j===i?'true':'false');}t.textContent=SEGS[i].title;x.textContent=SEGS[i].explain;c.setAttribute('data-seg',String(i));}for(var k=0;k<btns.length;k++){(function(k){btns[k].addEventListener('click',function(){sel(k);});})(k);}})();</script>
 <script>(function(){
@@ -752,4 +762,15 @@ export function notFoundPage(query) {
 ${searchForm(query || '')}
 <p class="meta">入力形式：市外局番から始まる国内番号（例：03-XXXX-XXXX、090-XXXX-XXXX）。国際番号（+81…）も入力できます。</p>`;
   return layout({ title: '見つかりませんでした｜tel.datumoj.com', robots: 'noindex', body });
+}
+
+export function unavailablePage() {
+  return layout({
+    title: '一時的に利用できません｜tel.datumoj.com',
+    robots: 'noindex',
+    body: `<h1>一時的に利用できません</h1>
+<p>現在、データベースへのアクセスが集中しているため、このページを表示できません。しばらくしてから再度お試しください。</p>
+<p class="meta">電話番号データベース tel.datumoj.com は総務省の指定データをもとに構成されています。時間をおいてアクセスすると表示できます。</p>
+<p><a href="/">トップページへ</a></p>`,
+  });
 }

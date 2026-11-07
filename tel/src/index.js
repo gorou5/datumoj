@@ -7,11 +7,15 @@ import { bumpView, listComments, addComment, commentProblem, COMMENT_MESSAGES, h
 import {
   composeNumber, analyzeFallback, listPrefectures, listAreaCodes, getAreaHub,
   listLineTypes, getLineTypeHub, listTpSources, allAreaCodes,
-  listGovAgencies, listGovNumbers, govNumbersByAgency,
+  listGovAgencies, listGovNumbers, govNumbersByAgency, findAreaCode,
 } from './lib/compose.js';
 import {
-  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES,
+  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES, unavailablePage,
 } from './lib/render.js';
+import {
+  findRecord, insertRecord, updateRecordFacts, factsFromRecord, getSnapshotVersion,
+  bumpRecordView, bumpRecordComment, popularFromRecords,
+} from './lib/record.js';
 
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
 const CACHE_HUB = 'public, max-age=3600, s-maxage=86400';
@@ -27,13 +31,14 @@ function html(body, status = 200, cache = CACHE_HUB) {
 // homepage hero never dead-ends on placeholders.
 async function drawRandomHero(db) {
   try {
+    // Draw from the small hero_candidate sample table (migration 0006):
+    // ORDER BY RANDOM() over ~30k designated blocks scanned the whole table
+    // on every homepage render.
     const types = ['fixed', 'mobile', 'ip050', 'free0120', 'free0800', 'navi0570', 'm2m020'];
     for (let attempt = 0; attempt < 6; attempt++) {
       const lt = types[Math.floor(Math.random() * types.length)];
       const brow = await db
-        .prepare(
-          "SELECT prefix FROM number_block_allocation WHERE line_type = ? AND carrier_id IS NOT NULL AND status = 'designated' AND length(prefix) >= 6 ORDER BY RANDOM() LIMIT 1"
-        )
+        .prepare('SELECT prefix FROM hero_candidate WHERE line_type = ? ORDER BY RANDOM() LIMIT 1')
         .bind(lt)
         .first();
       if (!brow) continue;
@@ -71,11 +76,16 @@ function lineTypeOf(digits) {
 // yet, in which case the homepage simply omits the box.
 async function getPopularNumbers(db, limit = 6) {
   try {
-    const r = await db
-      .prepare('SELECT number, views FROM number_view ORDER BY views DESC, number ASC LIMIT ?')
-      .bind(limit)
-      .all();
-    const rows = (r.results || []).filter(
+    // DESIGN v2.0: real demand lives on the per-year record tables.
+    let raw = await popularFromRecords(db, limit);
+    if (!raw.length) {
+      const r = await db
+        .prepare('SELECT number, views FROM number_view ORDER BY views DESC, number ASC LIMIT ?')
+        .bind(limit)
+        .all();
+      raw = r.results || [];
+    }
+    const rows = raw.filter(
       (x) => x.views > 0 && typeof x.number === 'string' && /^\d{10,14}$/.test(x.number)
     );
     if (!rows.length) return null;
@@ -84,13 +94,7 @@ async function getPopularNumbers(db, limit = 6) {
       const lineType = lineTypeOf(x.number);
       let areaCode = null;
       if (lineType === 'fixed') {
-        const ac = await db
-          .prepare(
-            "SELECT area_code FROM area_code WHERE ? LIKE area_code || '%' ORDER BY length(area_code) DESC LIMIT 1"
-          )
-          .bind(x.number)
-          .first();
-        areaCode = ac ? ac.area_code : null;
+        areaCode = await findAreaCode(db, x.number);
       }
       out.push({
         digits: x.number,
@@ -209,16 +213,24 @@ export default {
             headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
           });
         }
-        const facts = await composeNumber(db, m[1]);
-        if (!facts) return new Response('{}', { status: 404, headers: { 'cache-control': 'no-store' } });
-        let views = 0;
-        try {
-          views = await bumpView(db, m[1]);
-        } catch {
-          // Write path unavailable (e.g. daily write quota): still show the
-          // last known count instead of failing the beacon.
-          const row = await db.prepare('SELECT views FROM number_view WHERE number = ?').bind(m[1]).first();
-          views = row ? row.views : 0;
+        // DESIGN v2.0: the counter lives on the number's record row.
+        let views = await bumpRecordView(db, m[1]).catch(() => null);
+        if (views === null) {
+          // No record yet (page HTML was edge-cached from before v2.0, or
+          // the beacon raced the first render): compose once to validate
+          // the number and lay its record down, then count.
+          const facts = await composeNumber(db, m[1]);
+          if (!facts) return new Response('{}', { status: 404, headers: { 'cache-control': 'no-store' } });
+          await insertRecord(db, facts, await getSnapshotVersion(db)).catch(() => {});
+          views = await bumpRecordView(db, m[1]).catch(() => null);
+        }
+        if (views === null) {
+          try {
+            views = await bumpView(db, m[1]);
+          } catch {
+            const row = await db.prepare('SELECT views FROM number_view WHERE number = ?').bind(m[1]).first();
+            views = row ? row.views : 0;
+          }
         }
         return new Response(JSON.stringify({ views }), {
           headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
@@ -252,11 +264,35 @@ export default {
         const ipHash = await hashIp(request.headers.get('CF-Connecting-IP'), env.IP_HASH_SECRET);
         const rateProblem = await addComment(db, n, payload.body, ipHash);
         if (rateProblem) return json({ error: rateProblem, message: COMMENT_MESSAGES[rateProblem] }, 429);
+        await bumpRecordComment(db, n).catch(() => {});
         return json({ ok: true, comments: await listComments(db, n) });
       }
       if ((m = path.match(/^\/(\d{10,14})$/))) {
+        // DESIGN v2.0: a number that has been queried before is served from
+        // its record snapshot (per-year foundation tables); only a first
+        // query — or a snapshot older than the current snapshot_version —
+        // goes through composition, and the result is laid down / refreshed.
+        const version = await getSnapshotVersion(db);
+        const rec = await findRecord(db, m[1]);
+        if (rec && rec.row.snapshot_version >= version) {
+          const facts = await factsFromRecord(db, rec.row);
+          return html(numberPage(facts), 200, CACHE_NUM);
+        }
         const facts = await composeNumber(db, m[1]);
-        if (facts) return html(numberPage(facts), 200, CACHE_NUM);
+        if (facts) {
+          try {
+            if (rec) {
+              await updateRecordFacts(db, rec.year, facts, version);
+              facts.viewCount = rec.row.view_count;
+              facts.commentCount = rec.row.comment_count;
+            } else {
+              await insertRecord(db, facts, version);
+              facts.viewCount = 0;
+              facts.commentCount = 0;
+            }
+          } catch { /* record write must never break the page */ }
+          return html(numberPage(facts), 200, CACHE_NUM);
+        }
         // Catch-all: any 11-digit 0-leading input (and any other digit string
         // whose band can be identified) gets an explanatory page keyed by the
         // first three digits — a real 404, but with full guidance.
@@ -272,7 +308,13 @@ export default {
       }
       return html(notFoundPage(path), 404);
     } catch (e) {
-      return new Response('Internal error', { status: 500 });
+      // D1 unavailable (e.g. daily free-tier quota) or a compose failure:
+      // serve an honest, styled 503 instead of a bare "Internal error", and
+      // keep crawlers from caching it.
+      return new Response(unavailablePage(), {
+        status: 503,
+        headers: { ...HTML, 'cache-control': 'no-store', 'retry-after': '3600' },
+      });
     }
   },
 };

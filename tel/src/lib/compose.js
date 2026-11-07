@@ -3,17 +3,46 @@
 // migrations/0002. No per-number rows exist in the main data layer.
 // Returns null when the number is unallocated / not composable (-> real 404).
 
+// Longest-prefix block match by exact probes on the prefix index.
+// The previous form — SELECT * FROM v_number_block_detail
+// WHERE ? LIKE prefix || '%' — cannot use any index (the column sits inside
+// the LIKE pattern), so every number-page render scanned all ~30k blocks.
+// On 2026-10-24 that single query ran 854 times and read 14.64M rows,
+// 94% of the day's D1 reads and 3x the free-tier daily quota. Probing exact
+// prefixes from longest to shortest hits idx_number_block_allocation_prefix
+// and reads ~1 row per probe.
+const BLOCK_SELECT = `SELECT b.id AS block_id, b.line_type, b.prefix, b.designated_on,
+    b.status, b.note, b.source, b.carrier_id, b.charge_area_id,
+    lt.name_ja AS line_type_name, lt.digits AS line_digits, lt.portable AS portable,
+    c.name AS carrier_name
+  FROM number_block_allocation b
+  JOIN line_type lt ON lt.code = b.line_type
+  LEFT JOIN carrier c ON c.id = b.carrier_id
+  WHERE b.prefix = ?`;
+
+export async function findBlock(db, digits) {
+  for (let len = digits.length; len >= 2; len--) {
+    const row = await db.prepare(BLOCK_SELECT).bind(digits.slice(0, len)).first();
+    if (row) return row;
+  }
+  return null;
+}
+
+// Longest area-code match, same probing trick (area codes are 2-5 digits).
+export async function findAreaCode(db, digits) {
+  for (let len = Math.min(digits.length, 5); len >= 2; len--) {
+    const row = await db
+      .prepare('SELECT area_code FROM area_code WHERE area_code = ?')
+      .bind(digits.slice(0, len))
+      .first();
+    if (row) return row.area_code;
+  }
+  return null;
+}
+
 export async function composeNumber(db, digits) {
-  // 1) Longest-prefix block match (view: block + line type + carrier).
-  const block = await db
-    .prepare(
-      `SELECT * FROM v_number_block_detail
-        WHERE ? LIKE prefix || '%'
-        ORDER BY length(prefix) DESC
-        LIMIT 1`
-    )
-    .bind(digits)
-    .first();
+  // 1) Longest-prefix block match (block + line type + carrier).
+  const block = await findBlock(db, digits);
   if (!block) return null;
   if (block.status === 'unallocated') return null;
   if (digits.length !== block.line_digits) return null;
@@ -39,17 +68,14 @@ export async function composeNumber(db, digits) {
   // code. When the block knows its charge area (MA), the number belongs to
   // exactly that one MA; otherwise fall back to all MAs of the area code.
   if (block.line_type === 'fixed') {
-    const acRow = await db
-      .prepare(
-        `SELECT area_code FROM area_code
-          WHERE ? LIKE area_code || '%' ORDER BY length(area_code) DESC LIMIT 1`
-      )
-      .bind(digits)
-      .first();
-    facts.areaCode = acRow ? acRow.area_code : null;
+    facts.areaCode = await findAreaCode(db, digits);
     if (facts.areaCode) {
       const sum = await db
-        .prepare('SELECT prefecture FROM v_area_summary WHERE area_code = ?')
+        .prepare(
+          `SELECT p.name AS prefecture FROM area_code a
+            JOIN prefecture p ON p.code = a.primary_prefecture_code
+            WHERE a.area_code = ?`
+        )
         .bind(facts.areaCode)
         .first();
       facts.prefecture = sum ? sum.prefecture : null;
@@ -128,8 +154,8 @@ export async function listPrefectures(db) {
   const r = await db
     .prepare(
       `SELECT p.name AS prefecture, COUNT(*) AS areas
-         FROM v_area_summary s JOIN prefecture p ON p.name = s.prefecture
-        GROUP BY p.name ORDER BY MIN(s.area_code)`
+         FROM area_code a JOIN prefecture p ON p.code = a.primary_prefecture_code
+        GROUP BY p.name ORDER BY MIN(a.area_code)`
     )
     .all();
   return r.results || [];
@@ -137,7 +163,11 @@ export async function listPrefectures(db) {
 
 export async function listAreaCodes(db, prefecture) {
   const r = await db
-    .prepare('SELECT area_code FROM v_area_summary WHERE prefecture = ? ORDER BY area_code')
+    .prepare(
+      `SELECT a.area_code FROM area_code a
+        JOIN prefecture p ON p.code = a.primary_prefecture_code
+        WHERE p.name = ? ORDER BY a.area_code`
+    )
     .bind(prefecture)
     .all();
   return (r.results || []).map((x) => x.area_code);
@@ -145,7 +175,12 @@ export async function listAreaCodes(db, prefecture) {
 
 export async function getAreaHub(db, areaCode) {
   const ac = await db
-    .prepare('SELECT * FROM v_area_summary WHERE area_code = ?')
+    .prepare(
+      `SELECT a.area_code, p.name AS prefecture,
+              (SELECT COUNT(*) FROM charge_area m WHERE m.area_code = a.area_code) AS charge_area_count
+         FROM area_code a JOIN prefecture p ON p.code = a.primary_prefecture_code
+        WHERE a.area_code = ?`
+    )
     .bind(areaCode)
     .first();
   if (!ac) return null;
@@ -167,11 +202,11 @@ export async function getLineTypeHub(db, code) {
   // Hub pages list band-level blocks only; the tens of thousands of official
   // 6-digit designation blocks are counted, not listed.
   const blocks = await db
-    .prepare('SELECT * FROM number_block_allocation WHERE line_type = ? AND length(prefix) < 6 ORDER BY prefix')
+    .prepare('SELECT * FROM number_block_allocation WHERE line_type = ? AND prefix_length < 6 ORDER BY prefix')
     .bind(code)
     .all();
   const dc = await db
-    .prepare('SELECT COUNT(*) AS n FROM number_block_allocation WHERE line_type = ? AND length(prefix) >= 6')
+    .prepare('SELECT COUNT(*) AS n FROM number_block_allocation WHERE line_type = ? AND prefix_length >= 6')
     .bind(code)
     .first();
   return { lineType: lt, blocks: blocks.results || [], detailCount: dc ? dc.n : 0 };
@@ -183,7 +218,13 @@ export async function listTpSources(db) {
 }
 
 export async function allAreaCodes(db) {
-  const r = await db.prepare('SELECT area_code, prefecture FROM v_area_summary ORDER BY area_code').all();
+  const r = await db
+    .prepare(
+      `SELECT a.area_code, p.name AS prefecture
+         FROM area_code a JOIN prefecture p ON p.code = a.primary_prefecture_code
+        ORDER BY a.area_code`
+    )
+    .all();
   return r.results || [];
 }
 
@@ -239,18 +280,11 @@ export async function analyzeFallback(db, digits) {
       message: '0570のナビダイヤルは10桁です。11桁の番号は割り当てられていません。末尾の1桁が多い可能性があります。' };
   }
   // Fixed-line family: longest matching area code (2-5 digits).
-  const ac = await db
-    .prepare(
-      `SELECT area_code FROM area_code
-        WHERE ? LIKE area_code || '%'
-        ORDER BY length(area_code) DESC LIMIT 1`
-    )
-    .bind(digits)
-    .first();
-  if (ac) {
+  const areaCode = await findAreaCode(db, digits);
+  if (areaCode) {
     return { ...base, bandName: '固定電話（0AB-J）', reason: 'length', expected: '10桁',
-      areaCode: ac.area_code, suggestion: digits.length > 10 ? digits.slice(0, 10) : null,
-      message: `市外局番 ${ac.area_code} の固定電話は10桁です。11桁の番号は割り当てられていません。桁数が1つ多い可能性があります。` };
+      areaCode, suggestion: digits.length > 10 ? digits.slice(0, 10) : null,
+      message: `市外局番 ${areaCode} の固定電話は10桁です。11桁の番号は割り当てられていません。桁数が1つ多い可能性があります。` };
   }
   return { ...base, reason: 'unallocated', expected: null, suggestion: null,
     message: `先頭3桁「${p3}」の番号帯に、11桁の電話番号の割り当ては確認できませんでした。この番号帯は未指定か、特殊な用途のものです。` };
