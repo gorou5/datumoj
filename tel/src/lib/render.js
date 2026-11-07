@@ -413,6 +413,7 @@ export function numberPage(facts) {
 
   const rows = [];
   rows.push(`<tr><th>電話番号</th><td>${esc(formatted)}（${esc(f.digits)}）</td></tr>`);
+  rows.push(`<tr><th>数字のみ表記</th><td>${esc(f.digits)}</td></tr>`);
   rows.push(`<tr><th>調べられた回数</th><td><span id="viewCount">${typeof f.viewCount === 'number' ? esc(String(f.viewCount)) + ' 回' : '集計中…'}</span></td></tr>`);
   rows.push(`<tr><th>番号の種類</th><td>${esc(f.lineTypeName)}</td></tr>`);
   if (f.prefecture) rows.push(`<tr><th>都道府県</th><td>${esc(f.prefecture)}</td></tr>`);
@@ -586,7 +587,7 @@ ${searchForm()}
     : '現時点で第三者機関の詐欺標識の登録はありません。';
   return layout({
     title: `${formatted} の電話番号情報｜${titleBits.join('・')}`,
-    description: `${formatted} は${f.lineTypeName}の番号です。${carrier ? `総務省の指定データでは割当事業者は${carrier}です。` : ''}${freeDial ? '通話料は着信側が負担し、かける側は無料です。' : ''}${f.prefecture ? `地域は${f.prefecture}です。` : ''}${flagNote}知らない番号への対処法も掲載しています。`,
+    description: `${formatted}（数字のみ表記：${f.digits}）は${f.lineTypeName}の番号です。${carrier ? `総務省の指定データでは割当事業者は${carrier}です。` : ''}${freeDial ? '通話料は着信側が負担し、かける側は無料です。' : ''}${f.prefecture ? `地域は${f.prefecture}です。` : ''}${flagNote}知らない番号への対処法も掲載しています。`,
     robots: f.tier === 1 ? undefined : 'noindex,follow',
     canonical: `https://datumoj.com/tel/${f.digits}`,
     jsonLd,
