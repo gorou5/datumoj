@@ -331,7 +331,7 @@ ${popular.map((p) => `<li><a href="/tel/${esc(p.digits)}">${esc(p.formatted)}</a
 </ul>
 <p class="meta">当サイトは上記の機関・団体とは関係のない民間の電話番号データベースです。各窓口は、それぞれの運営主体が運営しています。</p>
 </section>
-<p class="home-links"><a href="/tel/popular">よく検索される電話番号</a> ・ <a href="/tel/gov">政府機関の番号</a> ・ <a href="/tel/history">日本の電話番号の歴史</a> ・ <a href="/tel/about">このサイトについて</a></p>
+<p class="home-links"><a href="/tel/popular">よく検索される電話番号</a> ・ <a href="/tel/blocks">番号区段インデックス</a> ・ <a href="/tel/gov">政府機関の番号</a> ・ <a href="/tel/history">日本の電話番号の歴史</a> ・ <a href="/tel/about">このサイトについて</a></p>
 </div>
 <script>
 (function(){
