@@ -131,7 +131,7 @@ export function layout({ title, description, robots, canonical, jsonLd, body }) 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title>
-<link rel="icon" href="/tel/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/tel/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="/tel/apple-touch-icon.png">
 <meta name="description" content="${esc(description || '')}">
 ${robots ? `<meta name="robots" content="${esc(robots)}">` : ''}

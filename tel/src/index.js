@@ -19,9 +19,10 @@ import {
   drawRandomRecord, factsFromRecordSnapshot,
 } from './lib/record.js';
 import { HOT_NUMBERS } from './data/hot_numbers.js';
-import { FAVICON_SVG, appleTouchIconBytes } from './lib/favicon.js';
+import { faviconPngBytes, appleTouchIconBytes } from './lib/favicon.js';
 import { flagFingerprint, getSnapshot, putSnapshot } from './lib/snapshot.js';
 import { getR2Object } from './lib/r2.js';
+import { BLOCKS_JS } from './lib/blocks_js.js';
 
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
 const CACHE_HUB = 'public, max-age=3600, s-maxage=86400';
@@ -61,6 +62,10 @@ function pickFallbackHero() {
 // record tables, in digit order. Shards stay under the 50k protocol limit.
 const SITEMAP_SHARD_SIZE = 45000;
 const POPULAR_PER_PAGE = 100;
+// Block sitemap (/sitemap-blocks-1.xml) is generated but NOT yet listed in
+// the /sitemap.xml index — flip this to true when the block rollout is
+// approved for discovery. Until then the shard is reachable directly only.
+const SITEMAP_BLOCKS_IN_INDEX = false;
 
 function xmlResponse(xml) {
   return new Response(xml, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': CACHE_HUB } });
@@ -150,6 +155,18 @@ async function sitemapNumberDigits(db) {
     }
   }
   return out;
+}
+
+// Block keys (first 7 digits) that carry a demand signal: at least one
+// landed Tier 1 record or one hot-list number inside the block. This is
+// the staged-rollout口径 for block pages — signal blocks are generated
+// and sitemapped first; the long tail follows in later stages.
+async function sitemapBlockKeys(db) {
+  const keys = new Set();
+  for (const h of HOT_NUMBERS) keys.add(h.digits.slice(0, 7));
+  const recDigits = await listRecordTier1Digits(db).catch(() => []);
+  for (const d of recDigits) keys.add(d.slice(0, 7));
+  return [...keys].sort();
 }
 
 // Prefix-only line-type detection for the homepage "popular numbers" box.
@@ -242,9 +259,9 @@ export default {
         if (!digits) return html(notFoundPage(url.searchParams.get('q') || ''), 404);
         return Response.redirect(`https://datumoj.com/tel/${digits}`, 302);
       }
-      if (path === '/favicon.svg') {
-        return new Response(FAVICON_SVG, {
-          headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'public, max-age=604800, s-maxage=604800' },
+      if (path === '/favicon.png') {
+        return new Response(faviconPngBytes(), {
+          headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=604800, s-maxage=604800' },
         });
       }
       if (path === '/apple-touch-icon.png') {
@@ -265,6 +282,7 @@ export default {
         const children = [
           'https://datumoj.com/tel/sitemap-main.xml',
           ...Array.from({ length: shards }, (_, i) => `https://datumoj.com/tel/sitemap-numbers-${i + 1}.xml`),
+          ...(SITEMAP_BLOCKS_IN_INDEX ? ['https://datumoj.com/tel/sitemap-blocks-1.xml'] : []),
         ];
         const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${children
           .map((u) => `<sitemap><loc>${u}</loc></sitemap>`)
@@ -303,6 +321,34 @@ export default {
         );
         if (!obj) return html(notFoundPage(path), 404);
         return html(obj.body, 200, CACHE_NUM, { 'x-blocks-index': 'hit' });
+      }
+      if (path === '/sitemap-blocks-1.xml') {
+        const keys = await sitemapBlockKeys(db);
+        return xmlResponse(urlsetXml(keys.map((k) => `https://datumoj.com/tel/${k}`)));
+      }
+      if (path === '/blocks.js') {
+        // Shared delegated script for block pages. Canonical copy lives in
+        // the nbfun bucket (object `blocks.js`); the in-repo constant is
+        // the fallback so block pages never lose click activation.
+        const obj = await getR2Object(env, 'blocks.js');
+        return new Response(obj ? obj.body : BLOCKS_JS, {
+          headers: { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': CACHE_HUB },
+        });
+      }
+      if ((m = path.match(/^\/(\d{7})$/))) {
+        // Block page, flat URL /tel/<7-digit block key>: bare-digit paths
+        // dispatch by length — 7 digits is a block key (a block is an
+        // official allocation, not a number; "block" as a path segment
+        // was dropped because it reads as 封堵/blocking in a phone
+        // context, and 7 digits can never collide with the 10–14-digit
+        // number route below). The page is a pre-generated static listing
+        // of one 10k-number block, stored in the nbfun bucket as
+        // blocks/<key>.html and served verbatim. No object (or storage
+        // unavailable) is a real 404 — block pages are never composed on
+        // the fly.
+        const obj = await getR2Object(env, `blocks/${m[1]}.html`);
+        if (!obj) return html(notFoundPage(m[1]), 404);
+        return html(obj.body, 200, CACHE_NUM, { 'x-block': 'hit' });
       }
       if (path === '/popular') {
         const totalPages = popularTotalPages();
@@ -344,7 +390,7 @@ export default {
         // cross-site drive-by trying to inflate the counter — do not count
         // it. Requests without Origin (curl, the ops cleanup job) count.
         const origin = request.headers.get('Origin');
-        if (origin && origin !== 'https://datumoj.com/tel') {
+        if (origin && origin !== 'https://datumoj.com') {
           return new Response(JSON.stringify({ views: 0 }), {
             status: 403,
             headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },

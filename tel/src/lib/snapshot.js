@@ -1,5 +1,9 @@
 // SSG snapshots (保命/效率层): the rendered HTML of a landed Tier 1 number
-// page, stored in R2 (bucket `datumoj`, binding SNAPSHOTS). Serving order
+// page, stored in R2. Since the storage consolidation they live in the
+// nbfun account's bucket `tel` (key tel/snapshots/<digits>.html, unchanged)
+// and are reached through the cross-account S3 layer in lib/r2.js — the
+// Worker itself runs in the Datumoj account and cannot hold a native
+// binding there. Serving order
 // for GET /<digits> stays record-first; the snapshot only replaces the
 // *render* step for a record that is already known fresh, never the
 // routing, tiering or 404 logic. Any R2 failure degrades silently to the
@@ -22,6 +26,8 @@
 // is refreshed by the page's own /view beacon script on every real view
 // (and the beacon keeps incrementing the record row), and the comment
 // list is loaded by script from /comments.json — same as the SSR page.
+
+import { getR2Object, putR2Object } from './r2.js';
 
 const PREFIX = 'tel/snapshots/';
 
@@ -61,33 +67,19 @@ export async function flagFingerprint(db, digits) {
   }
 }
 
-// Returns { body, meta } or null (miss / R2 unavailable / bad object).
+// Returns { body, meta } or null (miss / storage unavailable / bad object).
 export async function getSnapshot(env, digits) {
-  if (!env || !env.SNAPSHOTS) return null;
-  try {
-    const obj = await env.SNAPSHOTS.get(snapshotKey(digits));
-    if (!obj) return null;
-    const meta = obj.customMetadata || {};
-    if (!meta.sv || !meta.fp) return null;
-    return { body: await obj.text(), meta };
-  } catch {
-    return null;
-  }
+  const obj = await getR2Object(env, snapshotKey(digits));
+  if (!obj) return null;
+  const meta = obj.meta || {};
+  if (!meta.sv || !meta.fp) return null;
+  return { body: obj.body, meta };
 }
 
 // Fire-and-forget friendly: never throws.
 export async function putSnapshot(env, digits, bodyHtml, { sv, fp }) {
-  if (!env || !env.SNAPSHOTS) return;
-  try {
-    await env.SNAPSHOTS.put(snapshotKey(digits), bodyHtml, {
-      httpMetadata: { contentType: 'text/html; charset=utf-8' },
-      customMetadata: {
-        sv: String(sv),
-        fp: String(fp),
-        gen: new Date().toISOString(),
-      },
-    });
-  } catch {
-    /* snapshot write failure must never break the page */
-  }
+  await putR2Object(env, snapshotKey(digits), bodyHtml, {
+    contentType: 'text/html; charset=utf-8',
+    meta: { sv: String(sv), fp: String(fp), gen: new Date().toISOString() },
+  });
 }
