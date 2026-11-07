@@ -22,6 +22,7 @@ import { HOT_NUMBERS } from './data/hot_numbers.js';
 import { faviconPngBytes, appleTouchIconBytes } from './lib/favicon.js';
 import { flagFingerprint, getSnapshot, putSnapshot } from './lib/snapshot.js';
 import { getR2Object } from './lib/r2.js';
+import { blockPageExists } from './lib/block_manifest.js';
 import { BLOCKS_JS } from './lib/blocks_js.js';
 
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
@@ -47,6 +48,16 @@ async function drawRandomHero(db) {
     return null;
   }
   return null;
+}
+
+// Number-page render with the block back-link resolved first:
+// facts.blockExists comes from the cached bucket manifest
+// (lib/block_manifest.js), so the 所属区段 link is rendered only when the
+// block page really exists — never as a guess. Snapshot hits bypass this
+// entirely; the decision is baked into the HTML at compose time.
+async function renderNumberPage(env, facts) {
+  facts.blockExists = await blockPageExists(env, String(facts.digits || '').slice(0, 7));
+  return numberPage(facts);
 }
 
 function pickFallbackHero() {
@@ -472,14 +483,14 @@ export default {
               return html(snap.body, 200, CACHE_NUM, { 'x-snapshot': 'hit' });
             }
             const facts = await factsFromRecord(db, rec.row);
-            const body = numberPage(facts);
+            const body = await renderNumberPage(env, facts);
             if (facts.tier === 1 && fp !== null) {
               defer(putSnapshot(env, m[1], body, { sv: rec.row.snapshot_version, fp }));
             }
             return html(body, 200, CACHE_NUM, { 'x-snapshot': 'miss' });
           }
           const facts = await factsFromRecord(db, rec.row);
-          return html(numberPage(facts), 200, CACHE_NUM);
+          return html(await renderNumberPage(env, facts), 200, CACHE_NUM);
         }
         const facts = await composeNumber(db, m[1]);
         if (facts) {
@@ -496,7 +507,7 @@ export default {
             }
             laidDown = true;
           } catch { /* record write must never break the page */ }
-          const body = numberPage(facts);
+          const body = await renderNumberPage(env, facts);
           if (laidDown && facts.tier === 1) {
             // Snapshot the just-landed page so later queries can be served
             // statically (the v2.0 record path above validates it against
