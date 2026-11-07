@@ -9,7 +9,7 @@
 | 需要 Key | 未核对；保存页面未说明是否需要 Key，详细 API 指南未保存。 |
 | 许可 / 利用规约 | [Copyright notice and free re-use of data](https://ec.europa.eu/eurostat/help/copyright-notice)。；[European Commission legal notice](https://commission.europa.eu/legal-notice_en) 被列为政策基础但未保存；API 指引页未提供具体配额。可否再分发：未核对；具体数据项及个别 notice 的范围待确认。 |
 | 本资料的可信度 | 仅读文档：所列保存页面；未进行 API 请求。 |
-| 对应的 DATUMOJ 任务 |  |
+| 对应的 DATUMOJ 任务 | DATUMOJ-MAPLE-302 |
 
 
 ## 内容清单
