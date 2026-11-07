@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """Build seed/government_seed.sql from seed/government_numbers.json.
 
-government_numbers.json entries (collected from official *.go.jp pages only — every
+government_numbers.json entries (collected from official pages only — *.go.jp, or
+the official site of a government-commissioned body such as denwan.jp — every
 number must have been seen on the page in source_url; unverified agencies are
 excluded upstream, never guessed):
   {agency, agency_short, number (as published, may contain hyphens),
    number_kind （代表番号/相談窓口/…), source_url, note}
+An entry may carry its own "verified_on" (YYYY-MM-DD); entries without one
+fall back to the VERIFIED_ON constant below (the original bulk-collection
+date), so later additions never rewrite the verification date of older rows.
 """
 import json, re, pathlib
 
@@ -53,7 +57,7 @@ for e in data:
         continue
     out.append(
         "INSERT OR IGNORE INTO government_number (number, agency_id, number_kind, label, source_url, verified_on) VALUES "
-        f"({q(d)},{agencies[name]},{q(num_kind(e.get('number_kind')))},{q(e.get('note') if e.get('note') != 'なし' else None)},{q(e['source_url'])},{q(VERIFIED_ON)});"
+        f"({q(d)},{agencies[name]},{q(num_kind(e.get('number_kind')))},{q(e.get('note') if e.get('note') != 'なし' else None)},{q(e['source_url'])},{q(e.get('verified_on') or VERIFIED_ON)});"
     )
     n += 1
 
