@@ -53,15 +53,15 @@ code{background:#21262d;padding:1px 5px;border-radius:4px}
 
 <div class="card">
 <b style="color:#f0f6fc">总量估算</b><br>
-IVY 剩余人工评审与 H 步骤收尾 ≈ 0.7M–1.3M tokens；TACHIBANA 19 个任务全量 ≈ 1.6M–3.3M tokens（不含真实抓取验收的人工时间）；运维类（SEO 每 3 小时、安全每日）为持续消耗，按轮次表内单价计。0.3（欧美扩面）未细拆，只列了方向任务 OPS-DATA-001。
+IVY 剩余人工评审与 H 步骤收尾 ≈ 0.7M–1.3M tokens；TACHIBANA 19 个任务全量 ≈ 1.6M–4.1M tokens（不含真实抓取验收的人工时间）；运维类（SEO 每 3 小时、安全每日）为持续消耗，按轮次表内单价计。0.3（欧美扩面）未细拆，只列了方向任务 OPS-DATA-001。
 </div>
 </main>
 <script>
 let ALL=[];
 function brief(t){return `任务 ${t.id}：${t.title}\n分组：${t.group}｜状态：${t.status}\n依赖：${t.depends_on.join(', ')||'无'}\n预计 token：${t.est_tokens}｜推荐模型：${t.model}\n备注：${t.note||'—'}\n规则：分支+PR 不直推 main；无密钥；结论须有出处。`}
 function render(){
-  const g=document.getElementById('fGroup').value, s=document.getElementById('fStatus').value, q=document.getElementById('fQ').value.trim();
-  const list=ALL.filter(t=>(!g||t.group===g)&&(!s||t.status.includes(s))&&(!q||(t.id+t.title).includes(q)));
+  const g=document.getElementById('fGroup').value, s=document.getElementById('fStatus').value, q=document.getElementById('fQ').value.trim().toLowerCase();
+  const list=ALL.filter(t=>(!g||t.group===g)&&(!s||t.status.includes(s))&&(!q||(t.id+' '+t.title).toLowerCase().includes(q)));
   const byG={}; list.forEach(t=>{(byG[t.group]=byG[t.group]||[]).push(t)});
   document.getElementById('groups').innerHTML=Object.entries(byG).map(([gname,ts])=>
    `<h2>${gname}（${ts.length}）</h2><table><tr><th>ID</th><th>任务</th><th>状态</th><th>依赖</th><th>预计 token</th><th>推荐模型</th><th></th></tr>${
@@ -70,7 +70,10 @@ function render(){
   // fix brief buttons: attach data properly
   document.querySelectorAll('#groups table').forEach((tbl,gi)=>{});
 }
-fetch('/tasks.json').then(r=>r.json()).then(d=>{
+fetch('/tasks.json').then(r=>{
+  if(!r.ok)throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}).then(d=>{
   ALL=d.tasks;
   const groups=[...new Set(ALL.map(t=>t.group))];
   const sel=document.getElementById('fGroup'); groups.forEach(g=>{const o=document.createElement('option');o.textContent=g;sel.appendChild(o)});
@@ -79,13 +82,22 @@ fetch('/tasks.json').then(r=>r.json()).then(d=>{
    `<div class="stat"><b>${ALL.length}</b>任务总数</div><div class="stat"><b>${cnt('已执行')}</b>已执行待评审</div><div class="stat"><b>${cnt('计划草案')}</b>TACHIBANA 草案</div><div class="stat"><b>${cnt('运行中')}</b>运维运行中</div><div class="stat"><b>${ALL.filter(t=>/待用户|待 owner|待伙伴/.test(t.status)).length}</b>等人拍板</div>`;
   ['fGroup','fStatus','fQ'].forEach(id=>document.getElementById(id).addEventListener('input',render));
   // simpler brief copy: delegate
-  document.getElementById('groups').addEventListener('click',e=>{
+  document.getElementById('groups').addEventListener('click',async e=>{
     if(e.target.tagName!=='BUTTON')return;
     const id=e.target.closest('tr').querySelector('.id').textContent;
-    const t=ALL.find(x=>x.id===id); navigator.clipboard.writeText(brief(t)); e.target.textContent='已复制';
-    setTimeout(()=>e.target.textContent='简报',1200);
+    const t=ALL.find(x=>x.id===id), button=e.target;
+    try{
+      await navigator.clipboard.writeText(brief(t));
+      button.textContent='已复制';
+    }catch{
+      button.textContent='复制失败';
+    }finally{
+      setTimeout(()=>button.textContent='简报',1200);
+    }
   });
   render();
+}).catch(error=>{
+  document.getElementById('groups').textContent=`任务加载失败：${error.message}`;
 });
 </script>
 </body>
