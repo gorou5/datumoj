@@ -16,7 +16,7 @@ from datumoj.rikolto.text import normalize
 
 _TITLE_WEIGHT = 5.0  # bm25 列权重：标题路径命中比正文命中更靠前
 _MIN_FTS_CHARS = 3
-# Only discard a result when both signals are weak.
+# FTS accepts coverage or BM25; LIKE requires coverage (BM25=0 explicitly opts out).
 MIN_KEYWORD_COVERAGE = 0.5
 MIN_KEYWORD_BM25 = 0.01
 # English/French articles and prepositions; only applied to wholly Latin queries.
@@ -66,11 +66,23 @@ def _trigrams(term: str) -> list[str]:
     return list(dict.fromkeys(term[i : i + _MIN_FTS_CHARS] for i in range(len(term) - 2)))
 
 
+def keyword_coverage(query: str, texts: Sequence[str]) -> float:
+    """按索引的词 / 单词内 trigram 计算覆盖率；标题和正文分别匹配。"""
+    terms = _query_terms(normalize(query))
+    if len(terms) == 1 and len(terms[0]) >= _MIN_FTS_CHARS:
+        terms = _trigrams(terms[0])
+    folded = [normalize(text).casefold() for text in texts]
+    if not terms:
+        return 0.0
+    return sum(any(term.casefold() in text for text in folded) for term in terms) / len(terms)
+
+
 class SqliteKeywordIndex:
     """``path`` 是 SQLite 文件路径，或 ``:memory:``。
 
     ``like_limit``：短查询（LIKE 扫描）最多收集的命中条数；``like_timeout``：LIKE 扫描的秒数上限。
     ``min_keyword_coverage`` 和 ``min_keyword_bm25``：低覆盖率命中的过滤门槛。
+    含短词时覆盖率为硬门槛；显式设置 ``min_keyword_bm25=0`` 保留关闭过滤的兼容行为。
     """
 
     def __init__(
@@ -268,7 +280,8 @@ class SqliteKeywordIndex:
             chunk_id: hit
             for chunk_id, hit in found.items()
             if len(matches.get(chunk_id, ())) / len(terms) >= self.min_keyword_coverage
-            or bm25_scores.get(chunk_id, 0.0) >= self.min_keyword_bm25
+            or ((not like_terms or self.min_keyword_bm25 == 0)
+                and bm25_scores.get(chunk_id, 0.0) >= self.min_keyword_bm25)
         }
         if not found:
             return IndexResult(warnings=warnings)

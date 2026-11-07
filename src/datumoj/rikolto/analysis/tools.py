@@ -66,6 +66,7 @@ from datumoj.rikolto.core.models import (
     GapState,
     Hit,
     LicenseInfo,
+    MatchedBy,
     Observation,
     ObservationRef,
     PipelineStatus,
@@ -80,6 +81,7 @@ from datumoj.rikolto.core.models import (
 from datumoj.rikolto.core.storage import load_storage_config
 from datumoj.rikolto.index.coverage import gap_state as pipeline_gap_state
 from datumoj.rikolto.index.coverage import index_generation, pipeline_status
+from datumoj.rikolto.index.fts import MIN_KEYWORD_COVERAGE, _query_terms, keyword_coverage
 
 __all__ = ["INTERNAL_ONLY", "AnalysisTools", "expand_terms"]
 
@@ -88,6 +90,9 @@ MAX_K = 50
 MAX_FILTERED_CANDIDATES = 500
 MAX_CONTEXT = 10
 MAX_ROWS = 1000
+# Single unspaced words retain partial trigram recall: the existing TACHIBANA
+# PDF query スタートアップ has 1/5 coverage; 月面基地建設補助金 has only 1/7.
+MIN_SINGLE_TERM_COVERAGE = 0.2
 
 _SHA_RE = re.compile(r"[0-9a-f]{64}")
 _SUCCESS = (FetchOutcome.ok, FetchOutcome.not_modified)
@@ -539,6 +544,25 @@ class AnalysisTools:
 
     # ----- search_docs -----
 
+    @staticmethod
+    def _supports_query(query: str, chunk: Chunk) -> bool:
+        # Check the whole original query, not each glossary expansion in isolation.
+        # Aliases represent one concept; unknown words still count in the denominator.
+        texts = [normalize(text) for text in [*chunk.title_path, chunk.text]]
+        original = normalize(query)
+        translated = original
+        for match in expand_terms(query)["matches"]:
+            canonical = normalize(match["ja"][0])
+            translated = translated.replace(match["matched"], canonical)
+            for alias in match["ja"]:
+                texts = [text.replace(normalize(alias), canonical) for text in texts]
+        return any(
+            keyword_coverage(q, texts) >= (
+                MIN_SINGLE_TERM_COVERAGE if len(_query_terms(q)) == 1 else MIN_KEYWORD_COVERAGE
+            )
+            for q in (original, translated)
+        )
+
     def search_docs(
         self,
         queries: str | Sequence[str],
@@ -550,6 +574,8 @@ class AnalysisTools:
         """文本检索（法令、公告等）。中文、英文查询按对照表追加日文词一起检索（``data.queries`` 是实际用的查询）。
 
         ``since`` 按块的发布日 / 施行日过滤，两者都没有的块会被排除；``kinds`` 按文档类型过滤。
+        结果须有关键词支撑，并覆盖至少一条原始查询的一半词（默认 0.5，沿用关键词索引门槛）；
+        单词查询保留部分 trigram 召回（默认 0.2），词表同义词算同一概念，纯向量近邻不能独立支撑答案。
         """
         qs = _str_list(queries, "queries")
         k = _check_int(k, "k", 1, MAX_K)
@@ -587,6 +613,12 @@ class AnalysisTools:
                 source_ids=source_ids, date_range=date_range,
             )
         hits = list(res.data)
+        hits = [
+            hit for hit in hits
+            if MatchedBy.keyword in hit.matched_by
+            and (chunk := self.chunks.get_chunk(hit.chunk_id)) is not None
+            and any(self._supports_query(q, chunk) for q in qs)
+        ]
         if doc_kinds is not None:
             hits = [
                 hit for hit in hits
@@ -599,6 +631,7 @@ class AnalysisTools:
             warnings.append(
                 f"truncated=true：候选补取达到上限 {MAX_FILTERED_CANDIDATES}，结果可能不完整"
             )
+        truncated = truncated or any(w.startswith("truncated=true") for w in warnings)
         views = [self._hit_view(hit, warnings) for hit in hits]
         _usage_warning((h["usage_notice"] for h in views), warnings)
         generation = index_generation(self.retriever, data_dir=self.data_dir)
@@ -621,6 +654,8 @@ class AnalysisTools:
         )
         if doc_kinds is not None and not hits and gap_state is GapState.zero_hits and not truncated:
             gap_detail = "指定的文档类型没有命中"
+        if not hits and gap_state is GapState.zero_hits and not truncated:
+            gap_detail = f"{gap_detail}；相关性门槛：没有覆盖足够查询词的关键词命中，纯向量近邻不足以支撑答案"
         if truncated and gap_state is GapState.zero_hits:
             gap_state, gap_detail = GapState.ok, None
         freshness = _freshness((hit.citation.source_id, hit.citation.fetched_at) for hit in hits)
