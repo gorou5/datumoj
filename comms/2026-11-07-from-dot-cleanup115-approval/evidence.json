@@ -1,0 +1,61 @@
+{
+  "checked_scope": "Public GitHub issue, code and completed workflow log",
+  "main": "56df978f2264040b15ec802026d173e5a386cdea",
+  "issue": 115,
+  "unresolved_comment": "https://github.com/gorou5/datumoj/issues/115#issuecomment-6704010943",
+  "proposed_not_authorized_delete_time_utc": "2026-11-08T10:30:00Z",
+  "proposed_not_authorized_delete_time_jst": "2026-11-08T19:30:00+09:00",
+  "cleanup_run": {
+    "id": 42349871384,
+    "job_id": 128335516312,
+    "completed": true,
+    "conclusion": "success",
+    "input_delete": false,
+    "result": {
+      "status": "completed",
+      "exit_status": 0,
+      "reason": null,
+      "phase": "cleanup",
+      "mode": "dry_run",
+      "generation": 35,
+      "cleanup": {
+        "enabled": false,
+        "raw_enabled": true,
+        "generations_deleted": 0,
+        "copies_deleted": 0,
+        "copies_deleted_bytes": 0,
+        "raw_marked": 0,
+        "raw_deleted": 0,
+        "raw_deleted_bytes": 0,
+        "reclaimable_generations": 4,
+        "reclaimable_copies": 633,
+        "reclaimable_copies_bytes": 142729894,
+        "reclaimable_raw": 0,
+        "reclaimable_raw_bytes": 0,
+        "total_bytes": 8803425237,
+        "over_7gb": true,
+        "failures": 0,
+        "elapsed_s": 50.12,
+        "timed_out": false
+      },
+      "restore_timings": {
+        "downloaded_bytes": 2151668589,
+        "reused_bytes": 0,
+        "download_copies": 292.999159562,
+        "validate": 180.76557355800003,
+        "download_raw": 21.356909693000034,
+        "sample_provenance": 8.331186048999939,
+        "cleanup": 0.00006262900001274829,
+        "total": 512.775918422
+      }
+    }
+  },
+  "findings": [
+    "No source allowlist or binding to an approved candidate set in current main cleanup",
+    "Candidate count alone cannot establish source, identity, scope or backup coverage",
+    "Visible owner/authorization chain requires clarification; silence is not affirmative permission",
+    "NAS backup coverage of proposed candidates is not verified",
+    "Dry run writes the lease; no production run is requested by this handoff"
+  ],
+  "actions": "Only public-source verification and authorized technical handoff; no run, delete, setting change or approval"
+}
