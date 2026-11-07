@@ -70,8 +70,33 @@ function pickFallbackHero() {
 // (src/data/hot_numbers.js — demand-verified, Tier 1 validated) first in
 // demand order, then every Tier 1 digit already laid down in the per-year
 // record tables, in digit order. Shards stay under the 50k protocol limit.
+//
+// /sitemap-blocks-N.xml shards carry block pages (flat /tel/<7-digit key>)
+// in a staged rollout — the stages, in order:
+//   1: signal blocks — blocks holding at least one signal number. The key
+//      set is read from the D1 signal_block table, which the generation
+//      pipeline refreshes with the exact signal computation that renders
+//      signal numbers as real links on the block pages (scripts/
+//      sync_signal_blocks.py) — sitemap and pages share one source.
+//   2: every mobile block.  3: every 050 / 0800 / 0120 / 0570 block.
+//   4: every fixed-line block in the 21 metro area codes.
+// Shards are numbered sequentially across stages (each stage's keys are
+// deduped against all earlier stages and chunked at SITEMAP_SHARD_SIZE).
+// SITEMAP_BLOCKS_STAGE controls how many stages the /sitemap.xml index
+// advertises; shard URLs beyond it still resolve when fetched directly,
+// mirroring the pre-staging behaviour of the single blocks shard. Raise
+// the constant one stage at a time as Search Console coverage allows.
 const SITEMAP_SHARD_SIZE = 45000;
 const POPULAR_PER_PAGE = 100;
+const SITEMAP_BLOCKS_STAGE = 1;
+const BLOCK_STAGE_COUNT = 4;
+// The 21 metro area codes of the fixed-line rollout (same string-prefix
+// membership as the generation pipeline's area_of()).
+const METRO_AREA_CODES = [
+  '011', '022', '025', '03', '042', '043', '044', '045', '048',
+  '052', '053', '054', '06', '072', '075', '078', '082', '086',
+  '092', '093', '096',
+];
 
 function xmlResponse(xml) {
   return new Response(xml, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': CACHE_HUB } });
@@ -161,6 +186,91 @@ async function sitemapNumberDigits(db) {
     }
   }
   return out;
+}
+
+// --- Block sitemap (staged rollout) ------------------------------------------
+
+// Stage 1: signal block keys from the D1 signal_block table. That table is
+// the sitemap-side copy of the block generators' signal set (landed
+// records + seed list_v1 in full + list_v2 search_count>=10 + comment /
+// report / third-party-flag numbers, intersected with the generated block
+// plan), written by scripts/sync_signal_blocks.py from the generators' own
+// computation — never re-derived here, so the sitemap can never drift from
+// what the block pages render as signal links. A missing table (migration
+// 0012 not applied yet) reads as an empty stage, not an error.
+async function listSignalBlockKeys(db) {
+  try {
+    const r = await db.prepare('SELECT block_key FROM signal_block ORDER BY block_key').all();
+    return (r.results || []).map((row) => row.block_key);
+  } catch {
+    return [];
+  }
+}
+
+async function listAllocationPrefixes(db, lineType, prefixLength) {
+  const r = await db
+    .prepare(
+      `SELECT prefix FROM number_block_allocation WHERE line_type = ? AND prefix_length = ? AND status = 'designated' ORDER BY prefix`
+    )
+    .bind(lineType, prefixLength)
+    .all();
+  return (r.results || []).map((row) => row.prefix);
+}
+
+// Keys of one rollout stage, minus every key already claimed by an earlier
+// stage (the caller threads `exclude` through the stages in order).
+async function blockStageKeys(db, stage, exclude) {
+  const fresh = (keys) => keys.filter((k) => !exclude.has(k));
+  if (stage === 1) {
+    return fresh(await listSignalBlockKeys(db));
+  }
+  if (stage === 2) {
+    // Mobile allocations are designated at 6 digits; each expands to the
+    // ten 7-digit block keys of its 万号 blocks.
+    const keys = [];
+    for (const p of await listAllocationPrefixes(db, 'mobile', 6)) {
+      for (let d = 0; d < 10; d++) keys.push(p + d);
+    }
+    return fresh(keys.sort());
+  }
+  if (stage === 3) {
+    // 050 / 0800 / 0120 / 0570 allocations are designated at the full
+    // 7-digit block key already.
+    const keys = [];
+    for (const lt of ['ip050', 'free0800', 'free0120', 'navi0570']) {
+      keys.push(...(await listAllocationPrefixes(db, lt, 7)));
+    }
+    return fresh(keys.sort());
+  }
+  if (stage === 4) {
+    // Fixed-line allocations sit at 6 digits (area + exchange); the metro
+    // scope is the 21 area codes, matched as string prefixes exactly as
+    // the generation pipeline picks them (nearby MA exchanges included).
+    const keys = [];
+    for (const p of await listAllocationPrefixes(db, 'fixed', 6)) {
+      if (!METRO_AREA_CODES.some((c) => p.startsWith(c))) continue;
+      for (let d = 0; d < 10; d++) keys.push(p + d);
+    }
+    return fresh(keys.sort());
+  }
+  return [];
+}
+
+// Ordered shard plan for stages 1..maxStage: [{ stage, keys }], chunked at
+// SITEMAP_SHARD_SIZE. A stage with no keys contributes no shard, so shard
+// numbers shift if an early stage is empty — acceptable while stages are
+// mounted in order (an empty stage 1 mounts nothing at all).
+async function blockSitemapPlan(db, maxStage = BLOCK_STAGE_COUNT) {
+  const seen = new Set();
+  const shards = [];
+  for (let stage = 1; stage <= maxStage; stage++) {
+    const keys = await blockStageKeys(db, stage, seen);
+    for (const k of keys) seen.add(k);
+    for (let i = 0; i < keys.length; i += SITEMAP_SHARD_SIZE) {
+      shards.push({ stage, keys: keys.slice(i, i + SITEMAP_SHARD_SIZE) });
+    }
+  }
+  return shards;
 }
 
 // Prefix-only line-type detection for the homepage "popular numbers" box.
@@ -273,9 +383,14 @@ export default {
       if (path === '/sitemap.xml') {
         const digits = await sitemapNumberDigits(db);
         const shards = Math.max(1, Math.ceil(digits.length / SITEMAP_SHARD_SIZE));
+        // Block shards join the index only up to the mounted rollout stage
+        // (SITEMAP_BLOCKS_STAGE = 0 reproduces the pre-staging index).
+        const blockShards =
+          SITEMAP_BLOCKS_STAGE >= 1 ? await blockSitemapPlan(db, SITEMAP_BLOCKS_STAGE) : [];
         const children = [
           'https://datumoj.com/tel/sitemap-main.xml',
           ...Array.from({ length: shards }, (_, i) => `https://datumoj.com/tel/sitemap-numbers-${i + 1}.xml`),
+          ...blockShards.map((_, i) => `https://datumoj.com/tel/sitemap-blocks-${i + 1}.xml`),
         ];
         const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${children
           .map((u) => `<sitemap><loc>${u}</loc></sitemap>`)
@@ -292,6 +407,12 @@ export default {
         if (shard < 1 || shard > shards) return html(notFoundPage(path), 404);
         const slice = digits.slice((shard - 1) * SITEMAP_SHARD_SIZE, shard * SITEMAP_SHARD_SIZE);
         return xmlResponse(urlsetXml(slice.map((d) => `https://datumoj.com/tel/${d}`)));
+      }
+      if ((m = path.match(/^\/sitemap-blocks-(\d+)\.xml$/))) {
+        const shard = Number(m[1]);
+        const plan = await blockSitemapPlan(db);
+        if (shard < 1 || shard > plan.length) return html(notFoundPage(path), 404);
+        return xmlResponse(urlsetXml(plan[shard - 1].keys.map((k) => `https://datumoj.com/tel/${k}`)));
       }
       if (path === '/blocks') {
         // Block index （区段索引）: pre-generated static pages in the nbfun
