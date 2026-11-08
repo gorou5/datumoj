@@ -1,0 +1,12 @@
+-- Snapshot version bump 1 -> 2 (2026-11-07).
+--
+-- The number-page template changed: the facts table gained a
+-- 「数字のみ表記」 row (digits-only form alongside the hyphenated display
+-- form) and the meta description now carries the digits-only form too.
+-- Rendered HTML lives in R2 snapshots keyed to the record's
+-- snapshot_version, so the site version must move ahead: per the validity
+-- contract (src/lib/snapshot.js rule 1 and the note on the 0007 seed row),
+-- records with an older snapshot_version are re-composed and refreshed the
+-- next time they are queried, which invalidates every snapshot rendered
+-- by the old template.
+UPDATE site_meta SET value = '2' WHERE key = 'snapshot_version';
