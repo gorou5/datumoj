@@ -32,6 +32,8 @@ pytest_plugins = (
 
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE_COMMIT = "89e8763"
+# Measured through search_docs after MAPLE-145 merged at dfdfb65.
+MAPLE_145_MULTILINGUAL_HITS = (6, 6)
 # Measured through AnalysisTools.search_docs on 89e8763 (before MAPLE-144).
 # (questions hitting an expected doc/locator at k=10, positive questions).
 BASELINE_HITS = {
@@ -250,3 +252,6 @@ def test_search_docs_scores_against_pre_144_baseline(m3, maple_corpus, tmp_path,
         if bank != "maple_multilingual.yaml":
             assert total == BASELINE_HITS[bank][1]
             assert hits >= BASELINE_HITS[bank][0], (bank, baseline[bank], current[bank])
+    hits, total = current["maple_multilingual.yaml"]
+    assert total == MAPLE_145_MULTILINGUAL_HITS[1]
+    assert hits >= MAPLE_145_MULTILINGUAL_HITS[0]
