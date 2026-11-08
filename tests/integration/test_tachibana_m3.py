@@ -324,7 +324,7 @@ def test_new_tools_over_real_stdio(m3):
                 }))
                 assert restored["data"]["status"] == "ok" and restored["data"]["passages"]
             searches = {}
-            for kind, query in (("html_page", "スタートアップ"), ("pdf", "スタートアップ")):
+            for kind, query in (("html_page", "スタートアップ"), ("pdf", "ベンチャー")):
                 found = data(await client.call_tool("search_docs", {
                     "queries": query, "sources": "jp-gov-web", "kinds": [kind], "k": 10,
                 }))

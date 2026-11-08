@@ -3,7 +3,7 @@
 import pytest
 
 from datumoj.rikolto.index import fts
-from datumoj.rikolto.index.fts import SqliteKeywordIndex, _query_terms
+from datumoj.rikolto.index.fts import SqliteKeywordIndex, query_terms
 from datumoj.rikolto.testing.samples import make_chunk
 
 SHA = "ab" * 32
@@ -21,7 +21,7 @@ SHA = "ab" * 32
     ("165.T09-1271", ["165", "T09", "1271"]),
 ])
 def test_latin_stop_words(query, expected):
-    assert _query_terms(query) == expected
+    assert query_terms(query) == expected
 
 
 @pytest.mark.parametrize(("query", "expected"), [
@@ -34,7 +34,7 @@ def test_latin_stop_words(query, expected):
     ("la 中文的统计 the", ["la", "中文的统计", "the"]),
 ])
 def test_cjk_and_mixed_script_splitting_is_unchanged(query, expected):
-    assert _query_terms(query) == expected
+    assert query_terms(query) == expected
 
 
 def test_cjk_trigram_search_is_unchanged():
