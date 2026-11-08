@@ -32,7 +32,7 @@ import { fileURLToPath } from 'node:url';
 const run = promisify(execFile);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const WRANGLER = process.env.WRANGLER || path.join(os.homedir(), '.npm-global/bin/wrangler');
-const BASE = 'https://tel.datumoj.com';
+const BASE = 'https://datumoj.com/tel';
 
 const args = process.argv.slice(2);
 const opt = (name, dflt) => {
