@@ -536,8 +536,18 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
   const dialHtml = DIAL_NUMBERS.has(f.digits)
     ? `<p class="dialrow"><a class="dialbtn" href="tel:${f.digits}">電話する（${esc(formatted)}）</a></p>`
     : '';
+  // Link integrity (2026-11-07): every number page walks back to the
+  // 区段索引, and to its own block page — but the block link renders only
+  // when the bucket manifest positively lists that block (facts.
+  // blockExists, resolved in index.js via lib/block_manifest.js); an
+  // ungenerated block (e.g. non-metro fixed) must never be linked. Home
+  // gets no extra link here: the layout header logo and the breadcrumb
+  // above both already lead there.
+  const blockKey = f.digits.slice(0, 7);
+  const blockNav = `<p class="meta">${f.blockExists ? `<a href="/tel/${blockKey}">この番号の区段ページ（${esc(blockKey)}）</a> ・ ` : ''}<a href="/tel/blocks">番号区段インデックス</a></p>`;
   const body = `
 <p class="crumbs">${crumbHtml}</p>
+${blockNav}
 <h1 class="sr-only">${esc(formatted)} の電話番号情報</h1>
 <div class="hero-num" role="group" aria-label="電話番号の各部分">${segHtml}</div>
 ${dialHtml}
