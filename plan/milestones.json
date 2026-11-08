@@ -1,6 +1,6 @@
 {
   "_说明": "plan/index.html 的“版本路线图”和“里程碑”两节由本文件渲染。由主对话在节点上更新，调度器派出的任务 agent 不改本文件。status 只有对应的 PR 已合并进 main 才能写 done（IVY 期间直接推送 main，pr 为 null）。规则见 CLAUDE.md 与 docs/PLAN.md 第 8.1 节。",
-  "updated": "2026-11-06",
+  "updated": "2026-11-08",
   "versions": [
     {
       "version": "0.1",
@@ -14,10 +14,10 @@
     {
       "version": "0.2",
       "codename": "TACHIBANA（橘）",
-      "status": "doing",
-      "label": "开发完成，已合并进 main，待 H4 验收",
+      "status": "done",
+      "label": "已发布",
       "summary": "日本扩面与持续运营：省厅和自治体政策网页与 PDF、BODIK、抓取监控、每周变化报告、存储适配层（为网络存储做准备）、注册层描述导出，并补上 IVY 遗留的检索缺口。24 个任务完成，feature/0.2 已合并进 main（PR #15）。KKJ 移出本版本；Actions 运行和一周试运行移到 0.3。",
-      "tag": null,
+      "tag": "v0.2.0-tachibana",
       "plan": "docs/plans/0.2-tachibana.md"
     },
     {
@@ -176,11 +176,11 @@
       "version": "0.2",
       "id": "完成",
       "title": "TACHIBANA 发布",
-      "status": "pending",
-      "date": null,
+      "status": "done",
+      "date": "2026-11-08",
       "tag": "v0.2.0-tachibana",
-      "pr": null,
-      "summary": "feature/0.2 已合并进 main（PR #15）；H4 真实问答验收通过后打 tag。",
+      "pr": 129,
+      "summary": "真实问答验收通过（附已知局限：分词、英文写法的库外问题仍可能返回无关结果）；相关性门槛修复 MAPLE-144–146 经 PR #129 合并进 main，在其合并提交上打 tag。",
       "acceptance": "docs/acceptance/v0.2.0-tachibana.md"
     },
     {
