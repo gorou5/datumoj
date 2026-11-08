@@ -25,7 +25,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import datumoj
-from datumoj.rikolto.analysis.glossary import expand_terms, normalize
+from datumoj.rikolto.analysis.glossary import expand_terms, load_glossary, normalize
 from datumoj.rikolto.core.citations import document_snapshot, select_snapshot
 from datumoj.rikolto.core.contracts import (
     AmbiguousCitation,
@@ -66,6 +66,7 @@ from datumoj.rikolto.core.models import (
     GapState,
     Hit,
     LicenseInfo,
+    MatchedBy,
     Observation,
     ObservationRef,
     PipelineStatus,
@@ -80,6 +81,7 @@ from datumoj.rikolto.core.models import (
 from datumoj.rikolto.core.storage import load_storage_config
 from datumoj.rikolto.index.coverage import gap_state as pipeline_gap_state
 from datumoj.rikolto.index.coverage import index_generation, pipeline_status
+from datumoj.rikolto.index.fts import MIN_KEYWORD_COVERAGE, query_terms
 
 __all__ = ["INTERNAL_ONLY", "AnalysisTools", "expand_terms"]
 
@@ -88,6 +90,15 @@ MAX_K = 50
 MAX_FILTERED_CANDIDATES = 500
 MAX_CONTEXT = 10
 MAX_ROWS = 1000
+# A longer word needs a contiguous match covering at least half its characters
+# and at least four characters: one common trigram alone is not evidence.
+# Words shorter than four characters must match in full.
+MIN_TERM_MATCH_CHARS = 4
+# 145 allowed two of four concepts in partial in-corpus questions. Their
+# supported IDF mass can be about 40% (rather than 50%) when phrasing differs.
+# Retain those questions while rejecting common-word collisions in the weighted
+# corpus; multiword queries still need at least two supported concepts.
+MIN_QUERY_IDF_COVERAGE = 0.4
 
 _SHA_RE = re.compile(r"[0-9a-f]{64}")
 _SUCCESS = (FetchOutcome.ok, FetchOutcome.not_modified)
@@ -539,6 +550,63 @@ class AnalysisTools:
 
     # ----- search_docs -----
 
+    @staticmethod
+    def _supports_query(
+        query: str, chunk: Chunk, context: Sequence[str] = (),
+        weights_for: Callable[[tuple[tuple[str, ...], ...]], Sequence[float]] | None = None,
+    ) -> bool:
+        # Check the whole original query, not each glossary expansion in isolation.
+        # Aliases represent one concept; unknown words still count in the denominator.
+        texts = [normalize(text) for text in [
+            *chunk.title_path, chunk.text, *parse_locator(chunk.locator).values(), *context,
+        ]]
+        original_texts = texts
+        original = normalize(query)
+        translated = original
+        for match in expand_terms(query)["matches"]:
+            canonical = normalize(match["ja"][0])
+            translated = translated.replace(match["matched"], canonical)
+            for alias in match["ja"]:
+                texts = [text.replace(normalize(alias), canonical) for text in texts]
+        # Japanese aliases in the same glossary are also one concept (e.g.
+        # 創業支援 and スタートアップ支援), without adding new translations.
+        for entry in load_glossary():
+            aliases = sorted((normalize(alias) for alias in entry["ja"]), key=len, reverse=True)
+            if not any(alias in translated for alias in aliases):
+                continue
+            canonical = normalize(entry["ja"][0])
+            for alias in aliases:
+                translated = translated.replace(alias, canonical)
+                texts = [text.replace(alias, canonical) for text in texts]
+        for q, query_texts in ((original, original_texts), (translated, texts)):
+            terms = query_terms(q)
+            concepts = []
+            for term in terms:
+                aliases = {term}
+                for entry in load_glossary():
+                    variants = [normalize(alias) for lang in ("ja", "zh", "en") for alias in entry[lang]]
+                    # Foreign words must match a complete term; Japanese
+                    # compounds follow the same replacement rule as 145 above.
+                    matched = next((alias for alias in sorted(variants, key=len, reverse=True)
+                                    if alias == term or alias in term and alias in entry["ja"]), None)
+                    if matched is not None:
+                        aliases.update(term.replace(matched, alias) for alias in variants)
+                concepts.append(tuple(sorted(aliases)))
+            weights = weights_for(tuple(concepts)) if weights_for is not None else [1.0] * len(terms)
+            supported = []
+            for term, weight in zip(terms, weights, strict=True):
+                minimum = min(len(term), max(MIN_TERM_MATCH_CHARS, math.ceil(len(term) / 2)))
+                if any(term[i : i + minimum] in text
+                       for i in range(len(term) - minimum + 1) for text in query_texts):
+                    supported.append(weight)
+            # A two-word query such as "lunar subsidy" cannot be supported by
+            # the glossary alias of subsidy alone.
+            required = 1 if len(terms) == 1 else 2
+            threshold = MIN_QUERY_IDF_COVERAGE if weights_for is not None else MIN_KEYWORD_COVERAGE
+            if len(supported) >= required and sum(supported) / sum(weights) >= threshold:
+                return True
+        return False
+
     def search_docs(
         self,
         queries: str | Sequence[str],
@@ -550,6 +618,9 @@ class AnalysisTools:
         """文本检索（法令、公告等）。中文、英文查询按对照表追加日文词一起检索（``data.queries`` 是实际用的查询）。
 
         ``since`` 按块的发布日 / 施行日过滤，两者都没有的块会被排除；``kinds`` 按文档类型过滤。
+        结果须有关键词支撑，并覆盖至少一条原始查询的 40% IDF 权重且至少两个概念；
+        各词须连续匹配至少半词且至少四字（不足四字须全词匹配）；
+        词表同义词算同一概念，纯向量近邻不能独立支撑答案。
         """
         qs = _str_list(queries, "queries")
         k = _check_int(k, "k", 1, MAX_K)
@@ -562,6 +633,16 @@ class AnalysisTools:
             except ValueError as exc:
                 raise ValueError(f"kinds 只能包含 {', '.join(kind.value for kind in DocKind)}") from exc
         since_d = _to_date(since, "since")
+        # Only search_docs opts into the concrete keyword index's statistics;
+        # retrievers without this capability keep their existing relevance gate.
+        concept_weights = getattr(getattr(self.retriever, "keyword", None), "concept_weights", None)
+        weight_cache: dict[tuple[tuple[str, ...], ...], Sequence[float]] = {}
+
+        def weights_for(concepts: tuple[tuple[str, ...], ...]) -> Sequence[float]:
+            if concepts not in weight_cache:
+                weight_cache[concepts] = concept_weights(concepts)
+            return weight_cache[concepts]
+
         used = list(qs)
         for q in qs:
             nq = normalize(q)
@@ -576,29 +657,54 @@ class AnalysisTools:
             })
         filtered_search = getattr(self.retriever, "search_filtered", None)
         fallback_candidates = False
-        if callable(filtered_search):
-            res = filtered_search(
-                used, k=k, source_ids=source_ids, date_range=date_range, doc_keys=doc_keys,
-            )
-        else:
-            fallback_candidates = doc_kinds is not None
-            res = self.retriever.search(
-                used, k=MAX_FILTERED_CANDIDATES if fallback_candidates else k,
-                source_ids=source_ids, date_range=date_range,
-            )
-        hits = list(res.data)
-        if doc_kinds is not None:
-            hits = [
-                hit for hit in hits
-                if (doc := self.chunks.get_document(hit.doc_key, hit.citation.snapshot_sha256)) is not None
-                and doc.kind in doc_kinds
-            ][:k]
-        warnings = list(res.warnings)
+        # Preserve the original ranking when it has supported hits. If RRF's
+        # head consists entirely of collisions, try one larger bounded pool.
+        # Saturation of rejected candidates is not evidence of truncation.
+        limits = (k, MAX_FILTERED_CANDIDATES) if callable(concept_weights) else (k,)
+        warnings = []
+        for limit in limits:
+            if callable(filtered_search):
+                res = filtered_search(
+                    used, k=limit, source_ids=source_ids, date_range=date_range, doc_keys=doc_keys,
+                )
+            else:
+                fallback_candidates = doc_kinds is not None
+                res = self.retriever.search(
+                    used, k=MAX_FILTERED_CANDIDATES if fallback_candidates else limit,
+                    source_ids=source_ids, date_range=date_range,
+                )
+            warnings.extend(w for w in res.warnings if w not in warnings)
+            hits = []
+            for hit in res.data:
+                if MatchedBy.keyword not in hit.matched_by:
+                    continue
+                chunk = self.chunks.get_chunk(hit.chunk_id, hit.citation.snapshot_sha256)
+                if chunk is None:
+                    continue
+                # A table's survey/period live in catalog metadata rather than its
+                # title cell. Only metadata from the cited snapshot may support it.
+                dataset = self.catalog.get_dataset(hit.doc_key)
+                context = ()
+                if dataset is not None and dataset.snapshot_sha256 == hit.citation.snapshot_sha256:
+                    context = (dataset.title, dataset.description or "", *dataset.tags)
+                if any(self._supports_query(q, chunk, context, weights_for if callable(concept_weights) else None)
+                       for q in qs):
+                    hits.append(hit)
+            if doc_kinds is not None:
+                hits = [
+                    hit for hit in hits
+                    if (doc := self.chunks.get_document(hit.doc_key, hit.citation.snapshot_sha256)) is not None
+                    and doc.kind in doc_kinds
+                ]
+            hits = hits[:k]
+            if hits:
+                break
         truncated = fallback_candidates and len(res.data) >= MAX_FILTERED_CANDIDATES and len(hits) < k
         if truncated:
             warnings.append(
                 f"truncated=true：候选补取达到上限 {MAX_FILTERED_CANDIDATES}，结果可能不完整"
             )
+        truncated = truncated or any(w.startswith("truncated=true") for w in warnings)
         views = [self._hit_view(hit, warnings) for hit in hits]
         _usage_warning((h["usage_notice"] for h in views), warnings)
         generation = index_generation(self.retriever, data_dir=self.data_dir)
@@ -621,6 +727,8 @@ class AnalysisTools:
         )
         if doc_kinds is not None and not hits and gap_state is GapState.zero_hits and not truncated:
             gap_detail = "指定的文档类型没有命中"
+        if not hits and gap_state is GapState.zero_hits and not truncated:
+            gap_detail = f"{gap_detail}；相关性门槛：没有覆盖足够查询词的关键词命中，纯向量近邻不足以支撑答案"
         if truncated and gap_state is GapState.zero_hits:
             gap_state, gap_detail = GapState.ok, None
         freshness = _freshness((hit.citation.source_id, hit.citation.fetched_at) for hit in hits)

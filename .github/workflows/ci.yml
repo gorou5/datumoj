@@ -73,6 +73,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # tests/regressions/test_audit_145.py 用 git show 取基线提交的代码
+          fetch-depth: 0
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v6

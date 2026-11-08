@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+import math
 import sqlite3
 import time
 import unicodedata
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date
 from pathlib import Path
 
@@ -16,7 +17,7 @@ from datumoj.rikolto.text import normalize
 
 _TITLE_WEIGHT = 5.0  # bm25 列权重：标题路径命中比正文命中更靠前
 _MIN_FTS_CHARS = 3
-# Only discard a result when both signals are weak.
+# FTS accepts coverage or BM25; LIKE requires coverage (BM25=0 explicitly opts out).
 MIN_KEYWORD_COVERAGE = 0.5
 MIN_KEYWORD_BM25 = 0.01
 # English/French articles and prepositions; only applied to wholly Latin queries.
@@ -43,7 +44,11 @@ def _like_pattern(q: str) -> str:
     return "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
 
 
-def _query_terms(query: str) -> list[str]:
+def query_terms(query: str) -> list[str]:
+    """Split query words, preserving CJK and omitting Latin stop words."""
+    # Preserve the private monkeypatch hook of the out-of-scope calibration.
+    if _query_terms is not query_terms:
+        return _query_terms(query)
     terms = []
     current = []
     for char in query:
@@ -62,8 +67,27 @@ def _query_terms(query: str) -> list[str]:
     return terms
 
 
+# Compatibility alias; production callers use query_terms.
+_query_terms = query_terms
+
+
 def _trigrams(term: str) -> list[str]:
     return list(dict.fromkeys(term[i : i + _MIN_FTS_CHARS] for i in range(len(term) - 2)))
+
+
+def keyword_coverage(
+    query: str, texts: Sequence[str], *, weights: Mapping[str, float] | None = None,
+) -> float:
+    """按词权重计算覆盖率；不传权重的现有调用保留词 / trigram 语义。"""
+    terms = query_terms(normalize(query))
+    if weights is None and len(terms) == 1 and len(terms[0]) >= _MIN_FTS_CHARS:
+        terms = _trigrams(terms[0])
+    folded = [normalize(text).casefold() for text in texts]
+    if not terms:
+        return 0.0
+    term_weights = [1.0 if weights is None else weights[term] for term in terms]
+    return sum(weight for term, weight in zip(terms, term_weights, strict=True)
+               if any(term.casefold() in text for text in folded)) / sum(term_weights)
 
 
 class SqliteKeywordIndex:
@@ -71,6 +95,7 @@ class SqliteKeywordIndex:
 
     ``like_limit``：短查询（LIKE 扫描）最多收集的命中条数；``like_timeout``：LIKE 扫描的秒数上限。
     ``min_keyword_coverage`` 和 ``min_keyword_bm25``：低覆盖率命中的过滤门槛。
+    含短词时覆盖率为硬门槛；显式设置 ``min_keyword_bm25=0`` 保留关闭过滤的兼容行为。
     """
 
     def __init__(
@@ -105,6 +130,35 @@ class SqliteKeywordIndex:
 
     def close(self) -> None:
         self._db.close()
+
+    def concept_weights(self, concepts: Sequence[Sequence[str]]) -> list[float]:
+        """实时块频率 IDF；每组同义词取命中块的并集，不重复计数。
+
+        这是 search_docs 的可选能力；原有 KeywordIndex 检索、排序与阈值不变。
+        """
+        total = self._db.execute("SELECT count(*) FROM entries").fetchone()[0]
+        weights = []
+        for aliases in concepts:
+            terms = list(dict.fromkeys(normalize(alias).casefold() for alias in aliases if normalize(alias)))
+            long = [term for term in terms if len(term) >= _MIN_FTS_CHARS]
+            short = [term for term in terms if len(term) < _MIN_FTS_CHARS]
+            selects, params = [], []
+            if long:
+                selects.append("SELECT rowid FROM chunks_fts WHERE chunks_fts MATCH ?")
+                params.append(" OR ".join('"' + term.replace('"', '""') + '"' for term in long))
+            if short:
+                conditions = " OR ".join(
+                    "(title_path LIKE ? ESCAPE '\\' OR text LIKE ? ESCAPE '\\')" for _ in short
+                )
+                selects.append(f"SELECT rowid FROM chunks_fts WHERE {conditions}")
+                params.extend(value for term in short for value in (_like_pattern(term),) * 2)
+            frequency = self._db.execute(
+                "SELECT count(*) FROM (" + " UNION ".join(selects) + ")", params,
+            ).fetchone()[0] if selects else 0
+            # Smoothed IDF: ubiquitous concepts weigh 1, unseen ones weigh
+            # 1 + log(N+1), the maximum. Smoothing also handles an empty index.
+            weights.append(1.0 + math.log((total + 1) / (frequency + 1)))
+        return weights
 
     def _require_trigram(self) -> None:
         try:
@@ -221,7 +275,7 @@ class SqliteKeywordIndex:
                 params.extend([hi.isoformat(), hi.isoformat()])
             if clauses:
                 where += " AND (" + " OR ".join(clauses) + ")"
-        terms = _query_terms(q)
+        terms = query_terms(q)
         if not terms:
             return IndexResult()
         if len(terms) == 1 and len(terms[0]) >= _MIN_FTS_CHARS:
@@ -268,7 +322,8 @@ class SqliteKeywordIndex:
             chunk_id: hit
             for chunk_id, hit in found.items()
             if len(matches.get(chunk_id, ())) / len(terms) >= self.min_keyword_coverage
-            or bm25_scores.get(chunk_id, 0.0) >= self.min_keyword_bm25
+            or ((not like_terms or self.min_keyword_bm25 == 0)
+                and bm25_scores.get(chunk_id, 0.0) >= self.min_keyword_bm25)
         }
         if not found:
             return IndexResult(warnings=warnings)
