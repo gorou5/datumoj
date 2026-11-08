@@ -1,0 +1,217 @@
+{
+  "schema_version": 1,
+  "upstream_head": "2dd1767572da79a48c47f70aee0e4fc7145170a4",
+  "run": {
+    "number": 42,
+    "id": 42512208170,
+    "job_id": 128827494726,
+    "url": "https://github.com/gorou5/datumoj/actions/runs/42512208170/job/128827494726",
+    "status": "completed",
+    "conclusion": "failure",
+    "created_at": "2026-11-08T18:53:06Z",
+    "updated_at": "2026-11-08T19:44:48Z"
+  },
+  "result": {
+    "status": "failed",
+    "reason": "source_failed",
+    "generation": 39,
+    "due": 10,
+    "sources": [
+      {
+        "source_id": "jp-abr",
+        "started_at": "2026-11-08T19:02:31.339380+00:00",
+        "ended_at": "2026-11-08T19:02:36.696003+00:00",
+        "state": "final",
+        "status": "failed",
+        "exit_status": 1,
+        "new": 0,
+        "unchanged": 0,
+        "parsed": 0,
+        "failures": {
+          "crawl_failed": 1
+        },
+        "stop_reason": "source_failed",
+        "embedding_deferred": 0
+      },
+      {
+        "source_id": "jp-census",
+        "started_at": "2026-11-08T19:02:37.861203+00:00",
+        "ended_at": "2026-11-08T19:02:46.995247+00:00",
+        "state": "final",
+        "status": "completed",
+        "exit_status": 0,
+        "new": 0,
+        "unchanged": 1,
+        "parsed": 0,
+        "failures": {},
+        "stop_reason": null,
+        "embedding_deferred": 0
+      },
+      {
+        "source_id": "us-fedreg",
+        "started_at": "2026-11-08T19:02:47.613533+00:00",
+        "ended_at": "2026-11-08T19:40:38.726728+00:00",
+        "state": "final",
+        "status": "completed",
+        "exit_status": 0,
+        "new": 436,
+        "unchanged": 0,
+        "parsed": 794,
+        "failures": {},
+        "stop_reason": "deadline",
+        "embedding_deferred": 0
+      }
+    ],
+    "source_health": [
+      {
+        "source_id": "jp-abr",
+        "status": "failed",
+        "phase": "crawl",
+        "categories": {
+          "http_error": 1
+        },
+        "consecutive_failures": 2,
+        "first_failure_at": "2026-11-01T16:00:22.152689+00:00"
+      },
+      {
+        "source_id": "jp-census",
+        "status": "ok",
+        "phase": null,
+        "categories": {},
+        "consecutive_failures": 0,
+        "first_failure_at": null
+      },
+      {
+        "source_id": "us-fedreg",
+        "status": "deadline",
+        "phase": "crawl",
+        "categories": {},
+        "consecutive_failures": 0,
+        "first_failure_at": null
+      },
+      {
+        "source_id": "eu-eurostat",
+        "categories": {},
+        "consecutive_failures": 0,
+        "first_failure_at": null,
+        "status": "missing",
+        "phase": "schedule"
+      },
+      {
+        "source_id": "fr-data-gouv",
+        "categories": {},
+        "consecutive_failures": 0,
+        "first_failure_at": null,
+        "status": "missing",
+        "phase": "schedule"
+      },
+      {
+        "source_id": "jp-egov-law",
+        "categories": {},
+        "consecutive_failures": 0,
+        "first_failure_at": null,
+        "status": "missing",
+        "phase": "schedule"
+      },
+      {
+        "source_id": "jp-jma",
+        "categories": {},
+        "consecutive_failures": 0,
+        "first_failure_at": null,
+        "status": "missing",
+        "phase": "schedule"
+      }
+    ],
+    "new": 436,
+    "parsed": 794,
+    "unchanged": 1,
+    "budget_exhausted": true,
+    "vector_pending": 17949,
+    "embedding_deferred": 0,
+    "backfill_embedded": 0,
+    "cleanup": {
+      "enabled": true,
+      "raw_enabled": true,
+      "generations_deleted": 0,
+      "copies_deleted": 0,
+      "copies_deleted_bytes": 0,
+      "raw_marked": 0,
+      "raw_deleted": 0,
+      "raw_deleted_bytes": 0,
+      "reclaimable_generations": 0,
+      "reclaimable_copies": 0,
+      "reclaimable_copies_bytes": 0,
+      "reclaimable_raw": 0,
+      "reclaimable_raw_bytes": 0,
+      "total_bytes": 5786317973,
+      "over_7gb": false,
+      "failures": 0,
+      "elapsed_s": 37.529,
+      "timed_out": false
+    }
+  },
+  "backlog": [
+    {
+      "run": "Cloud run #40",
+      "generation": 36,
+      "pending_chunks": 5676
+    },
+    {
+      "run": "Cloud embed #5",
+      "generation": 37,
+      "embedded_chunks": 2656,
+      "pending_chunks": 3020
+    },
+    {
+      "run": "Cloud run #41",
+      "generation": 38,
+      "pending_chunks": 4188
+    },
+    {
+      "run": "Cloud run #42",
+      "generation": 39,
+      "pending_chunks": 17949
+    }
+  ],
+  "derived": {
+    "pending_delta_from_generation38": 13761,
+    "unattempted_due_sources": 7,
+    "restore_seconds": 498.60026879500003,
+    "fedreg_crawl_seconds": 900.368,
+    "fedreg_parse_index_seconds": 1370.745,
+    "fedreg_total_seconds": 2271.113,
+    "ordinary_budget_seconds": 2400,
+    "parser_grace_seconds": 600
+  },
+  "verification": {
+    "offline_diagnostic_tests": {
+      "command": "python -m unittest discover -s . -p 'test_*.py' -v",
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "python": "3.12.14",
+      "scope": "standalone diagnostic only; synthetic SQLite fixtures"
+    },
+    "production_access": false,
+    "production_runtime_changed": false,
+    "source_or_schedule_changed": false,
+    "full_repository_tests": "not run; standalone standard-library diagnostic only",
+    "actual_abr_http_status": "unknown: production manifest not inspected",
+    "exact_inline_embedding_count": "not present in public output",
+    "exact_added_chunk_count_by_source": "not present in public output",
+    "cleanup_pause": "no verified maintainer confirmation",
+    "compileall": "passed"
+  },
+  "references": [
+    "https://github.com/gorou5/datumoj/issues/142#issuecomment-6726218136",
+    "https://github.com/gorou5/datumoj/issues/143#issuecomment-6726218269",
+    "https://github.com/gorou5/datumoj/actions/runs/42487829210/job/128753475459",
+    "https://github.com/gorou5/datumoj/actions/runs/42496423314/job/128780242628",
+    "https://github.com/zenithli/datumoj/blob/9e3a173c2d5279b662d86afa86f6027b9dbd7250/comms/2026-11-09-to-dot-cloud42/README.md"
+  ],
+  "files_sha256": {
+    "README.md": "571fa98d3880d917113fa3d282a0f1fce5fd0cd541eea4a594756418078bd4f3",
+    "inspect_abr_status.py": "936e7fb267f68bb8c0ef0418d29b64d19b0a2a214887cac5ae6fc59fa7d513ce",
+    "test_inspect_abr_status.py": "668289ff83c50170f0100a24179a79c4431beffa15f5f27da1fddecf05245274"
+  }
+}
