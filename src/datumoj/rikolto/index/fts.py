@@ -43,7 +43,11 @@ def _like_pattern(q: str) -> str:
     return "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
 
 
-def _query_terms(query: str) -> list[str]:
+def query_terms(query: str) -> list[str]:
+    """Split query words, preserving CJK and omitting Latin stop words."""
+    # Preserve the private monkeypatch hook of the out-of-scope calibration.
+    if _query_terms is not query_terms:
+        return _query_terms(query)
     terms = []
     current = []
     for char in query:
@@ -62,13 +66,17 @@ def _query_terms(query: str) -> list[str]:
     return terms
 
 
+# Compatibility alias; production callers use query_terms.
+_query_terms = query_terms
+
+
 def _trigrams(term: str) -> list[str]:
     return list(dict.fromkeys(term[i : i + _MIN_FTS_CHARS] for i in range(len(term) - 2)))
 
 
 def keyword_coverage(query: str, texts: Sequence[str]) -> float:
     """按索引的词 / 单词内 trigram 计算覆盖率；标题和正文分别匹配。"""
-    terms = _query_terms(normalize(query))
+    terms = query_terms(normalize(query))
     if len(terms) == 1 and len(terms[0]) >= _MIN_FTS_CHARS:
         terms = _trigrams(terms[0])
     folded = [normalize(text).casefold() for text in texts]
@@ -233,7 +241,7 @@ class SqliteKeywordIndex:
                 params.extend([hi.isoformat(), hi.isoformat()])
             if clauses:
                 where += " AND (" + " OR ".join(clauses) + ")"
-        terms = _query_terms(q)
+        terms = query_terms(q)
         if not terms:
             return IndexResult()
         if len(terms) == 1 and len(terms[0]) >= _MIN_FTS_CHARS:
