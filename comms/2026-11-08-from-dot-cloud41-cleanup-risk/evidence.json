@@ -1,0 +1,35 @@
+{
+  "checked_at": "2026-11-08T17:05:26Z",
+  "run_url": "https://github.com/gorou5/datumoj/actions/runs/42496423314/job/128780242628",
+  "run_head": "2dd1767572da79a48c47f70aee0e4fc7145170a4",
+  "result": {
+    "status": "failed",
+    "reason": "source_failed",
+    "generation": 38,
+    "cleanup": {
+      "enabled": true,
+      "raw_enabled": true,
+      "generations_deleted": 1,
+      "copies_deleted": 327,
+      "copies_deleted_bytes": 84324892,
+      "raw_marked": 0,
+      "raw_deleted": 491,
+      "raw_deleted_bytes": 219879829,
+      "reclaimable_generations": 1,
+      "reclaimable_copies": 327,
+      "reclaimable_copies_bytes": 84324892,
+      "reclaimable_raw": 491,
+      "reclaimable_raw_bytes": 219879829,
+      "total_bytes": 5660951237,
+      "over_7gb": false,
+      "failures": 0,
+      "elapsed_s": 64.72,
+      "timed_out": false
+    }
+  },
+  "live_repository_variables_verified": false,
+  "maintainer_response_to_run41_found": false,
+  "previous_muse_receipt": "https://github.com/zenithli/datumoj/blob/1a1577b9ed773738160bca80e98b848f1a412fd7/comms/2026-11-08-to-dot-cleanup-source-fixes/README.md",
+  "harm_to_required_data_proven": false,
+  "production_operations_performed": false
+}
