@@ -1,0 +1,323 @@
+diff --git a/docs/deploy/runners.md b/docs/deploy/runners.md
+index 705f7bb..de4638a 100644
+--- a/docs/deploy/runners.md
++++ b/docs/deploy/runners.md
+@@ -215,11 +215,12 @@ S3/R2 使用 DeleteObjects 串行批量删除，每批最多 200 个键，每批
+ 未确认删除的对象计入 `cleanup.failures`，立即停止后续批次，下一轮重新规划。
+ 代次清单批次有任何失败，就停止副本块和 raw 删除，保全剩余清单的依赖。
+ 清理失败不改变本轮发布结果或退出码。
+-清理不再调用整代恢复，也不下载任何 `copies/` 副本块、逐代 manifest 或 raw 正文；
++清理不调用整代恢复，也不下载索引、向量或 raw 正文；只有存在可删 raw 候选时，才检查保留代次的 manifest。
+ 发布后校验仍在发布路径完成。副本依赖只读代次 JSON 中的 `generation.stores`。
+ 每轮只列一次对象库存，并读取当前指针与代次 JSON；这些小型清单的读取仍随代次数增长，
+ 受现有存储契约限制，无法仅凭库存里的键、大小和 ETag 推导副本引用。
+-72/144 个保留代次的离线回归均断言副本和 raw GET 为 0、库存 LIST 为 1，且每代均可恢复。
++manifest 与已验证当前代次相同的 72/144 个保留代次，离线回归仍断言副本和 raw GET 为 0、库存 LIST 为 1，且每代均可恢复。
++其他不同 manifest 按整库 SHA 去重，每轮只下载一次，并校验每块及整库的大小和 SHA；任一读取或校验失败，在删除前停止。
+ 
+ 清理使用单调时钟，规划和删除合计最多安排 600 秒。开始规划前，若距本轮
+ `开始时间 + max_minutes + 10 分钟解析宽限 + reserve_minutes` 不足 600 秒，直接跳过。
+@@ -227,7 +228,7 @@ S3/R2 使用 DeleteObjects 串行批量删除，每批最多 200 个键，每批
+ 不计失败、不改变发布结果或退出码，下一轮按剩余对象重新规划。
+ 已经开始的存储调用（含对象列表内部的分页）或本地查询会完成，因此墙钟耗时可能超过 600 秒。正在执行的批次会完成并计数。
+ 上述截止时间来自命令声明的预算，不读取或修改平台作业时限，也不截断发布。
+-这替代了每轮重复恢复和下载最多数十份 manifest 的耗时；实际清理耗时见 `cleanup.elapsed_s`。
++不会重复恢复整代；不同 manifest 的校验读取也受规划时间上限约束。实际清理耗时见 `cleanup.elapsed_s`。
+ 
+ 来源的 `scope.raw_retention_days` 必须是正整数，默认 30 天；jp-jma 为 3 天。
+ JMA 抓取器在显式配置正整数 `scope.raw_retention_days` 时，只抓 feed 自身 `updated`
+@@ -240,11 +241,11 @@ entry 时间缺失、无法解析或没有时区时照常抓取；feed 时间无
+ 每个 URL 最新的成功快照、待解析和 staged 快照受保护；
+ `scope.raw_expire_latest_types` 默认空列表，jp-jma 设为 `["entry"]`，允许旧 entry 过期，feed 仍受保护。
+ raw 在到期前 3 天先写入 manifest 的“允许缺失”标记；不足 3 天的保留期立即标记。
+-raw 判定只读工作目录里的当前 manifest；保留策略所需快照、元数据和发布状态通过联表批量读取，
++raw 保留策略从工作目录里的已验证当前 manifest 读取；所需快照、元数据和发布状态通过联表批量读取，
+ 再取一次 no-parser 集合，不逐快照查询。只有当前标记满 72 小时、达到保留期、仍是保留策略候选、
+-且不在当前代次必需 raw 引用中才删除。其他保留代次均在最近 72 小时创建，晚于这个标记，
+-所以也带有允许缺失标记，恢复时不要求这份 raw；当前代次即使更早，也直接按自己的 manifest 判定。
+-因此无需再逐代下载 manifest 验证。
++且不在任何保留代次必需 raw 引用中才删除。代次创建时间不能证明其 manifest 包含旧标记：
++两次回滚可能先发布无标记 manifest，再恢复带旧标记的 manifest，因此必须核验不同的保留 manifest。
++保护在最后一个依赖该 raw 的非当前代次超出 72 小时保留期并成功删除后解除。
+ 回滚恢复出的当前 manifest 若没有标记，就不会删；之后重新标记，以新时间重新等待完整 72 小时。
+ 
+ 工作流传入两个仓库变量：`R2_CLEANUP` 默认开启，设为 `off` 暂停所有清理删除；
+diff --git a/src/datumoj/rikolto/core/state.py b/src/datumoj/rikolto/core/state.py
+index 6d92ca8..f832840 100644
+--- a/src/datumoj/rikolto/core/state.py
++++ b/src/datumoj/rikolto/core/state.py
+@@ -801,6 +801,28 @@ class StateManager:
+                     manifest.mark_raw_optional(sha, now)
+             return len(manifest.raw_markers()) - len(before)
+ 
++    def _generation_raw(self, generation: StateGeneration, check: Callable[[], None]) -> set[str]:
++        """Read only a retained manifest, verifying blocks and the whole file."""
++        copy = next(c for c in generation.stores if c.name == "manifest.sqlite")
++        blocks = _block_groups(generation.stores).get(copy.name, [copy])
++        with self._temporary_stage(prefix="datumoj-gc-") as stage:
++            digest = hashlib.sha256()
++            size = 0
++            with (stage / copy.name).open("wb") as stream:
++                for block in blocks:
++                    check()
++                    found = self._get(block.key)
++                    check()
++                    if found is None or len(found[0]) != block.size_bytes or _digest(found[0]) != block.sha256:
++                        raise StateError("清理时 manifest 副本校验失败")
++                    digest.update(found[0])
++                    size += len(found[0])
++                    stream.write(found[0])
++            if size != copy.size_bytes or digest.hexdigest() != copy.sha256:
++                raise StateError("清理时 manifest 整库校验失败")
++            check()
++            return _raw_refs(stage)
++
+     def cleanup(self, specs: list[SourceSpec], *, now: datetime, check: Callable[[], None],
+                 enabled: bool = True, raw_enabled: bool = False, marked: int = 0,
+                 deadline: float | None = None, clock: Callable[[], float] | None = None) -> dict:
+@@ -859,16 +881,31 @@ class StateManager:
+             expired = [objects[f"generations/{g.generation}.json"] for g in history if g not in retained]
+             # Plan against the generations that would survive enabled GC.
+             copies = {c.key for g in retained for c in g.stores}
+-            required = {_raw_key("raw", sha) for sha in _raw_refs(self.data_dir)}
++            current_refs = _raw_refs(self.data_dir)
++            required = {_raw_key("raw", sha) for sha in current_refs}
+             with _ro(self.data_dir / "manifest.sqlite") as db:
+                 optional = {sha for sha, marked_at in db.execute("SELECT sha256,marked_at FROM raw_allowed_missing")
+                             if now - datetime.fromisoformat(marked_at).replace(tzinfo=UTC) >= timedelta(hours=72)}
+-            # Retained non-current generations postdate the >=72h mark; current refs use this manifest.
+             check_time()
+             candidates = self.raw_retention(specs, now)
+             check_time()
+             raw_keys = {_raw_key("raw", sha) for sha in optional
+                         if sha in candidates and now >= candidates[sha]}
++            if raw_keys - required:
++                # A rollback can republish an unmarked manifest after an old mark.
++                # The caller has verified the local current; identical immutable
++                # manifests share its refs. Read each other distinct manifest once.
++                refs_by_manifest = {
++                    c.sha256: current_refs for g in retained if g.generation == current
++                    for c in g.stores if c.name == "manifest.sqlite"
++                }
++                for generation in retained:
++                    check_time()
++                    manifest_sha = next(c.sha256 for c in generation.stores if c.name == "manifest.sqlite")
++                    if manifest_sha not in refs_by_manifest:
++                        refs_by_manifest[manifest_sha] = self._generation_raw(generation, check_time)
++                    required.update(_raw_key(generation.raw_prefix, sha) for sha in refs_by_manifest[manifest_sha])
++                check_time()
+             copy_objects = [obj for obj in objects.values()
+                             if obj.key.startswith("copies/sha256/") and obj.key not in copies]
+             raw_objects = [obj for obj in objects.values() if obj.key in raw_keys and obj.key not in required]
+diff --git a/src/datumoj/rikolto/crawlers/jma_feed.py b/src/datumoj/rikolto/crawlers/jma_feed.py
+index 9c863ae..4101ca0 100644
+--- a/src/datumoj/rikolto/crawlers/jma_feed.py
++++ b/src/datumoj/rikolto/crawlers/jma_feed.py
+@@ -44,9 +44,10 @@ def _updated_at(value: str) -> datetime | None:
+ 
+ def _feed_entries(data: bytes) -> tuple[str, list[tuple[str, str, str]]]:
+     root = _xml_root(data)
+-    updated = _text(root.find(f"{{{ATOM}}}updated"))
+-    if not updated:
++    updated_element = root.find(f"{{{ATOM}}}updated")
++    if updated_element is None:
+         raise ValueError("JMA Atom feed 缺少 updated")
++    updated = _text(updated_element)
+ 
+     entries = []
+     for entry in root.findall(f"{{{ATOM}}}entry"):
+diff --git a/src/datumoj/rikolto/parsers/estat_api.py b/src/datumoj/rikolto/parsers/estat_api.py
+index 0208e74..466958b 100644
+--- a/src/datumoj/rikolto/parsers/estat_api.py
++++ b/src/datumoj/rikolto/parsers/estat_api.py
+@@ -60,6 +60,9 @@ class EstatAPIParser(Parser):
+                 tables = _list(root["DATALIST_INF"].get("TABLE_INF"))
+                 datasets, warnings, seen = [], [], set()
+                 for i, table in enumerate(tables, 1):
++                    if "@id" not in table:
++                        warnings.append(f"TABLE_INF[{i}] missing @id, skipped")
++                        continue
+                     sid = str(table["@id"])
+                     if sid in seen:
+                         warnings.append(f"TABLE_INF[{i}] duplicate @id {sid}, skipped (kept first)")
+diff --git a/tests/core/test_state_retained_raw.py b/tests/core/test_state_retained_raw.py
+new file mode 100644
+index 0000000..5d3c7ec
+--- /dev/null
++++ b/tests/core/test_state_retained_raw.py
+@@ -0,0 +1,128 @@
++"""Retained generations keep required raw across repeated offline rollbacks."""
++
++import hashlib
++from contextlib import closing
++from datetime import datetime
++
++import pytest
++
++from datumoj.rikolto.core import state as state_module
++from datumoj.rikolto.core.manifest import SqliteManifest
++from datumoj.rikolto.core.state import StateManager
++from datumoj.rikolto.testing.samples import T0
++from tests.regressions.test_audit_131 import DAY, publish, raw_key, record
++from tests.regressions.test_audit_131 import archive as archive  # noqa: PLC0414 -- Shared synthetic fixture.
++
++
++@pytest.fixture
++def rolled_back(archive, monkeypatch):
++    snap = record(archive, "rollback-entry")
++    unmarked, _ = publish(archive, T0, monkeypatch)
++    marked, count = publish(archive, T0 + 4 * DAY, monkeypatch)
++    assert count == 1
++
++    class Clock(datetime):
++        @classmethod
++        def now(cls, tz=None):
++            return T0 + 7 * DAY
++
++    monkeypatch.setattr(state_module, "datetime", Clock)
++    # Roll back to an unmarked manifest, publishing a fresh generation that needs raw.
++    first = archive.root / "first-rollback"
++    archive.manager.restore(first, unmarked.generation)
++    first_manager = StateManager(archive.store, first)
++    required = first_manager.push()
++    # Roll back again, this time restoring the mature marker from generation two.
++    second = archive.root / "second-rollback"
++    first_manager.restore(second, marked.generation)
++    manager = StateManager(archive.store, second)
++    current = manager.push()
++    with closing(SqliteManifest(second / "manifest.sqlite")) as manifest:
++        assert manifest.raw_markers()[snap.sha256] == T0 + 4 * DAY
++    return archive, snap, manager, required, current
++
++
++@pytest.mark.parametrize("legacy", [False, True])
++def test_two_rollbacks_preserve_required_raw_of_every_retained_generation(rolled_back, legacy):
++    archive, snap, manager, required, current = rolled_back
++    if legacy:
++        data = (archive.root / "first-rollback" / "manifest.sqlite").read_bytes()
++        sha = hashlib.sha256(data).hexdigest()
++        copy = next(c for c in required.stores if c.name == "manifest.sqlite")
++        copy = copy.model_copy(update={"format": "sqlite", "sha256": sha,
++                                       "key": f"copies/sha256/{sha}", "size_bytes": len(data)})
++        archive.store.put(copy.key, data)
++        required = required.model_copy(update={"stores": [
++            c for c in required.stores if not c.name.startswith("manifest.sqlite")
++        ] + [copy]})
++        archive.store.put(f"generations/{required.generation}.json", required.model_dump_json().encode())
++    report = manager.cleanup(archive.specs, now=T0 + 8 * DAY, check=lambda: None, raw_enabled=True)
++    assert report["failures"] == 0
++    assert report["raw_deleted"] == 0
++    assert archive.store.exists(raw_key(snap))
++    assert {g.generation for g in manager.list()} == {required.generation, current.generation}
++    for generation in manager.list():
++        for mode in ("local", "remote"):
++            target = archive.root / f"restored-{generation.generation}-{mode}"
++            assert manager.restore(target, generation.generation, raw=mode)["verified"]
++    # Protection ends when the last required generation expires, not forever.
++    report = manager.cleanup(archive.specs, now=T0 + 11 * DAY, check=lambda: None, raw_enabled=True)
++    assert report["failures"] == 0
++    assert report["raw_deleted"] == 1
++    assert manager.restore(archive.root / "after-expiry", raw="remote")["verified"]
++
++
++@pytest.mark.parametrize("failure", ["missing", "corrupt", "whole-hash", "timeout"])
++def test_unreadable_retained_manifest_stops_before_any_deletion(rolled_back, monkeypatch, failure):
++    archive, snap, manager, required, _ = rolled_back
++    block = next(c for c in required.stores if c.name.startswith("manifest.sqlite.blocks/"))
++    original_get = archive.store.get
++    timer = [0.0]
++
++    def get(key):
++        found = original_get(key)
++        if key == block.key:
++            if failure == "missing":
++                return None
++            if failure == "corrupt":
++                return b"corrupt", found[1]
++            if failure == "timeout":
++                timer[0] = 600.0
++        return found
++
++    if failure == "whole-hash":
++        required = required.model_copy(update={"stores": [
++            c.model_copy(update={"sha256": "f" * 64, "key": "copies/sha256/" + "f" * 64})
++            if c.name == "manifest.sqlite" else c for c in required.stores
++        ]})
++        archive.store.put(f"generations/{required.generation}.json", required.model_dump_json().encode())
++    before = archive.store.list_objects("")
++    monkeypatch.setattr(archive.store, "get", get)
++    report = manager.cleanup(archive.specs, now=T0 + 8 * DAY, check=lambda: None,
++                             raw_enabled=True, clock=lambda: timer[0])
++    assert report["timed_out"] == (failure == "timeout")
++    assert report["failures"] == (failure != "timeout")
++    assert report["generations_deleted"] == report["copies_deleted"] == report["raw_deleted"] == 0
++    assert archive.store.list_objects("") == before
++    assert archive.store.exists(raw_key(snap))
++
++
++def test_distinct_retained_manifests_are_read_once_without_other_stores(rolled_back, monkeypatch):
++    archive, _, manager, required, current = rolled_back
++    duplicate = required.model_copy(update={"generation": 4, "previous_generation": 3})
++    current = current.model_copy(update={"generation": 5, "previous_generation": 4})
++    for generation in (duplicate, current):
++        archive.store.put(f"generations/{generation.generation}.json", generation.model_dump_json().encode())
++    archive.store.put("current.json", b'{"generation":5}')
++    gets = []
++    original_get = archive.store.get
++
++    def get(key):
++        gets.append(key)
++        return original_get(key)
++
++    monkeypatch.setattr(archive.store, "get", get)
++    report = manager.cleanup(archive.specs, now=T0 + 8 * DAY, check=lambda: None, raw_enabled=True)
++    assert report["failures"] == report["raw_deleted"] == 0
++    blocks = [c.key for c in required.stores if c.name.startswith("manifest.sqlite.blocks/")]
++    assert [key for key in gets if key.startswith(("copies/", "raw/"))] == blocks
+diff --git a/tests/regressions/test_audit_137.py b/tests/regressions/test_audit_137.py
+index 4529500..dac6586 100644
+--- a/tests/regressions/test_audit_137.py
++++ b/tests/regressions/test_audit_137.py
+@@ -193,3 +193,17 @@ def test_parser_versions_are_unchanged():
+     assert CkanMetaParser.version == "2"
+     assert DataEuropaParser.version == "1"
+     assert LawXMLParser.version == "1"
++
++
++def test_estat_catalog_skips_missing_id_and_keeps_later_valid_records():
++    missing_id = _table("missing")
++    del missing_id["@id"]
++    payload = {"GET_STATS_LIST": {"RESULT": {"STATUS": 0}, "DATALIST_INF": {"TABLE_INF": [
++        _table("first"), missing_id, _table("later"), {"@id": "first"},
++    ]}}}
++    result = _parse(EstatAPIParser(), "jp-estat-api", payload)
++    assert [d.dataset_key for d in result.datasets] == ["jp-estat-api:first", "jp-estat-api:later"]
++    assert [d.locator for d in result.datasets] == ["row=1", "row=3"]
++    assert len(result.warnings) == 2
++    assert all(part in result.warnings[0] for part in ("TABLE_INF[2]", "@id", "skipped"))
++    assert all(part in result.warnings[1] for part in ("TABLE_INF[4]", "duplicate", "first"))
+diff --git a/tests/regressions/test_audit_141.py b/tests/regressions/test_audit_141.py
+index 5f7d7c5..340c9dd 100644
+--- a/tests/regressions/test_audit_141.py
++++ b/tests/regressions/test_audit_141.py
+@@ -93,3 +93,20 @@ def test_unchanged_feed_still_fetches_unsaved_retained_entries_after_limit():
+     spec, feed = _spec(), _feed()
+     assert _run(feed, spec, limit=1, manifest=manifest, raw=raw) == [URLS[1]]
+     assert _run(feed, spec, limit=1, manifest=manifest, raw=raw) == [URLS[3]]
++
++
++@pytest.mark.parametrize("updated_element", [b"<updated/>", b"<updated></updated>", b"<updated> </updated>"])
++def test_empty_feed_updated_fetches_unsaved_entries_and_preserves_limit(updated_element):
++    feed = _feed().replace(f"<updated>{UPDATED}</updated>".encode(), updated_element)
++    manifest, raw = FakeManifest(), FakeRawStore()
++    spec = _spec()
++    assert _run(feed, spec, limit=0, manifest=manifest, raw=raw) == []
++    assert _run(feed, spec, limit=1, manifest=manifest, raw=raw) == URLS[:1]
++    assert _run(feed, spec, manifest=manifest, raw=raw) == URLS[1:]
++    assert _run(feed, spec, manifest=manifest, raw=raw) == []
++
++
++def test_missing_feed_updated_still_raises():
++    feed = _feed().replace(f"<updated>{UPDATED}</updated>".encode(), b"")
++    with pytest.raises(ValueError, match="updated"):
++        _run(feed, _spec())

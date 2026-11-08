@@ -1,0 +1,72 @@
+{
+  "base_commit": "2dd1767572da79a48c47f70aee0e4fc7145170a4",
+  "combined_local_commit": "6bd4882b2811131115fc590ba8a13e9a47d5abd7",
+  "combined_tree": "aab1b926b37b681848cf38da53207c28a8f1659f",
+  "patch_sha256": "aea8cf18de1c2e0b38d4f4f5399b41d3e987404015f578fc98a6f143f050ec27",
+  "fixed_candidate_issues": [
+    131,
+    132,
+    133
+  ],
+  "unfixed_issues": [
+    130,
+    134
+  ],
+  "tests": {
+    "focused": [
+      {
+        "passed": 132,
+        "seconds": 21.22
+      },
+      {
+        "passed": 122,
+        "seconds": 17.34
+      }
+    ],
+    "full": {
+      "complete": false,
+      "passed": 3801,
+      "xfailed": 1,
+      "warnings": 1,
+      "seconds": 601.12,
+      "outer_exit_code": 124,
+      "time_limit_seconds": 600
+    },
+    "issue134": {
+      "expected_behavior_failed": 1,
+      "observed_failures_by_round": [
+        [
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1
+        ]
+      ],
+      "generation": null,
+      "adjacent_tests_passed": 24,
+      "adjacent_seconds": 17.82
+    }
+  },
+  "lint": "src/tests passed",
+  "schema_descriptions": 18,
+  "json_parsed": 229,
+  "workflow_yaml_parsed": 4,
+  "patch_clean_apply_verified": true,
+  "remote_ci_for_candidate": false,
+  "production_operations": false,
+  "upstream_writes": false
+}
