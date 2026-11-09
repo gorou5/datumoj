@@ -1,0 +1,14 @@
+-- Snapshot version bump 3 -> 4 (2026-11-09).
+--
+-- The number-page template changed again: the header line swapped
+-- order (PR #144) — 「日本の電話番号データベース」 is now the bold
+-- logo text and datumoj.com/tel moved to the small meta span.
+-- Rendered HTML lives in R2 snapshots keyed to the record's
+-- snapshot_version, so the site version must move ahead: records with
+-- an older snapshot_version are re-composed and refreshed the next
+-- time they are queried, which invalidates every snapshot rendered
+-- by the old template (same mechanism as 0010/0011).
+--
+-- Deploy note: apply after 0012 (the version is currently '3'); the
+-- net effect is '4'.
+UPDATE site_meta SET value = '4' WHERE key = 'snapshot_version';
