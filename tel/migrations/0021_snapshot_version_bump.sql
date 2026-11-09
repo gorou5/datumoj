@@ -1,0 +1,13 @@
+-- Snapshot version bump 11 -> 12 (2026-11-10).
+--
+-- Search hint copy: both search inputs (the homepage big search and
+-- the site-wide search form rendered at the foot of number pages)
+-- now say 電話番号・口コミを検索 — keyword search over comments has
+-- existed since the comment-search batch, but the hint only ever
+-- mentioned phone numbers. Placeholder/aria-label copy only; no
+-- search behaviour changes. The search form is part of every number
+-- page snapshot, so the version moves ahead again.
+--
+-- Deploy note: apply after 0020 (the version is currently '11');
+-- the net effect is '12'.
+UPDATE site_meta SET value = '12' WHERE key = 'snapshot_version';

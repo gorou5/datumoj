@@ -71,6 +71,7 @@ ok(flagHtml.includes('<th>番号の種類</th>'), 'facts table itself still rend
 ok(flagHtml.includes('<th>番号区段</th><td><a href="/tel/0501807">0501807</a></td>'), '番号区段 row links the block');
 ok(flagHtml.includes('<th>口コミ件数</th><td><a href="#comments">3 件</a></td>'), '口コミ件数 row anchors to #comments');
 ok(flagHtml.includes('<div class="card" id="comments"><h2>口コミ</h2>'), 'comment card renamed + anchored');
+ok(flagHtml.includes('placeholder="電話番号・口コミを検索"'), 'page searchbox hint names both numbers and口コミ');
 notContains(flagHtml, '匿名', 'no 匿名 anywhere on the number page');
 notContains(flagHtml, 'コメント', 'no コメント anywhere on the number page');
 ok(flagHtml.includes('まだ口コミはありません'), 'comment empty state renamed');
