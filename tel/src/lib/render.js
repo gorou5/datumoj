@@ -435,16 +435,20 @@ export function numberPage(facts) {
   rows.push(`<tr><th>数字のみ</th><td>${esc(f.digits)}${copyBtn(f.digits)}</td></tr>`);
   rows.push(`<tr><th>調べられた回数</th><td><span id="viewCount">${typeof f.viewCount === 'number' ? esc(String(f.viewCount)) + ' 回' : '集計中…'}</span></td></tr>`);
   rows.push(`<tr><th>口コミ件数</th><td><a href="#comments">${typeof f.commentCount === 'number' ? f.commentCount : 0} 件</a></td></tr>`);
-  // The page's one visible up-link: the 番号の種類 value links to the
-  // number's block page (the first drill-down layer), under the same
-  // provable-existence condition as before (facts.blockExists,
-  // resolved in index.js against the bucket manifest) — an ungenerated
-  // block must never be linked. The separate 番号区段 row that used to
-  // carry this link pointed at the very same page, so it was removed
-  // as a duplicate (owner ruling 2026-11-10); the block digits remain
-  // visible in the ハイフン notation row.
+  // Up-links to the block page (the first drill-down layer): the
+  // 番号の種類 value links there, and — restored by the owner's
+  // follow-up ruling the same day, after the convergence below tested
+  // as "the block entry vanished" — a dedicated 区段 row always shows
+  // the block identifier (the hyphenated stem the block page's own H1
+  // range starts from, e.g. 050-1807) as a link. Both follow
+  // facts.blockExists (resolved in index.js against the bucket
+  // manifest): an ungenerated block is never linked, its identifier
+  // still shows as plain text.
   const blockKey = f.digits.slice(0, 7);
   rows.push(`<tr><th>番号の種類</th><td>${f.blockExists ? `<a href="/tel/${blockKey}">${esc(f.lineTypeName)}</a>` : esc(f.lineTypeName)}</td></tr>`);
+  const blockSplit = splitNumber(blockKey + '0000', f);
+  const blockStem = blockSplit.includes('-') ? blockSplit.split('-').slice(0, -1).join('-') : blockKey;
+  rows.push(`<tr><th>区段</th><td>${f.blockExists ? `<a href="/tel/${blockKey}">${esc(blockStem)}</a>` : esc(blockStem)}</td></tr>`);
   // Fixed-line anatomy （市外局番/市内局番/加入者番号）: rendered only when
   // the official decomposition really applies — a known area code whose
   // anatomy splits into exactly the four official parts.
