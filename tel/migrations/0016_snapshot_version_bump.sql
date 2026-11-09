@@ -1,0 +1,27 @@
+-- Snapshot version bump 6 -> 7 (2026-11-09).
+--
+-- Number-page slimming batch:
+--   * visible breadcrumb trail and the top back-link line removed; the
+--     facts table gains a 番号区段 row (the one visible up-link, rendered
+--     only when the block page provably exists) and a 口コミ件数 row;
+--   * fixed-line anatomy rows （市外局番/市内局番/加入者番号） added when
+--     the official decomposition really applies;
+--   * filler rows removed （番号ポータビリティ boilerplate, the mobile/050
+--     「地域は特定できません」 no-information row) and the coloured segment
+--     boxes + seg-explain card removed from number pages;
+--   * terminology unified: user-visible コメント -> 口コミ, 「匿名」
+--     dropped from the comment UI, and the flag feature label renamed
+--     第三者標識 -> 公的機関の公表情報 (badges, headings, descriptions);
+--   * FAQ replaced with a public, number-free Q&A set (the FAQPage
+--     structured data mirrors it).
+-- Rendered HTML lives in R2 snapshots keyed to the record's
+-- snapshot_version, so the site version must move ahead: records with
+-- an older snapshot_version are re-composed and refreshed the next
+-- time they are queried, which invalidates every snapshot rendered by
+-- the old template (same mechanism as 0010/0011/0013/0014/0015). The
+-- refresh also flushes the stale /tel/blocks back-link baked into
+-- pre-drilldown snapshots.
+--
+-- Deploy note: apply after 0015 (the version is currently '6'); the
+-- net effect is '7'.
+UPDATE site_meta SET value = '7' WHERE key = 'snapshot_version';

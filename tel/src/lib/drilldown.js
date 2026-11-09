@@ -388,6 +388,7 @@ export async function buildGroupData(env, db, prefix) {
     numbers.push({
       digits: d,
       formatted: formatNumber(d, fmtFacts),
+      paren: parenFormat(d, fmtFacts),
       landed: landed.has(d),
       flagged: flagged.has(d),
     });
