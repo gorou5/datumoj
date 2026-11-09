@@ -10,7 +10,7 @@ import {
   listGovAgencies, listGovNumbers, govNumbersByAgency, findAreaCode, findBlock,
 } from './lib/compose.js';
 import {
-  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES, unavailablePage, popularPage, commentSearchPage,
+  homePage, examplesPage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES, unavailablePage, popularPage, commentSearchPage,
   rangesPage, prefixPage, groupPage,
 } from './lib/render.js';
 import {
@@ -366,17 +366,25 @@ export default {
 
     try {
       if (path === '/') {
-        // Server-render the hero with a real drawn number (short edge cache
-        // so the example rotates); fall back to verified static heroes when
-        // D1 is unavailable instead of shipping XXXX placeholders.
-        // The "popular numbers" box rides the same edge-cache window and is
-        // omitted while D1 is down or before any real lookups exist.
-        const [hero, popular, latestComments] = await Promise.all([
-          drawRandomHero(db),
+        // The number-anatomy showcase (日本の電話番号の例) moved to
+        // /tel/examples (2026-11-09); the homepage is title + search +
+        // content boxes. The popular/latest boxes ride a short edge-cache
+        // window and are omitted while D1 is down or before any real
+        // lookups exist.
+        const [popular, latestComments] = await Promise.all([
           getPopularNumbers(db),
           getLatestComments(db),
         ]);
-        return html(homePage(hero || pickFallbackHero(), popular, latestComments), 200, 'public, max-age=0, s-maxage=300');
+        return html(homePage(popular, latestComments), 200, 'public, max-age=0, s-maxage=300');
+      }
+      if (path === '/examples') {
+        // The moved showcase: one server-drawn real example per load
+        // (short edge cache so the example rotates); verified static
+        // heroes stand in when D1 is unavailable. The draw logic
+        // (drawRandomHero / pickFallbackHero) moved here with it from
+        // the homepage; /random.json serves the same pool as JSON.
+        const hero = (await drawRandomHero(db)) || pickFallbackHero();
+        return html(examplesPage(hero), 200, 'public, max-age=0, s-maxage=300');
       }
       if (path === '/about') {
         return html(aboutPage(await listTpSources(db)));

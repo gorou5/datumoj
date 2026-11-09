@@ -1,14 +1,10 @@
-// Tests for the 2026-11-09 hero slimming + icon buttons batch:
-//   * homepage hero has no shuffle button / detail link / rotation script
-//   * every action button is an inline-SVG icon with aria-label + title
-//   * .bigsearch / .searchbox flex rules (flex:none buttons, min-width:0
-//     inputs, >=44px hit areas); no mobile popular-first ordering left
-//   * hero pool: no fixed-line (0AB-J) examples — neither in the offline
-//     fallback set nor in the live record draw (stub D1 over node:sqlite)
+// Tests for the 2026-11-09 hero batches: icon buttons everywhere, the
+// hero pool without fixed-line examples, and the showcase's move from
+// the homepage to /tel/examples (homepage keeps no hero at all).
 // Run: node tests/hero_slim.test.mjs
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { homePage, numberPage, randomHero, FALLBACK_HEROES } from '../src/lib/render.js';
+import { homePage, examplesPage, aboutPage, numberPage, randomHero, FALLBACK_HEROES } from '../src/lib/render.js';
 import { drawRandomRecord } from '../src/lib/record.js';
 
 let passed = 0;
@@ -17,35 +13,53 @@ function ok(cond, label) {
   passed++;
 }
 
-// --- Homepage hero + icon buttons -------------------------------------------
-const hero = randomHero({
-  digits: '09010123456', lineType: 'mobile', lineTypeName: '携帯電話',
-  block: { prefix: '090101', carrierName: '株式会社NTTドコモ', source: '総務省 電気通信番号指定状況' },
-});
-const home = homePage(hero, [{ digits: '08007779633', formatted: '0800-777-9633', views: 9 }], [
+// --- Homepage: no hero showcase ----------------------------------------------
+const home = homePage([{ digits: '08007779633', formatted: '0800-777-9633', views: 9 }], [
   { number: '05018071465', formatted: '050-1807-1465', body: '一度だけ着信あり', created_at: '2026-11-09 10:00:00' },
 ]);
-ok(!home.includes('shuffleBtn'), 'no shuffle button');
-ok(!home.includes('別の番号を表示'), 'no shuffle label');
-ok(!home.includes('heroDetail'), 'no hero detail link');
-ok(!home.includes('hero-note'), 'no hero note paragraph');
-ok(!home.includes('<script'), 'no client script left on the homepage');
-ok(home.includes('href="/tel/090"') && home.includes('href="/tel/0901012"') && home.includes('href="/tel/09010123456"'), 'segment drill-down links kept');
+ok(!home.includes('<div class="hero-num"'), 'homepage has no hero number showcase markup');
+ok(!home.includes('id="heroKicker"') && !home.includes('class="hero-seg"'), 'homepage renders no hero segments/kicker');
+ok(!home.includes('shuffleBtn') && !home.includes('別の番号を表示'), 'no shuffle button');
+ok(!home.includes('<script'), 'no client script on the homepage');
+ok((home.match(/href="\/tel\/examples"/g) || []).length === 1, 'homepage nav row links to /tel/examples exactly once');
+ok(home.indexOf('日本の電話番号の歴史') < home.indexOf('日本の電話番号の例') && home.indexOf('日本の電話番号の例') < home.indexOf('このサイトについて'), 'examples entry sits inside the nav row');
 // bigsearch submit is the magnifier icon, not text
 ok(home.includes('<button type="submit" aria-label="調べる" title="調べる"><svg'), 'bigsearch icon button with aria-label/title');
 ok(!home.includes('>調べる</button>'), 'no text search button anywhere');
 ok(home.includes('<svg width="20" height="20" viewBox="0 0 24 24"'), 'inline SVG, no external resource');
 // lower boxes: comments block renders; DOM order comments -> popular
 ok(home.indexOf('最新の口コミ') < home.indexOf('よく調べられている番号'), 'comments block precedes popular in DOM');
-
-// --- Shared stylesheet rules --------------------------------------------------
+// shared stylesheet rules
 ok(/\.bigsearch button\{[^}]*flex:none/.test(home), 'bigsearch button flex:none');
 ok(/\.bigsearch button\{[^}]*min-width:46px/.test(home) && /\.bigsearch button\{[^}]*min-height:46px/.test(home), 'bigsearch hit area >= 44px');
 ok(/\.bigsearch input\{[^}]*min-width:0/.test(home), 'bigsearch input min-width:0');
 ok(/\.searchbox button\{[^}]*flex:none/.test(home) && /\.searchbox button\{[^}]*min-height:44px/.test(home), 'searchbox icon button rules');
 ok(!home.includes('order:-1'), 'mobile popular-first ordering removed');
 
-// --- Number page: searchbox + comment submit icons ---------------------------
+// --- /tel/examples: the showcase dataset, moved wholesale ---------------------
+const mobileHero = randomHero({
+  digits: '09010123456', lineType: 'mobile', lineTypeName: '携帯電話',
+  block: { prefix: '090101', carrierName: '株式会社NTTドコモ', source: '総務省 電気通信番号指定状況' },
+});
+const ex = examplesPage(mobileHero);
+ok(ex.includes('<h1>日本の電話番号の例</h1>'), 'examples h1');
+ok(ex.includes('href="/tel/090"') && ex.includes('href="/tel/0901012"') && ex.includes('href="/tel/09010123456"'), 'segment drill-down links kept');
+ok(ex.includes('番号帯（090）') && ex.includes('加入者番号（前半）'), 'every segment explanation rendered');
+ok(ex.includes('<th>番号の種類</th><td>携帯電話</td>'), 'hero facts list rendered');
+ok(!ex.includes('shuffleBtn'), 'no shuffle button on examples either');
+const fixedHero = randomHero({
+  digits: '0331015678', lineType: 'fixed', lineTypeName: '固定電話（0AB-J）',
+  areaCode: '03', prefecture: '東京都', mas: [],
+  block: { prefix: '033101', carrierName: '大江戸テレコム株式会社', source: '総務省 電気通信番号指定状況' },
+});
+const exFixed = examplesPage(fixedHero);
+ok(exFixed.includes('市内局番（かつての「分局」）'), 'fixed-line anatomy explanations work on examples (randomHero fixed branch intact)');
+
+// --- The /tel/examples entry lives in the homepage nav row, not on /tel/about --
+const about = aboutPage([]);
+ok(!about.includes('href="/tel/examples"'), 'about carries no /tel/examples link (entry is in the nav row)');
+
+// --- Number page: searchbox + comment submit icons ------------------------------
 const page = numberPage({
   digits: '05018071465', lineType: 'ip050', lineTypeName: 'IP電話（050）', portable: true,
   block: { prefix: '0501807', carrierName: 'ソフトバンク株式会社', designatedOn: null, status: 'designated', note: null, source: '総務省' },
@@ -57,14 +71,14 @@ ok(page.includes('<button type="submit" aria-label="投稿する" title="投稿�
 ok(!page.includes('>投稿</button>'), 'no text comment submit');
 ok(/#cmtForm button\{[^}]*min-height:44px/.test(page), 'comment button hit area 44px');
 
-// --- Hero pool: fallback set has no fixed-line example ------------------------
+// --- Hero pool: fallback set has no fixed-line example ---------------------------
 ok(FALLBACK_HEROES.length >= 3, 'fallback pool still populated');
 for (const h of FALLBACK_HEROES) {
   ok(!h.kicker.includes('固定電話'), `fallback hero is not fixed-line: ${h.digits}`);
   ok(h.digits !== '0331015678', 'the old 0AB-J fallback example is gone');
 }
 
-// --- Hero pool: live draw never returns a fixed-line record -------------------
+// --- Hero pool: live draw never returns a fixed-line record ----------------------
 const db0 = new DatabaseSync(':memory:');
 db0.exec(`CREATE TABLE number_record_2026 (
   digits TEXT, line_type TEXT, line_type_name TEXT, portable INTEGER,
