@@ -44,7 +44,8 @@ const flagFacts = {
   tier: 1,
 };
 const flagHtml = numberPage(flagFacts);
-ok(flagHtml.includes('公的機関の公表情報 C級｜国民生活センター'), 'flag badge strip renamed');
+notContains(flagHtml, '<div class="flagbadges"', 'no flag banner under the H1 (removed 2026-11-10)');
+notContains(flagHtml, '公的機関の公表情報 C級｜', 'banner text format gone with the banner');
 ok(flagHtml.includes('<span class="badge">公的機関の公表情報・C級</span>'), 'flag card badge renamed');
 ok(flagHtml.includes('<h2>公的機関の公表情報</h2>'), 'flag section heading renamed');
 notContains(flagHtml, '第三者標識', 'no old flag label anywhere');
@@ -59,9 +60,10 @@ notContains(flagHtml, '地域は特定できません', 'no no-information regio
 // Three notation rows, one form each (owner ruling 2026-11-10), in
 // the site's shared notation vocabulary (same trio as the prefix-page
 // 範囲 rows and the group-page units).
-ok(flagHtml.includes('<tr><th>電話番号（ハイフン表記）</th><td>050-1807-1465</td></tr>'), 'hyphen notation row');
-ok(flagHtml.includes('<tr><th>電話番号（かっこ表記）</th><td>(050)1807-1465</td></tr>'), 'parenthesis notation row');
-ok(flagHtml.includes('<tr><th>電話番号（数字のみ表記）</th><td>05018071465</td></tr>'), 'digits-only notation row');
+ok(flagHtml.includes('<tr><th>ハイフン</th><td>050-1807-1465</td></tr>'), 'hyphen notation row, short label');
+ok(flagHtml.includes('<tr><th>かっこ</th><td>(050)1807-1465</td></tr>'), 'parenthesis notation row, short label');
+ok(flagHtml.includes('<tr><th>数字のみ</th><td>05018071465</td></tr>'), 'digits-only notation row, short label');
+notContains(flagHtml, '電話番号（ハイフン表記）', 'long notation labels gone');
 notContains(flagHtml, '<th>電話番号</th>', 'old combined notation row gone');
 notContains(flagHtml, '<th>数字のみ表記</th>', 'old standalone digits row gone');
 notContains(flagHtml, '<h2>基本情報</h2>', 'visible 基本情報 heading removed (item 12)');
