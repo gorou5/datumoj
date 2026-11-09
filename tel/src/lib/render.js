@@ -18,6 +18,13 @@ export function extLink(url, label, attrs = '') {
     : esc(label);
 }
 
+// Inline SVG action icons (2026-11-09): every action button on the site
+// is icon-only — navigation/content links keep their text. Uniform line
+// style (24-unit viewBox, 2px round-cap strokes, currentColor); each
+// button carries its original word as aria-label + title instead.
+const ICON_SEARCH = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>';
+const ICON_SEND = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4Z"/></svg>';
+
 const CSS = `
 :root{color-scheme:light}
 *{box-sizing:border-box}
@@ -41,8 +48,8 @@ th{width:11rem;color:#555;font-weight:600}
 .flag{border-left:4px solid #c62828}
 .badge{display:inline-block;border-radius:999px;padding:.05rem .55rem;font-size:.8rem;border:1px solid #999;margin-right:.3rem}
 .searchbox{display:flex;gap:.5rem;margin:1rem 0}
-.searchbox input{flex:1;font-size:1.1rem;padding:.6rem;border:1px solid #bbb;border-radius:8px}
-.searchbox button{font-size:1.05rem;padding:.6rem 1.1rem;border-radius:8px;border:1px solid #0b57d0;background:#0b57d0;color:#fff;cursor:pointer}
+.searchbox input{flex:1;min-width:0;font-size:1.1rem;padding:.6rem;border:1px solid #bbb;border-radius:8px}
+.searchbox button{flex:none;display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:.55rem .7rem;border-radius:8px;border:1px solid #0b57d0;background:#0b57d0;color:#fff;cursor:pointer}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.4rem .8rem}
 .n{display:inline-block;white-space:nowrap;vertical-align:top}
 .n small{display:block;font-size:.72rem;color:#666;white-space:nowrap}
@@ -69,19 +76,18 @@ a.segbtn{display:inline-block;text-decoration:none}
 .seg-explain[data-seg="3"]{border-left-color:#b39ddb}
 .seg-explain h2{font-size:1.05rem;margin:0 0 .3rem}
 .seg-explain p{margin:0}
-.hero-note{color:#8a94a0;font-size:.88rem;margin-top:.9rem}
-.shuffle{font:inherit;font-size:.85rem;padding:.25rem .8rem;border-radius:999px;border:1px solid #cfc9ba;background:#fff;cursor:pointer;color:#33424f}
 .dialrow{text-align:center;margin:.9rem 0 0}
 .dialbtn{display:inline-block;padding:.55rem 1.5rem;border-radius:999px;border:1px solid #5b84a6;background:#5b84a6;color:#fff;font-weight:600;text-decoration:none}
 .home{max-width:940px;margin:5vh auto 0;text-align:center}
 .home svg{width:100%;height:auto;display:block}
 .bigsearch{display:flex;gap:.5rem;max-width:620px;margin:26px auto 1.6rem}
-.bigsearch input{flex:1;font-size:1.15rem;padding:.85rem 1.3rem;border:1px solid #cfc9ba;border-radius:999px;box-shadow:0 2px 12px rgba(70,60,30,.10);background:#fff;color:#1a1a1a}
-.bigsearch button{font-size:1.05rem;padding:.85rem 1.6rem;border-radius:999px;border:1px solid #5b84a6;background:#5b84a6;color:#fff;cursor:pointer}
+.bigsearch input{flex:1;min-width:0;font-size:1.15rem;padding:.85rem 1.3rem;border:1px solid #cfc9ba;border-radius:999px;box-shadow:0 2px 12px rgba(70,60,30,.10);background:#fff;color:#1a1a1a}
+.bigsearch button{flex:none;display:inline-flex;align-items:center;justify-content:center;min-width:46px;min-height:46px;padding:.7rem .8rem;border-radius:999px;border:1px solid #5b84a6;background:#5b84a6;color:#fff;cursor:pointer}
 .home-links{margin-top:16px;font-size:.88rem;color:#8a94a0}
 /* Homepage lower boxes side by side: latest comments left, popular right.
-   DOM order is comments-then-popular; on narrow screens the popular box
-   is pulled first via order (see the max-width media query). */
+   DOM order is comments-then-popular, and narrow screens stack in that
+   same order (owner decision 2026-11-09: comments first on mobile too —
+   the earlier popular-first mobile ordering was removed). */
 .home-cols{display:grid;grid-template-columns:1fr 1fr;gap:0 1rem;align-items:start;text-align:left}
 .home-cols.single{grid-template-columns:1fr}
 @media (max-width:560px){
@@ -92,9 +98,9 @@ a.segbtn{display:inline-block;text-decoration:none}
 .hero-num{gap:.2rem}
 .seg-explain{min-height:9rem}
 .home-cols{grid-template-columns:1fr}
-.home-cols .col-popular{order:-1}
 }
 .flagbadges{display:flex;flex-wrap:wrap;gap:.4rem;margin:.2rem 0 .6rem}
+#cmtForm button{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:.4rem .7rem;border-radius:8px;border:1px solid #5b84a6;background:#5b84a6;color:#fff;cursor:pointer;vertical-align:middle}
 .fbadge{display:inline-block;padding:.28rem .6rem;border-radius:999px;font-size:.82rem;font-weight:600;border:1px solid}
 .fb-A{background:#fdecea;color:#8e1414;border-color:#e3a49f}
 .fb-B{background:#fff6e0;color:#7a5200;border-color:#e0cd8f}
@@ -136,7 +142,7 @@ ${body}
 function searchForm(value = '') {
   return `<form class="searchbox" action="/tel/search" method="get" role="search">
 <input type="tel" name="q" inputmode="tel" autocomplete="off" placeholder="電話番号を入力（例：090-1234-5678）" value="${esc(value)}" aria-label="電話番号">
-<button type="submit">調べる</button>
+<button type="submit" aria-label="調べる" title="調べる">${ICON_SEARCH}</button>
 </form>`;
 }
 
@@ -227,18 +233,15 @@ export function randomHero(f) {
 }
 
 // Offline fallback heroes: real designated blocks whose carrier facts were
-// verified against the MIC designation data on 2026-10-22 (033101 = 大江戸
-// テレコム, 090101 = NTTドコモ, 0800777 / 0120923 = KDDI). Used when D1 is
-// unavailable (e.g. free-tier daily quota) so the homepage hero and
-// /random.json never dead-end on XXXX placeholders. Explanations are
-// generated by randomHero itself from these facts, so wording never drifts
-// from the live path.
+// verified against the MIC designation data on 2026-10-22 (090101 = NTT
+// ドコモ, 0800777 / 0120923 = KDDI). Used when D1 is unavailable (e.g.
+// free-tier daily quota) so the homepage hero and /random.json never
+// dead-end on XXXX placeholders. Explanations are generated by randomHero
+// itself from these facts, so wording never drifts from the live path.
+// Fixed-line (0AB-J) examples are NOT in the hero pool (owner decision
+// 2026-11-09) — the live draw in lib/record.js excludes them too; the
+// fixed branch of randomHero itself stays, drill-down pages use it.
 const FALLBACK_FACTS = [
-  {
-    digits: '0331015678', lineType: 'fixed', lineTypeName: '固定電話（0AB-J）',
-    areaCode: '03', prefecture: '東京都', mas: [],
-    block: { prefix: '033101', carrierName: '大江戸テレコム株式会社', source: '総務省 電気通信番号指定状況' },
-  },
   {
     digits: '09010123456', lineType: 'mobile', lineTypeName: '携帯電話',
     block: { prefix: '090101', carrierName: '株式会社NTTドコモ', source: '総務省 電気通信番号指定状況' },
@@ -254,7 +257,11 @@ const FALLBACK_FACTS = [
 ];
 export const FALLBACK_HEROES = FALLBACK_FACTS.map((f) => randomHero(f));
 
-export function homePage(hero, fallbacks, popular, latestComments) {
+// The hero is a single server-drawn example per page load (a refresh
+// draws another). The old shuffle button and per-number detail link were
+// removed (2026-11-09): the last segment link already leads to the same
+// number page, and the client-side rotation script went with them.
+export function homePage(hero, popular, latestComments) {
   const segColors = ['seg-a', 'seg-b', 'seg-c', 'seg-d'];
   // Segments are drill-down links: each segment links to the page for
   // the digit string accumulated up to it (band page, then block page),
@@ -271,7 +278,6 @@ export function homePage(hero, fallbacks, popular, latestComments) {
         `<span class="hero-seg">${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<a class="segbtn ${segColors[i % 4]}" href="${segHref(i)}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></a></span>`
     )
     .join('');
-  const fallbacksJson = JSON.stringify(fallbacks || []).replace(/<\//g, '<\\/');
   const popularHtml =
     popular && popular.length
       ? `<section class="card col-popular" aria-label="よく調べられている番号">
@@ -304,13 +310,12 @@ ${latestComments.map((c) => `<li><a href="/tel/${esc(c.number)}">${esc(c.formatt
 <h1 class="sr-only">日本の電話番号データベース</h1>
 <form class="bigsearch" action="/tel/search" method="get" role="search">
 <input type="search" name="q" autocomplete="off" placeholder="電話番号を入力（例：090-1234-5678）" aria-label="電話番号">
-<button type="submit">調べる</button>
+<button type="submit" aria-label="調べる" title="調べる">${ICON_SEARCH}</button>
 </form>
 <p class="hero-kicker" id="heroKicker">${esc(hero.kicker)}</p>
 <div class="hero-num" id="heroSegs" role="group" aria-label="電話番号の各部分">
 ${segHtml}
 </div>
-<p class="hero-note"><button type="button" class="shuffle" id="shuffleBtn">別の番号を表示</button> <a id="heroDetail" href="/tel/${esc(hero.digits)}">この番号（${esc(hero.formatted)}）の詳細ページ</a></p>
 ${lowerHtml}
 <section class="card" style="text-align:left" aria-label="公的相談窓口">
 <h2>公的相談窓口</h2>
@@ -338,43 +343,7 @@ ${lowerHtml}
 <p class="meta">当サイトは上記の機関・団体とは関係のない民間の電話番号データベースです。各窓口は、それぞれの運営主体が運営しています。</p>
 </section>
 <p class="home-links"><a href="/tel/popular">よく検索される電話番号</a> ・ <a href="/tel/ranges">番号区段インデックス</a> ・ <a href="/tel/gov">政府機関の番号</a> ・ <a href="/tel/history">日本の電話番号の歴史</a> ・ <a href="/tel/about">このサイトについて</a></p>
-</div>
-<script>
-(function(){
-  var segsEl=document.getElementById('heroSegs');
-  var kick=document.getElementById('heroKicker');
-  var detail=document.getElementById('heroDetail');
-  var COLORS=['seg-a','seg-b','seg-c','seg-d'];
-  var FALLBACKS=${fallbacksJson};
-  var fbIdx=-1;
-  function segHref(d,i){
-    var acc='';
-    for(var j=0;j<=i;j++)acc+=d.segments[j].text;
-    if(acc.length<2&&d.segments[i+1])acc+=d.segments[i+1].text;
-    return '/tel/'+acc;
-  }
-  function render(d){
-    kick.textContent=d.kicker;
-    segsEl.innerHTML='';
-    d.segments.forEach(function(s,i){
-      var group=document.createElement('span');group.className='hero-seg';
-      if(i>0){var h=document.createElement('span');h.className='hero-hyphen';h.textContent='-';group.appendChild(h);}
-      var b=document.createElement('a');b.className='segbtn '+COLORS[i%COLORS.length];b.href=segHref(d,i);
-      var ds=document.createElement('span');ds.className='segdigits';ds.textContent=s.text;
-      var cs=document.createElement('span');cs.className='segcap';cs.textContent=s.label;
-      b.appendChild(ds);b.appendChild(cs);
-      group.appendChild(b);segsEl.appendChild(group);
-    });
-    detail.href='/tel/'+d.digits;detail.textContent='この番号（'+d.formatted+'）の詳細ページ';
-  }
-  function load(){
-    fetch('/tel/random.json',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('random');return r.json();}).then(render).catch(function(){
-      if(FALLBACKS.length){fbIdx=(fbIdx+1)%FALLBACKS.length;render(FALLBACKS[fbIdx]);}
-    });
-  }
-  document.getElementById('shuffleBtn').addEventListener('click',load);
-})();
-</script>`;
+</div>`;
   return layout({
     title: '日本の電話番号データベース',
     description: '日本の電話番号データベース。番号の種類・地域・単位料金区域（MA）・割当事業者・指定時期を公的データで表示。公的機関の公表情報も出典付きで転載。',
@@ -518,7 +487,7 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
   sections += `<div class="card" id="comments"><h2>口コミ</h2>
 <p class="meta">10文字以内。人を傷つける言葉は投稿できません。口コミは投稿者の感想であり、事実を示すものではありません。</p>
 <ul class="tight" id="cmtList"><li class="meta">読み込み中…</li></ul>
-<form id="cmtForm" autocomplete="off"><input type="text" id="cmtInput" maxlength="10" placeholder="10文字以内で感想を" aria-label="口コミ"> <button type="submit">投稿</button></form>
+<form id="cmtForm" autocomplete="off"><input type="text" id="cmtInput" maxlength="10" placeholder="10文字以内で感想を" aria-label="口コミ"> <button type="submit" aria-label="投稿する" title="投稿する">${ICON_SEND}</button></form>
 <p class="meta" id="cmtMsg"></p></div>`;
   // Owner rule (2026-10-25): FAQ is the last section of the page.
   sections += `<div class="card"><h2>よくある質問</h2>${faq.map((x) => `<h3>${esc(x.q)}</h3><p>${esc(x.a)}</p>`).join('')}</div>`;

@@ -240,7 +240,11 @@ export async function drawRandomRecord(db) {
     [tables[i], tables[j]] = [tables[j], tables[i]];
   }
   for (const t of tables) {
-    const row = await db.prepare(`SELECT * FROM ${t} WHERE tier = 1 ORDER BY RANDOM() LIMIT 1`).first();
+    // Hero pool exclusion (owner decision 2026-11-09): fixed-line (0AB-J)
+    // records are never drawn as homepage examples. This draw feeds only
+    // the homepage hero and /random.json (via drawRandomHero in index.js);
+    // record pages themselves are unaffected.
+    const row = await db.prepare(`SELECT * FROM ${t} WHERE tier = 1 AND line_type <> 'fixed' ORDER BY RANDOM() LIMIT 1`).first();
     if (row) return row;
   }
   return null;
