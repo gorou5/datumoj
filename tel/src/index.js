@@ -330,7 +330,7 @@ async function getPopularNumbers(db, limit = 6) {
   }
 }
 
-// Newest visible comments for the homepage "最新のコメント" box.
+// Newest visible comments for the homepage "最新の口コミ" box.
 // Never throws and returns null while no visible comment exists, in which
 // case the homepage omits the box (and the popular box renders as before).
 async function getLatestComments(db, limit = 5) {

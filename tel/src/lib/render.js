@@ -302,8 +302,8 @@ ${popular.map((p) => `<li><a href="/tel/${esc(p.digits)}">${esc(p.formatted)}</a
       : '';
   const commentsHtml =
     latestComments && latestComments.length
-      ? `<section class="card col-comments" aria-label="最新のコメント">
-<h2>最新のコメント</h2>
+      ? `<section class="card col-comments" aria-label="最新の口コミ">
+<h2>最新の口コミ</h2>
 <ul class="tight">
 ${latestComments.map((c) => `<li><a href="/tel/${esc(c.number)}">${esc(c.formatted)}</a>：${esc(c.body)} <span class="meta">（${esc(String(c.created_at).slice(0, 10))}）</span></li>`).join('\n')}
 </ul>
@@ -885,12 +885,12 @@ export function commentSearchPage(query, results) {
     )
     .join('\n');
   const body = `
-<p class="crumbs"><a href="/tel/">ホーム</a> › コメント検索</p>
-<h1>「${esc(query)}」を含むコメント</h1>
+<p class="crumbs"><a href="/tel/">ホーム</a> › 口コミ検索</p>
+<h1>「${esc(query)}」を含む口コミ</h1>
 ${searchForm(query)}
-${results.length ? `<div class="card"><ul class="tight">\n${items}\n</ul></div>` : `<p class="meta">「${esc(query)}」を含むコメントは見つかりませんでした。</p>`}`;
+${results.length ? `<div class="card"><ul class="tight">\n${items}\n</ul></div>` : `<p class="meta">「${esc(query)}」を含む口コミは見つかりませんでした。</p>`}`;
   return layout({
-    title: `「${query}」を含むコメントの検索結果`,
+    title: `「${query}」を含む口コミの検索結果`,
     robots: 'noindex,follow',
     body,
   });

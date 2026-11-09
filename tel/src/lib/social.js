@@ -75,7 +75,7 @@ export async function searchComments(db, keyword, limit = 50) {
   return r.results || [];
 }
 
-// Newest visible comments across all numbers (homepage "最新のコメント").
+// Newest visible comments across all numbers (homepage "最新の口コミ").
 // id DESC is the same ordering listComments uses per number; the table is
 // small and the read is LIMIT-bounded, so the homepage stays light.
 export async function listLatestComments(db, limit = 5) {
