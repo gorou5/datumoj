@@ -257,27 +257,7 @@ const FALLBACK_FACTS = [
 ];
 export const FALLBACK_HEROES = FALLBACK_FACTS.map((f) => randomHero(f));
 
-// The hero is a single server-drawn example per page load (a refresh
-// draws another). The old shuffle button and per-number detail link were
-// removed (2026-11-09): the last segment link already leads to the same
-// number page, and the client-side rotation script went with them.
-export function homePage(hero, popular, latestComments) {
-  const segColors = ['seg-a', 'seg-b', 'seg-c', 'seg-d'];
-  // Segments are drill-down links: each segment links to the page for
-  // the digit string accumulated up to it (band page, then block page),
-  // and the last one to the number page itself. A lone trunk "0" has no
-  // page of its own, so it shares the area-code accumulation.
-  const segHref = (i) => {
-    let acc = hero.segments.slice(0, i + 1).map((s) => s.text).join('');
-    if (acc.length < 2 && hero.segments[i + 1]) acc += hero.segments[i + 1].text;
-    return `/tel/${acc}`;
-  };
-  const segHtml = hero.segments
-    .map(
-      (s, i) =>
-        `<span class="hero-seg">${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<a class="segbtn ${segColors[i % 4]}" href="${segHref(i)}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></a></span>`
-    )
-    .join('');
+export function homePage(popular, latestComments) {
   const popularHtml =
     popular && popular.length
       ? `<section class="card col-popular" aria-label="よく調べられている番号">
@@ -312,10 +292,6 @@ ${latestComments.map((c) => `<li><a href="/tel/${esc(c.number)}">${esc(c.formatt
 <input type="search" name="q" autocomplete="off" placeholder="電話番号を入力（例：090-1234-5678）" aria-label="電話番号">
 <button type="submit" aria-label="調べる" title="調べる">${ICON_SEARCH}</button>
 </form>
-<p class="hero-kicker" id="heroKicker">${esc(hero.kicker)}</p>
-<div class="hero-num" id="heroSegs" role="group" aria-label="電話番号の各部分">
-${segHtml}
-</div>
 ${lowerHtml}
 <section class="card" style="text-align:left" aria-label="公的相談窓口">
 <h2>公的相談窓口</h2>
@@ -342,7 +318,7 @@ ${lowerHtml}
 </ul>
 <p class="meta">当サイトは上記の機関・団体とは関係のない民間の電話番号データベースです。各窓口は、それぞれの運営主体が運営しています。</p>
 </section>
-<p class="home-links"><a href="/tel/popular">よく検索される電話番号</a> ・ <a href="/tel/ranges">番号区段インデックス</a> ・ <a href="/tel/gov">政府機関の番号</a> ・ <a href="/tel/history">日本の電話番号の歴史</a> ・ <a href="/tel/about">このサイトについて</a></p>
+<p class="home-links"><a href="/tel/popular">よく検索される電話番号</a> ・ <a href="/tel/ranges">番号区段インデックス</a> ・ <a href="/tel/gov">政府機関の番号</a> ・ <a href="/tel/history">日本の電話番号の歴史</a> ・ <a href="/tel/examples">日本の電話番号の例</a> ・ <a href="/tel/about">このサイトについて</a></p>
 </div>`;
   return layout({
     title: '日本の電話番号データベース',
@@ -581,6 +557,56 @@ ${searchForm()}
   });
 }
 
+// /tel/examples — 日本の電話番号の例. The number-anatomy showcase that
+// used to sit on the homepage moved here wholesale (owner decision
+// 2026-11-09: it meant little to first-time visitors there). One
+// server-drawn real example per load: segment drill-down links, every
+// segment's explanation, and the facts list — the full randomHero
+// payload, rendered. The homepage links here not at all; the single
+// inbound link lives on /tel/about.
+export function examplesPage(hero) {
+  const segColors = ['seg-a', 'seg-b', 'seg-c', 'seg-d'];
+  // Segments are drill-down links: each segment links to the page for
+  // the digit string accumulated up to it (band page, then block page),
+  // and the last one to the number page itself. A lone trunk "0" has no
+  // page of its own, so it shares the area-code accumulation.
+  const segHref = (i) => {
+    let acc = hero.segments.slice(0, i + 1).map((s) => s.text).join('');
+    if (acc.length < 2 && hero.segments[i + 1]) acc += hero.segments[i + 1].text;
+    return `/tel/${acc}`;
+  };
+  const segHtml = hero.segments
+    .map(
+      (s, i) =>
+        `<span class="hero-seg">${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<a class="segbtn ${segColors[i % 4]}" href="${segHref(i)}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></a></span>`
+    )
+    .join('');
+  const explains = hero.segments
+    .map(
+      (s, i) =>
+        `<div class="seg-explain" data-seg="${i}"><h2>${esc(s.title)}</h2><p>${esc(s.explain)}</p></div>`
+    )
+    .join('\n');
+  const factRows = hero.facts.map((f) => `<tr><th>${esc(f.k)}</th><td>${esc(f.v)}</td></tr>`).join('');
+  const body = `
+<p class="crumbs"><a href="/tel/">ホーム</a> › 日本の電話番号の例</p>
+<h1>日本の電話番号の例</h1>
+<p class="hero-kicker">${esc(hero.kicker)}</p>
+<div class="hero-num" role="group" aria-label="電話番号の各部分">
+${segHtml}
+</div>
+${explains}
+<div class="card"><table>${factRows}</table></div>
+${searchForm()}`;
+  return layout({
+    title: '日本の電話番号の例｜datumoj.com/tel',
+    description: '日本の電話番号の構成（番号帯・市外局番・市内局番・加入者番号）を、実在の番号区画から選んだ例で説明します。',
+    robots: 'noindex,follow',
+    canonical: 'https://datumoj.com/tel/examples',
+    body,
+  });
+}
+
 export function areaPage(hub) {
   const rows = hub.mas
     .map((m) => `<tr><th>${esc(m.charge_area_name)}MA<br><span class="meta">番号区画コード ${esc(m.zone_code)}</span></th><td>${esc(m.region)}</td></tr>`)
@@ -663,7 +689,8 @@ export function aboutPage(tpSources) {
 <h1>データについて</h1>
 <div class="card"><h2>番号ページの作り方</h2>
 <p>電話番号は総務省が「区画」単位で事業者に指定します。本サイトは、番号計画・番号区画（市外局番／単位料金区域MA／番号区画コード）などの公開データをデータベース化し、アクセス時に組み合わせて番号ページを生成しています。個別の加入者の氏名・契約情報は一切保持しません。</p>
-<p>「割当事業者」は指定時点の情報です。番号ポータビリティ（MNP）により、現在の契約事業者とは異なる場合があります。事業者別の細かい指定区画は、総務省の指定資料を解析して順次投入します。</p></div>
+<p>「割当事業者」は指定時点の情報です。番号ポータビリティ（MNP）により、現在の契約事業者とは異なる場合があります。事業者別の細かい指定区画は、総務省の指定資料を解析して順次投入します。</p>
+</div>
 <div class="card"><h2>公的機関の公表情報について</h2>
 <p>詐欺等に関する公表情報は、本サイトが独自に判定するものではなく、下記の公的機関の公表情報を出典付きで転載します。公表情報が無いことは安全を意味しません。</p>
 <table>${rows}</table></div>
