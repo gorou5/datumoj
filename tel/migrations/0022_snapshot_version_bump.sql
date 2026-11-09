@@ -1,0 +1,11 @@
+-- Snapshot version bump 12 -> 13 (2026-11-10).
+--
+-- The number page's one visible up-link converges into the
+-- 番号の種類 row: its value now links to the number's block page
+-- (the first drill-down layer, same target and same blockExists
+-- condition as before), and the separate 番号区段 row — which
+-- pointed at the very same page — is removed as a duplicate.
+--
+-- Deploy note: apply after 0021 (the version is currently '12');
+-- the net effect is '13'.
+UPDATE site_meta SET value = '13' WHERE key = 'snapshot_version';
