@@ -1331,8 +1331,9 @@ class AnalysisTools:
         except ParseError:
             return not_found(f"解析器 {parser_cls.name} 无法解析这个快照")
         chunks = [c for c in parsed.chunks if c.locator == locator]
+        datasets = [] if chunks else [d for d in parsed.datasets if d.locator == locator]
         observations = [o for o in parsed.observations if o.locator == locator]
-        if not chunks and not observations:
+        if not chunks and not datasets and not observations:
             return not_found("快照里定位不到这个 locator")
         warnings: list[str] = []
         docs = {d.doc_key: d for d in parsed.documents}
@@ -1341,8 +1342,17 @@ class AnalysisTools:
             view = {"kind": "chunk", **self._chunk_view(c, citation_for_chunk(c, snap, spec.license))}
             view["law"] = self._law_info(docs.get(c.doc_key), warnings)
             passages.append(view)
+        for d in datasets:
+            passages.append({
+                "kind": "catalog_entry", "dataset_key": d.dataset_key, "locator": d.locator,
+                "text": SourceText(content="\n".join(t for t in [d.title, d.description, *d.tags] if t is not None)),
+                "usage_notice": _usage_notice(spec.license.usage_scope),
+            })
         for o in observations:
-            passages.append({"kind": "observation", **self._obs_view(o, citation_for_observation(o, snap, spec.license))})
+            passages.append({
+                "kind": "observation", **self._obs_view(o, citation_for_observation(o, snap, spec.license)),
+                "text": SourceText(content=o.model_dump_json(indent=2)),
+            })
         _usage_warning((p["usage_notice"] for p in passages), warnings)
         data = {"status": "ok", "snapshot_sha256": snapshot_sha256, "locator": locator, "passages": passages}
         return _result(data, GapState.ok, _freshness([(snap.source_id, snap.fetched_at)]), warnings)
