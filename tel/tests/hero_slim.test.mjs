@@ -43,6 +43,8 @@ ok(home.includes('<a class="navpill" href="/tel/soudan">公的相談窓口</a>')
 ok(home.indexOf('href="/tel/history">日本の電話番号の歴史') < home.indexOf('href="/tel/examples">日本の電話番号の例') && home.indexOf('href="/tel/examples">日本の電話番号の例') < home.indexOf('href="/tel/about">このサイトについて'), 'examples entry sits inside the nav row');
 // bigsearch submit is the magnifier icon, not text
 ok(home.includes('<button type="submit" aria-label="調べる" title="調べる"><svg'), 'bigsearch icon button with aria-label/title');
+ok(home.includes('placeholder="電話番号・口コミを検索"'), 'bigsearch hint names both numbers and口コミ');
+ok(home.includes('aria-label="電話番号・口コミ"'), 'bigsearch aria-label aligned');
 ok(!home.includes('>調べる</button>'), 'no text search button anywhere');
 ok(home.includes('<svg width="20" height="20" viewBox="0 0 24 24"'), 'inline SVG, no external resource');
 // lower boxes: comments block renders; DOM order comments -> popular

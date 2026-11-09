@@ -147,7 +147,7 @@ ${body}
 
 function searchForm(value = '') {
   return `<form class="searchbox" action="/tel/search" method="get" role="search">
-<input type="tel" name="q" inputmode="tel" autocomplete="off" placeholder="電話番号を入力（例：090-1234-5678）" value="${esc(value)}" aria-label="電話番号">
+<input type="tel" name="q" inputmode="tel" autocomplete="off" placeholder="電話番号・口コミを検索" value="${esc(value)}" aria-label="電話番号・口コミ">
 <button type="submit" aria-label="調べる" title="調べる">${ICON_SEARCH}</button>
 </form>`;
 }
@@ -329,7 +329,7 @@ ${latestComments.map((c) => `<li><a href="/tel/${esc(c.number)}">${esc(c.formatt
 <div class="home">
 <h1 class="sr-only">日本の電話番号データベース</h1>
 <form class="bigsearch" action="/tel/search" method="get" role="search">
-<input type="search" name="q" autocomplete="off" placeholder="電話番号を入力（例：090-1234-5678）" aria-label="電話番号">
+<input type="search" name="q" autocomplete="off" placeholder="電話番号・口コミを検索" aria-label="電話番号・口コミ">
 <button type="submit" aria-label="調べる" title="調べる">${ICON_SEARCH}</button>
 </form>
 <p class="hero-kicker" id="heroKicker">${esc(hero.kicker)}</p>
