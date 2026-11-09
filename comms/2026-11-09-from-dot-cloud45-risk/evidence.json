@@ -1,0 +1,152 @@
+{
+  "run": {
+    "number": 45,
+    "id": 42559729719,
+    "job": 128973280254,
+    "url": "https://github.com/gorou5/datumoj/actions/runs/42559729719/job/128973280254",
+    "head": "ac478731f32269add632325793c80d31fc6ef759",
+    "event": "schedule",
+    "created_at": "2026-11-09T04:04:12Z",
+    "completed_at": "2026-11-09T04:50:27Z"
+  },
+  "result": {
+    "status": "completed",
+    "exit_status": 0,
+    "generation": 42,
+    "sources": [
+      {
+        "source_id": "jp-jma",
+        "started_at": "2026-11-09T04:15:57.613900+00:00",
+        "ended_at": "2026-11-09T04:42:30.044445+00:00",
+        "state": "final",
+        "status": "completed",
+        "exit_status": 0,
+        "new": 700,
+        "unchanged": 0,
+        "parsed": 700,
+        "failures": {},
+        "stop_reason": "deadline",
+        "embedding_deferred": 0
+      },
+      {
+        "source_id": "jp-egov-data",
+        "started_at": "2026-11-09T04:42:30.792577+00:00",
+        "ended_at": "2026-11-09T04:45:57.197384+00:00",
+        "state": "final",
+        "status": "degraded",
+        "exit_status": 0,
+        "new": 4,
+        "unchanged": 2,
+        "parsed": 6,
+        "failures": {
+          "crawl_failed": 64
+        },
+        "stop_reason": "deadline",
+        "embedding_deferred": 0
+      }
+    ],
+    "source_health": [
+      {
+        "source_id": "jp-jma",
+        "status": "deadline",
+        "phase": "crawl",
+        "categories": {},
+        "consecutive_failures": 0,
+        "first_failure_at": null
+      },
+      {
+        "source_id": "jp-egov-data",
+        "status": "degraded",
+        "phase": "crawl",
+        "categories": {
+          "http_error": 47,
+          "empty_body": 17
+        },
+        "consecutive_failures": 0,
+        "first_failure_at": null
+      }
+    ],
+    "due": 6,
+    "new": 704,
+    "unchanged": 2,
+    "parsed": 706,
+    "failed_sources": [],
+    "reason": null,
+    "budget_exhausted": true,
+    "weekly_report_key": "reports/weekly/2026-45.md",
+    "reserve_minutes": 25,
+    "publish_timings": {
+      "prepare": 32.328912244000094,
+      "stage": 33.304097659000035,
+      "validate": 0.1112619369996537,
+      "upload_copies": 69.31523588099981,
+      "upload_raw": 0.030532551999840507,
+      "sample_provenance": 11.293454581999868,
+      "write_generation": 1.0820077469998068,
+      "publish": 2.1439095580003595,
+      "post_publish_inventory": 29.619010293999963,
+      "post_publish_sample_provenance": 11.165635394999754,
+      "post_publish_retain": 4.5237466640001,
+      "post_publish": 45.30841934399996,
+      "cleanup": 0.3585018620001392,
+      "total": 195.28027976699968
+    },
+    "restore_timings": {
+      "downloaded_bytes": 2310240628,
+      "reused_bytes": 0,
+      "download_copies": 340.00256110699996,
+      "validate": 226.49901420100002,
+      "download_raw": 14.995585722999976,
+      "sample_provenance": 10.030105244999959,
+      "cleanup": 0.000133850999986862,
+      "total": 598.246860696
+    },
+    "embedding_deferred": 0,
+    "backfill_embedded": 0,
+    "vector_pending": 17949,
+    "cleanup": {
+      "enabled": true,
+      "raw_enabled": true,
+      "generations_deleted": 1,
+      "copies_deleted": 316,
+      "copies_deleted_bytes": 82302231,
+      "raw_marked": 700,
+      "raw_deleted": 0,
+      "raw_deleted_bytes": 0,
+      "reclaimable_generations": 1,
+      "reclaimable_copies": 316,
+      "reclaimable_copies_bytes": 82302231,
+      "reclaimable_raw": 0,
+      "reclaimable_raw_bytes": 0,
+      "total_bytes": 6606451599,
+      "over_7gb": false,
+      "failures": 0,
+      "elapsed_s": 48.486,
+      "timed_out": false
+    }
+  },
+  "capacity": {
+    "scope": "managed namespace, not whole account",
+    "namespace_bytes": 6606451599,
+    "previous_namespace_bytes": 6434688017,
+    "net_growth_bytes": 171763582,
+    "headroom_to_7GB_bytes": 393548401,
+    "account_total_bytes": null
+  },
+  "followup": {
+    "prior_handoff_receipt": "https://github.com/zenithli/datumoj/blob/7040cd8f854a9492fa31c651ffa92948e7951f96/comms/2026-11-09-to-dot-cloud44-receipt/README.md",
+    "relay_commit": "f07715c7c49cf13d388bbed16672dddd41cb2c0e",
+    "maintainer_pause_response_verified": false,
+    "cleanup_protection_deployed": false,
+    "source_issue_94": "closed since generation 31; no matching new implementation found",
+    "source_status_code_breakdown": null,
+    "production_manifest_inspected": false,
+    "production_changed": false
+  },
+  "verification": {
+    "health_replay": "4 passed in 1.72s; Ruff passed after import-group formatting correction",
+    "full_suite": "not run; no runtime changes",
+    "basis": "Production cloud.py matches inspected ac478731; synthetic history only",
+    "production_cloud_blob": "c7f033c78082b82b28c19760344774489874ccf0"
+  }
+}
