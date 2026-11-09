@@ -81,7 +81,7 @@ ok(ex.includes(unit090), 'examples page uses the identical showcase unit form');
 ok(ex.includes('<h1>日本の電話番号の例</h1>'), 'examples h1');
 ok(ex.includes('href="/tel/090"') && ex.includes('href="/tel/0901012"') && ex.includes('href="/tel/09010123456"'), 'segment drill-down links kept');
 ok(ex.includes('番号帯（090）') && ex.includes('加入者番号（前半）'), 'every segment explanation rendered');
-ok(ex.includes('<th>番号の種類</th><td>携帯電話</td>'), 'hero facts list rendered');
+ok(ex.includes('<th>番号帯</th><td>携帯電話</td>'), 'hero facts list rendered (layer-1 term unified)');
 ok(!ex.includes('shuffleBtn'), 'no shuffle button on examples either');
 const fixedHero = randomHero({
   digits: '0331015678', lineType: 'fixed', lineTypeName: '固定電話（0AB-J）',

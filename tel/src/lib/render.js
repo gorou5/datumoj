@@ -232,7 +232,7 @@ export function randomHero(f) {
       { text: parts[2], label: '加入者番号', title: '加入者番号（後半）', explain: restExplain },
     ];
   }
-  const facts = [{ k: '番号の種類', v: f.lineTypeName }];
+  const facts = [{ k: '番号帯', v: f.lineTypeName }];
   if (carrier) facts.push({ k: '割当事業者', v: carrier });
   if (f.lineType === 'fixed') {
     if (f.prefecture) facts.push({ k: '都道府県', v: f.prefecture });
@@ -389,7 +389,7 @@ ${lowerHtml}
 </div>`;
   return layout({
     title: '日本の電話番号データベース',
-    description: '日本の電話番号データベース。番号の種類・地域・単位料金区域（MA）・割当事業者・指定時期を公的データで表示。公的機関の公表情報も出典付きで転載。',
+    description: '日本の電話番号データベース。番号帯・地域・単位料金区域（MA）・割当事業者・指定時期を公的データで表示。公的機関の公表情報も出典付きで転載。',
     canonical: 'https://datumoj.com/tel/',
     body,
   });
@@ -405,11 +405,11 @@ export function numberPage(facts) {
   const formatted = formatNumber(f.digits, f);
   // Breadcrumb data feeds only the BreadcrumbList JSON-LD below. The
   // visible breadcrumb trail and the top back-link line were removed in
-  // the 2026-11-09 slimming (owner's compromise: one visible up-link in
-  // the facts table — since 2026-11-10 it is the 番号の種類 value,
-  // linking to the number's block page); the coloured segment boxes
-  // and the seg-explain card went with them — segment explanations
-  // live on the drill-down pages now, not on number pages.
+  // the 2026-11-09 slimming; visible up-links live in the facts table
+  // as the three-layer rows （番号帯 -> layer 1, 番号区段 -> layer 2).
+  // The coloured segment boxes and the seg-explain card went with the
+  // breadcrumb — segment explanations live on the drill-down pages
+  // now, not on number pages.
   const crumbs = [{ name: 'ホーム', url: 'https://datumoj.com/tel/' }, { name: f.lineTypeName, url: `https://datumoj.com/tel/type/${f.lineType}` }];
   if (f.areaCode) crumbs.push({ name: `市外局番 ${f.areaCode}`, url: `https://datumoj.com/tel/area/${f.areaCode}` });
   crumbs.push({ name: formatted, url: `https://datumoj.com/tel/${f.digits}` });
@@ -435,19 +435,20 @@ export function numberPage(facts) {
   rows.push(`<tr><th>数字のみ</th><td>${esc(f.digits)}${copyBtn(f.digits)}</td></tr>`);
   rows.push(`<tr><th>調べられた回数</th><td><span id="viewCount">${typeof f.viewCount === 'number' ? esc(String(f.viewCount)) + ' 回' : '集計中…'}</span></td></tr>`);
   rows.push(`<tr><th>口コミ件数</th><td><a href="#comments">${typeof f.commentCount === 'number' ? f.commentCount : 0} 件</a></td></tr>`);
-  // Up-links to the block page (the first drill-down layer): the
-  // 番号の種類 value links there, and — restored by the owner's
-  // follow-up ruling the same day, after the convergence below tested
-  // as "the block entry vanished" — a dedicated 区段 row always shows
-  // the block identifier (the hyphenated stem the block page's own H1
-  // range starts from, e.g. 050-1807) as a link. Both follow
-  // facts.blockExists (resolved in index.js against the bucket
-  // manifest): an ungenerated block is never linked, its identifier
-  // still shows as plain text.
+  // Three-layer model (owner ruling 2026-11-10): this page is layer 3
+  // (the full number); the fact table carries one row per upper layer.
+  // 番号帯 (layer 1): the readable band name, linked to the band's
+  // prefix page — the first split segment is the band key (050 -> /tel/050,
+  // 0120 -> /tel/0120, fixed lines their area code, 03 -> /tel/03).
+  // 番号区段 (layer 2): the block identifier in the stem form the block
+  // page's own H1 range starts from (e.g. 050-1807), linked to the
+  // block page; the link follows facts.blockExists (resolved in
+  // index.js against the bucket manifest) so an ungenerated block is
+  // never linked — its identifier still shows as plain text.
   const blockKey = f.digits.slice(0, 7);
-  rows.push(`<tr><th>番号の種類</th><td>${f.blockExists ? `<a href="/tel/${blockKey}">${esc(f.lineTypeName)}</a>` : esc(f.lineTypeName)}</td></tr>`);
+  rows.push(`<tr><th>番号帯</th><td><a href="/tel/${segParts[0]}">${esc(f.lineTypeName)}</a></td></tr>`);
   const blockStem = segParts.length > 1 ? segParts.slice(0, -1).join('-') : blockKey;
-  rows.push(`<tr><th>区段</th><td>${f.blockExists ? `<a href="/tel/${blockKey}">${esc(blockStem)}</a>` : esc(blockStem)}</td></tr>`);
+  rows.push(`<tr><th>番号区段</th><td>${f.blockExists ? `<a href="/tel/${blockKey}">${esc(blockStem)}</a>` : esc(blockStem)}</td></tr>`);
   // Fixed-line anatomy （市外局番/市内局番/加入者番号）: rendered only when
   // the official decomposition really applies — a known area code whose
   // anatomy splits into exactly the four official parts.
@@ -1081,7 +1082,7 @@ export function popularPage(entries, page, totalPages) {
   const body = `
 <p class="crumbs"><a href="/tel/">トップ</a> ＞ よく検索される電話番号</p>
 <h1>よく検索される電話番号</h1>
-<p class="meta">公開統計で検索需要が高いと確認できた番号を、需要の高い順に並べた一覧です（${(page - 1) * 100 + 1}〜${(page - 1) * 100 + entries.length}件目）。各番号の詳細ページでは、総務省の指定データに基づく番号の種類・割当事業者を表示します。</p>
+<p class="meta">公開統計で検索需要が高いと確認できた番号を、需要の高い順に並べた一覧です（${(page - 1) * 100 + 1}〜${(page - 1) * 100 + entries.length}件目）。各番号の詳細ページでは、総務省の指定データに基づく番号帯・割当事業者を表示します。</p>
 <section class="card" aria-label="よく検索される電話番号">
 <ul class="tight">
 ${items}
@@ -1090,7 +1091,7 @@ ${items}
 <p>${nav.join('　')}</p>`;
   return layout({
     title: 'よく検索される電話番号｜datumoj.com/tel',
-    description: '検索需要の高い日本の電話番号の一覧。各番号の種類・割当事業者を総務省の指定データで確認できます。',
+    description: '検索需要の高い日本の電話番号の一覧。番号帯・割当事業者を総務省の指定データで確認できます。',
     canonical: `https://datumoj.com/tel${pageUrl(page)}`,
     body,
   });
@@ -1123,7 +1124,7 @@ ${results.length ? `<div class="card"><ul class="tight">\n${items}\n</ul></div>`
 export function notFoundPage(query) {
   const body = `
 <h1>見つかりませんでした</h1>
-<p>${query ? `「${esc(query)}」は、日本の電話番号として確認できませんでした。` : 'お探しのページは見つかりませんでした。'}番号が未指定の帯域であるか、桁数が異なる可能性があります。</p>
+<p>${query ? `「${esc(query)}」は、日本の電話番号として確認できませんでした。` : 'お探しのページは見つかりませんでした。'}番号が未指定の番号帯であるか、桁数が異なる可能性があります。</p>
 ${searchForm(query || '')}
 <p class="meta">入力形式：市外局番から始まる国内番号（例：03-XXXX-XXXX、090-XXXX-XXXX）。国際番号（+81…）も入力できます。</p>`;
   return layout({ title: '見つかりませんでした｜datumoj.com/tel', robots: 'noindex', body });
@@ -1182,13 +1183,13 @@ export function rangesPage(d) {
   const body = `
 <p class="crumbs"><a href="/tel/">ホーム</a> ＞ 区段インデックス</p>
 <h1>電話番号の区段インデックス</h1>
-<p class="meta">総務省の指定区段 ${fmtInt(d.total)} 件を、番号の種類と区段ごとに一覧できます。各区段のページでは、その区段に含まれる全番号を確認できます。</p>
+<p class="meta">総務省の指定区段 ${fmtInt(d.total)} 件を、番号帯と番号区段ごとに一覧できます。各区段のページでは、その区段に含まれる全番号を確認できます。</p>
 <div class="card"><table>${saltRows}</table></div>
 ${sections}
 ${searchForm()}`;
   return layout({
     title: '電話番号の区段インデックス｜datumoj.com/tel',
-    description: '総務省の指定区段を番号の種類・区段ごとに一覧できるインデックス。各区段ページへの入口です。',
+    description: '総務省の指定区段を番号帯・番号区段ごとに一覧できるインデックス。各区段ページへの入口です。',
     canonical: 'https://datumoj.com/tel/ranges',
     body,
   });
@@ -1200,7 +1201,7 @@ ${searchForm()}`;
 export function prefixPage(d) {
   const rows = [];
   if (d.typeRows.length === 1) {
-    rows.push(`<tr><th>番号の種類</th><td>${esc(d.typeRows[0].name)}</td></tr>`);
+    rows.push(`<tr><th>番号帯</th><td>${esc(d.typeRows[0].name)}</td></tr>`);
   }
   rows.push(`<tr><th>区段数</th><td>${fmtInt(d.blocks)} 区段</td></tr>`);
   rows.push(`<tr><th>対象番号数</th><td>${fmtInt(d.numbers)} 件</td></tr>`);
@@ -1248,7 +1249,7 @@ export function groupPage(d) {
     `<tr><th>範囲（ハイフン表記）</th><td>${esc(d.fmtLo)} 〜 ${esc(d.fmtHi)}</td></tr>`,
     `<tr><th>範囲（かっこ表記）</th><td>${esc(d.parenLo)} 〜 ${esc(d.parenHi)}</td></tr>`,
     `<tr><th>範囲（数字のみ表記）</th><td>${esc(d.lo)} 〜 ${esc(d.hi)}</td></tr>`,
-    `<tr><th>番号の種類</th><td>${esc(d.lineTypeName)}</td></tr>`,
+    `<tr><th>番号帯</th><td>${esc(d.lineTypeName)}</td></tr>`,
     `<tr><th>割当事業者</th><td>${d.carrierName ? esc(d.carrierName) : '事業者別の指定データは整備中です'}</td></tr>`,
     `<tr><th>区段ページ</th><td><a href="/tel/${esc(d.blockKey)}">この範囲の区段ページ（${esc(d.blockLabel)}）</a></td></tr>`,
   ];
@@ -1275,7 +1276,7 @@ ${items}
 ${searchForm()}`;
   return layout({
     title: `${d.fmtLo} 〜 ${d.fmtHi} の電話番号一覧｜datumoj.com/tel`,
-    description: `${d.fmtLo} 〜 ${d.fmtHi}（${esc(d.lineTypeName)}）の電話番号一覧。各番号の種類・割当事業者を総務省の指定データで確認できます。`,
+    description: `${d.fmtLo} 〜 ${d.fmtHi}（${esc(d.lineTypeName)}）の電話番号一覧。番号帯・割当事業者を総務省の指定データで確認できます。`,
     canonical: `https://datumoj.com/tel/${d.prefix}`,
     body,
   });
