@@ -327,8 +327,17 @@ export function numberPage(facts) {
   crumbs.push({ name: formatted, url: `https://datumoj.com/tel/${f.digits}` });
 
   const rows = [];
-  rows.push(`<tr><th>電話番号</th><td>${esc(formatted)}（${esc(f.digits)}）</td></tr>`);
-  rows.push(`<tr><th>数字のみ表記</th><td>${esc(f.digits)}</td></tr>`);
+  // Three rows, three notations (owner ruling 2026-11-10): hyphen /
+  // parentheses / digits-only, one form per row. Labels and forms use
+  // the site's single notation vocabulary — the same trio the prefix
+  // pages use for 範囲 rows and the group pages use in each number
+  // unit; the parenthesised form is built from splitNumber, the same
+  // primitive lib/drilldown.js parenFormat wraps.
+  const segParts = splitNumber(f.digits, f);
+  const paren = segParts.length >= 2 ? `(${segParts[0]})${segParts.slice(1).join('-')}` : f.digits;
+  rows.push(`<tr><th>電話番号（ハイフン表記）</th><td>${esc(formatted)}</td></tr>`);
+  rows.push(`<tr><th>電話番号（かっこ表記）</th><td>${esc(paren)}</td></tr>`);
+  rows.push(`<tr><th>電話番号（数字のみ表記）</th><td>${esc(f.digits)}</td></tr>`);
   rows.push(`<tr><th>調べられた回数</th><td><span id="viewCount">${typeof f.viewCount === 'number' ? esc(String(f.viewCount)) + ' 回' : '集計中…'}</span></td></tr>`);
   rows.push(`<tr><th>口コミ件数</th><td><a href="#comments">${typeof f.commentCount === 'number' ? f.commentCount : 0} 件</a></td></tr>`);
   rows.push(`<tr><th>番号の種類</th><td>${esc(f.lineTypeName)}</td></tr>`);

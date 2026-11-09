@@ -1,0 +1,13 @@
+-- Snapshot version bump 9 -> 10 (2026-11-10).
+--
+-- The number page's facts table now shows the three notations as
+-- three separate rows — 電話番号（ハイフン表記） / 電話番号
+-- （かっこ表記） / 電話番号（数字のみ表記） — replacing the old
+-- combined 電話番号 row (hyphen form with the digits in parentheses)
+-- plus the redundant standalone 数字のみ表記 row. Labels and forms
+-- match the notation trio used by the prefix pages and group pages.
+-- Number-page template change only; no data model change.
+--
+-- Deploy note: apply after 0018 (the version is currently '9'); the
+-- net effect is '10'.
+UPDATE site_meta SET value = '10' WHERE key = 'snapshot_version';

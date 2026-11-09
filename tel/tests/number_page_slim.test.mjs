@@ -56,6 +56,14 @@ notContains(flagHtml, '<button type="button" class="segbtn', 'no coloured segmen
 notContains(flagHtml, 'id="segExplain"', 'no seg-explain card');
 notContains(flagHtml, '番号ポータビリティ</th>', 'no portability filler row');
 notContains(flagHtml, '地域は特定できません', 'no no-information region row');
+// Three notation rows, one form each (owner ruling 2026-11-10), in
+// the site's shared notation vocabulary (same trio as the prefix-page
+// 範囲 rows and the group-page units).
+ok(flagHtml.includes('<tr><th>電話番号（ハイフン表記）</th><td>050-1807-1465</td></tr>'), 'hyphen notation row');
+ok(flagHtml.includes('<tr><th>電話番号（かっこ表記）</th><td>(050)1807-1465</td></tr>'), 'parenthesis notation row');
+ok(flagHtml.includes('<tr><th>電話番号（数字のみ表記）</th><td>05018071465</td></tr>'), 'digits-only notation row');
+notContains(flagHtml, '<th>電話番号</th>', 'old combined notation row gone');
+notContains(flagHtml, '<th>数字のみ表記</th>', 'old standalone digits row gone');
 notContains(flagHtml, '<h2>基本情報</h2>', 'visible 基本情報 heading removed (item 12)');
 ok(flagHtml.includes('<th>番号の種類</th>'), 'facts table itself still rendered');
 ok(flagHtml.includes('<th>番号区段</th><td><a href="/tel/0501807">0501807</a></td>'), '番号区段 row links the block');
