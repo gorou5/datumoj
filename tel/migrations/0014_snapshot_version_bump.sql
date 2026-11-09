@@ -1,0 +1,17 @@
+-- Snapshot version bump 4 -> 5 (2026-11-09).
+--
+-- The number-page template changed: the view-counter / comments script
+-- now defers its DOM work until the document is parsed. Before this fix
+-- the script ran ahead of the facts table in the HTML, captured
+-- document.getElementById('viewCount') as null, and silently discarded
+-- the /view beacon's answer — the counter in D1 kept rising but the
+-- number a visitor saw never moved. Rendered HTML lives in R2
+-- snapshots keyed to the record's snapshot_version, so the site
+-- version must move ahead: records with an older snapshot_version are
+-- re-composed and refreshed the next time they are queried, which
+-- invalidates every snapshot rendered by the old template (same
+-- mechanism as 0010/0011/0013).
+--
+-- Deploy note: apply after 0013 (the version is currently '4'); the
+-- net effect is '5'.
+UPDATE site_meta SET value = '5' WHERE key = 'snapshot_version';

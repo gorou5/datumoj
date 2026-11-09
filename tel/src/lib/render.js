@@ -583,9 +583,14 @@ ${f.tpFlags && f.tpFlags.length ? `<div class="flagbadges" role="group" aria-lab
 <div class="seg-explain" id="segExplain" data-seg="${hero.defaultSeg}" aria-live="polite"><h2 id="segTitle">${esc(hero.segments[hero.defaultSeg].title)}</h2><p id="segText">${esc(hero.segments[hero.defaultSeg].explain)}</p></div>
 <script>(function(){var SEGS=${heroJson};var btns=document.querySelectorAll('.segbtn');var t=document.getElementById('segTitle'),x=document.getElementById('segText'),c=document.getElementById('segExplain');function sel(i){for(var j=0;j<btns.length;j++){btns[j].classList.toggle('is-active',j===i);btns[j].setAttribute('aria-pressed',j===i?'true':'false');}t.textContent=SEGS[i].title;x.textContent=SEGS[i].explain;c.setAttribute('data-seg',String(i));}for(var k=0;k<btns.length;k++){(function(k){btns[k].addEventListener('click',function(){sel(k);});})(k);}})();</script>
 <script>(function(){
+  // This script sits BEFORE the facts table / comment form in the HTML,
+  // so every getElementById below would return null if it ran during
+  // parsing (that is exactly why the live view counter never updated:
+  // vc was captured as null and the beacon's answer was discarded).
+  // Defer all DOM work until the document has been parsed.
+  function init(){
   var D='${f.digits}';
-  var vc=document.getElementById('viewCount');
-  fetch('/tel/view/'+D,{method:'POST'}).then(function(r){return r.json();}).then(function(j){if(vc)vc.textContent=(j.views||0)+' 回';}).catch(function(){if(vc)vc.textContent='-';});
+  fetch('/tel/view/'+D,{method:'POST'}).then(function(r){return r.json();}).then(function(j){var el=document.getElementById('viewCount');if(el)el.textContent=(j.views||0)+' 回';}).catch(function(){var el=document.getElementById('viewCount');if(el)el.textContent='-';});
   var list=document.getElementById('cmtList'),form=document.getElementById('cmtForm'),input=document.getElementById('cmtInput'),msg=document.getElementById('cmtMsg');
   function showComments(cs){
     list.innerHTML='';
@@ -602,6 +607,8 @@ ${f.tpFlags && f.tpFlags.length ? `<div class="flagbadges" role="group" aria-lab
         else{msg.textContent=res.j.message||'投稿できませんでした。';}
       }).catch(function(){msg.textContent='投稿できませんでした。';});
   });
+  }
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
 })();</script>
 <div class="card"><table>${rows.join('')}</table></div>
 ${sections}
