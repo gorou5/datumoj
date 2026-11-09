@@ -75,6 +75,11 @@ th{width:11rem;color:#555;font-weight:600}
 .bigsearch input{flex:1;font-size:1.15rem;padding:.85rem 1.3rem;border:1px solid #cfc9ba;border-radius:999px;box-shadow:0 2px 12px rgba(70,60,30,.10);background:#fff;color:#1a1a1a}
 .bigsearch button{font-size:1.05rem;padding:.85rem 1.6rem;border-radius:999px;border:1px solid #5b84a6;background:#5b84a6;color:#fff;cursor:pointer}
 .home-links{margin-top:16px;font-size:.88rem;color:#8a94a0}
+/* Homepage lower boxes side by side: latest comments left, popular right.
+   DOM order is comments-then-popular; on narrow screens the popular box
+   is pulled first via order (see the max-width media query). */
+.home-cols{display:grid;grid-template-columns:1fr 1fr;gap:0 1rem;align-items:start;text-align:left}
+.home-cols.single{grid-template-columns:1fr}
 @media (max-width:560px){
 .segbtn{padding:.38rem .5rem .28rem;border-radius:10px}
 .segbtn .segdigits{font-size:clamp(1.2rem,5.8vw,1.6rem);letter-spacing:0}
@@ -82,6 +87,8 @@ th{width:11rem;color:#555;font-weight:600}
 .hero-hyphen{font-size:1rem}
 .hero-num{gap:.2rem}
 .seg-explain{min-height:9rem}
+.home-cols{grid-template-columns:1fr}
+.home-cols .col-popular{order:-1}
 }
 .flagbadges{display:flex;flex-wrap:wrap;gap:.4rem;margin:.2rem 0 .6rem}
 .fbadge{display:inline-block;padding:.28rem .6rem;border-radius:999px;font-size:.82rem;font-weight:600;border:1px solid}
@@ -273,7 +280,7 @@ const FALLBACK_FACTS = [
 ];
 export const FALLBACK_HEROES = FALLBACK_FACTS.map((f) => randomHero(f));
 
-export function homePage(hero, fallbacks, popular) {
+export function homePage(hero, fallbacks, popular, latestComments) {
   const segColors = ['seg-a', 'seg-b', 'seg-c', 'seg-d'];
   const segHtml = hero.segments
     .map(
@@ -283,11 +290,38 @@ export function homePage(hero, fallbacks, popular) {
     .join('');
   const heroJson = JSON.stringify(hero).replace(/<\//g, '<\\/');
   const fallbacksJson = JSON.stringify(fallbacks || []).replace(/<\//g, '<\\/');
+  const popularHtml =
+    popular && popular.length
+      ? `<section class="card col-popular" aria-label="よく調べられている番号">
+<h2>よく調べられている番号</h2>
+<ul class="tight">
+${popular.map((p) => `<li><a href="/tel/${esc(p.digits)}">${esc(p.formatted)}</a> <span class="meta">調べられた回数：${esc(String(p.views))}回</span></li>`).join('\n')}
+</ul>
+<p class="meta">このサイトで実際に調べられた回数が多い番号です。</p>
+</section>`
+      : '';
+  const commentsHtml =
+    latestComments && latestComments.length
+      ? `<section class="card col-comments" aria-label="最新のコメント">
+<h2>最新のコメント</h2>
+<ul class="tight">
+${latestComments.map((c) => `<li><a href="/tel/${esc(c.number)}">${esc(c.formatted)}</a>：${esc(c.body)} <span class="meta">（${esc(String(c.created_at).slice(0, 10))}）</span></li>`).join('\n')}
+</ul>
+</section>`
+      : '';
+  // Both boxes: two columns, comments left / popular right (stacked with
+  // popular first on narrow screens). A lone box renders as before.
+  const lowerHtml =
+    popularHtml && commentsHtml
+      ? `<div class="home-cols">${commentsHtml}\n${popularHtml}</div>`
+      : commentsHtml
+        ? `<div class="home-cols single">${commentsHtml}</div>`
+        : popularHtml;
   const body = `
 <div class="home">
 <h1 class="sr-only">日本の電話番号データベース</h1>
 <form class="bigsearch" action="/tel/search" method="get" role="search">
-<input type="search" name="q" inputmode="numeric" autocomplete="off" placeholder="電話番号を入力（例：090-1234-5678）" aria-label="電話番号">
+<input type="search" name="q" autocomplete="off" placeholder="電話番号を入力（例：090-1234-5678）" aria-label="電話番号">
 <button type="submit">調べる</button>
 </form>
 <p class="hero-kicker" id="heroKicker">${esc(hero.kicker)}</p>
@@ -299,13 +333,7 @@ ${segHtml}
 <p id="segText">${esc(hero.segments[hero.defaultSeg].explain)}</p>
 </div>
 <p class="hero-note">表示される番号は、総務省の指定データにある実在の番号区画から毎回ランダムに選ばれています。色のついた部分を押すと、その部分の意味が表示されます。<button type="button" class="shuffle" id="shuffleBtn">別の番号を表示</button> <a id="heroDetail" href="/tel/${esc(hero.digits)}">この番号（${esc(hero.formatted)}）の詳細ページ</a></p>
-${popular && popular.length ? `<section class="card" aria-label="よく調べられている番号">
-<h2>よく調べられている番号</h2>
-<ul class="tight">
-${popular.map((p) => `<li><a href="/tel/${esc(p.digits)}">${esc(p.formatted)}</a> <span class="meta">調べられた回数：${esc(String(p.views))}回</span></li>`).join('\n')}
-</ul>
-<p class="meta">このサイトで実際に調べられた回数が多い番号です。</p>
-</section>` : ''}
+${lowerHtml}
 <section class="card" style="text-align:left" aria-label="公的相談窓口">
 <h2>公的相談窓口</h2>
 <p>迷惑電話や特殊詐欺で困ったときの、公的機関・団体の相談・通報窓口です。番号を押すと、そのまま電話をかけられます。</p>
@@ -840,6 +868,30 @@ ${items}
     title: 'よく検索される電話番号｜datumoj.com/tel',
     description: '検索需要の高い日本の電話番号の一覧。各番号の種類・割当事業者を総務省の指定データで確認できます。',
     canonical: `https://datumoj.com/tel${pageUrl(page)}`,
+    body,
+  });
+}
+
+// Comment keyword search results (GET /tel/search?q= with a non-number
+// query). Entries arrive pre-formatted from index.js ({ number, formatted,
+// body, created_at }) and are the same visible comments number pages show.
+// noindex like every search-results page; robots.txt already disallows
+// /search as well.
+export function commentSearchPage(query, results) {
+  const items = results
+    .map(
+      (c) =>
+        `<li><a href="/tel/${esc(c.number)}">${esc(c.formatted)}</a>：${esc(c.body)} <span class="meta">（${esc(String(c.created_at).slice(0, 10))}）</span></li>`
+    )
+    .join('\n');
+  const body = `
+<p class="crumbs"><a href="/tel/">ホーム</a> › コメント検索</p>
+<h1>「${esc(query)}」を含むコメント</h1>
+${searchForm(query)}
+${results.length ? `<div class="card"><ul class="tight">\n${items}\n</ul></div>` : `<p class="meta">「${esc(query)}」を含むコメントは見つかりませんでした。</p>`}`;
+  return layout({
+    title: `「${query}」を含むコメントの検索結果`,
+    robots: 'noindex,follow',
     body,
   });
 }

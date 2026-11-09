@@ -3,14 +3,14 @@
 // (see DESIGN.md / migrations/0001_init.sql). Hub pages are indexable;
 // number pages are tiered (Tier 1 index / Tier 2 noindex / Tier 3 = 404).
 import { normalize, splitNumber } from './lib/number.js';
-import { bumpView, listComments, addComment, commentProblem, COMMENT_MESSAGES, hashIp } from './lib/social.js';
+import { bumpView, listComments, addComment, commentProblem, COMMENT_MESSAGES, hashIp, searchComments, listLatestComments } from './lib/social.js';
 import {
   composeNumber, analyzeFallback, listPrefectures, listAreaCodes, getAreaHub,
   listLineTypes, getLineTypeHub, listTpSources, allAreaCodes,
   listGovAgencies, listGovNumbers, govNumbersByAgency, findAreaCode,
 } from './lib/compose.js';
 import {
-  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES, unavailablePage, popularPage,
+  homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES, unavailablePage, popularPage, commentSearchPage,
 } from './lib/render.js';
 import {
   findRecord, insertRecord, updateRecordFacts, factsFromRecord, getSnapshotVersion,
@@ -287,6 +287,17 @@ function lineTypeOf(digits) {
   return 'fixed';
 }
 
+// Display formatting for number lists (popular box, comment lists): the
+// same split rules as number pages; only fixed lines cost a D1 probe.
+async function formatForList(db, digits) {
+  const lineType = lineTypeOf(digits);
+  let areaCode = null;
+  if (lineType === 'fixed') {
+    areaCode = await findAreaCode(db, digits);
+  }
+  return splitNumber(digits, { lineType, areaCode }).join('-');
+}
+
 // Most-looked-up numbers from the site's own view counter (number_view).
 // Never throws: returns null when D1 is unavailable or no real lookups exist
 // yet, in which case the homepage simply omits the box.
@@ -307,16 +318,29 @@ async function getPopularNumbers(db, limit = 6) {
     if (!rows.length) return null;
     const out = [];
     for (const x of rows) {
-      const lineType = lineTypeOf(x.number);
-      let areaCode = null;
-      if (lineType === 'fixed') {
-        areaCode = await findAreaCode(db, x.number);
-      }
       out.push({
         digits: x.number,
-        formatted: splitNumber(x.number, { lineType, areaCode }).join('-'),
+        formatted: await formatForList(db, x.number),
         views: x.views,
       });
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+// Newest visible comments for the homepage "最新のコメント" box.
+// Never throws and returns null while no visible comment exists, in which
+// case the homepage omits the box (and the popular box renders as before).
+async function getLatestComments(db, limit = 5) {
+  try {
+    const rows = await listLatestComments(db, limit);
+    const valid = rows.filter((x) => typeof x.number === 'string' && /^\d{10,14}$/.test(x.number));
+    if (!valid.length) return null;
+    const out = [];
+    for (const x of valid) {
+      out.push({ number: x.number, body: x.body, created_at: x.created_at, formatted: await formatForList(db, x.number) });
     }
     return out;
   } catch {
@@ -346,8 +370,12 @@ export default {
         // D1 is unavailable instead of shipping XXXX placeholders.
         // The "popular numbers" box rides the same edge-cache window and is
         // omitted while D1 is down or before any real lookups exist.
-        const [hero, popular] = await Promise.all([drawRandomHero(db), getPopularNumbers(db)]);
-        return html(homePage(hero || pickFallbackHero(), FALLBACK_HEROES, popular), 200, 'public, max-age=0, s-maxage=300');
+        const [hero, popular, latestComments] = await Promise.all([
+          drawRandomHero(db),
+          getPopularNumbers(db),
+          getLatestComments(db),
+        ]);
+        return html(homePage(hero || pickFallbackHero(), FALLBACK_HEROES, popular, latestComments), 200, 'public, max-age=0, s-maxage=300');
       }
       if (path === '/about') {
         return html(aboutPage(await listTpSources(db)));
@@ -360,9 +388,25 @@ export default {
         return html(govPage(agencies, numbers));
       }
       if (path === '/search') {
-        const digits = normalize(url.searchParams.get('q') || '');
-        if (!digits) return html(notFoundPage(url.searchParams.get('q') || ''), 404);
-        return Response.redirect(`https://datumoj.com/tel/${digits}`, 302);
+        const raw = (url.searchParams.get('q') || '').trim();
+        const digits = normalize(raw);
+        // Number-shaped input keeps the original behaviour: straight to
+        // the number page. Anything else is a keyword search over the
+        // visible comments (the same set number pages display).
+        if (digits) return Response.redirect(`https://datumoj.com/tel/${digits}`, 302);
+        if (!raw) return html(notFoundPage(''), 404);
+        const found = await searchComments(db, raw, 50).catch(() => []);
+        const results = [];
+        for (const c of found) {
+          if (typeof c.number !== 'string' || !/^\d{10,14}$/.test(c.number)) continue;
+          results.push({
+            number: c.number,
+            body: c.body,
+            created_at: c.created_at,
+            formatted: await formatForList(db, c.number),
+          });
+        }
+        return html(commentSearchPage(raw, results), 200, 'no-store');
       }
       if (path === '/favicon.png') {
         return new Response(faviconPngBytes(), {

@@ -57,6 +57,37 @@ export async function listComments(db, number, limit = 20) {
   return r.results || [];
 }
 
+// Keyword search over comment bodies (homepage search box, GET /tel/search).
+// Only status='visible' rows — the exact set number pages display — so a
+// hidden / not-yet-shown comment can never leak through search. The keyword
+// is LIKE-escaped so %, _ and \ from user input match literally.
+export function escapeLike(s) {
+  return String(s).replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+}
+
+export async function searchComments(db, keyword, limit = 50) {
+  const r = await db
+    .prepare(
+      "SELECT number, body, created_at FROM number_comment WHERE status = 'visible' AND body LIKE ? ESCAPE '\\' ORDER BY id DESC LIMIT ?"
+    )
+    .bind(`%${escapeLike(keyword)}%`, limit)
+    .all();
+  return r.results || [];
+}
+
+// Newest visible comments across all numbers (homepage "最新のコメント").
+// id DESC is the same ordering listComments uses per number; the table is
+// small and the read is LIMIT-bounded, so the homepage stays light.
+export async function listLatestComments(db, limit = 5) {
+  const r = await db
+    .prepare(
+      "SELECT number, body, created_at FROM number_comment WHERE status = 'visible' ORDER BY id DESC LIMIT ?"
+    )
+    .bind(limit)
+    .all();
+  return r.results || [];
+}
+
 export async function addComment(db, number, body, ipHash) {
   // Atomic rate limit: the count check and the insert are a single
   // statement, so concurrent bursts cannot slip past the 5/hour cap
