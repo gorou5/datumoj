@@ -1,0 +1,13 @@
+-- Snapshot version bump 10 -> 11 (2026-11-10).
+--
+-- Number-page polish: the 公的機関の公表情報 badge banner directly
+-- under the H1 is removed (the dedicated section further down the
+-- page keeps the flags with tier and source), and the three notation
+-- rows get the short labels ハイフン / かっこ / 数字のみ. The shared
+-- stylesheet also changes (showcase unit: segment name now sits
+-- under the pastel box), and it is inlined into every snapshot, so
+-- the version moves ahead again.
+--
+-- Deploy note: apply after 0019 (the version is currently '10');
+-- the net effect is '11'.
+UPDATE site_meta SET value = '11' WHERE key = 'snapshot_version';

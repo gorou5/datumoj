@@ -23,6 +23,11 @@ const home = homePage(homeHero, [{ digits: '08007779633', formatted: '0800-777-9
 ]);
 ok(home.includes('<div class="hero-num" id="heroSegs"'), 'homepage hero showcase is back');
 ok(home.includes('id="heroKicker"') && home.includes('href="/tel/090"') && home.includes('href="/tel/09010123456"'), 'hero segments are drill-down links');
+// Showcase form (2026-11-10): pastel box = digits link, segment name
+// in small type UNDER the box, on both the homepage and /tel/examples.
+const unit090 = '<span class="segunit"><a class="segbtn seg-a" href="/tel/090"><span class="segdigits">090</span></a><span class="segcap">番号帯</span></span>';
+ok(home.includes(unit090), 'homepage hero unit: box link + caption under the box');
+ok(home.includes('.segunit{display:inline-flex'), 'segunit layout rule present');
 ok(home.indexOf('class="bigsearch"') < home.indexOf('id="heroSegs"'), 'hero sits below the search form');
 ok(!home.includes('shuffleBtn') && !home.includes('別の番号を表示'), 'no shuffle button');
 ok(!home.includes('<script'), 'no client script on the homepage');
@@ -55,6 +60,7 @@ const mobileHero = randomHero({
   block: { prefix: '090101', carrierName: '株式会社NTTドコモ', source: '総務省 電気通信番号指定状況' },
 });
 const ex = examplesPage(mobileHero);
+ok(ex.includes(unit090), 'examples page uses the identical showcase unit form');
 ok(ex.includes('<h1>日本の電話番号の例</h1>'), 'examples h1');
 ok(ex.includes('href="/tel/090"') && ex.includes('href="/tel/0901012"') && ex.includes('href="/tel/09010123456"'), 'segment drill-down links kept');
 ok(ex.includes('番号帯（090）') && ex.includes('加入者番号（前半）'), 'every segment explanation rendered');

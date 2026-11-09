@@ -57,16 +57,17 @@ th{width:11rem;color:#555;font-weight:600}
 a.segbtn{display:inline-block;text-decoration:none}
 .hero-kicker{color:#71808d;font-size:.95rem;margin:0 0 .5rem}
 .hero-num{display:flex;align-items:stretch;justify-content:center;gap:.35rem;flex-wrap:wrap}
-.hero-seg{display:flex;gap:inherit}
-.segbtn{border:2px solid transparent;border-radius:14px;padding:.5rem .9rem .35rem;cursor:pointer;font:inherit;background:#eef1f4;text-align:center}
+.hero-seg{display:flex;gap:inherit;align-items:flex-start}
+.segunit{display:inline-flex;flex-direction:column;align-items:center;gap:.15rem}
+.segbtn{border:2px solid transparent;border-radius:14px;padding:.45rem .9rem;cursor:pointer;font:inherit;background:#eef1f4;text-align:center}
 .segbtn .segdigits{display:block;font-size:clamp(1.9rem,8.5vw,3.6rem);font-weight:700;letter-spacing:.04em;line-height:1.15;color:#33424f}
-.segbtn .segcap{display:block;font-size:.72rem;color:#71808d;margin-top:.15rem}
+.segcap{font-size:.72rem;color:#71808d}
 .seg-a{background:#dcebf5}.seg-b{background:#e2ecd9}.seg-c{background:#f6ead0}.seg-d{background:#e9e0f2}
 .hero-facts{max-width:640px;margin:.9rem auto 0;text-align:left;background:#fbfaf6;border:1px solid #e7e1d2;border-radius:10px;padding:.7rem 1.1rem}
 .hero-fact{margin:.25rem 0;font-size:.92rem;color:#3d473a}
 .hero-fact b{color:#22303c}
 .segbtn.is-active{border-color:#5b84a6;box-shadow:0 3px 14px rgba(60,70,90,.18)}
-.hero-hyphen{align-self:center;font-size:clamp(1.4rem,6vw,2.6rem);color:#a3aeb8}
+.hero-hyphen{align-self:flex-start;margin-top:1.05rem;font-size:clamp(1.4rem,6vw,2.6rem);color:#a3aeb8}
 /* min-height keeps a small reserve so switching segments does not push the
    buttons below up and down; sized to typical copy (10rem), not the longest
    outlier, to avoid a large blank area in the card. */
@@ -98,8 +99,8 @@ a.segbtn{display:inline-block;text-decoration:none}
 @media (max-width:560px){
 .segbtn{padding:.38rem .5rem .28rem;border-radius:10px}
 .segbtn .segdigits{font-size:clamp(1.2rem,5.8vw,1.6rem);letter-spacing:0}
-.segbtn .segcap{font-size:.62rem}
-.hero-hyphen{font-size:1rem}
+.segcap{font-size:.62rem}
+.hero-hyphen{font-size:1rem;margin-top:.55rem}
 .hero-num{gap:.2rem}
 .seg-explain{min-height:9rem}
 .home-cols{grid-template-columns:1fr}
@@ -262,6 +263,31 @@ const FALLBACK_FACTS = [
 ];
 export const FALLBACK_HEROES = FALLBACK_FACTS.map((f) => randomHero(f));
 
+// The number-anatomy showcase unit (owner's form ruling 2026-11-10):
+// pastel rounded boxes side by side with hyphens between them — the
+// segment's digits big inside the box (a drill-down link), the
+// segment's name in small type UNDER the box. Shared by the homepage
+// hero and /tel/examples so the form is identical site-wide. Number
+// pages do NOT use this: their coloured boxes stay removed.
+function segUnitsHtml(hero) {
+  const segColors = ['seg-a', 'seg-b', 'seg-c', 'seg-d'];
+  // Each segment links to the page for the digit string accumulated
+  // up to it (band page, then block page), and the last one to the
+  // number page itself. A lone trunk "0" has no page of its own, so
+  // it shares the area-code accumulation.
+  const segHref = (i) => {
+    let acc = hero.segments.slice(0, i + 1).map((s) => s.text).join('');
+    if (acc.length < 2 && hero.segments[i + 1]) acc += hero.segments[i + 1].text;
+    return `/tel/${acc}`;
+  };
+  return hero.segments
+    .map(
+      (s, i) =>
+        `<span class="hero-seg">${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<span class="segunit"><a class="segbtn ${segColors[i % 4]}" href="${segHref(i)}"><span class="segdigits">${esc(s.text)}</span></a><span class="segcap">${esc(s.label)}</span></span></span>`
+    )
+    .join('');
+}
+
 // Homepage hero: one server-drawn real number per load, segments as
 // drill-down links. Owner rulings, layered: the shuffle button and the
 // per-number detail link stay removed (a refresh redraws; the last
@@ -271,22 +297,7 @@ export const FALLBACK_HEROES = FALLBACK_FACTS.map((f) => randomHero(f));
 // pages now render the same randomHero payload, /tel/examples with
 // the full segment explanations and facts.
 export function homePage(hero, popular, latestComments) {
-  const segColors = ['seg-a', 'seg-b', 'seg-c', 'seg-d'];
-  // Segments are drill-down links: each segment links to the page for
-  // the digit string accumulated up to it (band page, then block page),
-  // and the last one to the number page itself. A lone trunk "0" has no
-  // page of its own, so it shares the area-code accumulation.
-  const segHref = (i) => {
-    let acc = hero.segments.slice(0, i + 1).map((s) => s.text).join('');
-    if (acc.length < 2 && hero.segments[i + 1]) acc += hero.segments[i + 1].text;
-    return `/tel/${acc}`;
-  };
-  const segHtml = hero.segments
-    .map(
-      (s, i) =>
-        `<span class="hero-seg">${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<a class="segbtn ${segColors[i % 4]}" href="${segHref(i)}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></a></span>`
-    )
-    .join('');
+  const segHtml = segUnitsHtml(hero);
   const popularHtml =
     popular && popular.length
       ? `<section class="card col-popular" aria-label="よく調べられている番号">
@@ -360,17 +371,18 @@ export function numberPage(facts) {
   crumbs.push({ name: formatted, url: `https://datumoj.com/tel/${f.digits}` });
 
   const rows = [];
-  // Three rows, three notations (owner ruling 2026-11-10): hyphen /
-  // parentheses / digits-only, one form per row. Labels and forms use
-  // the site's single notation vocabulary — the same trio the prefix
-  // pages use for 範囲 rows and the group pages use in each number
-  // unit; the parenthesised form is built from splitNumber, the same
-  // primitive lib/drilldown.js parenFormat wraps.
+  // Three rows, three notations (owner rulings 2026-11-10): hyphen /
+  // parentheses / digits-only, one form per row, with the short row
+  // labels ハイフン / かっこ / 数字のみ. The forms are the site's
+  // single notation trio — the same forms the prefix pages use for
+  // 範囲 rows and the group pages use in each number unit; the
+  // parenthesised form is built from splitNumber, the same primitive
+  // lib/drilldown.js parenFormat wraps.
   const segParts = splitNumber(f.digits, f);
   const paren = segParts.length >= 2 ? `(${segParts[0]})${segParts.slice(1).join('-')}` : f.digits;
-  rows.push(`<tr><th>電話番号（ハイフン表記）</th><td>${esc(formatted)}</td></tr>`);
-  rows.push(`<tr><th>電話番号（かっこ表記）</th><td>${esc(paren)}</td></tr>`);
-  rows.push(`<tr><th>電話番号（数字のみ表記）</th><td>${esc(f.digits)}</td></tr>`);
+  rows.push(`<tr><th>ハイフン</th><td>${esc(formatted)}</td></tr>`);
+  rows.push(`<tr><th>かっこ</th><td>${esc(paren)}</td></tr>`);
+  rows.push(`<tr><th>数字のみ</th><td>${esc(f.digits)}</td></tr>`);
   rows.push(`<tr><th>調べられた回数</th><td><span id="viewCount">${typeof f.viewCount === 'number' ? esc(String(f.viewCount)) + ' 回' : '集計中…'}</span></td></tr>`);
   rows.push(`<tr><th>口コミ件数</th><td><a href="#comments">${typeof f.commentCount === 'number' ? f.commentCount : 0} 件</a></td></tr>`);
   rows.push(`<tr><th>番号の種類</th><td>${esc(f.lineTypeName)}</td></tr>`);
@@ -487,7 +499,6 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
   const body = `
 <h1>${esc(formatted)} の電話番号情報</h1>
 ${dialHtml}
-${f.tpFlags && f.tpFlags.length ? `<div class="flagbadges" role="group" aria-label="公的機関の公表情報">${f.tpFlags.map((x) => `<span class="fbadge fb-${esc(x.source_tier || 'C')}">公的機関の公表情報 ${esc(x.source_tier || '')}級｜${esc(x.publisher)}（${esc(x.source_name)}）${x.label ? '：' + esc(x.label) : ''}</span>`).join('')}</div>` : ''}
 <script>(function(){
   // This script sits BEFORE the facts table / comment form in the HTML,
   // so every getElementById below would return null if it ran during
@@ -613,22 +624,7 @@ ${searchForm()}`;
 }
 
 export function examplesPage(hero) {
-  const segColors = ['seg-a', 'seg-b', 'seg-c', 'seg-d'];
-  // Segments are drill-down links: each segment links to the page for
-  // the digit string accumulated up to it (band page, then block page),
-  // and the last one to the number page itself. A lone trunk "0" has no
-  // page of its own, so it shares the area-code accumulation.
-  const segHref = (i) => {
-    let acc = hero.segments.slice(0, i + 1).map((s) => s.text).join('');
-    if (acc.length < 2 && hero.segments[i + 1]) acc += hero.segments[i + 1].text;
-    return `/tel/${acc}`;
-  };
-  const segHtml = hero.segments
-    .map(
-      (s, i) =>
-        `<span class="hero-seg">${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<a class="segbtn ${segColors[i % 4]}" href="${segHref(i)}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></a></span>`
-    )
-    .join('');
+  const segHtml = segUnitsHtml(hero);
   const explains = hero.segments
     .map(
       (s, i) =>
