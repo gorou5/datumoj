@@ -19,15 +19,28 @@ const homeHero = randomHero({
   block: { prefix: '090101', carrierName: '株式会社NTTドコモ', source: '総務省 電気通信番号指定状況' },
 });
 const home = homePage(homeHero, [{ digits: '08007779633', formatted: '0800-777-9633', views: 9 }], [
-  { number: '05018071465', formatted: '050-1807-1465', body: '一度だけ着信あり', created_at: '2026-11-09 10:00:00' },
+  { number: '0361621111', formatted: '03-6162-1111', body: '着信履歴で発見', created_at: '2026-11-08 17:46:51' },
+  { number: '05018071465', formatted: '050-1807-1465', body: '一度だけ着信あり', created_at: '2026-11-09 12:46:51' },
+  { number: '0120923499', formatted: '0120-923-499', body: '平日の昼に着信', created_at: '2026-11-09 08:46:51' },
 ]);
 ok(home.includes('<div class="hero-num" id="heroSegs"'), 'homepage hero showcase is back');
-ok(home.includes('id="heroKicker"') && home.includes('href="/tel/090"') && home.includes('href="/tel/09010123456"'), 'hero segments are drill-down links');
+ok(!home.includes('<p class="hero-kicker"'), 'homepage kicker text block removed (boxes only)');
+ok(home.includes('href="/tel/090"') && home.includes('href="/tel/09010123456"'), 'hero segments are drill-down links');
 // Showcase form (2026-11-10): pastel box = digits link, segment name
 // in small type UNDER the box, on both the homepage and /tel/examples.
 const unit090 = '<span class="segunit"><a class="segbtn seg-a" href="/tel/090"><span class="segdigits">090</span></a><span class="segcap">番号帯</span></span>';
-ok(home.includes(unit090), 'homepage hero unit: box link + caption under the box');
-ok(home.includes('.segunit{display:inline-flex'), 'segunit layout rule present');
+ok(!home.includes('<span class="segcap">'), 'homepage boxes carry no printed captions');
+ok(home.includes('<a class="segbtn seg-a" href="/tel/090" title="番号帯" aria-label="番号帯：090">'), 'homepage box: segment name on title + aria-label');
+ok(home.includes('.segunit{display:inline-flex'), 'segunit layout rule present (examples page)');
+// Comments grouped by date: one small grey header per date, entries
+// dateless and single-line, groups newest first even when the input
+// order is shuffled.
+ok((home.match(/class="cmt-date"/g) || []).length === 2, 'two date group headers');
+ok(home.indexOf('>2026-11-09<') < home.indexOf('>2026-11-08<'), 'date groups newest first');
+ok(!home.includes('（2026-11-09）'), 'entries no longer carry their own dates');
+const cmtBlock = home.slice(home.indexOf('最新の口コミ'), home.indexOf('よく調べられている番号'));
+ok(cmtBlock.indexOf('一度だけ着信あり') < cmtBlock.indexOf('平日の昼に着信'), 'same-date entries keep delivered order');
+ok(/\.col-comments li\{white-space:nowrap\}/.test(home), 'comment entries are single-line');
 ok(home.indexOf('class="bigsearch"') < home.indexOf('id="heroSegs"'), 'hero sits below the search form');
 ok(!home.includes('shuffleBtn') && !home.includes('別の番号を表示'), 'no shuffle button');
 ok(!home.includes('<script'), 'no client script on the homepage');

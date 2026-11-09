@@ -15,6 +15,7 @@ globalThis.document = {
   getElementById: (id) => (parsed ? (els[id] ?? null) : null),
   addEventListener: (ev, fn) => { listeners[ev] = fn; },
   createElement: () => mkEl(),
+  querySelectorAll: () => [], // no copy buttons in this harness's page
 };
 globalThis.fetch = (url) =>
   Promise.resolve({ ok: true, json: async () => (url.includes('/view/') ? { views: 15 } : { comments: [] }) });

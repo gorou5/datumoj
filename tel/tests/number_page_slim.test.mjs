@@ -60,9 +60,13 @@ notContains(flagHtml, '地域は特定できません', 'no no-information regio
 // Three notation rows, one form each (owner ruling 2026-11-10), in
 // the site's shared notation vocabulary (same trio as the prefix-page
 // 範囲 rows and the group-page units).
-ok(flagHtml.includes('<tr><th>ハイフン</th><td>050-1807-1465</td></tr>'), 'hyphen notation row, short label');
-ok(flagHtml.includes('<tr><th>かっこ</th><td>(050)1807-1465</td></tr>'), 'parenthesis notation row, short label');
-ok(flagHtml.includes('<tr><th>数字のみ</th><td>05018071465</td></tr>'), 'digits-only notation row, short label');
+ok(flagHtml.includes('<tr><th>ハイフン</th><td>050-1807-1465<button type="button" class="copybtn" data-copy="050-1807-1465" aria-label="コピー" title="コピー">'), 'hyphen row with its copy button');
+ok(flagHtml.includes('<tr><th>かっこ</th><td>(050)1807-1465<button type="button" class="copybtn" data-copy="(050)1807-1465"'), 'paren row copies the paren form');
+ok(flagHtml.includes('<tr><th>数字のみ</th><td>05018071465<button type="button" class="copybtn" data-copy="05018071465"'), 'digits row copies the digits');
+ok((flagHtml.match(/class="copybtn"/g) || []).length === 3, 'exactly three copy buttons');
+ok(flagHtml.includes('navigator.clipboard.writeText') && flagHtml.includes("execCommand('copy')"), 'copy handler: clipboard API + execCommand fallback');
+ok(flagHtml.includes("classList.add('ok')"), 'success feedback toggles the check icon');
+ok(/\.copybtn\{[^}]*min-width:44px/.test(flagHtml) && /\.copybtn\{[^}]*min-height:44px/.test(flagHtml), 'copy button hit area >= 44px');
 notContains(flagHtml, '電話番号（ハイフン表記）', 'long notation labels gone');
 notContains(flagHtml, '<th>電話番号</th>', 'old combined notation row gone');
 notContains(flagHtml, '<th>数字のみ表記</th>', 'old standalone digits row gone');
@@ -154,8 +158,11 @@ function groupFixture(count) {
 const hundred = groupPage(groupFixture(100));
 const units = hundred.match(/<span class="n">/g) || [];
 ok(units.length === 100, `hundred-group page has 100 units (got ${units.length})`);
-ok(hundred.includes('<span class="n"><a href="/tel/0120052000" class="on">0120-052-000</a><small>(0120)052-000 0120052000</small></span>'), 'unit shape: hyphen link + paren/digits small');
-ok(hundred.includes(' <span class="badge">公表情報あり</span><small>'), 'flag badge stays inside the unit');
+ok(hundred.includes('<span class="n"><a href="/tel/0120052000" class="on">0120-052-000</a><small class="p">(0120)052-000</small><small class="d">0120052000</small></span>'), 'unit shape: three lines (hyphen link / paren / digits)');
+ok(hundred.includes(' <span class="badge">公表情報あり</span><small class="p">'), 'flag badge stays inside the unit');
+const withExplain = groupPage({ ...groupFixture(10), explain: { title: '加入者番号（前半）', explain: 'x' } });
+notContains(withExplain, '<div class="seg-explain"', 'group pages no longer render the segment explanation card');
+notContains(withExplain, '加入者番号（前半）</h2>', 'explanation heading gone from group pages');
 const ten = groupPage({ ...groupFixture(10), prefix: '012005200', lo: '0120052000', hi: '0120052009' });
 ok((ten.match(/<span class="n">/g) || []).length === 10, 'ten-group page has 10 units');
 

@@ -24,6 +24,8 @@ export function extLink(url, label, attrs = '') {
 // button carries its original word as aria-label + title instead.
 const ICON_SEARCH = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>';
 const ICON_SEND = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4Z"/></svg>';
+const ICON_COPY = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+const ICON_CHECK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg>';
 
 const CSS = `
 :root{color-scheme:light}
@@ -52,7 +54,15 @@ th{width:11rem;color:#555;font-weight:600}
 .searchbox button{flex:none;display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:.55rem .7rem;border-radius:8px;border:1px solid #0b57d0;background:#0b57d0;color:#fff;cursor:pointer}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.4rem .8rem}
 .n{display:inline-block;white-space:nowrap;vertical-align:top}
-.n small{display:block;font-size:.72rem;color:#666;white-space:nowrap}
+.n small{display:block;color:#666;white-space:nowrap;line-height:1.4}
+.n small.p{font-size:.8rem;margin-top:.08rem}
+.n small.d{font-size:.68rem;color:#8a8a8a}
+.cmt-date{color:#8a94a0;font-size:.78rem;margin:.45rem 0 .05rem}
+.copybtn{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:.4rem;border:1px solid #cfc9ba;border-radius:8px;background:#fff;color:#5b84a6;cursor:pointer;vertical-align:middle;margin-left:.4rem}
+.copybtn .ic-check{display:none}
+.copybtn.ok .ic-check{display:block}
+.copybtn.ok .ic-copy{display:none}
+.col-comments li{white-space:nowrap}
 .grid a.on{font-weight:700}
 a.segbtn{display:inline-block;text-decoration:none}
 .hero-kicker{color:#71808d;font-size:.95rem;margin:0 0 .5rem}
@@ -270,7 +280,7 @@ export const FALLBACK_HEROES = FALLBACK_FACTS.map((f) => randomHero(f));
 // segment's name in small type UNDER the box. Shared by the homepage
 // hero and /tel/examples so the form is identical site-wide. Number
 // pages do NOT use this: their coloured boxes stay removed.
-function segUnitsHtml(hero) {
+function segUnitsHtml(hero, captioned = true) {
   const segColors = ['seg-a', 'seg-b', 'seg-c', 'seg-d'];
   // Each segment links to the page for the digit string accumulated
   // up to it (band page, then block page), and the last one to the
@@ -282,10 +292,17 @@ function segUnitsHtml(hero) {
     return `/tel/${acc}`;
   };
   return hero.segments
-    .map(
-      (s, i) =>
-        `<span class="hero-seg">${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<span class="segunit"><a class="segbtn ${segColors[i % 4]}" href="${segHref(i)}"><span class="segdigits">${esc(s.text)}</span></a><span class="segcap">${esc(s.label)}</span></span></span>`
-    )
+    .map((s, i) => {
+      const open = `<span class="hero-seg">${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}`;
+      // Homepage form (owner ruling 2026-11-10): digits only in the
+      // box — the segment name rides on title (hover) + aria-label
+      // instead of a printed caption, so nothing shows under the
+      // boxes. /tel/examples keeps the printed captions.
+      if (!captioned) {
+        return `${open}<a class="segbtn ${segColors[i % 4]}" href="${segHref(i)}" title="${esc(s.label)}" aria-label="${esc(s.label)}：${esc(s.text)}"><span class="segdigits">${esc(s.text)}</span></a></span>`;
+      }
+      return `${open}<span class="segunit"><a class="segbtn ${segColors[i % 4]}" href="${segHref(i)}"><span class="segdigits">${esc(s.text)}</span></a><span class="segcap">${esc(s.label)}</span></span></span>`;
+    })
     .join('');
 }
 
@@ -298,7 +315,7 @@ function segUnitsHtml(hero) {
 // pages now render the same randomHero payload, /tel/examples with
 // the full segment explanations and facts.
 export function homePage(hero, popular, latestComments) {
-  const segHtml = segUnitsHtml(hero);
+  const segHtml = segUnitsHtml(hero, false);
   const popularHtml =
     popular && popular.length
       ? `<section class="card col-popular" aria-label="よく調べられている番号">
@@ -309,14 +326,36 @@ ${popular.map((p) => `<li><a href="/tel/${esc(p.digits)}">${esc(p.formatted)}</a
 <p class="meta">このサイトで実際に調べられた回数が多い番号です。</p>
 </section>`
       : '';
+  // Latest comments, grouped by date (owner ruling 2026-11-10): the
+  // date prints once per group as a small grey header, entries carry
+  // no date of their own and stay on one line. Groups sort newest
+  // first (ISO dates sort lexicographically); entries keep their
+  // delivered order inside a group.
   const commentsHtml =
     latestComments && latestComments.length
-      ? `<section class="card col-comments" aria-label="最新の口コミ">
-<h2>最新の口コミ</h2>
+      ? (() => {
+          const byDate = new Map();
+          for (const c of latestComments) {
+            const d = String(c.created_at).slice(0, 10);
+            if (!byDate.has(d)) byDate.set(d, []);
+            byDate.get(d).push(c);
+          }
+          const groups = [...byDate.keys()]
+            .sort()
+            .reverse()
+            .map(
+              (d) =>
+                `<p class="cmt-date">${esc(d)}</p>
 <ul class="tight">
-${latestComments.map((c) => `<li><a href="/tel/${esc(c.number)}">${esc(c.formatted)}</a>：${esc(c.body)} <span class="meta">（${esc(String(c.created_at).slice(0, 10))}）</span></li>`).join('\n')}
-</ul>
-</section>`
+${byDate.get(d).map((c) => `<li><a href="/tel/${esc(c.number)}">${esc(c.formatted)}</a>：${esc(c.body)}</li>`).join('\n')}
+</ul>`
+            )
+            .join('\n');
+          return `<section class="card col-comments" aria-label="最新の口コミ">
+<h2>最新の口コミ</h2>
+${groups}
+</section>`;
+        })()
       : '';
   // Both boxes: two columns, comments left / popular right (stacked with
   // popular first on narrow screens). A lone box renders as before.
@@ -333,7 +372,6 @@ ${latestComments.map((c) => `<li><a href="/tel/${esc(c.number)}">${esc(c.formatt
 <input type="search" name="q" autocomplete="off" placeholder="電話番号・口コミを検索" aria-label="電話番号・口コミ">
 <button type="submit" aria-label="調べる" title="調べる">${ICON_SEARCH}</button>
 </form>
-<p class="hero-kicker" id="heroKicker">${esc(hero.kicker)}</p>
 <div class="hero-num" id="heroSegs" role="group" aria-label="電話番号の各部分">
 ${segHtml}
 </div>
@@ -382,9 +420,15 @@ export function numberPage(facts) {
   // lib/drilldown.js parenFormat wraps.
   const segParts = splitNumber(f.digits, f);
   const paren = segParts.length >= 2 ? `(${segParts[0]})${segParts.slice(1).join('-')}` : f.digits;
-  rows.push(`<tr><th>ハイフン</th><td>${esc(formatted)}</td></tr>`);
-  rows.push(`<tr><th>かっこ</th><td>${esc(paren)}</td></tr>`);
-  rows.push(`<tr><th>数字のみ</th><td>${esc(f.digits)}</td></tr>`);
+  // Each notation row carries its own copy button (owner ruling
+  // 2026-11-10): the button copies exactly that row's form. Icon-only
+  // like every action button on the site; the handler rides the
+  // page's existing inline script below.
+  const copyBtn = (text) =>
+    `<button type="button" class="copybtn" data-copy="${esc(text)}" aria-label="コピー" title="コピー"><span class="ic-copy">${ICON_COPY}</span><span class="ic-check">${ICON_CHECK}</span></button>`;
+  rows.push(`<tr><th>ハイフン</th><td>${esc(formatted)}${copyBtn(formatted)}</td></tr>`);
+  rows.push(`<tr><th>かっこ</th><td>${esc(paren)}${copyBtn(paren)}</td></tr>`);
+  rows.push(`<tr><th>数字のみ</th><td>${esc(f.digits)}${copyBtn(f.digits)}</td></tr>`);
   rows.push(`<tr><th>調べられた回数</th><td><span id="viewCount">${typeof f.viewCount === 'number' ? esc(String(f.viewCount)) + ' 回' : '集計中…'}</span></td></tr>`);
   rows.push(`<tr><th>口コミ件数</th><td><a href="#comments">${typeof f.commentCount === 'number' ? f.commentCount : 0} 件</a></td></tr>`);
   // The page's one visible up-link: the 番号の種類 value links to the
@@ -512,6 +556,14 @@ ${dialHtml}
   var D='${f.digits}';
   fetch('/tel/view/'+D,{method:'POST'}).then(function(r){return r.json();}).then(function(j){var el=document.getElementById('viewCount');if(el)el.textContent=(j.views||0)+' 回';}).catch(function(){var el=document.getElementById('viewCount');if(el)el.textContent='-';});
   var list=document.getElementById('cmtList'),form=document.getElementById('cmtForm'),input=document.getElementById('cmtInput'),msg=document.getElementById('cmtMsg');
+  document.querySelectorAll('.copybtn').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var t=btn.getAttribute('data-copy')||'';
+      function done(){btn.classList.add('ok');setTimeout(function(){btn.classList.remove('ok');},1200);}
+      function fallback(){var ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done();}catch(e){}document.body.removeChild(ta);}
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done).catch(fallback);}else{fallback();}
+    });
+  });
   function showComments(cs){
     list.innerHTML='';
     if(!cs.length){var li0=document.createElement('li');li0.className='meta';li0.textContent='まだ口コミはありません。';list.appendChild(li0);return;}
@@ -1193,22 +1245,22 @@ export function groupPage(d) {
     `<tr><th>割当事業者</th><td>${d.carrierName ? esc(d.carrierName) : '事業者別の指定データは整備中です'}</td></tr>`,
     `<tr><th>区段ページ</th><td><a href="/tel/${esc(d.blockKey)}">この範囲の区段ページ（${esc(d.blockLabel)}）</a></td></tr>`,
   ];
-  // Three-form units, same shape as the block pages' signal units:
-  // hyphen form is the link; parenthesised + digits-only forms ride
-  // along as small text so every notation can be read / copied.
+  // Three-form units, one form per line (owner ruling 2026-11-10):
+  // hyphen form is the link, then the parenthesised form, then the
+  // digits-only form, in decreasing type sizes — the old single
+  // small line crammed the last two together with no separation.
   const items = d.numbers
     .map(
       (n) =>
         `<span class="n"><a href="/tel/${esc(n.digits)}"${n.landed ? ' class="on"' : ''}>${esc(n.formatted)}</a>${
           n.flagged ? ' <span class="badge">公表情報あり</span>' : ''
-        }<small>${esc(n.paren)} ${esc(n.digits)}</small></span>`
+        }<small class="p">${esc(n.paren)}</small><small class="d">${esc(n.digits)}</small></span>`
     )
     .join('\n');
   const body = `
 <p class="crumbs">${crumbsHtml(crumbs)}</p>
 <h1>${esc(d.fmtLo)} 〜 ${esc(d.fmtHi)} の電話番号一覧</h1>
 <div class="card"><table>${rows.join('')}</table></div>
-${explainCard(d.explain)}
 <div class="grid">
 ${items}
 </div>
