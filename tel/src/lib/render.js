@@ -262,7 +262,31 @@ const FALLBACK_FACTS = [
 ];
 export const FALLBACK_HEROES = FALLBACK_FACTS.map((f) => randomHero(f));
 
-export function homePage(popular, latestComments) {
+// Homepage hero: one server-drawn real number per load, segments as
+// drill-down links. Owner rulings, layered: the shuffle button and the
+// per-number detail link stay removed (a refresh redraws; the last
+// segment link is the detail link); the plain-language sentence under
+// the example stays removed (#149); the showcase itself was moved to
+// /tel/examples and then restored here as well (2026-11-10) — both
+// pages now render the same randomHero payload, /tel/examples with
+// the full segment explanations and facts.
+export function homePage(hero, popular, latestComments) {
+  const segColors = ['seg-a', 'seg-b', 'seg-c', 'seg-d'];
+  // Segments are drill-down links: each segment links to the page for
+  // the digit string accumulated up to it (band page, then block page),
+  // and the last one to the number page itself. A lone trunk "0" has no
+  // page of its own, so it shares the area-code accumulation.
+  const segHref = (i) => {
+    let acc = hero.segments.slice(0, i + 1).map((s) => s.text).join('');
+    if (acc.length < 2 && hero.segments[i + 1]) acc += hero.segments[i + 1].text;
+    return `/tel/${acc}`;
+  };
+  const segHtml = hero.segments
+    .map(
+      (s, i) =>
+        `<span class="hero-seg">${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<a class="segbtn ${segColors[i % 4]}" href="${segHref(i)}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></a></span>`
+    )
+    .join('');
   const popularHtml =
     popular && popular.length
       ? `<section class="card col-popular" aria-label="よく調べられている番号">
@@ -297,7 +321,16 @@ ${latestComments.map((c) => `<li><a href="/tel/${esc(c.number)}">${esc(c.formatt
 <input type="search" name="q" autocomplete="off" placeholder="電話番号を入力（例：090-1234-5678）" aria-label="電話番号">
 <button type="submit" aria-label="調べる" title="調べる">${ICON_SEARCH}</button>
 </form>
+<p class="hero-kicker" id="heroKicker">${esc(hero.kicker)}</p>
+<div class="hero-num" id="heroSegs" role="group" aria-label="電話番号の各部分">
+${segHtml}
+</div>
 ${lowerHtml}
+<div class="card"><h2>発生状況</h2>
+<p>SNS型投資・ロマンス詐欺を含む特殊詐欺（2025年1月～12月）：認知件数合計 43,000件、合計被害額 約3,257億4,258万7,000円。</p>
+<p>厳重注意地域（認知件数 上位5）：東京 5,879／大阪 4,830／愛知 3,505／神奈川 3,338／兵庫 3,238</p>
+<picture><source media="(max-width:640px)" srcset="/tel/assets/sumally_map_full_sp.png"><img class="mapimg" src="/tel/assets/sumally_map_full.png" alt="SNS型投資・ロマンス詐欺を含む特殊詐欺の都道府県別発生状況マップ（2025年1月～12月）" loading="lazy"></picture>
+<p class="meta">出典：警察庁「<a href="https://www.npa.go.jp/bureau/safetylife/sos47/" rel="noopener">SOS47 特殊詐欺対策ページ</a>」／期間：2025年1月～12月、公共データ利用規約（PDL1.0）に基づき掲載</p></div>
 <p class="home-links"><a class="navpill" href="/tel/soudan">公的相談窓口</a> ・ <a href="/tel/popular">よく検索される電話番号</a> ・ <a href="/tel/ranges">番号区段インデックス</a> ・ <a href="/tel/gov">政府機関の番号</a> ・ <a href="/tel/history">日本の電話番号の歴史</a> ・ <a href="/tel/examples">日本の電話番号の例</a> ・ <a href="/tel/about">このサイトについて</a></p>
 </div>`;
   return layout({
@@ -531,18 +564,23 @@ ${searchForm()}
 // via the YouTube oEmbed endpoint (HTTP 200, author 総務省動画
 // チャンネル). Served from youtube-nocookie with lazy loading, in line
 // with the site's no-tracking stance.
-// The 発生状況 map is a self-hosted copy of the National Police
-// Agency SOS47 page's map (公共データ利用規約 PDL1.0; attribution
-// printed beside it), stored in R2 under assets/ and served by the
-// whitelisted /tel/assets route — no hotlinking to npa.go.jp. To
-// refresh it, re-download from the SOS47 page and re-upload both
-// sumally_map_full.png and sumally_map_full_sp.png.
+// Page order (2026-11-10): the MIC video card first, then the
+// hotline cards. The 発生状況 block that launched here moved to the
+// homepage the same day; its map is a self-hosted copy of the
+// National Police Agency SOS47 page's map (公共データ利用規約
+// PDL1.0; attribution printed beside it), stored in R2 under
+// assets/ and served by the whitelisted /tel/assets route — no
+// hotlinking to npa.go.jp. To refresh it, re-download from the
+// SOS47 page and re-upload both map files.
 const SOUDAN_VIDEO_ID = 'XL86eC1TDZ4';
 const SOUDAN_VIDEO_TITLE = '【特殊詐欺】＋番号など知らない番号は一旦スルー！　黒電話篇';
 export function soudanPage() {
   const body = `
 <p class="crumbs"><a href="/tel/">ホーム</a> › 公的相談窓口</p>
 <h1>公的相談窓口</h1>
+<div class="card"><h2>総務省の啓発動画</h2>
+<p class="meta">総務省動画チャンネル「${SOUDAN_VIDEO_TITLE}」</p>
+<div class="videowrap"><iframe src="https://www.youtube-nocookie.com/embed/${SOUDAN_VIDEO_ID}" title="${SOUDAN_VIDEO_TITLE}" loading="lazy" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div></div>
 <p>迷惑電話や特殊詐欺で困ったときの、公的機関・団体の相談・通報窓口です。番号を押すと、そのまま電話をかけられます。</p>
 <div class="card"><h2>特殊詐欺の情報提供：警察庁「匿名通報ダイヤル」</h2>
 <p><a class="soudan-num" href="tel:0120924839">0120-924-839</a>（通話料無料） <a href="/tel/0120924839">番号の詳細</a></p>
@@ -564,14 +602,6 @@ export function soudanPage() {
 <p><a class="soudan-num" href="tel:0120344999">0120-344-999</a> <a href="/tel/0120344999">番号の詳細</a></p>
 <p>未公開株に関する通報を受け付ける、日本証券業協会の専用窓口です。</p>
 <p class="meta">出典：<a href="https://www.npa.go.jp/bureau/safetylife/sos47/apps/" rel="noopener">警察庁 SOS47</a>（日本証券業協会の窓口として掲載）</p></div>
-<div class="card"><h2>発生状況</h2>
-<p>SNS型投資・ロマンス詐欺を含む特殊詐欺（2025年1月～12月）：認知件数合計 43,000件、合計被害額 約3,257億4,258万7,000円。</p>
-<p>厳重注意地域（認知件数 上位5）：東京 5,879／大阪 4,830／愛知 3,505／神奈川 3,338／兵庫 3,238</p>
-<picture><source media="(max-width:640px)" srcset="/tel/assets/sumally_map_full_sp.png"><img class="mapimg" src="/tel/assets/sumally_map_full.png" alt="SNS型投資・ロマンス詐欺を含む特殊詐欺の都道府県別発生状況マップ（2025年1月～12月）" loading="lazy"></picture>
-<p class="meta">出典：警察庁「<a href="https://www.npa.go.jp/bureau/safetylife/sos47/" rel="noopener">SOS47 特殊詐欺対策ページ</a>」／期間：2025年1月～12月、公共データ利用規約（PDL1.0）に基づき掲載</p></div>
-<div class="card"><h2>総務省の啓発動画</h2>
-<p class="meta">総務省動画チャンネル「${SOUDAN_VIDEO_TITLE}」</p>
-<div class="videowrap"><iframe src="https://www.youtube-nocookie.com/embed/${SOUDAN_VIDEO_ID}" title="${SOUDAN_VIDEO_TITLE}" loading="lazy" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div></div>
 <p class="meta">当サイトは上記の機関・団体とは関係のない民間の電話番号データベースです。各窓口は、それぞれの運営主体が運営しています。</p>
 ${searchForm()}`;
   return layout({

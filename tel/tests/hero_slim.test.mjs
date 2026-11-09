@@ -13,18 +13,29 @@ function ok(cond, label) {
   passed++;
 }
 
-// --- Homepage: no hero showcase ----------------------------------------------
-const home = homePage([{ digits: '08007779633', formatted: '0800-777-9633', views: 9 }], [
+// --- Homepage: hero showcase restored (2026-11-10 ruling) ----------------------
+const homeHero = randomHero({
+  digits: '09010123456', lineType: 'mobile', lineTypeName: '携帯電話',
+  block: { prefix: '090101', carrierName: '株式会社NTTドコモ', source: '総務省 電気通信番号指定状況' },
+});
+const home = homePage(homeHero, [{ digits: '08007779633', formatted: '0800-777-9633', views: 9 }], [
   { number: '05018071465', formatted: '050-1807-1465', body: '一度だけ着信あり', created_at: '2026-11-09 10:00:00' },
 ]);
-ok(!home.includes('<div class="hero-num"'), 'homepage has no hero number showcase markup');
-ok(!home.includes('id="heroKicker"') && !home.includes('class="hero-seg"'), 'homepage renders no hero segments/kicker');
+ok(home.includes('<div class="hero-num" id="heroSegs"'), 'homepage hero showcase is back');
+ok(home.includes('id="heroKicker"') && home.includes('href="/tel/090"') && home.includes('href="/tel/09010123456"'), 'hero segments are drill-down links');
+ok(home.indexOf('class="bigsearch"') < home.indexOf('id="heroSegs"'), 'hero sits below the search form');
 ok(!home.includes('shuffleBtn') && !home.includes('別の番号を表示'), 'no shuffle button');
 ok(!home.includes('<script'), 'no client script on the homepage');
 ok((home.match(/href="\/tel\/examples"/g) || []).length === 1, 'homepage nav row links to /tel/examples exactly once');
 ok(!home.includes('aria-label="公的相談窓口"') && !home.includes('でんわんセンター'), 'homepage no longer carries the consultation block (item 13a)');
+// 発生状況 lives on the homepage now (moved from /tel/soudan, 2026-11-10).
+ok(home.includes('<h2>発生状況</h2>'), 'homepage has the occurrence block');
+ok(home.includes('認知件数合計 43,000件') && home.includes('約3,257億4,258万7,000円'), 'occurrence totals verbatim on homepage');
+ok(home.includes('東京 5,879／大阪 4,830／愛知 3,505／神奈川 3,338／兵庫 3,238'), 'top-5 regions verbatim on homepage');
+ok(home.includes('src="/tel/assets/sumally_map_full.png"') && home.includes('公共データ利用規約（PDL1.0）に基づき掲載'), 'self-hosted map + PDL attribution on homepage');
+ok(home.indexOf('class="bigsearch"') < home.indexOf('<h2>発生状況</h2>'), 'occurrence block is below the search area');
 ok(home.includes('<a class="navpill" href="/tel/soudan">公的相談窓口</a>'), 'nav row has the highlighted 公的相談窓口 pill (item 13b)');
-ok(home.indexOf('日本の電話番号の歴史') < home.indexOf('日本の電話番号の例') && home.indexOf('日本の電話番号の例') < home.indexOf('このサイトについて'), 'examples entry sits inside the nav row');
+ok(home.indexOf('href="/tel/history">日本の電話番号の歴史') < home.indexOf('href="/tel/examples">日本の電話番号の例') && home.indexOf('href="/tel/examples">日本の電話番号の例') < home.indexOf('href="/tel/about">このサイトについて'), 'examples entry sits inside the nav row');
 // bigsearch submit is the magnifier icon, not text
 ok(home.includes('<button type="submit" aria-label="調べる" title="調べる"><svg'), 'bigsearch icon button with aria-label/title');
 ok(!home.includes('>調べる</button>'), 'no text search button anywhere');
@@ -77,13 +88,9 @@ ok(soudan.includes('https://www.youtube-nocookie.com/embed/XL86eC1TDZ4'), 'MIC v
 ok(soudan.includes('loading="lazy"'), 'video iframe is lazy-loaded');
 ok(soudan.includes('title="【特殊詐欺】＋番号など知らない番号は一旦スルー！　黒電話篇"'), 'iframe carries the official video title');
 ok(!soudan.includes('www.youtube.com/embed'), 'no tracking-domain embed');
-ok(soudan.includes('<h2>発生状況</h2>'), 'soudan has the 発生状況 block');
-ok(soudan.includes('認知件数合計 43,000件') && soudan.includes('約3,257億4,258万7,000円'), 'occurrence totals verbatim');
-ok(soudan.includes('東京 5,879／大阪 4,830／愛知 3,505／神奈川 3,338／兵庫 3,238'), 'top-5 regions verbatim');
-ok(soudan.includes('src="/tel/assets/sumally_map_full.png"'), 'map is self-hosted under /tel/assets');
-ok(soudan.includes('srcset="/tel/assets/sumally_map_full_sp.png"'), 'mobile map variant in picture/srcset');
-ok(!soudan.includes('sos47/assets/img'), 'no hotlink to npa.go.jp image files');
-ok(soudan.includes('公共データ利用規約（PDL1.0）に基づき掲載'), 'PDL1.0 attribution next to the map');
+ok(!soudan.includes('発生状況'), 'occurrence block has left the soudan page (moved to homepage)');
+ok(!soudan.includes('sumally_map'), 'no map assets on the soudan page');
+ok(soudan.indexOf('youtube-nocookie.com/embed/XL86eC1TDZ4') < soudan.indexOf('<h2>特殊詐欺の情報提供'), 'MIC video card sits above the hotline cards');
 
 // --- Number page: searchbox + comment submit icons ------------------------------
 const page = numberPage({

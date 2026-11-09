@@ -366,16 +366,19 @@ export default {
 
     try {
       if (path === '/') {
-        // The number-anatomy showcase (日本の電話番号の例) moved to
-        // /tel/examples (2026-11-09); the homepage is title + search +
-        // content boxes. The popular/latest boxes ride a short edge-cache
+        // The number-anatomy showcase lives on /tel/examples AND on
+        // the homepage (restored 2026-11-10 — the examples page keeps
+        // the full explanations/facts, the homepage shows the drawn
+        // example with drill-down links). The popular/latest boxes
+        // ride a short edge-cache
         // window and are omitted while D1 is down or before any real
         // lookups exist.
-        const [popular, latestComments] = await Promise.all([
+        const [hero, popular, latestComments] = await Promise.all([
+          drawRandomHero(db),
           getPopularNumbers(db),
           getLatestComments(db),
         ]);
-        return html(homePage(popular, latestComments), 200, 'public, max-age=0, s-maxage=300');
+        return html(homePage(hero || pickFallbackHero(), popular, latestComments), 200, 'public, max-age=0, s-maxage=300');
       }
       if (path === '/examples') {
         // The moved showcase: one server-drawn real example per load
