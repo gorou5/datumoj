@@ -117,6 +117,18 @@ export async function getR2Object(env, key, opts = {}) {
   }
 }
 
+// GET an object as bytes (for binary assets such as images). Returns
+// { body: ArrayBuffer, contentType } or null on any miss/failure.
+export async function getR2ObjectBytes(env, key, opts = {}) {
+  const res = await r2Fetch(env, 'GET', key, opts);
+  if (!res || !res.ok) return null;
+  try {
+    return { body: await res.arrayBuffer(), contentType: res.headers.get('content-type') };
+  } catch {
+    return null;
+  }
+}
+
 // PUT an object. Returns true on success, false on any failure.
 export async function putR2Object(env, key, body, { contentType = null, meta = null, timeoutMs = 8000 } = {}) {
   const res = await r2Fetch(env, 'PUT', key, { body, contentType, meta, timeoutMs });

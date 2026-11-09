@@ -88,6 +88,7 @@ a.segbtn{display:inline-block;text-decoration:none}
 .soudan-num{font-size:1.55rem;font-weight:800;letter-spacing:.02em;color:#C2410C;text-decoration:none}
 .videowrap{position:relative;aspect-ratio:16/9;max-width:640px;margin:10px auto 4px}
 .videowrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:8px}
+.mapimg{width:100%;height:auto;display:block}
 /* Homepage lower boxes side by side: latest comments left, popular right.
    DOM order is comments-then-popular, and narrow screens stack in that
    same order (owner decision 2026-11-09: comments first on mobile too —
@@ -521,6 +522,12 @@ ${searchForm()}
 // via the YouTube oEmbed endpoint (HTTP 200, author 総務省動画
 // チャンネル). Served from youtube-nocookie with lazy loading, in line
 // with the site's no-tracking stance.
+// The 発生状況 map is a self-hosted copy of the National Police
+// Agency SOS47 page's map (公共データ利用規約 PDL1.0; attribution
+// printed beside it), stored in R2 under assets/ and served by the
+// whitelisted /tel/assets route — no hotlinking to npa.go.jp. To
+// refresh it, re-download from the SOS47 page and re-upload both
+// sumally_map_full.png and sumally_map_full_sp.png.
 const SOUDAN_VIDEO_ID = 'XL86eC1TDZ4';
 const SOUDAN_VIDEO_TITLE = '【特殊詐欺】＋番号など知らない番号は一旦スルー！　黒電話篇';
 export function soudanPage() {
@@ -548,6 +555,11 @@ export function soudanPage() {
 <p><a class="soudan-num" href="tel:0120344999">0120-344-999</a> <a href="/tel/0120344999">番号の詳細</a></p>
 <p>未公開株に関する通報を受け付ける、日本証券業協会の専用窓口です。</p>
 <p class="meta">出典：<a href="https://www.npa.go.jp/bureau/safetylife/sos47/apps/" rel="noopener">警察庁 SOS47</a>（日本証券業協会の窓口として掲載）</p></div>
+<div class="card"><h2>発生状況</h2>
+<p>SNS型投資・ロマンス詐欺を含む特殊詐欺（2025年1月～12月）：認知件数合計 43,000件、合計被害額 約3,257億4,258万7,000円。</p>
+<p>厳重注意地域（認知件数 上位5）：東京 5,879／大阪 4,830／愛知 3,505／神奈川 3,338／兵庫 3,238</p>
+<picture><source media="(max-width:640px)" srcset="/tel/assets/sumally_map_full_sp.png"><img class="mapimg" src="/tel/assets/sumally_map_full.png" alt="SNS型投資・ロマンス詐欺を含む特殊詐欺の都道府県別発生状況マップ（2025年1月～12月）" loading="lazy"></picture>
+<p class="meta">出典：警察庁「<a href="https://www.npa.go.jp/bureau/safetylife/sos47/" rel="noopener">SOS47 特殊詐欺対策ページ</a>」／期間：2025年1月～12月、公共データ利用規約（PDL1.0）に基づき掲載</p></div>
 <div class="card"><h2>総務省の啓発動画</h2>
 <p class="meta">総務省動画チャンネル「${SOUDAN_VIDEO_TITLE}」</p>
 <div class="videowrap"><iframe src="https://www.youtube-nocookie.com/embed/${SOUDAN_VIDEO_ID}" title="${SOUDAN_VIDEO_TITLE}" loading="lazy" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div></div>

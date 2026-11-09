@@ -77,6 +77,13 @@ ok(soudan.includes('https://www.youtube-nocookie.com/embed/XL86eC1TDZ4'), 'MIC v
 ok(soudan.includes('loading="lazy"'), 'video iframe is lazy-loaded');
 ok(soudan.includes('title="【特殊詐欺】＋番号など知らない番号は一旦スルー！　黒電話篇"'), 'iframe carries the official video title');
 ok(!soudan.includes('www.youtube.com/embed'), 'no tracking-domain embed');
+ok(soudan.includes('<h2>発生状況</h2>'), 'soudan has the 発生状況 block');
+ok(soudan.includes('認知件数合計 43,000件') && soudan.includes('約3,257億4,258万7,000円'), 'occurrence totals verbatim');
+ok(soudan.includes('東京 5,879／大阪 4,830／愛知 3,505／神奈川 3,338／兵庫 3,238'), 'top-5 regions verbatim');
+ok(soudan.includes('src="/tel/assets/sumally_map_full.png"'), 'map is self-hosted under /tel/assets');
+ok(soudan.includes('srcset="/tel/assets/sumally_map_full_sp.png"'), 'mobile map variant in picture/srcset');
+ok(!soudan.includes('sos47/assets/img'), 'no hotlink to npa.go.jp image files');
+ok(soudan.includes('公共データ利用規約（PDL1.0）に基づき掲載'), 'PDL1.0 attribution next to the map');
 
 // --- Number page: searchbox + comment submit icons ------------------------------
 const page = numberPage({
