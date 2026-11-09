@@ -63,7 +63,7 @@ th{width:11rem;color:#555;font-weight:600}
 .copybtn.ok .ic-check{display:block}
 .copybtn.ok .ic-copy{display:none}
 .col-comments li{white-space:nowrap}
-.grid a.on{font-weight:700}
+.grid a.on{font-weight:inherit}
 a.segbtn{display:inline-block;text-decoration:none}
 .hero-kicker{color:#71808d;font-size:.95rem;margin:0 0 .5rem}
 .hero-num{display:flex;align-items:stretch;justify-content:center;gap:.35rem;flex-wrap:wrap}
