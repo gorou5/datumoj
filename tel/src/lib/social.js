@@ -1,5 +1,5 @@
-// View counts and anonymous comments for number pages.
-// Owner rules for comments: at most 10 characters, anonymous, and no hostile
+// View counts and 口コミ comments for number pages.
+// Owner rules for comments: at most 10 characters, no account needed, and no hostile
 // language toward people (insults / threats are rejected). Comments are
 // reader opinions, never facts — the page labels them as such.
 
@@ -27,8 +27,8 @@ export function commentProblem(body) {
 }
 
 export const COMMENT_MESSAGES = {
-  empty: 'コメントを入力してください。',
-  too_long: 'コメントは10文字以内です。',
+  empty: '口コミを入力してください。',
+  too_long: '口コミは10文字以内です。',
   link: 'リンクは投稿できません。',
   digits: '数字の羅列は投稿できません。',
   bad_language: '人を傷つける言葉は投稿できません。',

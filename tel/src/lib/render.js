@@ -44,6 +44,8 @@ th{width:11rem;color:#555;font-weight:600}
 .searchbox input{flex:1;font-size:1.1rem;padding:.6rem;border:1px solid #bbb;border-radius:8px}
 .searchbox button{font-size:1.05rem;padding:.6rem 1.1rem;border-radius:8px;border:1px solid #0b57d0;background:#0b57d0;color:#fff;cursor:pointer}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.4rem .8rem}
+.n{display:inline-block;white-space:nowrap;vertical-align:top}
+.n small{display:block;font-size:.72rem;color:#666;white-space:nowrap}
 .grid a.on{font-weight:700}
 a.segbtn{display:inline-block;text-decoration:none}
 .hero-kicker{color:#71808d;font-size:.95rem;margin:0 0 .5rem}
@@ -124,7 +126,7 @@ ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd).replace(
 ${body}
 </main>
 <footer>
-<p>データ出典：総務省 電気通信番号計画・番号区画表ほか公開資料（詳細は<a href="/tel/about">データについて</a>）。割当事業者は番号の「指定」情報であり、番号ポータビリティにより現在の契約事業者とは異なる場合があります。本サイトは第三者機関の標識を出典付きで転載するもので、独自に番号の有害性を判定しません。</p>
+<p>データ出典：総務省 電気通信番号計画・番号区画表ほか公開資料（詳細は<a href="/tel/about">データについて</a>）。割当事業者は番号の「指定」情報であり、番号ポータビリティにより現在の契約事業者とは異なる場合があります。本サイトは公的機関の公表情報を出典付きで転載するもので、独自に番号の有害性を判定しません。</p>
 <p><a href="https://datumoj.com/">datumoj.com</a> のプロジェクトです。</p>
 </footer>
 </body>
@@ -375,7 +377,7 @@ ${lowerHtml}
 </script>`;
   return layout({
     title: '日本の電話番号データベース',
-    description: '日本の電話番号データベース。番号の種類・地域・単位料金区域（MA）・割当事業者・指定時期を公的データで表示。第三者機関の詐欺標識も出典付きで転載。',
+    description: '日本の電話番号データベース。番号の種類・地域・単位料金区域（MA）・割当事業者・指定時期を公的データで表示。公的機関の公表情報も出典付きで転載。',
     canonical: 'https://datumoj.com/tel/',
     body,
   });
@@ -389,25 +391,41 @@ const DIAL_NUMBERS = new Set(['0120924839', '0361621111', '0120344999']);
 export function numberPage(facts) {
   const f = facts;
   const formatted = formatNumber(f.digits, f);
-  const hero = randomHero(f);
-  const segColors = ['seg-a', 'seg-b', 'seg-c', 'seg-d'];
-  const segHtml = hero.segments
-    .map(
-      (s, i) =>
-        `<span class="hero-seg">${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<button type="button" class="segbtn ${segColors[i % 4]}${i === hero.defaultSeg ? ' is-active' : ''}" data-seg="${i}" aria-pressed="${i === hero.defaultSeg}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></button></span>`
-    )
-    .join('');
-  const heroJson = JSON.stringify(hero.segments).replace(/<\//g, '<\\/');
+  // Breadcrumb data feeds only the BreadcrumbList JSON-LD below. The
+  // visible breadcrumb trail and the top back-link line were removed in
+  // the 2026-11-09 slimming (owner's compromise: the one visible up-link
+  // is the 番号区段 row in the facts table); the coloured segment boxes
+  // and the seg-explain card went with them — segment explanations live
+  // on the drill-down pages now, not on number pages.
   const crumbs = [{ name: 'ホーム', url: 'https://datumoj.com/tel/' }, { name: f.lineTypeName, url: `https://datumoj.com/tel/type/${f.lineType}` }];
   if (f.areaCode) crumbs.push({ name: `市外局番 ${f.areaCode}`, url: `https://datumoj.com/tel/area/${f.areaCode}` });
   crumbs.push({ name: formatted, url: `https://datumoj.com/tel/${f.digits}` });
-  const crumbHtml = crumbs.map((c) => `<a href="${esc(c.url.replace('https://datumoj.com', ''))}">${esc(c.name)}</a>`).join(' › ');
 
   const rows = [];
   rows.push(`<tr><th>電話番号</th><td>${esc(formatted)}（${esc(f.digits)}）</td></tr>`);
   rows.push(`<tr><th>数字のみ表記</th><td>${esc(f.digits)}</td></tr>`);
   rows.push(`<tr><th>調べられた回数</th><td><span id="viewCount">${typeof f.viewCount === 'number' ? esc(String(f.viewCount)) + ' 回' : '集計中…'}</span></td></tr>`);
+  rows.push(`<tr><th>口コミ件数</th><td><a href="#comments">${typeof f.commentCount === 'number' ? f.commentCount : 0} 件</a></td></tr>`);
   rows.push(`<tr><th>番号の種類</th><td>${esc(f.lineTypeName)}</td></tr>`);
+  // Fixed-line anatomy （市外局番/市内局番/加入者番号）: rendered only when
+  // the official decomposition really applies — a known area code whose
+  // anatomy splits into exactly the four official parts.
+  if (f.lineType === 'fixed' && f.areaCode) {
+    const parts = anatomySegments(f.digits, f);
+    if (parts.length === 4) {
+      rows.push(`<tr><th>市外局番</th><td>0${esc(parts[1])}</td></tr>`);
+      rows.push(`<tr><th>市内局番</th><td>${esc(parts[2])}</td></tr>`);
+      rows.push(`<tr><th>加入者番号</th><td>${esc(parts[3])}</td></tr>`);
+    }
+  }
+  // The one visible up-link on the page (owner's compromise, 2026-11-09):
+  // the number's 番号区段 row, rendered only when the block page provably
+  // exists (facts.blockExists, resolved in index.js against the bucket
+  // manifest) — an ungenerated block must never be linked.
+  const blockKey = f.digits.slice(0, 7);
+  if (f.blockExists) {
+    rows.push(`<tr><th>番号区段</th><td><a href="/tel/${blockKey}">${esc(blockKey)}</a></td></tr>`);
+  }
   if (f.prefecture) rows.push(`<tr><th>都道府県</th><td>${esc(f.prefecture)}</td></tr>`);
   if (f.mas && f.mas.length === 1) {
     rows.push(`<tr><th>単位料金区域（MA）</th><td>${esc(f.mas[0].charge_area_name)}MA（番号区画コード ${esc(f.mas[0].zone_code)}）</td></tr>`);
@@ -421,8 +439,9 @@ export function numberPage(facts) {
   );
   if (f.block.designatedOn) rows.push(`<tr><th>番号帯の指定時期</th><td>${esc(f.block.designatedOn)}（この番号帯が指定可能になった時期。個別番号の契約時期ではありません）</td></tr>`);
   if (f.block.note) rows.push(`<tr><th>番号帯について</th><td>${esc(f.block.note)}</td></tr>`);
-  if (f.portable) rows.push(`<tr><th>番号ポータビリティ</th><td>対象番号です。割当（指定）事業者と現在の契約事業者が異なる場合があります。</td></tr>`);
-  if (f.lineType === 'mobile' || f.lineType === 'ip050') rows.push(`<tr><th>地域</th><td>携帯電話・050番号から地域は特定できません。</td></tr>`);
+  // Filler rows removed in the 2026-11-09 slimming: the 番号ポータビリティ
+  // boilerplate row and the mobile/050 「地域は特定できません」 no-information
+  // row. Portability stays covered site-wide by the layout footer note.
 
   let sections = '';
   // Government agency identification (official-numbers database). One number
@@ -438,20 +457,22 @@ export function numberPage(facts) {
     sections += `<div class="card">${govItems}
 <p class="meta">注意：詐欺では実在する政府機関の番号が偽装表示されることがあります。番号表示だけで相手を信用せず、不審な場合は一度切って公式サイトの番号へかけ直してください。</p></div>`;
   }
-  // Third-party flags
+  // Public-authority published information (third-party flags). The
+  // feature label was renamed from 第三者標識 to 公的機関の公表情報
+  // (2026-11-09); the internal table/view names are unchanged.
   if (f.tpFlags.length) {
     const items = f.tpFlags
       .map(
-        (x) => `<div class="card flag"><p><span class="badge">第三者標識・${esc(x.source_tier)}級</span><b>${esc(x.publisher)}（${esc(x.source_name)}）</b></p>
+        (x) => `<div class="card flag"><p><span class="badge">公的機関の公表情報・${esc(x.source_tier)}級</span><b>${esc(x.publisher)}（${esc(x.source_name)}）</b></p>
 <p>${esc(x.label)}${x.published_on ? `（${esc(x.published_on)} 公表）` : ''}</p>
 <p class="meta">出典：${x.evidence_url || x.source_url ? extLink(x.evidence_url || x.source_url, '元の公表ページ', ' rel="nofollow noopener"') : '公表資料'}／最終確認：${esc(x.last_verified || '-')}</p></div>`
       )
       .join('');
-    sections += `<h2>第三者機関による標識</h2>${items}
-<p class="meta">注意：発信者番号は偽装されることがあります。この標識は「この番号表示が使われた」という記録であり、番号の契約者本人による行為とは限りません。</p>`;
+    sections += `<h2>公的機関の公表情報</h2>${items}
+<p class="meta">注意：発信者番号は偽装されることがあります。この公表情報は「この番号表示が使われた」という記録であり、番号の契約者本人による行為とは限りません。</p>`;
   } else {
-    sections += `<div class="card"><h2>第三者機関による標識</h2>
-<p>現在、この番号に対する第三者機関の標識は登録されていません。<span class="meta">※標識が無いことは、その番号が安全であることを意味しません。不審な電話については警察相談専用電話「#9110」へご相談ください。</span></p></div>`;
+    sections += `<div class="card"><h2>公的機関の公表情報</h2>
+<p>現在、この番号に対する公的機関の公表情報は登録されていません。<span class="meta">※公表情報が無いことは、その番号が安全であることを意味しません。不審な電話については警察相談専用電話「#9110」へご相談ください。</span></p></div>`;
   }
   // Business
   if (f.business) {
@@ -467,37 +488,37 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
     sections += `<div class="card"><h2>利用者からの報告</h2><p>この番号について ${f.reportCount} 件の報告が寄せられています。</p><ul class="tight">${items}</ul>
 <p class="meta">報告は利用者の投稿を審査のうえ集計したもので、事実認定ではありません。</p></div>`;
   }
-  // FAQ: visible Q&A generated from this number's facts, mirrored into
-  // FAQPage structured data below (the two must stay in sync).
-  const who = f.block.carrierName
-    ? `割当事業者は ${f.block.carrierName} です。`
-    : '割当事業者の詳細データは整備中です。';
+  // FAQ: public Q&A only (2026-11-09 audit + slimming). The previous set
+  // framed two of its three questions around this page's own number
+  // ("<番号> はどこからの電話ですか？" etc.), so every number page shipped
+  // near-duplicate FAQs. The set below is number-free — line-type and
+  // site-level questions — and the FAQPage structured data mirrors it
+  // verbatim (the two must stay in sync).
   const faq = [
-    {
-      q: `${formatted} はどこからの電話ですか？`,
-      a: `${formatted} は${f.lineTypeName}の番号です。${who}${f.prefecture ? `地域は${f.prefecture}です。` : ''}${f.portable ? '番号ポータビリティの対象のため、現在の契約事業者が割当事業者と異なる場合があります。' : ''}なお発信者番号は偽装されることもあるため、番号表示だけで相手を断定はできません。`,
-    },
-    {
-      q: `${formatted} に電話をかけると料金はかかりますか？`,
-      a:
-        f.lineType === 'free0120' || f.lineType === 'free0800'
-          ? `${formatted} は着信課金（フリーダイヤル）の番号で、発信者の通話料は無料です（着信側が負担します）。`
-          : f.lineType === 'navi0570'
-            ? 'ナビダイヤル（0570）は発信者負担の有料通話で、通話時間に応じた料金がかかります。'
-            : `${formatted} への通話は発信者に通話料がかかります（金額はご契約のプランによります）。`,
-    },
     {
       q: '知らない番号から着信がありました。どうすればいいですか？',
       a: 'すぐに折り返さず、まず番号の情報を確認してください。不在着信だけでは通話料は発生しません。金銭の振り込みや個人情報を求められた場合は応じず一度切り、消費生活の相談は消費者ホットライン「188」、事件性がある場合は警察相談専用電話「#9110」へご相談ください。',
     },
+    {
+      q: '表示された番号は本当に相手の番号ですか？',
+      a: '発信者番号は偽装されることがあるため、表示された番号がそのまま相手の番号とは限りません。公的機関や事業者を名乗る電話でも番号表示だけで信用せず、不審な場合は一度切って、公式サイトなどで確認した番号へかけ直してください。',
+    },
+    {
+      q: '番号の種類によって通話料の負担は変わりますか？',
+      a: '変わります。0120・0800（フリーダイヤル）は着信課金で、発信者の通話料は無料です。0570（ナビダイヤル）は発信者負担の有料通話です。その他の番号への通話は発信者に通話料がかかり、金額はご契約のプランによります。',
+    },
+    {
+      q: 'このサイトの番号情報はどこから来ていますか？',
+      a: '総務省の電気通信番号計画・番号指定状況などの公開資料に基づいています。「割当事業者」は指定時点の情報で、番号ポータビリティにより現在の契約事業者とは異なる場合があります。',
+    },
   ];
-  // Anonymous comments (owner rules: <=10 chars, no hostile language —
+  // 口コミ comments (owner rules: <=10 chars, no hostile language —
   // enforced server-side in lib/social.js). Loaded by script because the
   // page HTML itself is edge-cached.
-  sections += `<div class="card"><h2>匿名コメント</h2>
-<p class="meta">10文字以内・匿名で投稿できます。人を傷つける言葉は投稿できません。コメントは投稿者の感想であり、事実を示すものではありません。</p>
+  sections += `<div class="card" id="comments"><h2>口コミ</h2>
+<p class="meta">10文字以内。人を傷つける言葉は投稿できません。口コミは投稿者の感想であり、事実を示すものではありません。</p>
 <ul class="tight" id="cmtList"><li class="meta">読み込み中…</li></ul>
-<form id="cmtForm" autocomplete="off"><input type="text" id="cmtInput" maxlength="10" placeholder="10文字以内で感想を" aria-label="匿名コメント"> <button type="submit">投稿</button></form>
+<form id="cmtForm" autocomplete="off"><input type="text" id="cmtInput" maxlength="10" placeholder="10文字以内で感想を" aria-label="口コミ"> <button type="submit">投稿</button></form>
 <p class="meta" id="cmtMsg"></p></div>`;
   // Owner rule (2026-10-25): FAQ is the last section of the page.
   sections += `<div class="card"><h2>よくある質問</h2>${faq.map((x) => `<h3>${esc(x.q)}</h3><p>${esc(x.a)}</p>`).join('')}</div>`;
@@ -528,24 +549,10 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
   const dialHtml = DIAL_NUMBERS.has(f.digits)
     ? `<p class="dialrow"><a class="dialbtn" href="tel:${f.digits}">電話する（${esc(formatted)}）</a></p>`
     : '';
-  // Link integrity (2026-11-07): every number page walks back to the
-  // 区段索引, and to its own block page — but the block link renders only
-  // when the bucket manifest positively lists that block (facts.
-  // blockExists, resolved in index.js via lib/block_manifest.js); an
-  // ungenerated block (e.g. non-metro fixed) must never be linked. Home
-  // gets no extra link here: the layout header logo and the breadcrumb
-  // above both already lead there.
-  const blockKey = f.digits.slice(0, 7);
-  const blockNav = `<p class="meta">${f.blockExists ? `<a href="/tel/${blockKey}">この番号の区段ページ（${esc(blockKey)}）</a> ・ ` : ''}<a href="/tel/ranges">番号区段インデックス</a></p>`;
   const body = `
-<p class="crumbs">${crumbHtml}</p>
-${blockNav}
-<h1 class="sr-only">${esc(formatted)} の電話番号情報</h1>
-<div class="hero-num" role="group" aria-label="電話番号の各部分">${segHtml}</div>
+<h1>${esc(formatted)} の電話番号情報</h1>
 ${dialHtml}
-${f.tpFlags && f.tpFlags.length ? `<div class="flagbadges" role="group" aria-label="第三者機関による標識">${f.tpFlags.map((x) => `<span class="fbadge fb-${esc(x.source_tier || 'C')}">第三者標識 ${esc(x.source_tier || '')}級｜${esc(x.publisher)}（${esc(x.source_name)}）${x.label ? '：' + esc(x.label) : ''}</span>`).join('')}</div>` : ''}
-<div class="seg-explain" id="segExplain" data-seg="${hero.defaultSeg}" aria-live="polite"><h2 id="segTitle">${esc(hero.segments[hero.defaultSeg].title)}</h2><p id="segText">${esc(hero.segments[hero.defaultSeg].explain)}</p></div>
-<script>(function(){var SEGS=${heroJson};var btns=document.querySelectorAll('.segbtn');var t=document.getElementById('segTitle'),x=document.getElementById('segText'),c=document.getElementById('segExplain');function sel(i){for(var j=0;j<btns.length;j++){btns[j].classList.toggle('is-active',j===i);btns[j].setAttribute('aria-pressed',j===i?'true':'false');}t.textContent=SEGS[i].title;x.textContent=SEGS[i].explain;c.setAttribute('data-seg',String(i));}for(var k=0;k<btns.length;k++){(function(k){btns[k].addEventListener('click',function(){sel(k);});})(k);}})();</script>
+${f.tpFlags && f.tpFlags.length ? `<div class="flagbadges" role="group" aria-label="公的機関の公表情報">${f.tpFlags.map((x) => `<span class="fbadge fb-${esc(x.source_tier || 'C')}">公的機関の公表情報 ${esc(x.source_tier || '')}級｜${esc(x.publisher)}（${esc(x.source_name)}）${x.label ? '：' + esc(x.label) : ''}</span>`).join('')}</div>` : ''}
 <script>(function(){
   // This script sits BEFORE the facts table / comment form in the HTML,
   // so every getElementById below would return null if it ran during
@@ -558,7 +565,7 @@ ${f.tpFlags && f.tpFlags.length ? `<div class="flagbadges" role="group" aria-lab
   var list=document.getElementById('cmtList'),form=document.getElementById('cmtForm'),input=document.getElementById('cmtInput'),msg=document.getElementById('cmtMsg');
   function showComments(cs){
     list.innerHTML='';
-    if(!cs.length){var li0=document.createElement('li');li0.className='meta';li0.textContent='まだコメントはありません。';list.appendChild(li0);return;}
+    if(!cs.length){var li0=document.createElement('li');li0.className='meta';li0.textContent='まだ口コミはありません。';list.appendChild(li0);return;}
     cs.forEach(function(cm){var li=document.createElement('li');li.textContent=cm.body+' ';var s=document.createElement('span');s.className='meta';s.textContent='（'+String(cm.created_at).slice(0,10)+'）';li.appendChild(s);list.appendChild(li);});
   }
   fetch('/tel/comments.json?n='+D).then(function(r){return r.json();}).then(function(j){showComments(j.comments||[]);}).catch(function(){});
@@ -574,6 +581,7 @@ ${f.tpFlags && f.tpFlags.length ? `<div class="flagbadges" role="group" aria-lab
   }
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
 })();</script>
+<h2>基本情報</h2>
 <div class="card"><table>${rows.join('')}</table></div>
 ${sections}
 ${searchForm()}
@@ -592,8 +600,8 @@ ${searchForm()}
     freeDial ? '通話料無料' : '',
   ].filter(Boolean);
   const flagNote = f.tpFlags.length
-    ? `第三者機関の標識が${f.tpFlags.length}件登録されています。`
-    : '現時点で第三者機関の詐欺標識の登録はありません。';
+    ? `公的機関の公表情報が${f.tpFlags.length}件登録されています。`
+    : '現時点で公的機関の公表情報の登録はありません。';
   return layout({
     title: `${formatted} の電話番号情報｜${titleBits.join('・')}`,
     description: `${formatted}（数字のみ表記：${f.digits}）は${f.lineTypeName}の番号です。${carrier ? `総務省の指定データでは割当事業者は${carrier}です。` : ''}${freeDial ? '通話料は着信側が負担し、かける側は無料です。' : ''}${f.prefecture ? `地域は${f.prefecture}です。` : ''}${flagNote}知らない番号への対処法も掲載しています。`,
@@ -687,14 +695,14 @@ export function aboutPage(tpSources) {
 <div class="card"><h2>番号ページの作り方</h2>
 <p>電話番号は総務省が「区画」単位で事業者に指定します。本サイトは、番号計画・番号区画（市外局番／単位料金区域MA／番号区画コード）などの公開データをデータベース化し、アクセス時に組み合わせて番号ページを生成しています。個別の加入者の氏名・契約情報は一切保持しません。</p>
 <p>「割当事業者」は指定時点の情報です。番号ポータビリティ（MNP）により、現在の契約事業者とは異なる場合があります。事業者別の細かい指定区画は、総務省の指定資料を解析して順次投入します。</p></div>
-<div class="card"><h2>第三者標識について</h2>
-<p>詐欺等に関する標識は、本サイトが独自に判定するものではなく、下記の第三者機関の公表情報を出典付きで転載します。標識が無いことは安全を意味しません。</p>
+<div class="card"><h2>公的機関の公表情報について</h2>
+<p>詐欺等に関する公表情報は、本サイトが独自に判定するものではなく、下記の公的機関の公表情報を出典付きで転載します。公表情報が無いことは安全を意味しません。</p>
 <table>${rows}</table></div>
 <div class="card"><h2>収録方針</h2>
-<p>検索エンジンへの収録は段階的に行います。事業者情報・利用者報告・第三者標識など実データのある番号ページから収録し、区画情報のみのページは当面 noindex としています。未指定の番号帯にはページを作りません。</p></div>`;
+<p>検索エンジンへの収録は段階的に行います。事業者情報・利用者報告・公的機関の公表情報など実データのある番号ページから収録し、区画情報のみのページは当面 noindex としています。未指定の番号帯にはページを作りません。</p></div>`;
   return layout({
     title: 'データについて｜datumoj.com/tel',
-    description: 'datumoj.com/tel のデータ出典、番号ページの生成方法、第三者標識の転載方針について。',
+    description: 'datumoj.com/tel のデータ出典、番号ページの生成方法、公的機関の公表情報の転載方針について。',
     canonical: 'https://datumoj.com/tel/about',
     body,
   });
@@ -999,12 +1007,15 @@ export function groupPage(d) {
     `<tr><th>割当事業者</th><td>${d.carrierName ? esc(d.carrierName) : '事業者別の指定データは整備中です'}</td></tr>`,
     `<tr><th>区段ページ</th><td><a href="/tel/${esc(d.blockKey)}">この範囲の区段ページ（${esc(d.blockLabel)}）</a></td></tr>`,
   ];
+  // Three-form units, same shape as the block pages' signal units:
+  // hyphen form is the link; parenthesised + digits-only forms ride
+  // along as small text so every notation can be read / copied.
   const items = d.numbers
     .map(
       (n) =>
-        `<span><a href="/tel/${esc(n.digits)}"${n.landed ? ' class="on"' : ''}>${esc(n.formatted)}</a>${
+        `<span class="n"><a href="/tel/${esc(n.digits)}"${n.landed ? ' class="on"' : ''}>${esc(n.formatted)}</a>${
           n.flagged ? ' <span class="badge">公表情報あり</span>' : ''
-        }</span>`
+        }<small>${esc(n.paren)} ${esc(n.digits)}</small></span>`
     )
     .join('\n');
   const body = `
