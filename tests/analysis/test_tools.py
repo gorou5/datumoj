@@ -425,6 +425,33 @@ class TestGetChunk:
 
 
 class TestCite:
+    @pytest.mark.parametrize("description", [None, INJECTION])
+    def test_catalog_text_stays_inside_source_text(self, env, monkeypatch, description):
+        dataset = make_dataset(
+            "jp-open:catalog", "資料タイトル", description=description, tags=[INJECTION],
+            snapshot_sha256=env.notice.sha256, locator="entry=0",
+        )
+        monkeypatch.setattr(FakeParser, "parse", lambda *args: ParseResult(datasets=[dataset]))
+        res = env.tools.cite(env.notice.sha256, "entry=0")
+        (passage,) = res["data"]["passages"]
+        assert res["data"]["status"] == "ok" and passage["kind"] == "catalog_entry"
+        assert passage["text"]["content"] == "\n".join(
+            text for text in [dataset.title, description, *dataset.tags] if text is not None
+        )
+        assert passage["usage_notice"] is None
+        _assert_marked(res, INJECTION, dataset.title)
+
+    def test_chunk_takes_precedence_over_catalog_at_the_same_locator(self, env, monkeypatch):
+        parsed = FakeParser().parse(env.notice, env.raw.get(env.notice.sha256))
+        chunk = parsed.chunks[0]
+        dataset = make_dataset(
+            "jp-open:catalog", "資料タイトル", snapshot_sha256=env.notice.sha256, locator=chunk.locator,
+        )
+        parsed.datasets.append(dataset)
+        monkeypatch.setattr(FakeParser, "parse", lambda *args: parsed)
+        (passage,) = env.tools.cite(env.notice.sha256, chunk.locator)["data"]["passages"]
+        assert passage["kind"] == "chunk" and passage["text"]["content"] == chunk.text
+
     def test_chunk_is_relocated_from_raw(self, env):
         res = env.tools.cite(env.law.sha256, "section=3")
         data = res["data"]
