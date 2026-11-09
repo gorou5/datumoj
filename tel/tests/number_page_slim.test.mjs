@@ -68,7 +68,8 @@ notContains(flagHtml, '<th>電話番号</th>', 'old combined notation row gone')
 notContains(flagHtml, '<th>数字のみ表記</th>', 'old standalone digits row gone');
 notContains(flagHtml, '<h2>基本情報</h2>', 'visible 基本情報 heading removed (item 12)');
 ok(flagHtml.includes('<th>番号の種類</th>'), 'facts table itself still rendered');
-ok(flagHtml.includes('<th>番号区段</th><td><a href="/tel/0501807">0501807</a></td>'), '番号区段 row links the block');
+ok(flagHtml.includes('<tr><th>番号の種類</th><td><a href="/tel/0501807">IP電話（050）</a></td></tr>'), '番号の種類 value links the block page (first drill layer)');
+notContains(flagHtml, '<th>番号区段</th>', 'separate 番号区段 row removed as a duplicate link');
 ok(flagHtml.includes('<th>口コミ件数</th><td><a href="#comments">3 件</a></td>'), '口コミ件数 row anchors to #comments');
 ok(flagHtml.includes('<div class="card" id="comments"><h2>口コミ</h2>'), 'comment card renamed + anchored');
 ok(flagHtml.includes('placeholder="電話番号・口コミを検索"'), 'page searchbox hint names both numbers and口コミ');
@@ -126,6 +127,7 @@ const mobileFacts = {
 };
 const mobileHtml = numberPage(mobileFacts);
 notContains(mobileHtml, '<th>番号区段</th>', 'no block row when the block page does not exist');
+ok(mobileHtml.includes('<tr><th>番号の種類</th><td>携帯電話</td></tr>'), '番号の種類 stays plain when no block page exists');
 notContains(mobileHtml, '<th>市外局番</th>', 'no anatomy rows for mobile');
 notContains(mobileHtml, '<th>加入者番号</th>', 'no subscriber row for mobile');
 

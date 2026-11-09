@@ -362,10 +362,11 @@ export function numberPage(facts) {
   const formatted = formatNumber(f.digits, f);
   // Breadcrumb data feeds only the BreadcrumbList JSON-LD below. The
   // visible breadcrumb trail and the top back-link line were removed in
-  // the 2026-11-09 slimming (owner's compromise: the one visible up-link
-  // is the 番号区段 row in the facts table); the coloured segment boxes
-  // and the seg-explain card went with them — segment explanations live
-  // on the drill-down pages now, not on number pages.
+  // the 2026-11-09 slimming (owner's compromise: one visible up-link in
+  // the facts table — since 2026-11-10 it is the 番号の種類 value,
+  // linking to the number's block page); the coloured segment boxes
+  // and the seg-explain card went with them — segment explanations
+  // live on the drill-down pages now, not on number pages.
   const crumbs = [{ name: 'ホーム', url: 'https://datumoj.com/tel/' }, { name: f.lineTypeName, url: `https://datumoj.com/tel/type/${f.lineType}` }];
   if (f.areaCode) crumbs.push({ name: `市外局番 ${f.areaCode}`, url: `https://datumoj.com/tel/area/${f.areaCode}` });
   crumbs.push({ name: formatted, url: `https://datumoj.com/tel/${f.digits}` });
@@ -385,7 +386,16 @@ export function numberPage(facts) {
   rows.push(`<tr><th>数字のみ</th><td>${esc(f.digits)}</td></tr>`);
   rows.push(`<tr><th>調べられた回数</th><td><span id="viewCount">${typeof f.viewCount === 'number' ? esc(String(f.viewCount)) + ' 回' : '集計中…'}</span></td></tr>`);
   rows.push(`<tr><th>口コミ件数</th><td><a href="#comments">${typeof f.commentCount === 'number' ? f.commentCount : 0} 件</a></td></tr>`);
-  rows.push(`<tr><th>番号の種類</th><td>${esc(f.lineTypeName)}</td></tr>`);
+  // The page's one visible up-link: the 番号の種類 value links to the
+  // number's block page (the first drill-down layer), under the same
+  // provable-existence condition as before (facts.blockExists,
+  // resolved in index.js against the bucket manifest) — an ungenerated
+  // block must never be linked. The separate 番号区段 row that used to
+  // carry this link pointed at the very same page, so it was removed
+  // as a duplicate (owner ruling 2026-11-10); the block digits remain
+  // visible in the ハイフン notation row.
+  const blockKey = f.digits.slice(0, 7);
+  rows.push(`<tr><th>番号の種類</th><td>${f.blockExists ? `<a href="/tel/${blockKey}">${esc(f.lineTypeName)}</a>` : esc(f.lineTypeName)}</td></tr>`);
   // Fixed-line anatomy （市外局番/市内局番/加入者番号）: rendered only when
   // the official decomposition really applies — a known area code whose
   // anatomy splits into exactly the four official parts.
@@ -396,14 +406,6 @@ export function numberPage(facts) {
       rows.push(`<tr><th>市内局番</th><td>${esc(parts[2])}</td></tr>`);
       rows.push(`<tr><th>加入者番号</th><td>${esc(parts[3])}</td></tr>`);
     }
-  }
-  // The one visible up-link on the page (owner's compromise, 2026-11-09):
-  // the number's 番号区段 row, rendered only when the block page provably
-  // exists (facts.blockExists, resolved in index.js against the bucket
-  // manifest) — an ungenerated block must never be linked.
-  const blockKey = f.digits.slice(0, 7);
-  if (f.blockExists) {
-    rows.push(`<tr><th>番号区段</th><td><a href="/tel/${blockKey}">${esc(blockKey)}</a></td></tr>`);
   }
   if (f.prefecture) rows.push(`<tr><th>都道府県</th><td>${esc(f.prefecture)}</td></tr>`);
   if (f.mas && f.mas.length === 1) {
