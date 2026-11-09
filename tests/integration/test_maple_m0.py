@@ -125,7 +125,8 @@ def test_legacy_diagnose_and_replay(tmp_path, local_wiring):
     assert set(result["failed_snapshots"]) == {bad.snapshot_id}
     assert "CorruptedBlob" in result["failed_snapshots"][bad.snapshot_id]
     assert result["after"]["observation_tables"] == 2
-    assert result["current_differences"]["count"] == 4  # Added second resource, fixed two currents, removed bad.
+    # Added second resource and row-projection document, fixed two currents, removed bad.
+    assert result["current_differences"]["count"] == 5
     fixed = result["diagnosis"]
     assert fixed["current_mismatches"]["count"] == 0
     assert fixed["unresolved_document_resources"]["count"] == 0
