@@ -1,0 +1,120 @@
+--- a/src/datumoj/rikolto/core/schedule.py
++++ b/src/datumoj/rikolto/core/schedule.py
+@@ -421,9 +421,13 @@
+         now = self.now()
+         history, ledger_warnings = self._read_history()
+         locked_sources: dict[str, bool] = {}
+-        for spec in self.sources.values():
+-            with _locked(self._lock_path(spec.id), blocking=False) as lock:
+-                locked_sources[spec.id] = lock is None
++        # A successful status probe briefly owns the same exclusive lock as a
++        # run. Serialize probes with source-lock acquisition so an observer
++        # cannot make a new run incorrectly skip as already running.
++        with _locked(self.data_dir / "runs.lock"):
++            for spec in self.sources.values():
++                with _locked(self._lock_path(spec.id), blocking=False) as lock:
++                    locked_sources[spec.id] = lock is None
+         history = self._logical_history(history, locked_sources)
+         rows = []
+         for spec in self.sources.values():
+@@ -458,7 +462,10 @@
+             return {"source_id": source_id, "status": "skipped", "reason": reason}
+ 
+         with ExitStack() as stack:
+-            lock = stack.enter_context(_locked(self._lock_path(source_id), blocking=False))
++            # Only acquisition is guarded; never hold the ledger lock while
++            # executing a crawl, so status reads remain available during runs.
++            with _locked(self.data_dir / "runs.lock"):
++                lock = stack.enter_context(_locked(self._lock_path(source_id), blocking=False))
+             if lock is None:
+                 return skip("正在运行")
+             # 不要删除锁文件，否则等待者可能锁住不同文件。
+--- /dev/null
++++ b/tests/test_admin_lock_probe.py
+@@ -0,0 +1,86 @@
++"""Offline regression for an observer racing the admin's background run."""
++
++from __future__ import annotations
++
++import threading
++from contextlib import contextmanager
++from types import SimpleNamespace
++
++from starlette.testclient import TestClient
++
++from datumoj.rikolto.admin import create_app
++from datumoj.rikolto.core import schedule
++from datumoj.rikolto.testing.fakes import FakeManifest, FakeRawStore, FakeRegistry
++from datumoj.rikolto.testing.samples import T0, make_spec
++
++THREAD_WAIT = 10
++
++
++def test_admin_status_probe_cannot_discard_background_run(tmp_path, monkeypatch):
++    spec = make_spec("jp-one", schedule="hourly")
++    deps = SimpleNamespace(
++        registry=FakeRegistry([spec]), manifest=FakeManifest(), raw=FakeRawStore(tmp_path),
++    )
++    calls = []
++
++    def crawl(source):
++        calls.append(source.id)
++        return SimpleNamespace(new=1, unchanged=0, failures={}, stop_reason=None)
++
++    scheduler = schedule.Scheduler(tmp_path, [spec], crawl, now=lambda: T0)
++    schedule.set_enabled(tmp_path, True)
++    schedule.set_enabled(tmp_path, True, [spec.id])
++    worker_ready = threading.Event()
++    probe_held = threading.Event()
++    acquisition_attempted = threading.Event()
++    worker_done = threading.Event()
++    results = []
++    worker_threads = []
++    real_locked = schedule._locked
++    source_path = scheduler._lock_path(spec.id)
++
++    @contextmanager
++    def coordinated_lock(path, **kwargs):
++        is_worker = threading.current_thread().name == "datumoj-admin-jp-one"
++        # A guarded runner waits on the ledger lock before probing its source.
++        # Release the observer once that acquisition has been attempted; do not
++        # fake the result of any OS lock or alter its blocking mode.
++        if is_worker and path == tmp_path / "runs.lock":
++            acquisition_attempted.set()
++        with real_locked(path, **kwargs) as lock:
++            if is_worker and path == source_path:
++                # On the unguarded implementation this acquisition returns None
++                # while the status probe is still holding the real source lock.
++                acquisition_attempted.set()
++            if (
++                not is_worker and path == source_path and worker_ready.is_set()
++                and not probe_held.is_set() and lock is not None
++            ):
++                probe_held.set()
++                assert acquisition_attempted.wait(THREAD_WAIT)
++            yield lock
++
++    def run_now(source_id):
++        worker_threads.append(threading.current_thread())
++        worker_ready.set()
++        try:
++            assert probe_held.wait(THREAD_WAIT)
++            results.append(scheduler.run_now(source_id))
++        finally:
++            worker_done.set()
++
++    monkeypatch.setattr(schedule, "_locked", coordinated_lock)
++    app = create_app(tmp_path, deps, scheduler, token="test-token", run_now=run_now)
++    with TestClient(app) as client:
++        response = client.post("/", data={
++            "csrf": "test-token", "action": "run", "source_id": spec.id,
++        }, follow_redirects=False)
++    assert worker_done.wait(THREAD_WAIT)
++    for thread in worker_threads:
++        thread.join(THREAD_WAIT)
++        assert not thread.is_alive()
++    assert probe_held.is_set() and acquisition_attempted.is_set()
++    assert response.status_code == 303
++    assert calls == [spec.id], {"location": response.headers.get("location"), "results": results}
++    assert results[0]["status"] == "completed"
++    assert results[0]["new"] == 1

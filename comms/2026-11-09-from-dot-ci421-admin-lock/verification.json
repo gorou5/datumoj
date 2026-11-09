@@ -1,0 +1,101 @@
+{
+  "repository": "gorou5/datumoj",
+  "base_commit": "b9f7d0397501ba318bc3a06ec648199c1606e195",
+  "ci": {
+    "run": 42618472890,
+    "job": 129164192522,
+    "url": "https://github.com/gorou5/datumoj/actions/runs/42618472890/job/129164192522",
+    "attempt": 1,
+    "conclusion": "failure",
+    "failed_test": "tests/test_admin.py::test_run_now_respects_switches_and_runs_in_background",
+    "failure": "started.wait(10) returned false after HTTP303",
+    "passed": 5787,
+    "failed": 1,
+    "xfailed": 1,
+    "warning": 1
+  },
+  "patch": {
+    "file": "admin-lock-probe.patch",
+    "sha256": "d531077d7b2dfa716752e5325cd0fd835389adb7d3eb5f4571748917964181ce",
+    "paths": [
+      "src/datumoj/rikolto/core/schedule.py",
+      "tests/test_admin_lock_probe.py"
+    ],
+    "applies_to_exact_baseline": true,
+    "applied_files_equal_tested_candidate": true,
+    "original_admin_test_unchanged": true,
+    "timeout_changes": false,
+    "skip_or_xfail_added": false
+  },
+  "original_blob_hashes": {
+    "src/datumoj/rikolto/core/schedule.py": "fa66346ed56752a6508304c4a22c5619a3e14713",
+    "src/datumoj/rikolto/admin/web.py": "5f06dda2d56fb2dd74a393eaddb763dfc9e404a7",
+    "tests/test_admin.py": "10f8855fb517536c818ef6fb32dadf4894d707ef",
+    "uv.lock": "8e2b998216ca13daa83f8f59de51157c4783374d",
+    "pyproject.toml": "71732e247c06b8c6a948002f27541da0ee992ae9"
+  },
+  "environment": {
+    "python": "3.12.14",
+    "pytest": "9.1.1",
+    "starlette": "1.9.0",
+    "httpx": "0.28.1",
+    "anyio": "4.15.1",
+    "ruff": "0.17.1",
+    "dependencies": "locked versions; uv.lock and pyproject.toml match base"
+  },
+  "verification": {
+    "baseline_repetitions": {
+      "reproduced": 10,
+      "attempts": 10,
+      "outcome": "skipped-running; zero crawler calls; HTTP303 run-started"
+    },
+    "patched_repetitions": {
+      "passed": 100,
+      "attempts": 100
+    },
+    "independent_baseline_replay": {
+      "expected_failed": 1,
+      "duration_seconds": 0.3,
+      "outcome": "same skipped-running/zero-call/303 symptom"
+    },
+    "independent_candidate_suite": {
+      "passed": 82,
+      "failed": 0,
+      "warnings": 1,
+      "duration_seconds": 2.16,
+      "warning": "existing multiprocessing fork deprecation"
+    },
+    "suite_files": [
+      "tests/test_admin.py",
+      "tests/test_admin_alerts.py",
+      "tests/test_admin_eltiro.py",
+      "tests/test_admin_lock_probe.py",
+      "tests/test_cli_schedule.py",
+      "tests/core/test_schedule.py",
+      "tests/core/test_schedule_due.py",
+      "tests/core/test_schedule_enablement.py"
+    ],
+    "ruff": "available src/tests and standalone verification script passed",
+    "cross_process": {
+      "script": "cross_process_probe.py",
+      "result": "passed",
+      "observer_running": false,
+      "runner_status": "completed",
+      "crawler_calls": [
+        "jp-one"
+      ],
+      "native_windows_executed": false
+    }
+  },
+  "limitations": [
+    "Partial snapshot, not full repository regression",
+    "Hosted CI421 exact thread interleaving unobserved",
+    "Native Windows not run",
+    "Mixed old/new observer processes not validated",
+    "Generic skipped-result startup reporting and simultaneous-request deduplication unchanged"
+  ],
+  "production_access": false,
+  "upstream_writes": false,
+  "workflow_dispatch": false,
+  "merge_or_deploy": false
+}
