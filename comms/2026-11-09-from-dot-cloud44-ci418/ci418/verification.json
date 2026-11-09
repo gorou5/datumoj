@@ -1,0 +1,66 @@
+{
+  "repo": "gorou5/datumoj",
+  "pr": 141,
+  "base_snapshot": "d4fc39efc39c38b34c9d377799107251716eeebd",
+  "target_head": "40403c8caf78998a1f7ad934fbc1fb320012773f",
+  "ci_run": 42544910339,
+  "ci_job": 128927682485,
+  "source_snapshot": "partial; not a Git checkout",
+  "overlay_from_target_head": [
+    "src/datumoj/rikolto/analysis/tools.py",
+    "tests/analysis/test_tools.py",
+    "tests/regressions/test_audit_148.py"
+  ],
+  "patch_files": [
+    "tests/integration/test_maple_m1.py"
+  ],
+  "unchanged_assertions": 63,
+  "production_changes": false,
+  "upstream_writes": false,
+  "production_access": false,
+  "python": "3.12.14",
+  "frozen_clock_matrix": [
+    {
+      "revision": "unmodified target head",
+      "wall_time": "2026-11-09T01:30:00+00:00",
+      "result": "1 failed at original line 246; 2026-45 versus 2026-44"
+    },
+    {
+      "revision": "unmodified target head",
+      "wall_time": "2026-11-11T12:00:00+00:00",
+      "result": "1 passed"
+    },
+    {
+      "revision": "old cite implementation, otherwise same test",
+      "wall_time": "2026-11-09T01:30:00+00:00",
+      "result": "same 1 failure at original line 246"
+    },
+    {
+      "revision": "test-only clock patch",
+      "wall_time": "2026-11-09T01:30:00+00:00",
+      "result": "1 passed"
+    },
+    {
+      "revision": "test-only clock patch",
+      "wall_time": "2026-11-11T12:00:00+00:00",
+      "result": "1 passed"
+    }
+  ],
+  "ruff": "All checks passed",
+  "full_suite": "Attempted bare pytest -q on available partial snapshot; collection blocked by missing tests/fixtures/fedreg/document_2026-20122.json. Not the full 5789-test repository; no full-suite success claimed.",
+  "focused_suite": {
+    "files": [
+      "tests/test_pull_check.py",
+      "tests/test_workflows_pull_check.py",
+      "tests/analysis/test_tools.py",
+      "tests/integration/test_maple_m1.py"
+    ],
+    "passed": 80,
+    "failed": 0,
+    "duration_seconds": 14.42,
+    "independent_rerun": "80 passed in 12.03s; Ruff passed"
+  },
+  "patch_sha256": "29ff842d2432936b31a77045c2bf3d60e2e4b4bb65d301bff32de2832115831e",
+  "artifact_review": "Fresh upstream m1 Git blob c336824fe42d1275ad8202a771b3119815a8ebb5 verified; patch applies and equals tested file; all 63 assertions unchanged.",
+  "frozen_clock_independent_rerun": "Patched Monday 1 passed in 6.22s; patched Wednesday 1 passed in 5.98s."
+}

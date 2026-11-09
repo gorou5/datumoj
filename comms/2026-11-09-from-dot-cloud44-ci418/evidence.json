@@ -1,0 +1,200 @@
+{
+  "upstream_head": "ac478731f32269add632325793c80d31fc6ef759",
+  "run": {
+    "number": 44,
+    "id": 42544831150,
+    "job_id": 128927442920,
+    "url": "https://github.com/gorou5/datumoj/actions/runs/42544831150/job/128927442920"
+  },
+  "result": {
+    "status": "completed",
+    "exit_status": 0,
+    "generation": 41,
+    "sources": [
+      {
+        "source_id": "jp-jma",
+        "started_at": "2026-11-09T01:28:42.972626+00:00",
+        "ended_at": "2026-11-09T01:52:39.673798+00:00",
+        "state": "final",
+        "status": "completed",
+        "exit_status": 0,
+        "new": 500,
+        "unchanged": 0,
+        "parsed": 500,
+        "failures": {},
+        "stop_reason": "deadline",
+        "embedding_deferred": 0
+      },
+      {
+        "source_id": "jp-bodik",
+        "started_at": "2026-11-09T01:52:40.945953+00:00",
+        "ended_at": "2026-11-09T02:01:00.723511+00:00",
+        "state": "final",
+        "status": "degraded",
+        "exit_status": 0,
+        "new": 5,
+        "unchanged": 169,
+        "parsed": 174,
+        "failures": {
+          "crawl_failed": 1
+        },
+        "stop_reason": "deadline",
+        "embedding_deferred": 0
+      }
+    ],
+    "source_health": [
+      {
+        "source_id": "jp-jma",
+        "status": "deadline",
+        "phase": "crawl",
+        "categories": {},
+        "consecutive_failures": 0,
+        "first_failure_at": null
+      },
+      {
+        "source_id": "jp-bodik",
+        "status": "degraded",
+        "phase": "crawl",
+        "categories": {
+          "http_error": 1
+        },
+        "consecutive_failures": 0,
+        "first_failure_at": null
+      }
+    ],
+    "due": 6,
+    "new": 505,
+    "unchanged": 169,
+    "parsed": 674,
+    "failed_sources": [],
+    "reason": null,
+    "budget_exhausted": true,
+    "weekly_report_key": "reports/weekly/2026-45.md",
+    "reserve_minutes": 25,
+    "publish_timings": {
+      "prepare": 32.528986008000174,
+      "stage": 28.346962025000266,
+      "validate": 0.06732539799986625,
+      "upload_copies": 99.10827309899969,
+      "upload_raw": 0.022813624999798776,
+      "sample_provenance": 7.348845249000078,
+      "write_generation": 3.3664668810001785,
+      "publish": 2.1558095219997995,
+      "post_publish_inventory": 30.55137719100003,
+      "post_publish_sample_provenance": 7.676808828000048,
+      "post_publish_retain": 2.8315782700001364,
+      "post_publish": 41.0597881220001,
+      "cleanup": 0.4389958420001676,
+      "total": 214.44761725900025
+    },
+    "restore_timings": {
+      "downloaded_bytes": 2272093235,
+      "reused_bytes": 0,
+      "download_copies": 379.641637734,
+      "validate": 159.40556768699992,
+      "download_raw": 16.828220186999943,
+      "sample_provenance": 6.8963692120000815,
+      "cleanup": 6.624499997087696e-05,
+      "total": 569.325742066
+    },
+    "embedding_deferred": 0,
+    "backfill_embedded": 0,
+    "vector_pending": 17949,
+    "cleanup": {
+      "enabled": true,
+      "raw_enabled": true,
+      "generations_deleted": 0,
+      "copies_deleted": 0,
+      "copies_deleted_bytes": 0,
+      "raw_marked": 500,
+      "raw_deleted": 0,
+      "raw_deleted_bytes": 0,
+      "reclaimable_generations": 0,
+      "reclaimable_copies": 0,
+      "reclaimable_copies_bytes": 0,
+      "reclaimable_raw": 0,
+      "reclaimable_raw_bytes": 0,
+      "total_bytes": 6434688017,
+      "over_7gb": false,
+      "failures": 0,
+      "elapsed_s": 45.039,
+      "timed_out": false
+    }
+  },
+  "capacity": {
+    "namespace_bytes": 6434688017,
+    "previous_namespace_bytes": 6140503750,
+    "namespace_growth_bytes": 294184267,
+    "namespace_headroom_to_7GB_bytes": 565311983,
+    "account_total_bytes": null,
+    "account_total_note": "not independently measured; namespace must not be substituted for whole-account total",
+    "two_run_namespace_growth_bytes": 648370044
+  },
+  "interpretation": {
+    "jma_new_500_is_not_http_status": true,
+    "jma_crawl_deadline_seconds": 902.272,
+    "bodik_crawl_deadline_seconds": 378.686,
+    "bodik_http_status": null,
+    "bodik_http_200_versus_304_breakdown": null,
+    "unattempted_due_sources": 4,
+    "complete_due_source_id_list": null,
+    "cleanup_pause_confirmed": false,
+    "production_modified": false,
+    "raw_marked_is_not_raw_deleted": true
+  },
+  "ci418": {
+    "run_id": 42544910339,
+    "head": "40403c8caf78998a1f7ad934fbc1fb320012773f",
+    "failed_test": "tests/integration/test_maple_m1.py::test_two_cloud_generations_pull_mcp_and_operational_guards",
+    "failure": "previous-week key differs across UTC week boundary",
+    "reported_passed": 5787,
+    "reported_failed": 1,
+    "reported_xfailed": 1,
+    "reported_warnings": 1
+  },
+  "verification": {
+    "offline_only": true,
+    "locked_dependencies": true,
+    "python": "3.12.14",
+    "cloud_contract_tests": {
+      "passed": 14,
+      "deselected": 68,
+      "duration_seconds": 5.64,
+      "selection": "three_tiers or deadline_during_crawl or source_health or failure_streak or missing or degraded"
+    },
+    "bodik_controls": {
+      "passed": 6,
+      "deselected_desired_optimization_test": 1,
+      "duration_seconds": 1.47
+    },
+    "bodik_desired_optimization_test": {
+      "failed": 1,
+      "expected_current_behavior": "2 repeated parses; optimization not implemented",
+      "duration_seconds": 1.46
+    },
+    "bodik_upstream_identity_baseline": {
+      "passed": 30,
+      "duration_seconds": 1.44
+    },
+    "ci418_focused_tests": {
+      "passed": 80,
+      "duration_seconds": 12.03,
+      "ruff": "passed"
+    },
+    "ci418_details": "ci418/verification.json",
+    "full_repository_suite": "unverified; partial snapshot missing a FedReg fixture; no full-suite claim",
+    "production_http_status": "unknown; public logs only expose category",
+    "production_changes": false
+  },
+  "state_recheck": {
+    "upstream_main": "ac478731f32269add632325793c80d31fc6ef759",
+    "pr141_head": "40403c8caf78998a1f7ad934fbc1fb320012773f",
+    "latest_cloud_run": 44,
+    "latest_ci": 418,
+    "issue130": "open, 0 comments",
+    "issue131": "open, 0 comments",
+    "issue139": "open",
+    "latest_issue115_comment": "https://github.com/gorou5/datumoj/issues/115#issuecomment-6720954347",
+    "cleanup_pause": "not confirmed"
+  }
+}

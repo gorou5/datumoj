@@ -1,0 +1,13 @@
+--- a/tests/integration/test_maple_m1.py
++++ b/tests/integration/test_maple_m1.py
+@@ -105,7 +105,9 @@
+                 "DATUMOJ_LEASE_TOKEN", "DATUMOJ_LEASE_HOLDER"):
+         monkeypatch.delenv(key, raising=False)
+     monkeypatch.setenv("GITHUB_RUN_ID", "synthetic-m1")
+-    clock = [datetime.now(UTC) - timedelta(hours=2)]
++    # Both generations must share an ISO week to exercise immutable report reuse,
++    # regardless of whether CI runs near the Sunday/Monday boundary.
++    clock = [datetime(2026, 11, 4, 12, tzinfo=UTC)]
+ 
+     class FrozenDatetime(datetime):
+         @classmethod

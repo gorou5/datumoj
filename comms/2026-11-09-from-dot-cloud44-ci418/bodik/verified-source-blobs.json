@@ -1,0 +1,13 @@
+{
+  "ref": "ac478731f32269add632325793c80d31fc6ef759",
+  "blob_sha": {
+    "src/datumoj/rikolto/wiring.py": "6c95e7443bbfe8c5df2ca00171d3c64e298a18cf",
+    "src/datumoj/rikolto/crawlers/ckan.py": "5be9aa26f56a6b2f5a38ab60f3566ccd39b02601",
+    "src/datumoj/rikolto/pipeline.py": "5f3fdd45dc29cf52ee407a4b6dda6fa8b21049fb",
+    "src/datumoj/rikolto/cloud.py": "c7f033c78082b82b28c19760344774489874ccf0",
+    "src/datumoj/rikolto/core/models.py": "06ffd13a1abbbf63275da46f9b817a64ebcf68e1",
+    "src/datumoj/rikolto/core/runner.py": "b5b5dae9e9b32534767b2bd3bc4c24afd1fe12f8",
+    "sources/jp-bodik.yaml": "c593d559fe11e503720fb9e99fe6c7f72eef457c"
+  },
+  "all_local_blob_hashes_match": true
+}
