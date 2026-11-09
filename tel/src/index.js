@@ -11,6 +11,7 @@ import {
 } from './lib/compose.js';
 import {
   homePage, examplesPage, soudanPage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES, unavailablePage, popularPage, commentSearchPage,
+  termsPage, privacyPage, disclaimerPage, correctionPage,
   rangesPage, prefixPage, groupPage,
 } from './lib/render.js';
 import {
@@ -128,6 +129,10 @@ async function mainSitemapUrls(db) {
     'https://datumoj.com/tel/about',
     'https://datumoj.com/tel/history',
     'https://datumoj.com/tel/gov',
+    'https://datumoj.com/tel/terms',
+    'https://datumoj.com/tel/privacy',
+    'https://datumoj.com/tel/disclaimer',
+    'https://datumoj.com/tel/correction',
     ...popularUrls,
     ...types.map((t) => `https://datumoj.com/tel/type/${t.code}`),
     ...prefs.map((p) => `https://datumoj.com/tel/pref/${encodeURIComponent(p)}`),
@@ -407,6 +412,18 @@ export default {
       }
       if (path === '/about') {
         return html(aboutPage(await listTpSources(db)));
+      }
+      if (path === '/terms') {
+        return html(termsPage());
+      }
+      if (path === '/privacy') {
+        return html(privacyPage());
+      }
+      if (path === '/disclaimer') {
+        return html(disclaimerPage());
+      }
+      if (path === '/correction') {
+        return html(correctionPage());
       }
       if (path === '/history') {
         return html(historyPage());
