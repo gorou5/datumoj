@@ -1,0 +1,17 @@
+-- Snapshot version bump 8 -> 9 (2026-11-10).
+--
+-- Number-page tail batch:
+--   * the visible 「基本情報」 heading above the facts table is removed
+--     (the table itself is unchanged);
+--   * the number-page FAQ is removed entirely — visible Q&A section and
+--     the FAQPage JSON-LD both go; site-level questions live as a small
+--     FAQ on /tel/about instead;
+--   * the 公的相談窓口 block leaves the homepage for its own page
+--     (/tel/soudan, hotline cards + the MIC official video), and the
+--     homepage nav row gains a highlighted 公的相談窓口 pill.
+-- The shared stylesheet is inlined into every snapshot, so the version
+-- must move ahead again (same mechanism as 0010-0017).
+--
+-- Deploy note: apply after 0017 (the version is currently '8'); the
+-- net effect is '9'.
+UPDATE site_meta SET value = '9' WHERE key = 'snapshot_version';

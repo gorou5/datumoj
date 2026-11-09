@@ -10,7 +10,7 @@ import {
   listGovAgencies, listGovNumbers, govNumbersByAgency, findAreaCode, findBlock,
 } from './lib/compose.js';
 import {
-  homePage, examplesPage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES, unavailablePage, popularPage, commentSearchPage,
+  homePage, examplesPage, soudanPage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES, unavailablePage, popularPage, commentSearchPage,
   rangesPage, prefixPage, groupPage,
 } from './lib/render.js';
 import {
@@ -22,7 +22,7 @@ import {
 import { HOT_NUMBERS } from './data/hot_numbers.js';
 import { faviconPngBytes, appleTouchIconBytes } from './lib/favicon.js';
 import { flagFingerprint, getSnapshot, putSnapshot } from './lib/snapshot.js';
-import { getR2Object } from './lib/r2.js';
+import { getR2Object, getR2ObjectBytes } from './lib/r2.js';
 import { blockPageExists } from './lib/block_manifest.js';
 import { buildRangesData, buildPrefixData, buildGroupData, hundredGroupChildren } from './lib/drilldown.js';
 
@@ -385,6 +385,22 @@ export default {
         // the homepage; /random.json serves the same pool as JSON.
         const hero = (await drawRandomHero(db)) || pickFallbackHero();
         return html(examplesPage(hero), 200, 'public, max-age=0, s-maxage=300');
+      }
+      if (path === '/assets/sumally_map_full.png' || path === '/assets/sumally_map_full_sp.png') {
+        // Self-hosted static assets (R2 bucket `tel`, assets/ prefix).
+        // Whitelisted filenames only — this is not a general R2 proxy.
+        // Currently: the NPA SOS47 occurrence map copies (PDL1.0) served
+        // on /tel/soudan.
+        const obj = await getR2ObjectBytes(env, `assets/${path.slice('/assets/'.length)}`);
+        if (obj) {
+          return new Response(obj.body, {
+            headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=86400, s-maxage=2592000' },
+          });
+        }
+        return new Response('not found', { status: 404 });
+      }
+      if (path === '/soudan') {
+        return html(soudanPage());
       }
       if (path === '/about') {
         return html(aboutPage(await listTpSources(db)));

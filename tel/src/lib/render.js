@@ -84,6 +84,11 @@ a.segbtn{display:inline-block;text-decoration:none}
 .bigsearch input{flex:1;min-width:0;font-size:1.15rem;padding:.85rem 1.3rem;border:1px solid #cfc9ba;border-radius:999px;box-shadow:0 2px 12px rgba(70,60,30,.10);background:#fff;color:#1a1a1a}
 .bigsearch button{flex:none;display:inline-flex;align-items:center;justify-content:center;min-width:46px;min-height:46px;padding:.7rem .8rem;border-radius:999px;border:1px solid #5b84a6;background:#5b84a6;color:#fff;cursor:pointer}
 .home-links{margin-top:16px;font-size:.88rem;color:#8a94a0}
+.home-links .navpill{display:inline-block;background:#FDEBD7;border:1px solid #F97316;color:#9A3412;font-weight:700;border-radius:999px;padding:1px 10px;text-decoration:none}
+.soudan-num{font-size:1.55rem;font-weight:800;letter-spacing:.02em;color:#C2410C;text-decoration:none}
+.videowrap{position:relative;aspect-ratio:16/9;max-width:640px;margin:10px auto 4px}
+.videowrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:8px}
+.mapimg{width:100%;height:auto;display:block}
 /* Homepage lower boxes side by side: latest comments left, popular right.
    DOM order is comments-then-popular, and narrow screens stack in that
    same order (owner decision 2026-11-09: comments first on mobile too —
@@ -293,32 +298,7 @@ ${latestComments.map((c) => `<li><a href="/tel/${esc(c.number)}">${esc(c.formatt
 <button type="submit" aria-label="調べる" title="調べる">${ICON_SEARCH}</button>
 </form>
 ${lowerHtml}
-<section class="card" style="text-align:left" aria-label="公的相談窓口">
-<h2>公的相談窓口</h2>
-<p>迷惑電話や特殊詐欺で困ったときの、公的機関・団体の相談・通報窓口です。番号を押すと、そのまま電話をかけられます。</p>
-<ul class="tight">
-<li><b>特殊詐欺の情報提供：警察庁「匿名通報ダイヤル」</b><br>
-<a href="tel:0120924839"><b>0120-924-839</b></a>（通話料無料） <a href="/tel/0120924839">番号の詳細</a><br>
-特殊詐欺の被疑者や犯行拠点に関する情報をお持ちの方は、この窓口で情報提供できます（匿名で通報できます）。有力な情報には、警察庁の制度により最高で100万円の報奨金が支払われる場合があります。<br>
-<span class="meta">出典：<a href="https://www.npa.go.jp/bureau/safetylife/sos47/apps/" rel="noopener">警察庁 SOS47</a></span></li>
-<li><b>迷惑電話の相談：でんわんセンター（迷惑電話対策相談センター）</b><br>
-<a href="tel:0361621111"><b>03-6162-1111</b></a> <a href="/tel/0361621111">番号の詳細</a><br>
-総務省の無料相談窓口です。総務省の請負事業として、一般社団法人日本ユニファイド通信事業者協会（JUSA）が受託運営しています。受付時間は平日10時〜17時、相談は無料です（通話料は利用者負担）。<br>
-<span class="meta">出典：<a href="https://www.denwan.jp/" rel="noopener">でんわんセンター</a></span></li>
-<li><b>警察相談専用窓口：</b><a href="tel:%239110"><b>#9110</b></a><br>
-緊急の事件・事故（110番）ではない、警察への相談窓口です。<br>
-<span class="meta">出典：警察庁</span></li>
-<li><b>消費者ホットライン：</b><a href="tel:188"><b>188</b></a><br>
-消費生活に関する相談を、最寄りの消費生活センター等へつなぐ窓口です。<br>
-<span class="meta">出典：消費者庁</span></li>
-<li><b>未公開株通報専用窓口（日本証券業協会）</b><br>
-<a href="tel:0120344999"><b>0120-344-999</b></a> <a href="/tel/0120344999">番号の詳細</a><br>
-未公開株に関する通報を受け付ける、日本証券業協会の専用窓口です。<br>
-<span class="meta">出典：<a href="https://www.npa.go.jp/bureau/safetylife/sos47/apps/" rel="noopener">警察庁 SOS47</a>（日本証券業協会の窓口として掲載）</span></li>
-</ul>
-<p class="meta">当サイトは上記の機関・団体とは関係のない民間の電話番号データベースです。各窓口は、それぞれの運営主体が運営しています。</p>
-</section>
-<p class="home-links"><a href="/tel/popular">よく検索される電話番号</a> ・ <a href="/tel/ranges">番号区段インデックス</a> ・ <a href="/tel/gov">政府機関の番号</a> ・ <a href="/tel/history">日本の電話番号の歴史</a> ・ <a href="/tel/examples">日本の電話番号の例</a> ・ <a href="/tel/about">このサイトについて</a></p>
+<p class="home-links"><a class="navpill" href="/tel/soudan">公的相談窓口</a> ・ <a href="/tel/popular">よく検索される電話番号</a> ・ <a href="/tel/ranges">番号区段インデックス</a> ・ <a href="/tel/gov">政府機関の番号</a> ・ <a href="/tel/history">日本の電話番号の歴史</a> ・ <a href="/tel/examples">日本の電話番号の例</a> ・ <a href="/tel/about">このサイトについて</a></p>
 </div>`;
   return layout({
     title: '日本の電話番号データベース',
@@ -433,30 +413,6 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
     sections += `<div class="card"><h2>利用者からの報告</h2><p>この番号について ${f.reportCount} 件の報告が寄せられています。</p><ul class="tight">${items}</ul>
 <p class="meta">報告は利用者の投稿を審査のうえ集計したもので、事実認定ではありません。</p></div>`;
   }
-  // FAQ: public Q&A only (2026-11-09 audit + slimming). The previous set
-  // framed two of its three questions around this page's own number
-  // ("<番号> はどこからの電話ですか？" etc.), so every number page shipped
-  // near-duplicate FAQs. The set below is number-free — line-type and
-  // site-level questions — and the FAQPage structured data mirrors it
-  // verbatim (the two must stay in sync).
-  const faq = [
-    {
-      q: '知らない番号から着信がありました。どうすればいいですか？',
-      a: 'すぐに折り返さず、まず番号の情報を確認してください。不在着信だけでは通話料は発生しません。金銭の振り込みや個人情報を求められた場合は応じず一度切り、消費生活の相談は消費者ホットライン「188」、事件性がある場合は警察相談専用電話「#9110」へご相談ください。',
-    },
-    {
-      q: '表示された番号は本当に相手の番号ですか？',
-      a: '発信者番号は偽装されることがあるため、表示された番号がそのまま相手の番号とは限りません。公的機関や事業者を名乗る電話でも番号表示だけで信用せず、不審な場合は一度切って、公式サイトなどで確認した番号へかけ直してください。',
-    },
-    {
-      q: '番号の種類によって通話料の負担は変わりますか？',
-      a: '変わります。0120・0800（フリーダイヤル）は着信課金で、発信者の通話料は無料です。0570（ナビダイヤル）は発信者負担の有料通話です。その他の番号への通話は発信者に通話料がかかり、金額はご契約のプランによります。',
-    },
-    {
-      q: 'このサイトの番号情報はどこから来ていますか？',
-      a: '総務省の電気通信番号計画・番号指定状況などの公開資料に基づいています。「割当事業者」は指定時点の情報で、番号ポータビリティにより現在の契約事業者とは異なる場合があります。',
-    },
-  ];
   // 口コミ comments (owner rules: <=10 chars, no hostile language —
   // enforced server-side in lib/social.js). Loaded by script because the
   // page HTML itself is edge-cached.
@@ -465,9 +421,9 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
 <ul class="tight" id="cmtList"><li class="meta">読み込み中…</li></ul>
 <form id="cmtForm" autocomplete="off"><input type="text" id="cmtInput" maxlength="10" placeholder="10文字以内で感想を" aria-label="口コミ"> <button type="submit" aria-label="投稿する" title="投稿する">${ICON_SEND}</button></form>
 <p class="meta" id="cmtMsg"></p></div>`;
-  // Owner rule (2026-10-25): FAQ is the last section of the page.
-  sections += `<div class="card"><h2>よくある質問</h2>${faq.map((x) => `<h3>${esc(x.q)}</h3><p>${esc(x.a)}</p>`).join('')}</div>`;
-
+  // Number-page FAQ: removed entirely (owner verdict 2026-11-09) —
+  // visible Q&A and the FAQPage JSON-LD both go. Site-level questions
+  // live on /tel/about instead. Page structure ends at 口コミ.
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -480,14 +436,6 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
           '@type': 'BreadcrumbList',
           itemListElement: crumbs.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: c.url })),
         },
-      },
-      {
-        '@type': 'FAQPage',
-        mainEntity: faq.map((x) => ({
-          '@type': 'Question',
-          name: x.q,
-          acceptedAnswer: { '@type': 'Answer', text: x.a },
-        })),
       },
     ],
   };
@@ -526,7 +474,6 @@ ${f.tpFlags && f.tpFlags.length ? `<div class="flagbadges" role="group" aria-lab
   }
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
 })();</script>
-<h2>基本情報</h2>
 <div class="card"><table>${rows.join('')}</table></div>
 ${sections}
 ${searchForm()}
@@ -564,6 +511,68 @@ ${searchForm()}
 // segment's explanation, and the facts list — the full randomHero
 // payload, rendered. The homepage links here not at all; the single
 // inbound link lives on /tel/about.
+// /tel/soudan — 公的相談窓口. The consultation-hotline block that used
+// to sit on the homepage moved here (owner decision 2026-11-09) and got
+// its own page: /tel/gov is the government-agency number directory, a
+// different list. Copy is the homepage block's own text, unedited —
+// names, numbers, purposes and sources as published by each operator.
+// The embedded video is the 総務省動画チャンネル (MIC official) CM
+// 「【特殊詐欺】＋番号など知らない番号は一旦スルー！　黒電話篇」
+// (YouTube id XL86eC1TDZ4); embedding permission verified 2026-11-09
+// via the YouTube oEmbed endpoint (HTTP 200, author 総務省動画
+// チャンネル). Served from youtube-nocookie with lazy loading, in line
+// with the site's no-tracking stance.
+// The 発生状況 map is a self-hosted copy of the National Police
+// Agency SOS47 page's map (公共データ利用規約 PDL1.0; attribution
+// printed beside it), stored in R2 under assets/ and served by the
+// whitelisted /tel/assets route — no hotlinking to npa.go.jp. To
+// refresh it, re-download from the SOS47 page and re-upload both
+// sumally_map_full.png and sumally_map_full_sp.png.
+const SOUDAN_VIDEO_ID = 'XL86eC1TDZ4';
+const SOUDAN_VIDEO_TITLE = '【特殊詐欺】＋番号など知らない番号は一旦スルー！　黒電話篇';
+export function soudanPage() {
+  const body = `
+<p class="crumbs"><a href="/tel/">ホーム</a> › 公的相談窓口</p>
+<h1>公的相談窓口</h1>
+<p>迷惑電話や特殊詐欺で困ったときの、公的機関・団体の相談・通報窓口です。番号を押すと、そのまま電話をかけられます。</p>
+<div class="card"><h2>特殊詐欺の情報提供：警察庁「匿名通報ダイヤル」</h2>
+<p><a class="soudan-num" href="tel:0120924839">0120-924-839</a>（通話料無料） <a href="/tel/0120924839">番号の詳細</a></p>
+<p>特殊詐欺の被疑者や犯行拠点に関する情報をお持ちの方は、この窓口で情報提供できます（匿名で通報できます）。有力な情報には、警察庁の制度により最高で100万円の報奨金が支払われる場合があります。</p>
+<p class="meta">出典：<a href="https://www.npa.go.jp/bureau/safetylife/sos47/apps/" rel="noopener">警察庁 SOS47</a></p></div>
+<div class="card"><h2>迷惑電話の相談：でんわんセンター（迷惑電話対策相談センター）</h2>
+<p><a class="soudan-num" href="tel:0361621111">03-6162-1111</a> <a href="/tel/0361621111">番号の詳細</a></p>
+<p>総務省の無料相談窓口です。総務省の請負事業として、一般社団法人日本ユニファイド通信事業者協会（JUSA）が受託運営しています。受付時間は平日10時〜17時、相談は無料です（通話料は利用者負担）。</p>
+<p class="meta">出典：<a href="https://www.denwan.jp/" rel="noopener">でんわんセンター</a></p></div>
+<div class="card"><h2>警察相談専用窓口</h2>
+<p><a class="soudan-num" href="tel:%239110">#9110</a></p>
+<p>緊急の事件・事故（110番）ではない、警察への相談窓口です。</p>
+<p class="meta">出典：警察庁</p></div>
+<div class="card"><h2>消費者ホットライン</h2>
+<p><a class="soudan-num" href="tel:188">188</a></p>
+<p>消費生活に関する相談を、最寄りの消費生活センター等へつなぐ窓口です。</p>
+<p class="meta">出典：消費者庁</p></div>
+<div class="card"><h2>未公開株通報専用窓口（日本証券業協会）</h2>
+<p><a class="soudan-num" href="tel:0120344999">0120-344-999</a> <a href="/tel/0120344999">番号の詳細</a></p>
+<p>未公開株に関する通報を受け付ける、日本証券業協会の専用窓口です。</p>
+<p class="meta">出典：<a href="https://www.npa.go.jp/bureau/safetylife/sos47/apps/" rel="noopener">警察庁 SOS47</a>（日本証券業協会の窓口として掲載）</p></div>
+<div class="card"><h2>発生状況</h2>
+<p>SNS型投資・ロマンス詐欺を含む特殊詐欺（2025年1月～12月）：認知件数合計 43,000件、合計被害額 約3,257億4,258万7,000円。</p>
+<p>厳重注意地域（認知件数 上位5）：東京 5,879／大阪 4,830／愛知 3,505／神奈川 3,338／兵庫 3,238</p>
+<picture><source media="(max-width:640px)" srcset="/tel/assets/sumally_map_full_sp.png"><img class="mapimg" src="/tel/assets/sumally_map_full.png" alt="SNS型投資・ロマンス詐欺を含む特殊詐欺の都道府県別発生状況マップ（2025年1月～12月）" loading="lazy"></picture>
+<p class="meta">出典：警察庁「<a href="https://www.npa.go.jp/bureau/safetylife/sos47/" rel="noopener">SOS47 特殊詐欺対策ページ</a>」／期間：2025年1月～12月、公共データ利用規約（PDL1.0）に基づき掲載</p></div>
+<div class="card"><h2>総務省の啓発動画</h2>
+<p class="meta">総務省動画チャンネル「${SOUDAN_VIDEO_TITLE}」</p>
+<div class="videowrap"><iframe src="https://www.youtube-nocookie.com/embed/${SOUDAN_VIDEO_ID}" title="${SOUDAN_VIDEO_TITLE}" loading="lazy" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div></div>
+<p class="meta">当サイトは上記の機関・団体とは関係のない民間の電話番号データベースです。各窓口は、それぞれの運営主体が運営しています。</p>
+${searchForm()}`;
+  return layout({
+    title: '公的相談窓口｜datumoj.com/tel',
+    description: '迷惑電話・特殊詐欺で困ったときの公的機関・団体の相談・通報窓口（警察庁 匿名通報ダイヤル、でんわんセンター、#9110、消費者ホットライン188 ほか）。',
+    canonical: 'https://datumoj.com/tel/soudan',
+    body,
+  });
+}
+
 export function examplesPage(hero) {
   const segColors = ['seg-a', 'seg-b', 'seg-c', 'seg-d'];
   // Segments are drill-down links: each segment links to the page for
@@ -695,7 +704,16 @@ export function aboutPage(tpSources) {
 <p>詐欺等に関する公表情報は、本サイトが独自に判定するものではなく、下記の公的機関の公表情報を出典付きで転載します。公表情報が無いことは安全を意味しません。</p>
 <table>${rows}</table></div>
 <div class="card"><h2>収録方針</h2>
-<p>検索エンジンへの収録は段階的に行います。事業者情報・利用者報告・公的機関の公表情報など実データのある番号ページから収録し、区画情報のみのページは当面 noindex としています。未指定の番号帯にはページを作りません。</p></div>`;
+<p>検索エンジンへの収録は段階的に行います。事業者情報・利用者報告・公的機関の公表情報など実データのある番号ページから収録し、区画情報のみのページは当面 noindex としています。未指定の番号帯にはページを作りません。</p></div>
+<div class="card"><h2>よくある質問</h2>
+<h3>情報源は何ですか？</h3>
+<p>総務省の電気通信番号計画・番号指定状況など、公的機関が公表する資料に基づいています。公的機関の公表情報は、出典を明記して転載します。</p>
+<h3>番号の有害・安全を判定していますか？</h3>
+<p>判定していません。本サイトが掲載するのは、公的機関の公表情報と番号区画などの実データのみです。公表情報が無いことは、その番号が安全であることを意味しません。</p>
+<h3>掲載内容に間違いがある場合は？</h3>
+<p>掲載内容は出典の公表情報に基づいています。出典の公表内容が訂正・削除された場合は、本サイトの掲載もそれに合わせて更新します。個別の訂正・削除依頼を受け付ける連絡先は、現在のところ設けていません。</p>
+<h3>口コミはどのように扱われますか？</h3>
+<p>口コミは利用者が投稿する感想であり、本サイトの判定や事実を示すものではありません。10文字以内で投稿でき、人を傷つける言葉を含む投稿はできません。</p></div>`;
   return layout({
     title: 'データについて｜datumoj.com/tel',
     description: 'datumoj.com/tel のデータ出典、番号ページの生成方法、公的機関の公表情報の転載方針について。',
