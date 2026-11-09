@@ -10,7 +10,7 @@ import {
   listGovAgencies, listGovNumbers, govNumbersByAgency, findAreaCode, findBlock,
 } from './lib/compose.js';
 import {
-  homePage, examplesPage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES, unavailablePage, popularPage, commentSearchPage,
+  homePage, examplesPage, soudanPage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES, unavailablePage, popularPage, commentSearchPage,
   rangesPage, prefixPage, groupPage,
 } from './lib/render.js';
 import {
@@ -385,6 +385,9 @@ export default {
         // the homepage; /random.json serves the same pool as JSON.
         const hero = (await drawRandomHero(db)) || pickFallbackHero();
         return html(examplesPage(hero), 200, 'public, max-age=0, s-maxage=300');
+      }
+      if (path === '/soudan') {
+        return html(soudanPage());
       }
       if (path === '/about') {
         return html(aboutPage(await listTpSources(db)));

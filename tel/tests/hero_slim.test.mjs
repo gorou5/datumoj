@@ -4,7 +4,7 @@
 // Run: node tests/hero_slim.test.mjs
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { homePage, examplesPage, aboutPage, numberPage, randomHero, FALLBACK_HEROES } from '../src/lib/render.js';
+import { homePage, examplesPage, soudanPage, aboutPage, numberPage, randomHero, FALLBACK_HEROES } from '../src/lib/render.js';
 import { drawRandomRecord } from '../src/lib/record.js';
 
 let passed = 0;
@@ -22,6 +22,8 @@ ok(!home.includes('id="heroKicker"') && !home.includes('class="hero-seg"'), 'hom
 ok(!home.includes('shuffleBtn') && !home.includes('別の番号を表示'), 'no shuffle button');
 ok(!home.includes('<script'), 'no client script on the homepage');
 ok((home.match(/href="\/tel\/examples"/g) || []).length === 1, 'homepage nav row links to /tel/examples exactly once');
+ok(!home.includes('aria-label="公的相談窓口"') && !home.includes('でんわんセンター'), 'homepage no longer carries the consultation block (item 13a)');
+ok(home.includes('<a class="navpill" href="/tel/soudan">公的相談窓口</a>'), 'nav row has the highlighted 公的相談窓口 pill (item 13b)');
 ok(home.indexOf('日本の電話番号の歴史') < home.indexOf('日本の電話番号の例') && home.indexOf('日本の電話番号の例') < home.indexOf('このサイトについて'), 'examples entry sits inside the nav row');
 // bigsearch submit is the magnifier icon, not text
 ok(home.includes('<button type="submit" aria-label="調べる" title="調べる"><svg'), 'bigsearch icon button with aria-label/title');
@@ -58,6 +60,23 @@ ok(exFixed.includes('市内局番（かつての「分局」）'), 'fixed-line a
 // --- The /tel/examples entry lives in the homepage nav row, not on /tel/about --
 const about = aboutPage([]);
 ok(!about.includes('href="/tel/examples"'), 'about carries no /tel/examples link (entry is in the nav row)');
+// Site-level FAQ lives on /tel/about (number pages have none).
+ok(about.includes('<h2>よくある質問</h2>'), 'about carries the site FAQ');
+ok(about.includes('判定していません'), 'FAQ states the no-verdict policy');
+ok(about.includes('情報源は何ですか'), 'FAQ covers the source question');
+ok(about.includes('口コミはどのように扱われますか'), 'FAQ covers comment handling');
+ok(!about.includes('mailto:'), 'FAQ invents no contact address');
+
+// --- /tel/soudan: the moved consultation block, card layout + MIC video --------
+const soudan = soudanPage();
+for (const tel of ['tel:0120924839', 'tel:0361621111', 'tel:%239110', 'tel:188', 'tel:0120344999']) {
+  ok(soudan.includes(`href="${tel}"`), `soudan tel link: ${tel}`);
+}
+ok((soudan.match(/class="soudan-num"/g) || []).length === 5, 'five big-number hotline cards');
+ok(soudan.includes('https://www.youtube-nocookie.com/embed/XL86eC1TDZ4'), 'MIC video embedded via youtube-nocookie');
+ok(soudan.includes('loading="lazy"'), 'video iframe is lazy-loaded');
+ok(soudan.includes('title="【特殊詐欺】＋番号など知らない番号は一旦スルー！　黒電話篇"'), 'iframe carries the official video title');
+ok(!soudan.includes('www.youtube.com/embed'), 'no tracking-domain embed');
 
 // --- Number page: searchbox + comment submit icons ------------------------------
 const page = numberPage({

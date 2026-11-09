@@ -2,7 +2,9 @@
 // Pure-function coverage: numberPage / groupPage HTML for representative
 // fact shapes (flag number, fixed line, plain mobile), the terminology
 // unification （コメント->口コミ, 「匿名」 removal, 第三者標識->
-// 公的機関の公表情報）, the public FAQ, and the three-form group units.
+// 公的機関の公表情報）, and the three-form group units. The number-page
+// FAQ and the visible 基本情報 heading were removed later the same
+// night (owner verdicts); absence is asserted below.
 // Run: node tests/number_page_slim.test.mjs
 import assert from 'node:assert/strict';
 import { numberPage, groupPage } from '../src/lib/render.js';
@@ -54,26 +56,25 @@ notContains(flagHtml, '<button type="button" class="segbtn', 'no coloured segmen
 notContains(flagHtml, 'id="segExplain"', 'no seg-explain card');
 notContains(flagHtml, '番号ポータビリティ</th>', 'no portability filler row');
 notContains(flagHtml, '地域は特定できません', 'no no-information region row');
-ok(flagHtml.includes('<h2>基本情報</h2>'), '基本情報 heading present');
+notContains(flagHtml, '<h2>基本情報</h2>', 'visible 基本情報 heading removed (item 12)');
+ok(flagHtml.includes('<th>番号の種類</th>'), 'facts table itself still rendered');
 ok(flagHtml.includes('<th>番号区段</th><td><a href="/tel/0501807">0501807</a></td>'), '番号区段 row links the block');
 ok(flagHtml.includes('<th>口コミ件数</th><td><a href="#comments">3 件</a></td>'), '口コミ件数 row anchors to #comments');
 ok(flagHtml.includes('<div class="card" id="comments"><h2>口コミ</h2>'), 'comment card renamed + anchored');
 notContains(flagHtml, '匿名', 'no 匿名 anywhere on the number page');
 notContains(flagHtml, 'コメント', 'no コメント anywhere on the number page');
 ok(flagHtml.includes('まだ口コミはありません'), 'comment empty state renamed');
-// FAQ: public set — no question may embed the page's own number, and the
-// FAQPage JSON-LD must mirror the visible Q&A.
-const faqQuestions = [...flagHtml.matchAll(/<h3>([^<]+)<\/h3>/g)].map((m) => m[1]);
-ok(faqQuestions.length === 4, 'four public FAQ questions');
-for (const q of faqQuestions) ok(!q.includes('050-1807-1465') && !q.includes('05018071465'), `FAQ question is number-free: ${q}`);
+// FAQ: removed entirely (owner verdict 2026-11-09) — no visible Q&A
+// section and no FAQPage JSON-LD. BreadcrumbList stays.
+notContains(flagHtml, '<h2>よくある質問</h2>', 'no FAQ section on number pages');
+notContains(flagHtml, '知らない番号から着信がありました', 'no FAQ question text left');
 const ld = JSON.parse(flagHtml.match(/<script type="application\/ld\+json">(\{.*?\})<\/script>/s)[1]);
-const faqEntity = ld['@graph'].find((x) => x['@type'] === 'FAQPage');
-ok(faqEntity && faqEntity.mainEntity.length === 4, 'FAQPage JSON-LD has the same 4 questions');
-for (const e of faqEntity.mainEntity) ok(faqQuestions.includes(e.name), `JSON-LD mirrors visible question: ${e.name}`);
+ok(ld['@graph'].every((x) => x['@type'] !== 'FAQPage'), 'no FAQPage JSON-LD');
 const crumbsLd = ld['@graph'].find((x) => x['@type'] === 'WebPage').breadcrumb;
 ok(crumbsLd && crumbsLd.itemListElement.length >= 2, 'BreadcrumbList JSON-LD kept');
-// 口コミ section must come before the FAQ section.
-ok(flagHtml.indexOf('<h2>口コミ</h2>') < flagHtml.indexOf('<h2>よくある質問</h2>'), '口コミ before FAQ');
+// Page structure ends at 口コミ: it is the last h2 section on the page.
+const lastH2 = [...flagHtml.matchAll(/<h2>([^<]+)<\/h2>/g)].map((m) => m[1]).pop();
+ok(lastH2 === '口コミ', '口コミ is the final section');
 
 // --- Fixed line (03-3581-3251): anatomy rows + existing MA facts -----------
 const fixedFacts = {
