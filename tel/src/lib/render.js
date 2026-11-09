@@ -446,8 +446,7 @@ export function numberPage(facts) {
   // still shows as plain text.
   const blockKey = f.digits.slice(0, 7);
   rows.push(`<tr><th>番号の種類</th><td>${f.blockExists ? `<a href="/tel/${blockKey}">${esc(f.lineTypeName)}</a>` : esc(f.lineTypeName)}</td></tr>`);
-  const blockSplit = splitNumber(blockKey + '0000', f);
-  const blockStem = blockSplit.includes('-') ? blockSplit.split('-').slice(0, -1).join('-') : blockKey;
+  const blockStem = segParts.length > 1 ? segParts.slice(0, -1).join('-') : blockKey;
   rows.push(`<tr><th>区段</th><td>${f.blockExists ? `<a href="/tel/${blockKey}">${esc(blockStem)}</a>` : esc(blockStem)}</td></tr>`);
   // Fixed-line anatomy （市外局番/市内局番/加入者番号）: rendered only when
   // the official decomposition really applies — a known area code whose
