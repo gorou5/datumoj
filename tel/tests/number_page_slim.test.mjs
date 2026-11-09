@@ -60,16 +60,21 @@ notContains(flagHtml, '地域は特定できません', 'no no-information regio
 // Three notation rows, one form each (owner ruling 2026-11-10), in
 // the site's shared notation vocabulary (same trio as the prefix-page
 // 範囲 rows and the group-page units).
-ok(flagHtml.includes('<tr><th>ハイフン</th><td>050-1807-1465</td></tr>'), 'hyphen notation row, short label');
-ok(flagHtml.includes('<tr><th>かっこ</th><td>(050)1807-1465</td></tr>'), 'parenthesis notation row, short label');
-ok(flagHtml.includes('<tr><th>数字のみ</th><td>05018071465</td></tr>'), 'digits-only notation row, short label');
+ok(flagHtml.includes('<tr><th>ハイフン</th><td>050-1807-1465<button type="button" class="copybtn" data-copy="050-1807-1465" aria-label="コピー" title="コピー">'), 'hyphen row with its copy button');
+ok(flagHtml.includes('<tr><th>かっこ</th><td>(050)1807-1465<button type="button" class="copybtn" data-copy="(050)1807-1465"'), 'paren row copies the paren form');
+ok(flagHtml.includes('<tr><th>数字のみ</th><td>05018071465<button type="button" class="copybtn" data-copy="05018071465"'), 'digits row copies the digits');
+ok((flagHtml.match(/class="copybtn"/g) || []).length === 3, 'exactly three copy buttons');
+ok(flagHtml.includes('navigator.clipboard.writeText') && flagHtml.includes("execCommand('copy')"), 'copy handler: clipboard API + execCommand fallback');
+ok(flagHtml.includes("classList.add('ok')"), 'success feedback toggles the check icon');
+ok(/\.copybtn\{[^}]*min-width:44px/.test(flagHtml) && /\.copybtn\{[^}]*min-height:44px/.test(flagHtml), 'copy button hit area >= 44px');
 notContains(flagHtml, '電話番号（ハイフン表記）', 'long notation labels gone');
 notContains(flagHtml, '<th>電話番号</th>', 'old combined notation row gone');
 notContains(flagHtml, '<th>数字のみ表記</th>', 'old standalone digits row gone');
 notContains(flagHtml, '<h2>基本情報</h2>', 'visible 基本情報 heading removed (item 12)');
 ok(flagHtml.includes('<th>番号の種類</th>'), 'facts table itself still rendered');
 ok(flagHtml.includes('<tr><th>番号の種類</th><td><a href="/tel/0501807">IP電話（050）</a></td></tr>'), '番号の種類 value links the block page (first drill layer)');
-notContains(flagHtml, '<th>番号区段</th>', 'separate 番号区段 row removed as a duplicate link');
+notContains(flagHtml, '<th>番号区段</th>', 'old long-named block row stays gone');
+ok(flagHtml.includes('<tr><th>区段</th><td><a href="/tel/0501807">050-1807</a></td></tr>'), 'dedicated 区段 row restored: stem identifier linked to the block page');
 ok(flagHtml.includes('<th>口コミ件数</th><td><a href="#comments">3 件</a></td>'), '口コミ件数 row anchors to #comments');
 ok(flagHtml.includes('<div class="card" id="comments"><h2>口コミ</h2>'), 'comment card renamed + anchored');
 ok(flagHtml.includes('placeholder="電話番号・口コミを検索"'), 'page searchbox hint names both numbers and口コミ');
@@ -104,6 +109,7 @@ const fixedFacts = {
   gov: null, govList: [], business: null, reports: [], reportCount: 0, tpFlags: [], tier: 1,
 };
 const fixedHtml = numberPage(fixedFacts);
+ok(fixedHtml.includes('<tr><th>区段</th><td><a href="/tel/0335813">03-3581</a></td></tr>'), 'fixed: 区段 row stem follows the block page H1 form');
 ok(fixedHtml.includes('<th>市外局番</th><td>03</td>'), 'fixed: 市外局番 row');
 ok(fixedHtml.includes('<th>市内局番</th><td>3581</td>'), 'fixed: 市内局番 row');
 ok(fixedHtml.includes('<th>加入者番号</th><td>3251</td>'), 'fixed: 加入者番号 row');
@@ -113,7 +119,7 @@ ok(fixedHtml.includes('<h2>公的機関の公表情報</h2>'), 'empty flag secti
 ok(fixedHtml.includes('公的機関の公表情報は登録されていません'), 'empty flag text renamed');
 ok(fixedHtml.includes('<th>口コミ件数</th><td><a href="#comments">0 件</a></td>'), 'zero comment count renders');
 
-// --- Plain mobile, no block page: no 区段 row, no anatomy ------------------
+// --- Plain mobile, no block page: 区段 row present but unlinked, no anatomy --
 const mobileFacts = {
   digits: '09012345678',
   lineType: 'mobile',
@@ -126,7 +132,8 @@ const mobileFacts = {
   gov: null, govList: [], business: null, reports: [], reportCount: 0, tpFlags: [], tier: 2,
 };
 const mobileHtml = numberPage(mobileFacts);
-notContains(mobileHtml, '<th>番号区段</th>', 'no block row when the block page does not exist');
+notContains(mobileHtml, '<th>番号区段</th>', 'old long-named block row stays gone (mobile)');
+ok(mobileHtml.includes('<tr><th>区段</th><td>090-1234</td></tr>'), '区段 row always present; unlinked when the block page does not exist');
 ok(mobileHtml.includes('<tr><th>番号の種類</th><td>携帯電話</td></tr>'), '番号の種類 stays plain when no block page exists');
 notContains(mobileHtml, '<th>市外局番</th>', 'no anatomy rows for mobile');
 notContains(mobileHtml, '<th>加入者番号</th>', 'no subscriber row for mobile');
@@ -154,8 +161,11 @@ function groupFixture(count) {
 const hundred = groupPage(groupFixture(100));
 const units = hundred.match(/<span class="n">/g) || [];
 ok(units.length === 100, `hundred-group page has 100 units (got ${units.length})`);
-ok(hundred.includes('<span class="n"><a href="/tel/0120052000" class="on">0120-052-000</a><small>(0120)052-000 0120052000</small></span>'), 'unit shape: hyphen link + paren/digits small');
-ok(hundred.includes(' <span class="badge">公表情報あり</span><small>'), 'flag badge stays inside the unit');
+ok(hundred.includes('<span class="n"><a href="/tel/0120052000" class="on">0120-052-000</a><small class="p">(0120)052-000</small><small class="d">0120052000</small></span>'), 'unit shape: three lines (hyphen link / paren / digits)');
+ok(hundred.includes(' <span class="badge">公表情報あり</span><small class="p">'), 'flag badge stays inside the unit');
+const withExplain = groupPage({ ...groupFixture(10), explain: { title: '加入者番号（前半）', explain: 'x' } });
+notContains(withExplain, '<div class="seg-explain"', 'group pages no longer render the segment explanation card');
+notContains(withExplain, '加入者番号（前半）</h2>', 'explanation heading gone from group pages');
 const ten = groupPage({ ...groupFixture(10), prefix: '012005200', lo: '0120052000', hi: '0120052009' });
 ok((ten.match(/<span class="n">/g) || []).length === 10, 'ten-group page has 10 units');
 
