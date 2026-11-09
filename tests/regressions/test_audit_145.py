@@ -34,16 +34,17 @@ ROOT = Path(__file__).resolve().parents[2]
 BASELINE_COMMIT = "89e8763"
 # Measured through search_docs after MAPLE-145 merged at dfdfb65.
 MAPLE_145_MULTILINGUAL_HITS = (6, 6)
-# Measured through AnalysisTools.search_docs on 89e8763 (before MAPLE-144).
+# Measured with 89e8763's AnalysisTools.search_docs (before MAPLE-144)
+# on the corpus expanded by MAPLE-149's production catalog/row projections.
 # (questions hitting an expected doc/locator at k=10, positive questions).
 BASELINE_HITS = {
     "behavior.yaml": (12, 12),
-    "catalog.yaml": (0, 10),
+    "catalog.yaml": (10, 10),
     "changes.yaml": (0, 0),
     "gov_web.yaml": (11, 12),
     "law.yaml": (20, 20),
     "maple_multilingual.yaml": (6, 6),
-    "stats.yaml": (0, 10),
+    "stats.yaml": (9, 10),
     "tachibana_gaps.yaml": (6, 6),
 }
 

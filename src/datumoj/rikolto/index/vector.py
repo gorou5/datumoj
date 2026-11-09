@@ -18,6 +18,7 @@ import pyarrow as pa
 from datumoj.rikolto.core.contracts import Embedder, IndexResult, ModelMismatch, ScoredChunk
 from datumoj.rikolto.core.errors import safe_reason
 from datumoj.rikolto.core.models import Chunk
+from datumoj.rikolto.index.projections import is_projection
 
 _TABLE = "chunks"
 _META = "_meta.json"
@@ -186,7 +187,7 @@ class LanceVectorIndex:
         return found
 
     def add(self, chunks: Sequence[Chunk]) -> int:
-        todo = {c.chunk_id: c for c in chunks}  # 同一 chunk_id 重复时取最后一个
+        todo = {c.chunk_id: c for c in chunks if not is_projection(c)}  # 同一 chunk_id 重复时取最后一个
         existing = self._existing_hashes(list(todo))
         if self._pending_rows:
             # Resubmitting the stored version must cancel a queued change to that chunk.

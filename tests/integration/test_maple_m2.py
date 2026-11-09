@@ -259,7 +259,8 @@ def test_five_sources_share_pipeline_and_mcp(tmp_path, monkeypatch, offline):
 
         parsed = deps.parse_pending(deps.pipeline_deps)
         assert len(parsed.parsed) == 5 and not parsed.failed and not parsed.no_parser
-        assert deps.reindex(deps.pipeline_deps) == 27
+        # 27 body blocks + 3 catalog entries + 10 API / 5886 census / 1536 NDB rows.
+        assert deps.reindex(deps.pipeline_deps) == 7462
         assert {s for s in SOURCES if deps.manifest.snapshots_for(s)} == set(SOURCES)
         control = read_control(data_dir)
         assert control["enabled"] is False
@@ -282,7 +283,7 @@ def test_five_sources_share_pipeline_and_mcp(tmp_path, monkeypatch, offline):
         snapshots["jp-mhlw"] = _crawl(deps, specs["jp-mhlw"], path)
         parsed = deps.parse_pending(deps.pipeline_deps, "jp-mhlw")
         assert len(parsed.parsed) == 1 and not parsed.failed
-        assert deps.reindex(deps.pipeline_deps) == 27
+        assert deps.reindex(deps.pipeline_deps) == 7462
         reports["jp-mhlw"]["suppression_synthetic_sha256"] = snapshots["jp-mhlw"].sha256
     finally:
         _close(deps)

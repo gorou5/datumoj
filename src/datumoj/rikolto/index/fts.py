@@ -13,6 +13,7 @@ from pathlib import Path
 
 from datumoj.rikolto.core.contracts import IndexResult, ScoredChunk
 from datumoj.rikolto.core.models import Chunk
+from datumoj.rikolto.index.projections import is_projection
 from datumoj.rikolto.text import normalize
 
 _TITLE_WEIGHT = 5.0  # bm25 列权重：标题路径命中比正文命中更靠前
@@ -132,11 +133,16 @@ class SqliteKeywordIndex:
         self._db.close()
 
     def concept_weights(self, concepts: Sequence[Sequence[str]]) -> list[float]:
-        """实时块频率 IDF；每组同义词取命中块的并集，不重复计数。
+        """实时 IDF；正文逐块计数，投影按数据集计一次，避免行数淹没正文词频。
 
         这是 search_docs 的可选能力；原有 KeywordIndex 检索、排序与阈值不变。
         """
-        total = self._db.execute("SELECT count(*) FROM entries").fetchone()[0]
+        unit = ("CASE WHEN instr(chunk_id, doc_key || '#projection:') = 1 "
+                "THEN doc_key || '#projection:' ELSE chunk_id END")
+        return self._concept_weights(concepts, unit)
+
+    def _concept_weights(self, concepts: Sequence[Sequence[str]], unit: str) -> list[float]:
+        total = self._db.execute(f"SELECT count(DISTINCT {unit}) FROM entries").fetchone()[0]
         weights = []
         for aliases in concepts:
             terms = list(dict.fromkeys(normalize(alias).casefold() for alias in aliases if normalize(alias)))
@@ -153,7 +159,7 @@ class SqliteKeywordIndex:
                 selects.append(f"SELECT rowid FROM chunks_fts WHERE {conditions}")
                 params.extend(value for term in short for value in (_like_pattern(term),) * 2)
             frequency = self._db.execute(
-                "SELECT count(*) FROM (" + " UNION ".join(selects) + ")", params,
+                f"SELECT count(DISTINCT {unit}) FROM entries WHERE id IN (" + " UNION ".join(selects) + ")", params,
             ).fetchone()[0] if selects else 0
             # Smoothed IDF: ubiquitous concepts weigh 1, unseen ones weigh
             # 1 + log(N+1), the maximum. Smoothing also handles an empty index.
@@ -327,6 +333,22 @@ class SqliteKeywordIndex:
         }
         if not found:
             return IndexResult(warnings=warnings)
+
+        if any(is_projection(hit) for hit in found.values()):
+            # Numerous rows repeat survey/area labels. Use the existing IDF
+            # weighting and coverage threshold so these labels cannot outweigh
+            # an absent place or subject. Body-document scoring stays intact.
+            # Candidate precision still uses row frequency: repeated labels
+            # must not support an absent subject in structured records.
+            weights = dict(zip(terms, self._concept_weights([[term] for term in terms], "chunk_id"), strict=True))
+            total_weight = sum(weights.values())
+            found = {
+                chunk_id: hit for chunk_id, hit in found.items()
+                if not is_projection(hit) or sum(weights[term] for term in matches.get(chunk_id, ()))
+                >= self.min_keyword_coverage * total_weight
+            }
+            if not found:
+                return IndexResult(warnings=warnings)
 
         # Expose the same primary ranking in ScoredChunk.score so callers see
         # scores in result order; the original FTS/LIKE score breaks ties.

@@ -44,6 +44,7 @@ from datumoj.rikolto.core.models import (
     ChangeEvent,
     ChangeKind,
     Chunk,
+    Dataset,
     FailureKind,
     FetchOutcome,
     Observation,
@@ -53,6 +54,7 @@ from datumoj.rikolto.core.models import (
     classify_parse_failure,
     parse_context_fingerprint,
 )
+from datumoj.rikolto.index.projections import is_projection, project, projection_fingerprint, protects_current
 from datumoj.rikolto.index.vector import LanceVectorIndex
 
 _BATCH = 500
@@ -205,8 +207,10 @@ def _parse_pending(deps: PipelineDeps, source_id: str | None) -> ParseSummary:
             try:
                 reusable = (
                     previous is not None and previous.status is ParseStatus.ok and previous.doc_keys is not None
-                    and all(deps.manifest.last_writer(key, snap.sha256) == fingerprint
-                            and deps.chunks.get_document(key, snap.sha256) is not None for key in previous.doc_keys)
+                    and all((doc := deps.chunks.get_document(key, snap.sha256)) is not None
+                            and (doc.metadata.get("projection") == "keyword"
+                                 or deps.manifest.last_writer(key, snap.sha256) == fingerprint)
+                            for key in previous.doc_keys)
                 )
                 if reusable:
                     doc_keys, events = previous.doc_keys, {}
@@ -227,9 +231,21 @@ def _parse_pending(deps: PipelineDeps, source_id: str | None) -> ParseSummary:
                 if needs_publish:
                     deps.manifest.record_publish_state(snap.snapshot_id, PublishState.staged)
                 vector_errors = []
+                # Publish every document before indexing any of them. A keyword
+                # failure must not leave body and projected outputs at different watermarks.
+                published_keys = []
                 for key in doc_keys:
-                    vector_errors.extend(_publish_document(
-                        deps, key, snap, rewritten=not reusable, event=events.get(key),
+                    if _publish_current(deps, key, snap, rewritten=not reusable, event=events.get(key)):
+                        published_keys.append(key)
+                        if (deps.vectors is not None and _source_embeds(deps, snap.source_id)
+                                and not (reusable and key in pending_vectors)):
+                            _mark_vector_missing(
+                                deps, _load_vector_state(deps), key, deps.chunks.chunks_for(key, snap.sha256),
+                                "发布后待写入向量", snap.snapshot_id, count_failure=False,
+                            )
+                for key in published_keys:
+                    vector_errors.extend(_index_document(
+                        deps, key, snap,
                         vectors_retried=reusable and key in pending_vectors,
                     ))
                 if needs_publish:
@@ -414,13 +430,31 @@ def _recover_staged(
             record = None if cls is None else deps.manifest.get_parse(snap.sha256, cls.name, cls.version, fingerprint)
             if record is None or record.doc_keys is None:
                 raise ValueError(f"缺少恢复用解析记录：{snapshot_id}")
+            recovered = {}
+            projected = None
             for key in record.doc_keys:
                 current = deps.chunks.get_document(key)
                 if current is None or current.snapshot_sha256 != snap.sha256:
                     continue
-                chunks = deps.chunks.chunks_for(key)
+                if current.metadata.get("projection") == "keyword":
+                    # Structured-only outputs can be reconstructed without reading
+                    # a second copy of every serialized row from the block store.
+                    if projected is None:
+                        datasets, observations = _projection_inputs(deps, snap.source_id)
+                        projected = {doc.doc_key: chunks for doc, chunks in project(
+                            [d for d in datasets if d.snapshot_sha256 == snap.sha256],
+                            [o for o in observations if o.snapshot_sha256 == snap.sha256],
+                        )}
+                    chunks = projected.get(key, [])
+                    if projection_fingerprint(chunks) != current.metadata.get("projection_fingerprint"):
+                        chunks = deps.chunks.chunks_for(key)
+                else:
+                    chunks = deps.chunks.chunks_for(key)
                 deps.keyword.delete(key)
-                deps.keyword.add(chunks)
+                recovered[key] = chunks
+            if recovered:
+                deps.keyword.add([chunk for chunks in recovered.values() for chunk in chunks])
+            for key, chunks in recovered.items():
                 missing = _load_vector_state(deps)["missing"].get(key)
                 if (_embed_enabled(spec) and deps.vectors is not None and missing is not None
                         and missing.get("failures", 0) < VECTOR_FAILURE_LIMIT
@@ -562,24 +596,41 @@ def _dispatch(deps: PipelineDeps, result: ParseResult, snap: Snapshot) -> dict[s
         tables[(o.source_id, o.table_key)].append(o)
     for (src, table), obs in tables.items():
         _write_observation_table(deps, src, table, obs, snap)
+    # Add synthetic documents to the same staged/published recovery path.
+    documents = {doc.doc_key: doc for doc in result.documents}
+    for projected_doc, projected_chunks in project(result.datasets, result.observations):
+        key = projected_doc.doc_key
+        existing_doc = deps.chunks.get_document(key, projected_doc.snapshot_sha256)
+        if key not in documents:
+            doc = existing_doc or projected_doc
+            result.documents.append(doc)
+            documents[key] = doc
+            result.chunks.extend(deps.chunks.chunks_for(key, doc.snapshot_sha256))
+        ids = {chunk.chunk_id for chunk in result.chunks if chunk.doc_key == key}
+        result.chunks.extend(chunk for chunk in projected_chunks if chunk.chunk_id not in ids)
     by_doc = defaultdict(list)
     for c in result.chunks:
         by_doc[c.doc_key].append(c)
     for doc in result.documents:
         chunks = by_doc[doc.doc_key]
-        compare = deps.change_log is not None
+        compare = deps.change_log is not None and doc.metadata.get("projection") != "keyword"
         old_doc, old_text = None, ""
         if compare:
             try:
                 old_doc = deps.chunks.get_document(doc.doc_key)
-                old_text = "\n".join(c.text for c in deps.chunks.chunks_for(doc.doc_key))
+                old_text = "\n".join(c.text for c in deps.chunks.chunks_for(doc.doc_key) if not is_projection(c))
             except Exception as exc:  # noqa: BLE001 -- 旧文档读取失败时按 manifest 顺序保护已发布内容。
                 compare = False
                 _LOG.warning("读取旧文档供变化检测失败：%s（%s）", doc.doc_key, safe_reason(exc))
+        if doc.metadata.get("projection") == "keyword":
+            doc = doc.model_copy(update={"metadata": {
+                **doc.metadata, "projection_fingerprint": projection_fingerprint(chunks),
+            }})
         deps.chunks.put_document(doc, chunks, publish=False)
         if compare:
             try:
-                event = detect(old_doc, old_text, doc, "\n".join(c.text for c in chunks), detected_at=datetime.now(UTC))
+                text = "\n".join(c.text for c in chunks if not is_projection(c))
+                event = detect(old_doc, old_text, doc, text, detected_at=datetime.now(UTC))
                 if event is not None:
                     events[doc.doc_key] = ChangeEvent.make(
                         **event.model_dump(exclude={"event_id", "resource_url"}), resource_url=snap.resource_url,
@@ -637,10 +688,9 @@ def _write_observation_table(
     deps.observations.write_table(source_id, table_key, observations, order=order)
 
 
-def _publish_document(
+def _publish_current(
     deps: PipelineDeps, doc_key: str, snap: Snapshot, *, rewritten: bool = False, event: ChangeEvent | None = None,
-    vectors_retried: bool = False,
-) -> list[str]:
+) -> bool:
     order = deps.manifest.snapshot_order(snap.snapshot_id)
     if order is None:
         raise ValueError(f"没有快照顺序：{snap.snapshot_id}")
@@ -674,24 +724,29 @@ def _publish_document(
                     known_orders.append(candidate_order)
             if order < max(known_orders):
                 _LOG.warning("当前文档快照缺少 manifest 记录，为避免回退跳过发布：%s", doc_key)
-                return []
+                return False
+    candidate = deps.chunks.chunks_for(doc_key, snap.sha256)
+    if protects_current(deps.chunks.chunks_for(doc_key), candidate):
+        return False
     published = deps.chunks.publish_current(doc_key, snap.sha256, order)
     # 重写同一版本槽位后，即使水位相等也要修复索引；较旧快照不能覆盖较新的索引。
     if not published:
         current = deps.chunks.get_document(doc_key)
         if not (rewritten and current is not None and current.snapshot_sha256 == snap.sha256):
-            return []
+            return False
     if published and event is not None:
         try:
             deps.change_log.append([event])
         except Exception as exc:  # noqa: BLE001 -- 可选变化日志写入失败不能撤销发布。
             _LOG.warning("文档变化写入失败：%s（%s）", doc_key, safe_reason(exc))
+    return True
+
+
+def _index_document(
+    deps: PipelineDeps, doc_key: str, snap: Snapshot, *, vectors_retried: bool = False,
+) -> list[str]:
     chunks = deps.chunks.chunks_for(doc_key, snap.sha256)
     write_vectors = deps.vectors is not None and not vectors_retried and _source_embeds(deps, snap.source_id)
-    if write_vectors:
-        # 关键词中断或进程退出后，恢复扫描也能定位尚未写完的可选向量。
-        _mark_vector_missing(deps, _load_vector_state(deps), doc_key, chunks, "发布后待写入向量", snap.snapshot_id,
-                             count_failure=False)
     deps.keyword.delete(doc_key)
     deps.keyword.add(chunks)
     if write_vectors:
@@ -731,9 +786,58 @@ def _reconcile_catalog_content_state(deps: PipelineDeps, source_id: str | None) 
                 )
 
 
+def _projection_inputs(deps: PipelineDeps, source_id: str | None) -> tuple[list[Dataset], list[Observation]]:
+    filters = CatalogFilter(source_ids=[source_id]) if source_id is not None else None
+    datasets = [hit.dataset for hit in deps.catalog.search("", filters=filters, k=1_000_000)]
+    observations = []
+    for table in deps.observations.describe().tables:
+        if source_id is not None and table.source_id != source_id:
+            continue
+        source = table.source_id.replace("'", "''")
+        key = table.table_key.replace("'", "''")
+        observations.extend(deps.observations.query_readonly(
+            f"SELECT * FROM observations WHERE source_id = '{source}' AND table_key = '{key}'",
+            max_rows=max(1, table.rows),
+        ).provenance)
+    return datasets, observations
+
+
+def backfill_projections(deps: PipelineDeps, source_id: str | None = None) -> int:
+    """Restore projection blocks for reindex, without opening raw or invoking parsers."""
+    datasets, observations = _projection_inputs(deps, source_id)
+    count = 0
+    projections = project(datasets, observations)
+    # Rows select the current snapshot before metadata from another snapshot.
+    projections.sort(key=lambda item: all("#projection:entry:" in chunk.chunk_id for chunk in item[1]))
+    for doc, projected in projections:
+        snapshots = [snap for snap in deps.manifest.snapshots_by_sha256(doc.snapshot_sha256)
+                     if snap.source_id == doc.source_id and snap.outcome is FetchOutcome.ok]
+        if not snapshots:
+            raise ValueError(f"投影缺少来源快照：{doc.doc_key}")
+        snap = max(snapshots, key=lambda snap: deps.manifest.snapshot_order(snap.snapshot_id))
+        existing_doc = deps.chunks.get_document(doc.doc_key, doc.snapshot_sha256)
+        existing = deps.chunks.chunks_for(doc.doc_key, doc.snapshot_sha256)
+        merged = {chunk.chunk_id: chunk for chunk in existing}
+        merged.update((chunk.chunk_id, chunk) for chunk in projected)
+        combined = list(merged.values())
+        if combined != existing:
+            document = existing_doc or doc
+            if document.metadata.get("projection") == "keyword":
+                document = document.model_copy(update={"metadata": {
+                    **document.metadata, "projection_fingerprint": projection_fingerprint(combined),
+                }})
+            deps.chunks.put_document(document, combined, publish=False)
+            existing_ids = {chunk.chunk_id for chunk in existing}
+            count += sum(chunk.chunk_id not in existing_ids for chunk in projected)
+        _publish_current(deps, doc.doc_key, snap, rewritten=True)
+    return count
+
+
 def reindex(deps: PipelineDeps, source_id: str | None = None, *, vectors_only: bool = False) -> int:
     """从 ChunkStore 流式重建索引；vectors_only 只重试已记录的向量暂缺文档。"""
     _start_vectors(deps)
+    if not vectors_only:
+        backfill_projections(deps, source_id)
     _load_vector_state(deps)
     preserve_vectors = any(not _embed_enabled(spec) for spec in deps.registry.all())
     if deps.vectors is not None and deps.vector_limit is not None:
@@ -787,7 +891,7 @@ def reindex(deps: PipelineDeps, source_id: str | None = None, *, vectors_only: b
 
     try:
         if staged and (source_id is not None or vectors_only):
-            expected_count = sum(1 for _ in deps.chunks.iter_chunks())
+            expected_count = sum(1 for chunk in deps.chunks.iter_chunks() if not is_projection(chunk))
         if staged and vectors_only:
             for doc_key in selected:
                 deps.vectors.delete(doc_key)
@@ -806,7 +910,7 @@ def reindex(deps: PipelineDeps, source_id: str | None = None, *, vectors_only: b
         for batch in _chunk_batches(deps.chunks.iter_chunks(source_ids), _BATCH):
             processed += len(batch)
             if staged and source_id is None and not vectors_only:
-                expected_count += len(batch)
+                expected_count += sum(not is_projection(chunk) for chunk in batch)
             if not vectors_only:
                 for chunk in batch:
                     if source_id is not None and chunk.doc_key not in keyword_seen:
@@ -816,7 +920,7 @@ def reindex(deps: PipelineDeps, source_id: str | None = None, *, vectors_only: b
 
             if deps.vectors is None or vector_clear_failed:
                 continue
-            vector_batch = [chunk for chunk in batch if _source_embeds(deps, chunk.source_id)
+            vector_batch = [chunk for chunk in batch if not is_projection(chunk) and _source_embeds(deps, chunk.source_id)
                             and (not vectors_only or chunk.doc_key in selected)]
             if not vector_batch:
                 continue
@@ -937,11 +1041,12 @@ def _clear_vector_missing_many(deps: PipelineDeps, state: dict[str, object], doc
 
 
 def vector_status(deps: PipelineDeps) -> dict[str, object]:
-    """返回向量可用块数，或暂缺块数和最近错误。"""
+    """返回重试状态；blocks 沿用检索块总数，missing_blocks 只数可嵌入块。"""
     chunks = list(deps.chunks.iter_chunks())
     docs: dict[str, int] = defaultdict(int)
     for chunk in chunks:
-        docs[chunk.doc_key] += 1
+        if not is_projection(chunk):
+            docs[chunk.doc_key] += 1
     state = _load_vector_state(deps)
     missing = state["missing"]
     missing_count = sum(min(docs.get(key, 0), int(item.get("chunks", 0))) for key, item in missing.items())
@@ -1018,8 +1123,9 @@ def _mark_vector_missing(
     snapshot_id: str | None,
     *, chunk_ids: list[str] | None = None, count_failure: bool = True, reset_document: bool = False,
 ) -> None:
+    chunks = [chunk for chunk in chunks if not is_projection(chunk)]
     source_id = _vector_source_id(deps, chunks, snapshot_id)
-    if source_id is not None and not _source_embeds(deps, source_id):
+    if not chunks or (source_id is not None and not _source_embeds(deps, source_id)):
         return
     missing = state["missing"]
     previous = missing.get(doc_key, {})
@@ -1058,7 +1164,11 @@ def _clear_vector_missing(deps: PipelineDeps, state: dict[str, object], doc_key:
 def _write_vector_document(
     deps: PipelineDeps, doc_key: str, chunks: list, snapshot_id: str | None, *, reset: bool = True,
 ) -> str | None:
+    chunks = [chunk for chunk in chunks if not is_projection(chunk)]
     state = _load_vector_state(deps)
+    if not chunks:
+        _clear_vector_missing(deps, state, doc_key)
+        return None
     source_id = _vector_source_id(deps, chunks, snapshot_id)
     if source_id is not None and not _source_embeds(deps, source_id):
         return None
