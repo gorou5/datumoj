@@ -1,0 +1,13 @@
+-- Snapshot version bump 13 -> 14 (2026-11-10).
+--
+-- Legal footer batch: the shared layout footer gains a legal link row
+-- （利用規約／プライバシーポリシー／免責事項／訂正・削除について／
+-- 運営者情報） and four new static pages (/tel/terms, /tel/privacy,
+-- /tel/disclaimer, /tel/correction) plus an 運営者情報 card on
+-- /tel/about. The footer is part of every number page snapshot, so the
+-- version moves ahead again; the new static pages are plain SSR and
+-- need no backfill of their own.
+--
+-- Deploy note: apply after 0022 (the version is currently '13');
+-- the net effect is '14'.
+UPDATE site_meta SET value = '14' WHERE key = 'snapshot_version';

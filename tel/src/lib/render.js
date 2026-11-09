@@ -139,6 +139,7 @@ ${body}
 </main>
 <footer>
 <p>データ出典：総務省 電気通信番号計画・番号区画表ほか公開資料（詳細は<a href="/tel/about">データについて</a>）。割当事業者は番号の「指定」情報であり、番号ポータビリティにより現在の契約事業者とは異なる場合があります。本サイトは公的機関の公表情報を出典付きで転載するもので、独自に番号の有害性を判定しません。</p>
+<p><a href="/tel/terms">利用規約</a> ｜ <a href="/tel/privacy">プライバシーポリシー</a> ｜ <a href="/tel/disclaimer">免責事項</a> ｜ <a href="/tel/correction">訂正・削除について</a> ｜ <a href="/tel/about#unei">運営者情報</a></p>
 <p><a href="https://datumoj.com/">datumoj.com</a> のプロジェクトです。</p>
 </footer>
 </body>
@@ -750,11 +751,145 @@ export function aboutPage(tpSources) {
 <h3>掲載内容に間違いがある場合は？</h3>
 <p>掲載内容は出典の公表情報に基づいています。出典の公表内容が訂正・削除された場合は、本サイトの掲載もそれに合わせて更新します。個別の訂正・削除依頼を受け付ける連絡先は、現在のところ設けていません。</p>
 <h3>口コミはどのように扱われますか？</h3>
-<p>口コミは利用者が投稿する感想であり、本サイトの判定や事実を示すものではありません。10文字以内で投稿でき、人を傷つける言葉を含む投稿はできません。</p></div>`;
+<p>口コミは利用者が投稿する感想であり、本サイトの判定や事実を示すものではありません。10文字以内で投稿でき、人を傷つける言葉を含む投稿はできません。</p></div>
+<div class="card" id="unei"><h2>運営者情報</h2>
+<table>
+<tr><th>サイト名</th><td>日本の電話番号データベース</td></tr>
+<tr><th>URL</th><td>https://datumoj.com/tel/</td></tr>
+<tr><th>運営</th><td>datumoj.com</td></tr>
+<tr><th>運営内容</th><td>公的機関の公開データに基づく電話番号情報の提供と、利用者による口コミの掲載</td></tr>
+<tr><th>連絡先</th><td>個別のお問い合わせ・訂正・削除依頼を受け付ける窓口は、現在のところ設けていません（<a href="/tel/correction">訂正・削除について</a>）。</td></tr>
+</table></div>`;
   return layout({
     title: 'データについて｜datumoj.com/tel',
     description: 'datumoj.com/tel のデータ出典、番号ページの生成方法、公的機関の公表情報の転載方針について。',
     canonical: 'https://datumoj.com/tel/about',
+    body,
+  });
+}
+
+// --- Legal pages (footer row) -------------------------------------------------
+// Every statement below mirrors the site's actual operation, verified
+// against src/index.js / src/lib/social.js and /tel/about: comments are
+// 10 characters max with link / 4+-digit / hostile-word rejection and an
+// IP-hash rate limit (the raw IP is never stored); the site sets no
+// cookies; the only third-party embed is the 総務省 YouTube video on
+// /tel/soudan (youtube-nocookie); and — as /tel/about already states —
+// there is currently no contact window for individual correction /
+// deletion requests. If any of those facts change (e.g. the comment
+// length limit, or a contact window opening), these pages must change
+// in the same batch.
+
+export function termsPage() {
+  const body = `
+<h1>利用規約</h1>
+<div class="card"><h2>この規約について</h2>
+<p>この利用規約は、datumoj.com/tel「日本の電話番号データベース」（以下「本サイト」）の利用条件を定めるものです。本サイトを利用した方は、この規約に同意したものとみなします。</p>
+<p>本サイトは、総務省の電気通信番号計画など公的機関の公開データに基づく電話番号情報の提供と、利用者による口コミの投稿・閲覧を行うサービスです。</p></div>
+<div class="card"><h2>掲載情報の利用</h2>
+<p>掲載情報は、着信した番号を確認するための個人的な利用を想定しています。情報の正確性・最新性についての考え方は<a href="/tel/disclaimer">免責事項</a>をご覧ください。</p>
+<p>本サイトの内容を、法令で認められる範囲を超えて複製・転載することはできません。</p></div>
+<div class="card"><h2>口コミの投稿ルール</h2>
+<p>口コミは登録不要で投稿できます。投稿は10文字以内です。口コミは投稿した利用者個人の感想であり、本サイトの判定や事実を示すものではありません。</p>
+<p>次の内容を含む投稿はできません。該当する投稿は受け付けず、投稿後に該当することが分かった場合は、事前の通知なく表示を取りやめることがあります。</p>
+<ul class="tight">
+<li>リンク（URL）を含むもの</li>
+<li>4桁以上の数字の羅列を含むもの（電話番号など個人につながる情報の投稿防止のため）</li>
+<li>人を傷つける表現、脅迫的な表現を含むもの</li>
+<li>他者の権利を侵害するもの、法令・公序良俗に反するもの</li>
+</ul>
+<p>短時間に多数の投稿があった場合は、投稿を制限することがあります。投稿した口コミは、本サイトのページ上で表示するために必要な範囲で、本サイトが保存・表示します。</p></div>
+<div class="card"><h2>禁止行為</h2>
+<ul class="tight">
+<li>本サイトの運営を妨害する行為</li>
+<li>通常の利用を超える自動アクセスなど、サーバーに過度な負荷をかける行為</li>
+<li>不正アクセス、その他法令に違反する行為</li>
+</ul></div>
+<div class="card"><h2>サービスの変更・中断</h2>
+<p>本サイトは、予告なく内容を変更し、または提供を中断・終了することがあります。</p></div>
+<div class="card"><h2>規約の変更</h2>
+<p>この規約を変更した場合は、このページに掲載します。掲載後に本サイトを利用した場合は、変更後の規約に同意したものとみなします。</p>
+<p class="meta">制定：2026年11月10日</p></div>`;
+  return layout({
+    title: '利用規約｜datumoj.com/tel',
+    description: 'datumoj.com/tel の利用条件と、口コミの投稿ルールについて。',
+    canonical: 'https://datumoj.com/tel/terms',
+    body,
+  });
+}
+
+export function privacyPage() {
+  const body = `
+<h1>プライバシーポリシー</h1>
+<div class="card"><h2>基本的な考え方</h2>
+<p>datumoj.com/tel「日本の電話番号データベース」（以下「本サイト」）は、電話番号に関する情報を公的機関の公開データから生成して提供します。個別の加入者の氏名・住所・契約情報は保持しません。本サイトにおける情報の取り扱いは、以下のとおりです。</p></div>
+<div class="card"><h2>取得する情報と利用目的</h2>
+<h3>口コミの投稿時</h3>
+<p>投稿本文、対象の電話番号、投稿日時を保存します。あわせて、不正投稿の防止（短時間の大量投稿の制限）のために、IPアドレスにハッシュ処理を行った値を保存します。IPアドレスそのものは保存しません。</p>
+<h3>閲覧回数の集計</h3>
+<p>番号ページの閲覧回数を、電話番号ごとに集計して表示します。個人単位の閲覧履歴は記録しません。</p>
+<h3>アクセス情報</h3>
+<p>サイトの配信と利用状況の把握のために、配信基盤である Cloudflare においてアクセスログ等の集計情報が生成されます。本サイトはこれを、サイトの運営と改善の範囲で参照します。</p></div>
+<div class="card"><h2>Cookie について</h2>
+<p>本サイトのプログラムは、利用者の端末に Cookie を保存しません。広告配信や利用者追跡を目的とする Cookie も使用していません。</p></div>
+<div class="card"><h2>外部サービスへの送信</h2>
+<p>公的相談窓口のページでは、総務省の動画を YouTube の埋め込みプレーヤー（youtube-nocookie）で表示しています。動画を再生すると、Google へアクセス情報が送信される場合があります。送信される情報の取り扱いは Google のプライバシーポリシーに従います。</p>
+<p>本サイトからリンクしている外部サイトにおける情報の取り扱いについては、各サイトの定めをご確認ください。</p></div>
+<div class="card"><h2>第三者への提供</h2>
+<p>保存した情報を、法令に基づく場合を除いて、第三者に提供することはありません。</p></div>
+<div class="card"><h2>ポリシーの変更</h2>
+<p>このポリシーを変更した場合は、このページに掲載します。</p>
+<p class="meta">制定：2026年11月10日</p></div>`;
+  return layout({
+    title: 'プライバシーポリシー｜datumoj.com/tel',
+    description: 'datumoj.com/tel における情報の取り扱い（口コミ投稿時の保存内容、Cookie、外部送信）について。',
+    canonical: 'https://datumoj.com/tel/privacy',
+    body,
+  });
+}
+
+export function disclaimerPage() {
+  const body = `
+<h1>免責事項</h1>
+<div class="card"><h2>掲載情報について</h2>
+<p>本サイトは、掲載情報の正確性・完全性・最新性を保証しません。</p>
+<ul class="tight">
+<li>公的機関の公表情報は、出典を明記して転載するものです。内容の最新性は、出典である公的機関の公表状況に依存します。</li>
+<li>「割当事業者」は番号の指定時点の情報です。番号ポータビリティにより、現在の契約事業者とは異なる場合があります。</li>
+<li>本サイトは、番号の有害性を独自に判定しません。公的機関の公表情報が無いことは、その番号が安全であることを意味しません。</li>
+<li>発信者番号の偽装（スプーフィング）により、着信時に表示された番号と実際の発信者が異なる場合があります。掲載情報のみをもって、特定の発信者・事業者を断定しないでください。</li>
+</ul></div>
+<div class="card"><h2>口コミについて</h2>
+<p>口コミは投稿した利用者個人の見解・感想であり、その内容の正確性を本サイトが保証するものではありません。口コミに関する責任は、投稿した利用者に帰属します。</p></div>
+<div class="card"><h2>損害について</h2>
+<p>本サイトの利用、または掲載情報に依拠したことによって生じた損害について、本サイトに故意または重過失がある場合を除き、責任を負いません。情報の利用は、利用者ご自身の判断と責任において行ってください。</p></div>
+<div class="card"><h2>外部リンクについて</h2>
+<p>本サイトからリンクしている外部サイトの内容および情報の取り扱いについては、責任を負いません。</p></div>
+<div class="card"><h2>内容の変更・削除</h2>
+<p>掲載内容は、予告なく変更・削除することがあります。</p>
+<p class="meta">制定：2026年11月10日</p></div>`;
+  return layout({
+    title: '免責事項｜datumoj.com/tel',
+    description: 'datumoj.com/tel の掲載情報の正確性、口コミ、損害等に関する免責事項。',
+    canonical: 'https://datumoj.com/tel/disclaimer',
+    body,
+  });
+}
+
+export function correctionPage() {
+  const body = `
+<h1>掲載情報の訂正・削除について</h1>
+<div class="card"><h2>番号情報・公表情報の訂正</h2>
+<p>本サイトの番号情報と公的機関の公表情報は、出典である公的機関の公表内容に基づいて掲載しています。出典の公表内容が訂正・削除・取り消しされた場合は、本サイトも確認のうえ、それに合わせて掲載を更新します。</p>
+<p>出典の一覧は<a href="/tel/about">データについて</a>に掲載しています。各番号ページの公表情報には、出典を明記しています。</p></div>
+<div class="card"><h2>口コミの表示取りやめ</h2>
+<p>口コミが<a href="/tel/terms">利用規約</a>の投稿ルールに反することが分かった場合は、表示を取りやめることがあります。</p></div>
+<div class="card"><h2>個別の依頼について</h2>
+<p>個別の訂正・削除依頼を受け付ける連絡先は、現在のところ設けていません。掲載内容は、上記のとおり出典の公表内容に連動して更新されます。窓口を設けた場合は、このページでお知らせします。</p></div>`;
+  return layout({
+    title: '掲載情報の訂正・削除について｜datumoj.com/tel',
+    description: 'datumoj.com/tel の掲載情報が訂正・削除される仕組みと、個別の依頼についての現状。',
+    canonical: 'https://datumoj.com/tel/correction',
     body,
   });
 }
