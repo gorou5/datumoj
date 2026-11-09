@@ -71,10 +71,9 @@ notContains(flagHtml, '電話番号（ハイフン表記）', 'long notation lab
 notContains(flagHtml, '<th>電話番号</th>', 'old combined notation row gone');
 notContains(flagHtml, '<th>数字のみ表記</th>', 'old standalone digits row gone');
 notContains(flagHtml, '<h2>基本情報</h2>', 'visible 基本情報 heading removed (item 12)');
-ok(flagHtml.includes('<th>番号の種類</th>'), 'facts table itself still rendered');
-ok(flagHtml.includes('<tr><th>番号の種類</th><td><a href="/tel/0501807">IP電話（050）</a></td></tr>'), '番号の種類 value links the block page (first drill layer)');
-notContains(flagHtml, '<th>番号区段</th>', 'old long-named block row stays gone');
-ok(flagHtml.includes('<tr><th>区段</th><td><a href="/tel/0501807">050-1807</a></td></tr>'), 'dedicated 区段 row restored: stem identifier linked to the block page');
+ok(flagHtml.includes('<tr><th>番号帯</th><td><a href="/tel/050">IP電話（050）</a></td></tr>'), 'layer 1 row: 番号帯 name links the band prefix page');
+ok(flagHtml.includes('<tr><th>番号区段</th><td><a href="/tel/0501807">050-1807</a></td></tr>'), 'layer 2 row: 番号区段 stem linked to the block page');
+notContains(flagHtml, '<th>番号の種類</th>', 'old layer-1 label retired site-wide');
 ok(flagHtml.includes('<th>口コミ件数</th><td><a href="#comments">3 件</a></td>'), '口コミ件数 row anchors to #comments');
 ok(flagHtml.includes('<div class="card" id="comments"><h2>口コミ</h2>'), 'comment card renamed + anchored');
 ok(flagHtml.includes('placeholder="電話番号・口コミを検索"'), 'page searchbox hint names both numbers and口コミ');
@@ -109,7 +108,8 @@ const fixedFacts = {
   gov: null, govList: [], business: null, reports: [], reportCount: 0, tpFlags: [], tier: 1,
 };
 const fixedHtml = numberPage(fixedFacts);
-ok(fixedHtml.includes('<tr><th>区段</th><td><a href="/tel/0335813">03-3581</a></td></tr>'), 'fixed: 区段 row stem follows the block page H1 form');
+ok(fixedHtml.includes('<tr><th>番号帯</th><td><a href="/tel/03">固定電話（0AB-J）</a></td></tr>'), 'fixed: layer 1 links the area-code band page');
+ok(fixedHtml.includes('<tr><th>番号区段</th><td><a href="/tel/0335813">03-3581</a></td></tr>'), 'fixed: 番号区段 stem follows the block page H1 form');
 ok(fixedHtml.includes('<th>市外局番</th><td>03</td>'), 'fixed: 市外局番 row');
 ok(fixedHtml.includes('<th>市内局番</th><td>3581</td>'), 'fixed: 市内局番 row');
 ok(fixedHtml.includes('<th>加入者番号</th><td>3251</td>'), 'fixed: 加入者番号 row');
@@ -132,9 +132,8 @@ const mobileFacts = {
   gov: null, govList: [], business: null, reports: [], reportCount: 0, tpFlags: [], tier: 2,
 };
 const mobileHtml = numberPage(mobileFacts);
-notContains(mobileHtml, '<th>番号区段</th>', 'old long-named block row stays gone (mobile)');
-ok(mobileHtml.includes('<tr><th>区段</th><td>090-1234</td></tr>'), '区段 row always present; unlinked when the block page does not exist');
-ok(mobileHtml.includes('<tr><th>番号の種類</th><td>携帯電話</td></tr>'), '番号の種類 stays plain when no block page exists');
+ok(mobileHtml.includes('<tr><th>番号区段</th><td>090-1234</td></tr>'), '番号区段 row always present; unlinked when the block page does not exist');
+ok(mobileHtml.includes('<tr><th>番号帯</th><td><a href="/tel/090">携帯電話</a></td></tr>'), '番号帯 links the band page regardless of block existence');
 notContains(mobileHtml, '<th>市外局番</th>', 'no anatomy rows for mobile');
 notContains(mobileHtml, '<th>加入者番号</th>', 'no subscriber row for mobile');
 
