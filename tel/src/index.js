@@ -376,7 +376,7 @@ export default {
           getPopularNumbers(db),
           getLatestComments(db),
         ]);
-        return html(homePage(hero || pickFallbackHero(), FALLBACK_HEROES, popular, latestComments), 200, 'public, max-age=0, s-maxage=300');
+        return html(homePage(hero || pickFallbackHero(), popular, latestComments), 200, 'public, max-age=0, s-maxage=300');
       }
       if (path === '/about') {
         return html(aboutPage(await listTpSources(db)));

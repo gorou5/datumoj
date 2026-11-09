@@ -1,0 +1,22 @@
+-- Snapshot version bump 7 -> 8 (2026-11-09).
+--
+-- Hero slimming + icon buttons batch:
+--   * homepage hero: the shuffle button （別の番号を表示）, its rotation
+--     script and the per-number detail link are removed — one server-
+--     drawn example per load, segment drill-down links kept;
+--   * hero example pool: fixed-line (0AB-J) examples excluded, both in
+--     the live record draw (lib/record.js) and the offline fallback set;
+--   * every action button is now an inline-SVG icon (search magnifier,
+--     comment send) with the original word kept as aria-label/title;
+--     the .bigsearch/.searchbox buttons are flex:none with >=44px hit
+--     areas and the inputs get min-width:0, so nothing wraps or is
+--     squeezed out on narrow screens;
+--   * mobile homepage: the lower boxes stack in DOM order — 最新の
+--     口コミ before よく調べられている番号 (desktop two-column layout
+--     unchanged).
+-- The shared stylesheet is inlined into every snapshot, so the version
+-- must move ahead again (same mechanism as 0010-0016).
+--
+-- Deploy note: apply after 0016 (the version is currently '7'); the
+-- net effect is '8'.
+UPDATE site_meta SET value = '8' WHERE key = 'snapshot_version';
