@@ -44,6 +44,8 @@ th{width:11rem;color:#555;font-weight:600}
 .searchbox input{flex:1;font-size:1.1rem;padding:.6rem;border:1px solid #bbb;border-radius:8px}
 .searchbox button{font-size:1.05rem;padding:.6rem 1.1rem;border-radius:8px;border:1px solid #0b57d0;background:#0b57d0;color:#fff;cursor:pointer}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.4rem .8rem}
+.grid a.on{font-weight:700}
+a.segbtn{display:inline-block;text-decoration:none}
 .hero-kicker{color:#71808d;font-size:.95rem;margin:0 0 .5rem}
 .hero-num{display:flex;align-items:stretch;justify-content:center;gap:.35rem;flex-wrap:wrap}
 .hero-seg{display:flex;gap:inherit}
@@ -282,13 +284,21 @@ export const FALLBACK_HEROES = FALLBACK_FACTS.map((f) => randomHero(f));
 
 export function homePage(hero, fallbacks, popular, latestComments) {
   const segColors = ['seg-a', 'seg-b', 'seg-c', 'seg-d'];
+  // Segments are drill-down links: each segment links to the page for
+  // the digit string accumulated up to it (band page, then block page),
+  // and the last one to the number page itself. A lone trunk "0" has no
+  // page of its own, so it shares the area-code accumulation.
+  const segHref = (i) => {
+    let acc = hero.segments.slice(0, i + 1).map((s) => s.text).join('');
+    if (acc.length < 2 && hero.segments[i + 1]) acc += hero.segments[i + 1].text;
+    return `/tel/${acc}`;
+  };
   const segHtml = hero.segments
     .map(
       (s, i) =>
-        `<span class="hero-seg">${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<button type="button" class="segbtn ${segColors[i % 4]}${i === hero.defaultSeg ? ' is-active' : ''}" data-seg="${i}" aria-pressed="${i === hero.defaultSeg}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></button></span>`
+        `<span class="hero-seg">${i > 0 ? '<span class="hero-hyphen">-</span>' : ''}<a class="segbtn ${segColors[i % 4]}" href="${segHref(i)}"><span class="segdigits">${esc(s.text)}</span><span class="segcap">${esc(s.label)}</span></a></span>`
     )
     .join('');
-  const heroJson = JSON.stringify(hero).replace(/<\//g, '<\\/');
   const fallbacksJson = JSON.stringify(fallbacks || []).replace(/<\//g, '<\\/');
   const popularHtml =
     popular && popular.length
@@ -328,11 +338,7 @@ ${latestComments.map((c) => `<li><a href="/tel/${esc(c.number)}">${esc(c.formatt
 <div class="hero-num" id="heroSegs" role="group" aria-label="電話番号の各部分">
 ${segHtml}
 </div>
-<div class="seg-explain" id="segExplain" data-seg="${hero.defaultSeg}" aria-live="polite">
-<h2 id="segTitle">${esc(hero.segments[hero.defaultSeg].title)}</h2>
-<p id="segText">${esc(hero.segments[hero.defaultSeg].explain)}</p>
-</div>
-<p class="hero-note">表示される番号は、総務省の指定データにある実在の番号区画から毎回ランダムに選ばれています。色のついた部分を押すと、その部分の意味が表示されます。<button type="button" class="shuffle" id="shuffleBtn">別の番号を表示</button> <a id="heroDetail" href="/tel/${esc(hero.digits)}">この番号（${esc(hero.formatted)}）の詳細ページ</a></p>
+<p class="hero-note">表示される番号は、総務省の指定データにある実在の番号区画から毎回ランダムに選ばれています。色のついた部分を押すと、その部分の区段や番号のページが開きます。<button type="button" class="shuffle" id="shuffleBtn">別の番号を表示</button> <a id="heroDetail" href="/tel/${esc(hero.digits)}">この番号（${esc(hero.formatted)}）の詳細ページ</a></p>
 ${lowerHtml}
 <section class="card" style="text-align:left" aria-label="公的相談窓口">
 <h2>公的相談窓口</h2>
@@ -359,46 +365,35 @@ ${lowerHtml}
 </ul>
 <p class="meta">当サイトは上記の機関・団体とは関係のない民間の電話番号データベースです。各窓口は、それぞれの運営主体が運営しています。</p>
 </section>
-<p class="home-links"><a href="/tel/popular">よく検索される電話番号</a> ・ <a href="/tel/blocks">番号区段インデックス</a> ・ <a href="/tel/gov">政府機関の番号</a> ・ <a href="/tel/history">日本の電話番号の歴史</a> ・ <a href="/tel/about">このサイトについて</a></p>
+<p class="home-links"><a href="/tel/popular">よく検索される電話番号</a> ・ <a href="/tel/ranges">番号区段インデックス</a> ・ <a href="/tel/gov">政府機関の番号</a> ・ <a href="/tel/history">日本の電話番号の歴史</a> ・ <a href="/tel/about">このサイトについて</a></p>
 </div>
 <script>
 (function(){
   var segsEl=document.getElementById('heroSegs');
   var kick=document.getElementById('heroKicker');
-  var titleEl=document.getElementById('segTitle'), textEl=document.getElementById('segText'), card=document.getElementById('segExplain');
   var detail=document.getElementById('heroDetail');
   var COLORS=['seg-a','seg-b','seg-c','seg-d'];
   var FALLBACKS=${fallbacksJson};
   var fbIdx=-1;
-  var data=${heroJson};
-  function select(i){
-    if(!data||!data.segments[i])return;
-    var btns=segsEl.querySelectorAll('.segbtn');
-    for(var j=0;j<btns.length;j++){btns[j].classList.toggle('is-active',j===i);btns[j].setAttribute('aria-pressed',j===i?'true':'false');}
-    titleEl.textContent=data.segments[i].title;
-    textEl.textContent=data.segments[i].explain;
-    card.setAttribute('data-seg',String(i));
+  function segHref(d,i){
+    var acc='';
+    for(var j=0;j<=i;j++)acc+=d.segments[j].text;
+    if(acc.length<2&&d.segments[i+1])acc+=d.segments[i+1].text;
+    return '/tel/'+acc;
   }
   function render(d){
-    data=d;
     kick.textContent=d.kicker;
     segsEl.innerHTML='';
     d.segments.forEach(function(s,i){
       var group=document.createElement('span');group.className='hero-seg';
       if(i>0){var h=document.createElement('span');h.className='hero-hyphen';h.textContent='-';group.appendChild(h);}
-      var b=document.createElement('button');b.type='button';b.className='segbtn '+COLORS[i%COLORS.length];b.setAttribute('aria-pressed','false');
+      var b=document.createElement('a');b.className='segbtn '+COLORS[i%COLORS.length];b.href=segHref(d,i);
       var ds=document.createElement('span');ds.className='segdigits';ds.textContent=s.text;
       var cs=document.createElement('span');cs.className='segcap';cs.textContent=s.label;
       b.appendChild(ds);b.appendChild(cs);
-      b.addEventListener('click',function(){select(i);});
       group.appendChild(b);segsEl.appendChild(group);
     });
-    detail.href='/'+d.digits;detail.textContent='この番号（'+d.formatted+'）の詳細ページ';
-    select(d.defaultSeg||0);
-  }
-  function wire(){
-    var btns=segsEl.querySelectorAll('.segbtn');
-    for(var k=0;k<btns.length;k++){(function(k){btns[k].addEventListener('click',function(){select(k);});})(k);}
+    detail.href='/tel/'+d.digits;detail.textContent='この番号（'+d.formatted+'）の詳細ページ';
   }
   function load(){
     fetch('/tel/random.json',{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error('random');return r.json();}).then(render).catch(function(){
@@ -406,7 +401,6 @@ ${lowerHtml}
     });
   }
   document.getElementById('shuffleBtn').addEventListener('click',load);
-  wire();
 })();
 </script>`;
   return layout({
@@ -572,7 +566,7 @@ ${f.business.category ? `<tr><th>業種</th><td>${esc(f.business.category)}</td>
   // gets no extra link here: the layout header logo and the breadcrumb
   // above both already lead there.
   const blockKey = f.digits.slice(0, 7);
-  const blockNav = `<p class="meta">${f.blockExists ? `<a href="/tel/${blockKey}">この番号の区段ページ（${esc(blockKey)}）</a> ・ ` : ''}<a href="/tel/blocks">番号区段インデックス</a></p>`;
+  const blockNav = `<p class="meta">${f.blockExists ? `<a href="/tel/${blockKey}">この番号の区段ページ（${esc(blockKey)}）</a> ・ ` : ''}<a href="/tel/ranges">番号区段インデックス</a></p>`;
   const body = `
 <p class="crumbs">${crumbHtml}</p>
 ${blockNav}
@@ -920,5 +914,143 @@ export function unavailablePage() {
 <p>現在、データベースへのアクセスが集中しているため、このページを表示できません。しばらくしてから再度お試しください。</p>
 <p class="meta">電話番号データベース datumoj.com/tel は総務省の指定データをもとに構成されています。時間をおいてアクセスすると表示できます。</p>
 <p><a href="/tel/">トップページへ</a></p>`,
+  });
+}
+
+// --- Drill-down pages (lib/drilldown.js builds the data) ----------------------
+
+function fmtInt(n) {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function crumbsHtml(crumbs) {
+  return crumbs
+    .map((c) => (c.href ? `<a href="${esc(c.href)}">${esc(c.label)}</a>` : esc(c.label)))
+    .join(' ＞ ');
+}
+
+function explainCard(explain) {
+  if (!explain) return '';
+  return `<div class="seg-explain"><h2>${esc(explain.title)}</h2><p>${esc(explain.explain)}</p></div>`;
+}
+
+// /tel/ranges — 区段索引 hub. Mirrors the pre-generated index page
+// (scripts/gen_blocks_index.py): same sections, same salt table, but the
+// family links now point at the drill-down prefix pages /tel/<family>.
+export function rangesPage(d) {
+  const saltRows = d.sections
+    .map(
+      (s) =>
+        `<tr><th>${esc(s.name)}</th><td>${fmtInt(s.agg.blocks)} 区段・対象番号 ${fmtInt(s.agg.numbers)} 件・信号区段 ${fmtInt(s.agg.signals)} 区段${
+          s.agg.topCarriers.length
+            ? `<br>主な割当事業者：${s.agg.topCarriers.map(([c, n]) => `${esc(c)}（${fmtInt(n)} 区段）`).join('、')}`
+            : ''
+        }</td></tr>`
+    )
+    .join('');
+  const sections = d.sections
+    .map(
+      (s) =>
+        `<h2>${esc(s.name)}</h2>\n<ul>${s.families
+          .map((f) => `<li><a href="/tel/${esc(f.id)}">${esc(f.label)}</a> <span class="meta">${fmtInt(f.blocks)} 区段</span></li>`)
+          .join('')}</ul>`
+    )
+    .join('\n');
+  const body = `
+<p class="crumbs"><a href="/tel/">ホーム</a> ＞ 区段インデックス</p>
+<h1>電話番号の区段インデックス</h1>
+<p class="meta">総務省の指定区段 ${fmtInt(d.total)} 件を、番号の種類と区段ごとに一覧できます。各区段のページでは、その区段に含まれる全番号を確認できます。</p>
+<div class="card"><table>${saltRows}</table></div>
+${sections}
+${searchForm()}`;
+  return layout({
+    title: '電話番号の区段インデックス｜datumoj.com/tel',
+    description: '総務省の指定区段を番号の種類・区段ごとに一覧できるインデックス。各区段ページへの入口です。',
+    canonical: 'https://datumoj.com/tel/ranges',
+    body,
+  });
+}
+
+// /tel/<prefix> — prefix index: facts about everything beneath the
+// prefix plus one level of children (prefixes, block keys, or hundred
+// groups), each a real link, so the whole tree is click-reachable.
+export function prefixPage(d) {
+  const rows = [];
+  if (d.typeRows.length === 1) {
+    rows.push(`<tr><th>番号の種類</th><td>${esc(d.typeRows[0].name)}</td></tr>`);
+  }
+  rows.push(`<tr><th>区段数</th><td>${fmtInt(d.blocks)} 区段</td></tr>`);
+  rows.push(`<tr><th>対象番号数</th><td>${fmtInt(d.numbers)} 件</td></tr>`);
+  if (d.typeRows.length > 1) {
+    for (const t of d.typeRows) {
+      rows.push(`<tr><th>${esc(t.name)}</th><td>${fmtInt(t.blocks)} 区段・${fmtInt(t.numbers)} 件</td></tr>`);
+    }
+  }
+  if (d.topCarriers.length) {
+    rows.push(
+      `<tr><th>主な割当事業者</th><td>${d.topCarriers.map(([c, n]) => `${esc(c)}（${fmtInt(n)} 区段）`).join('、')}</td></tr>`
+    );
+  }
+  const childTitle = d.childKind === 'block' ? '区段一覧' : d.childKind === 'group' ? '百号グループ' : '下位の区段';
+  const children = d.children.map((c) => `<a href="${esc(c.href)}">${esc(c.label)}</a>`).join(' ');
+  const h1 = d.label.endsWith('の区段') ? d.label : `${d.label} の区段一覧`;
+  const body = `
+<p class="crumbs">${crumbsHtml(d.crumbs)}</p>
+<h1>${esc(h1)}</h1>
+<div class="card"><table>${rows.join('')}</table></div>
+${explainCard(d.explain)}
+<h2>${childTitle}</h2>
+<p class="grid">${children}</p>
+${searchForm()}`;
+  return layout({
+    title: `${h1}｜datumoj.com/tel`,
+    description: `${d.prefix} ではじまる電話番号の区段一覧（全 ${fmtInt(d.blocks)} 区段・対象番号 ${fmtInt(d.numbers)} 件）。`,
+    canonical: `https://datumoj.com/tel/${d.prefix}`,
+    body,
+  });
+}
+
+// /tel/<hundred-group prefix> — one hundred (or ten) consecutive numbers,
+// every one a real link to its number page. Landed numbers are bold;
+// numbers carrying a 公的機関の公表情報 flag get a small badge.
+export function groupPage(d) {
+  const crumbs = [
+    { label: 'ホーム', href: '/tel/' },
+    { label: '区段インデックス', href: '/tel/ranges' },
+    ...(d.family ? [{ label: d.familyLabel, href: `/tel/${d.family}` }] : []),
+    { label: `${d.blockLabel} 区段`, href: `/tel/${d.blockKey}` },
+    { label: `${d.fmtLo}〜`, href: null },
+  ];
+  const rows = [
+    `<tr><th>範囲（ハイフン表記）</th><td>${esc(d.fmtLo)} 〜 ${esc(d.fmtHi)}</td></tr>`,
+    `<tr><th>範囲（かっこ表記）</th><td>${esc(d.parenLo)} 〜 ${esc(d.parenHi)}</td></tr>`,
+    `<tr><th>範囲（数字のみ表記）</th><td>${esc(d.lo)} 〜 ${esc(d.hi)}</td></tr>`,
+    `<tr><th>番号の種類</th><td>${esc(d.lineTypeName)}</td></tr>`,
+    `<tr><th>割当事業者</th><td>${d.carrierName ? esc(d.carrierName) : '事業者別の指定データは整備中です'}</td></tr>`,
+    `<tr><th>区段ページ</th><td><a href="/tel/${esc(d.blockKey)}">この範囲の区段ページ（${esc(d.blockLabel)}）</a></td></tr>`,
+  ];
+  const items = d.numbers
+    .map(
+      (n) =>
+        `<span><a href="/tel/${esc(n.digits)}"${n.landed ? ' class="on"' : ''}>${esc(n.formatted)}</a>${
+          n.flagged ? ' <span class="badge">公表情報あり</span>' : ''
+        }</span>`
+    )
+    .join('\n');
+  const body = `
+<p class="crumbs">${crumbsHtml(crumbs)}</p>
+<h1>${esc(d.fmtLo)} 〜 ${esc(d.fmtHi)} の電話番号一覧</h1>
+<div class="card"><table>${rows.join('')}</table></div>
+${explainCard(d.explain)}
+<div class="grid">
+${items}
+</div>
+<p class="meta">太字は、このサイトに情報が登録されている番号です。</p>
+${searchForm()}`;
+  return layout({
+    title: `${d.fmtLo} 〜 ${d.fmtHi} の電話番号一覧｜datumoj.com/tel`,
+    description: `${d.fmtLo} 〜 ${d.fmtHi}（${esc(d.lineTypeName)}）の電話番号一覧。各番号の種類・割当事業者を総務省の指定データで確認できます。`,
+    canonical: `https://datumoj.com/tel/${d.prefix}`,
+    body,
   });
 }

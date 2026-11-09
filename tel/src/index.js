@@ -7,10 +7,11 @@ import { bumpView, listComments, addComment, commentProblem, COMMENT_MESSAGES, h
 import {
   composeNumber, analyzeFallback, listPrefectures, listAreaCodes, getAreaHub,
   listLineTypes, getLineTypeHub, listTpSources, allAreaCodes,
-  listGovAgencies, listGovNumbers, govNumbersByAgency, findAreaCode,
+  listGovAgencies, listGovNumbers, govNumbersByAgency, findAreaCode, findBlock,
 } from './lib/compose.js';
 import {
   homePage, numberPage, areaPage, prefPage, typePage, aboutPage, notFoundPage, govPage, notAllocatedPage, historyPage, randomHero, FALLBACK_HEROES, unavailablePage, popularPage, commentSearchPage,
+  rangesPage, prefixPage, groupPage,
 } from './lib/render.js';
 import {
   findRecord, insertRecord, updateRecordFacts, factsFromRecord, getSnapshotVersion,
@@ -23,7 +24,7 @@ import { faviconPngBytes, appleTouchIconBytes } from './lib/favicon.js';
 import { flagFingerprint, getSnapshot, putSnapshot } from './lib/snapshot.js';
 import { getR2Object } from './lib/r2.js';
 import { blockPageExists } from './lib/block_manifest.js';
-import { BLOCKS_JS } from './lib/blocks_js.js';
+import { buildRangesData, buildPrefixData, buildGroupData, hundredGroupChildren } from './lib/drilldown.js';
 
 const HTML = { 'content-type': 'text/html; charset=utf-8' };
 const CACHE_HUB = 'public, max-age=3600, s-maxage=86400';
@@ -459,36 +460,70 @@ export default {
         if (shard < 1 || shard > plan.length) return html(notFoundPage(path), 404);
         return xmlResponse(urlsetXml(plan[shard - 1].keys.map((k) => `https://datumoj.com/tel/${k}`)));
       }
+      if (path === '/ranges') {
+        // Block index （区段索引） hub, Worker-rendered from the bucket
+        // manifest + D1 facts (lib/drilldown.js) — successor of the
+        // pre-generated /tel/blocks index. The family summary keeps the
+        // generator's salt口径 (scripts/gen_blocks_index.py), but family
+        // links now point at the drill-down pages /tel/<family>. A
+        // missing manifest is a real 404, never a guessed page.
+        const data = await buildRangesData(env, db, await listSignalBlockKeys(db));
+        if (!data) return html(notFoundPage('ranges'), 404);
+        return html(rangesPage(data), 200, CACHE_NUM);
+      }
+      if (path === '/ranges.js') {
+        // Successor of /tel/blocks.js: drill-down pages navigate by real
+        // links only, so no delegated script is needed any more. The
+        // route stays as an intentionally empty, commented script so
+        // pages that still reference the old URL (edge caches, in-flight
+        // block regenerations) degrade silently instead of failing a
+        // script load with a 404.
+        return new Response(
+          '/* datumoj.com/tel: block and group pages navigate by real links; this script is intentionally empty. */\n',
+          { headers: { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': CACHE_HUB } }
+        );
+      }
       if (path === '/blocks') {
-        // Block index （区段索引）: pre-generated static pages in the nbfun
-        // bucket under blocks-index/ (see scripts/gen_blocks_index.py).
-        // The top page groups every number family, family pages list —
-        // or, for large families, chunk into sub-pages by the 4th digit —
-        // every block key as a real link, so all block pages are reachable
-        // by clicks alone. Storage miss is a real 404, never a composed
-        // page — the same contract as the block pages themselves. "blocks"
-        // is a literal segment, so these routes cannot collide with the
-        // 7-digit block route or the 10–14-digit number route below.
-        const obj = await getR2Object(env, 'blocks-index/index.html');
-        if (!obj) return html(notFoundPage('blocks'), 404);
-        return html(obj.body, 200, CACHE_NUM, { 'x-blocks-index': 'hit' });
+        return Response.redirect('https://datumoj.com/tel/ranges', 301);
       }
       if ((m = path.match(/^\/blocks\/(\d{2,4})(?:\/(\d{4}))?$/))) {
-        const obj = await getR2Object(
-          env,
-          m[2] ? `blocks-index/${m[1]}/${m[2]}.html` : `blocks-index/${m[1]}.html`
-        );
-        if (!obj) return html(notFoundPage(path), 404);
-        return html(obj.body, 200, CACHE_NUM, { 'x-blocks-index': 'hit' });
+        // Old family / chunk index URLs land on the equivalent level of
+        // the drill-down tree: family -> /tel/<family>, chunk (first 4
+        // digits) -> /tel/<chunk>.
+        return Response.redirect(`https://datumoj.com/tel/${m[2] || m[1]}`, 301);
       }
       if (path === '/blocks.js') {
-        // Shared delegated script for block pages. Canonical copy lives in
-        // the nbfun bucket (object `blocks.js`); the in-repo constant is
-        // the fallback so block pages never lose click activation.
-        const obj = await getR2Object(env, 'blocks.js');
-        return new Response(obj ? obj.body : BLOCKS_JS, {
-          headers: { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': CACHE_HUB },
-        });
+        return Response.redirect('https://datumoj.com/tel/ranges.js', 301);
+      }
+      if ((m = path.match(/^\/(\d{2,6})$/))) {
+        // Prefix index: existence and children derive from the block
+        // manifest (the same ground truth as the block pages), facts
+        // from D1. A prefix with no generated block beneath it — i.e.
+        // outside every generated allocation — is a real 404.
+        const data = await buildPrefixData(env, db, m[1]);
+        if (!data) return html(notFoundPage(m[1]), 404);
+        return html(prefixPage(data), 200, CACHE_NUM);
+      }
+      if ((m = path.match(/^\/(\d{8,9})$/))) {
+        // Between the 7-digit block page and the 10-14-digit number
+        // page: the hundred-group page (prefix = number length - 2,
+        // 100 real number links), its 10-number sibling one digit
+        // deeper (number length - 1), or — for 8-digit prefixes of
+        // 11-digit families — a prefix index whose children are the
+        // hundred groups. The governing allocation decides which.
+        const p = m[1];
+        const block = await findBlock(db, p).catch(() => null);
+        let body = null;
+        if (block && p.length >= block.line_digits - 2) {
+          const data = await buildGroupData(env, db, p);
+          if (data) body = groupPage(data);
+        } else if (block) {
+          const children = await hundredGroupChildren(db, p);
+          const data = children ? await buildPrefixData(env, db, p, children) : null;
+          if (data) body = prefixPage(data);
+        }
+        if (!body) return html(notFoundPage(p), 404);
+        return html(body, 200, CACHE_NUM);
       }
       if ((m = path.match(/^\/(\d{7})$/))) {
         // Block page, flat URL /tel/<7-digit block key>: bare-digit paths

@@ -25,9 +25,7 @@ const TTL_MS = 30 * 60 * 1000;
 
 let cache = { at: 0, keys: null };
 
-// True only when the manifest positively lists this 7-digit block key.
-export async function blockPageExists(env, blockKey) {
-  if (!/^\d{7}$/.test(blockKey || '')) return false;
+async function loadKeys(env) {
   const now = Date.now();
   if (!cache.keys || now - cache.at >= TTL_MS) {
     let loaded = null;
@@ -51,5 +49,20 @@ export async function blockPageExists(env, blockKey) {
       cache.at = now;
     }
   }
-  return cache.keys ? cache.keys.has(blockKey) : false;
+  return cache.keys;
+}
+
+// True only when the manifest positively lists this 7-digit block key.
+export async function blockPageExists(env, blockKey) {
+  if (!/^\d{7}$/.test(blockKey || '')) return false;
+  const keys = await loadKeys(env);
+  return keys ? keys.has(blockKey) : false;
+}
+
+// The full cached key set (or null when the manifest cannot be read).
+// Used by the drill-down pages (lib/drilldown.js): prefix indexes derive
+// their children from the same ground truth the block pages ship in, so
+// a prefix page exists exactly when block pages exist beneath it.
+export async function getBlockKeys(env) {
+  return loadKeys(env);
 }
