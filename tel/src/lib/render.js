@@ -19,7 +19,7 @@ export function extLink(url, label, attrs = '') {
 }
 
 const CSS = `
-:root{color-scheme:light dark}
+:root{color-scheme:light}
 *{box-sizing:border-box}
 body{font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;margin:0;line-height:1.7;background:#fafafa;color:#1a1a1a}
 a{color:#0b57d0;text-decoration:none}a:hover{text-decoration:underline}
@@ -68,7 +68,7 @@ a.segbtn{display:inline-block;text-decoration:none}
 .seg-explain h2{font-size:1.05rem;margin:0 0 .3rem}
 .seg-explain p{margin:0}
 .hero-note{color:#8a94a0;font-size:.88rem;margin-top:.9rem}
-.shuffle{margin-left:.6rem;font:inherit;font-size:.85rem;padding:.25rem .8rem;border-radius:999px;border:1px solid #cfc9ba;background:#fff;cursor:pointer;color:#33424f}
+.shuffle{font:inherit;font-size:.85rem;padding:.25rem .8rem;border-radius:999px;border:1px solid #cfc9ba;background:#fff;cursor:pointer;color:#33424f}
 .dialrow{text-align:center;margin:.9rem 0 0}
 .dialbtn{display:inline-block;padding:.55rem 1.5rem;border-radius:999px;border:1px solid #5b84a6;background:#5b84a6;color:#fff;font-weight:600;text-decoration:none}
 .home{max-width:940px;margin:5vh auto 0;text-align:center}
@@ -100,37 +100,6 @@ a.segbtn{display:inline-block;text-decoration:none}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 footer{border-top:1px solid #ddd;margin-top:2rem;padding:1rem;font-size:.85rem;color:#777}
 ul.tight{margin:.3rem 0;padding-left:1.2rem}
-/* Dark scheme LAST: these rules must follow the base component rules above —
-   an earlier version of this block sat near the top of the stylesheet and
-   silently lost the cascade to the base rules (white cards in dark mode). */
-@media(prefers-color-scheme:dark){
-body{background:#14161a;color:#e8e8e8}
-a{color:#7db4ff}
-header{border-bottom-color:#333}
-footer{border-top-color:#333;color:#999}
-.card,.seg-explain{background:#1e2126;border-color:#3a3f46}
-.seg-explain{border-left-color:#7d9db5}
-.seg-explain[data-seg="1"]{border-left-color:#a3b899}
-.seg-explain[data-seg="2"]{border-left-color:#dfc08a}
-.seg-explain[data-seg="3"]{border-left-color:#b39ddb}
-th,td{border-bottom-color:#333}
-th{color:#aaa}
-.meta,.crumbs{color:#aaa}
-.seg{border-color:#444}.seg span{color:#aaa}
-.badge{border-color:#666}
-.hero-kicker{color:#93a5b3}
-.segbtn .segdigits{color:#eef4f9}
-.segbtn .segcap{color:#aebfca}
-.seg-a{background:#274b66}.seg-b{background:#38512f}.seg-c{background:#5f4b22}.seg-d{background:#463a63}
-.segbtn.is-active{border-color:#9fc2dd;box-shadow:0 3px 14px rgba(0,0,0,.5)}
-.hero-hyphen{color:#5f7182}
-.hero-facts{background:#1e2126;border-color:#3a3f46}
-.hero-fact{color:#cfd8cf}.hero-fact b{color:#eef4f9}
-.hero-note,.home-links{color:#93a0ab}
-.shuffle{background:#1e2126;border-color:#4a5058;color:#e8e8e8}
-.dialbtn{background:#3d6a94;border-color:#3d6a94;color:#fff}
-.searchbox input,.bigsearch input{background:#1e2126;color:#e8e8e8;border-color:#4a5058;box-shadow:none}
-}
 `;
 
 export function layout({ title, description, robots, canonical, jsonLd, body }) {
@@ -139,6 +108,7 @@ export function layout({ title, description, robots, canonical, jsonLd, body }) 
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
 <title>${esc(title)}</title>
 <link rel="icon" href="/tel/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="/tel/apple-touch-icon.png">
@@ -338,7 +308,7 @@ ${latestComments.map((c) => `<li><a href="/tel/${esc(c.number)}">${esc(c.formatt
 <div class="hero-num" id="heroSegs" role="group" aria-label="電話番号の各部分">
 ${segHtml}
 </div>
-<p class="hero-note">表示される番号は、総務省の指定データにある実在の番号区画から毎回ランダムに選ばれています。色のついた部分を押すと、その部分の区段や番号のページが開きます。<button type="button" class="shuffle" id="shuffleBtn">別の番号を表示</button> <a id="heroDetail" href="/tel/${esc(hero.digits)}">この番号（${esc(hero.formatted)}）の詳細ページ</a></p>
+<p class="hero-note"><button type="button" class="shuffle" id="shuffleBtn">別の番号を表示</button> <a id="heroDetail" href="/tel/${esc(hero.digits)}">この番号（${esc(hero.formatted)}）の詳細ページ</a></p>
 ${lowerHtml}
 <section class="card" style="text-align:left" aria-label="公的相談窓口">
 <h2>公的相談窓口</h2>

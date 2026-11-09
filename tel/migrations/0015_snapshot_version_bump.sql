@@ -1,0 +1,18 @@
+-- Snapshot version bump 5 -> 6 (2026-11-09).
+--
+-- The site template changed: the dark color scheme was removed and the
+-- palette is now locked to light. The `@media (prefers-color-scheme:
+-- dark)` block is gone from the shared stylesheet, `:root` declares
+-- `color-scheme: light` only, and every page head carries
+-- `<meta name="color-scheme" content="light">`, so pages no longer
+-- follow the OS dark mode (form controls and scrollbars included).
+-- The homepage hero-note explanation paragraph was also removed.
+-- Rendered HTML lives in R2 snapshots keyed to the record's
+-- snapshot_version, so the site version must move ahead: records with
+-- an older snapshot_version are re-composed and refreshed the next
+-- time they are queried, which invalidates every snapshot rendered by
+-- the old template (same mechanism as 0010/0011/0013/0014).
+--
+-- Deploy note: apply after 0014 (the version is currently '5'); the
+-- net effect is '6'.
+UPDATE site_meta SET value = '6' WHERE key = 'snapshot_version';
