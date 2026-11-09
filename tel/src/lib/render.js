@@ -99,7 +99,11 @@ a.segbtn{display:inline-block;text-decoration:none}
 .soudan-num{font-size:1.55rem;font-weight:800;letter-spacing:.02em;color:#C2410C;text-decoration:none}
 .videowrap{position:relative;aspect-ratio:16/9;max-width:640px;margin:10px auto 4px}
 .videowrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:8px}
-.mapimg{width:100%;height:auto;display:block}
+.sos47{text-align:left}
+.sos47-img{display:block;width:100%;max-width:880px;height:auto}
+.sos47-figs{margin:.7rem 0 .15rem}
+.sos47-num{color:#b91c1c;font-size:1.3em}
+.sos47-rank{margin:.15rem 0 .35rem}
 /* Homepage lower boxes side by side: latest comments left, popular right.
    DOM order is comments-then-popular, and narrow screens stack in that
    same order (owner decision 2026-11-09: comments first on mobile too —
@@ -376,10 +380,10 @@ ${groups}
 ${segHtml}
 </div>
 ${lowerHtml}
-<div class="card"><h2>発生状況</h2>
-<p>SNS型投資・ロマンス詐欺を含む特殊詐欺（2025年1月～12月）：認知件数合計 43,000件、合計被害額 約3,257億4,258万7,000円。</p>
-<p>厳重注意地域（認知件数 上位5）：東京 5,879／大阪 4,830／愛知 3,505／神奈川 3,338／兵庫 3,238</p>
-<picture><source media="(max-width:640px)" srcset="/tel/assets/sumally_map_full_sp.png"><img class="mapimg" src="/tel/assets/sumally_map_full.png" alt="SNS型投資・ロマンス詐欺を含む特殊詐欺の都道府県別発生状況マップ（2025年1月～12月）" loading="lazy"></picture>
+<div class="card sos47"><h2>発生状況</h2>
+<picture><source media="(max-width:640px)" srcset="/tel/assets/sumally_map_full_sp.png"><img class="sos47-img" src="/tel/assets/sumally_map_full.png" width="1208" height="1010" alt="特殊詐欺の発生状況（2025年1月～12月）：認知件数合計43,000件、合計被害額約3,257億4,258万7,000円、厳重注意地域は東京・大阪・愛知・神奈川・兵庫の順。都道府県別の認知件数を示す日本地図" loading="lazy"></picture>
+<p class="sos47-figs">SNS型投資・ロマンス詐欺を含む特殊詐欺（2025年1月～12月）：認知件数合計 <strong class="sos47-num">43,000件</strong>、合計被害額 約3,257億4,258万7,000円。</p>
+<p class="sos47-rank">厳重注意地域（認知件数 上位5）：東京 5,879／大阪 4,830／愛知 3,505／神奈川 3,338／兵庫 3,238</p>
 <p class="meta">出典：警察庁「<a href="https://www.npa.go.jp/bureau/safetylife/sos47/" rel="noopener">SOS47 特殊詐欺対策ページ</a>」／期間：2025年1月～12月、公共データ利用規約（PDL1.0）に基づき掲載</p></div>
 <p class="home-links"><a class="navpill" href="/tel/soudan">公的相談窓口</a> ・ <a href="/tel/popular">よく検索される電話番号</a> ・ <a href="/tel/ranges">番号区段インデックス</a> ・ <a href="/tel/gov">政府機関の番号</a> ・ <a href="/tel/history">日本の電話番号の歴史</a> ・ <a href="/tel/examples">日本の電話番号の例</a> ・ <a href="/tel/about">このサイトについて</a></p>
 </div>`;

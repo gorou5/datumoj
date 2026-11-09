@@ -1,0 +1,20 @@
+-- Snapshot version bump 14 -> 15 (2026-11-10).
+--
+-- Group-page / homepage / copy-button batch:
+--   * hundred/ten group pages: the leading segment-explanation card is
+--     removed and each number cell renders its three notations on
+--     three lines (hyphen link / paren form / digits-only form).
+--   * homepage hero: the kicker line and the per-segment caption
+--     labels under the three segment boxes are removed; the segment
+--     names now live in each box's title attribute and aria-label.
+--   * homepage latest-comments block regrouped by date (date shown
+--     once per group head, entries single-line).
+--   * number pages gain a copy button on each of the three notation
+--     rows (icon button, clipboard API with execCommand fallback).
+-- The group pages and the homepage hero render inside number-page
+-- snapshots' shared chrome only partially, but number pages embed the
+-- copy buttons in the fact table itself, so the snapshot version moves.
+--
+-- Deploy note: apply after 0023 (the version is currently '14');
+-- the net effect is '15'.
+UPDATE site_meta SET value = '15' WHERE key = 'snapshot_version';

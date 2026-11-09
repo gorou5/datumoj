@@ -48,7 +48,9 @@ ok((home.match(/href="\/tel\/examples"/g) || []).length === 1, 'homepage nav row
 ok(!home.includes('aria-label="公的相談窓口"') && !home.includes('でんわんセンター'), 'homepage no longer carries the consultation block (item 13a)');
 // 発生状況 lives on the homepage now (moved from /tel/soudan, 2026-11-10).
 ok(home.includes('<h2>発生状況</h2>'), 'homepage has the occurrence block');
-ok(home.includes('認知件数合計 43,000件') && home.includes('約3,257億4,258万7,000円'), 'occurrence totals verbatim on homepage');
+const homeText = home.replace(/<[^>]+>/g, '');
+ok(homeText.includes('認知件数合計 43,000件') && homeText.includes('約3,257億4,258万7,000円'), 'occurrence totals verbatim on homepage (rendered text)');
+ok(home.includes('class="sos47-img"') && home.includes('sos47-num'), 'occurrence block: composite image as main visual + red figure styling');
 ok(home.includes('東京 5,879／大阪 4,830／愛知 3,505／神奈川 3,338／兵庫 3,238'), 'top-5 regions verbatim on homepage');
 ok(home.includes('src="/tel/assets/sumally_map_full.png"') && home.includes('公共データ利用規約（PDL1.0）に基づき掲載'), 'self-hosted map + PDL attribution on homepage');
 ok(home.indexOf('class="bigsearch"') < home.indexOf('<h2>発生状況</h2>'), 'occurrence block is below the search area');
