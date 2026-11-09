@@ -1,0 +1,43 @@
+{
+  "reviewed_pr": 141,
+  "reviewed_head": "d4fc39efc39c38b34c9d377799107251716eeebd",
+  "pr_state": "open",
+  "current_main": "ac478731f32269add632325793c80d31fc6ef759",
+  "local_verification": {
+    "python": "3.12.14",
+    "dependency_source": "uv.lock at reviewed head; uv sync --frozen",
+    "pytest_files": [
+      "tests/test_pull_check.py",
+      "tests/test_workflows_pull_check.py",
+      "tests/integration/test_maple_m1.py"
+    ],
+    "passed": 16,
+    "failed": 0,
+    "ruff": "passed for reviewed script and three test files",
+    "full_repository_suite": "not run independently"
+  },
+  "existing_ci": {
+    "run_id": 42492838556,
+    "head": "d4fc39efc39c38b34c9d377799107251716eeebd",
+    "conclusion": "success",
+    "reported_passed": 5713,
+    "reported_xfailed": 1,
+    "reported_warnings": 1
+  },
+  "scope": {
+    "runtime_modified": false,
+    "production_access": false,
+    "workflow_dispatched": false,
+    "remote_credentials_inspected": false,
+    "merged": false,
+    "new_real_m1_evidence": false
+  },
+  "findings": [
+    "The current inspected path performs no remote writes; local disposable replica writes are expected.",
+    "Vectors are transferred with the complete generation; vectors off disables their use, not transfer.",
+    "The check is a single-generation direct tool-layer smoke test, not full real MCP or one-week acceptance.",
+    "Existing m1 MCP transport/equality coverage was reused offline.",
+    "Real-run acceptance evidence and credential least-privilege verification remain separate."
+  ],
+  "readme_sha256": "f6410df6feb3ed283174be4d0774088d7c4a9d1d6ee8ae1e3b221028be0eee4d"
+}
