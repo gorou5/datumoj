@@ -56,10 +56,10 @@ th{width:11rem;color:#555;font-weight:600}
 .hero-fact b{color:#22303c}
 .segbtn.is-active{border-color:#5b84a6;box-shadow:0 3px 14px rgba(60,70,90,.18)}
 .hero-hyphen{align-self:center;font-size:clamp(1.4rem,6vw,2.6rem);color:#a3aeb8}
-/* min-height reserves room for the longest segment explanation (fixed-line
-   市内局番 with a long MA region, ~300 chars) so switching segments does not
-   push the buttons below up and down; smaller reserve on narrow screens. */
-.seg-explain{max-width:640px;margin:1.1rem auto 0;text-align:left;background:#fff;border:1px solid #e7e1d2;border-left:6px solid #7d9db5;border-radius:10px;padding:.9rem 1.1rem;min-height:20rem}
+/* min-height keeps a small reserve so switching segments does not push the
+   buttons below up and down; sized to typical copy (10rem), not the longest
+   outlier, to avoid a large blank area in the card. */
+.seg-explain{max-width:640px;margin:1.1rem auto 0;text-align:left;background:#fff;border:1px solid #e7e1d2;border-left:6px solid #7d9db5;border-radius:10px;padding:.9rem 1.1rem;min-height:10rem}
 .seg-explain[data-seg="1"]{border-left-color:#a3b899}
 .seg-explain[data-seg="2"]{border-left-color:#dfc08a}
 .seg-explain[data-seg="3"]{border-left-color:#b39ddb}
@@ -81,7 +81,7 @@ th{width:11rem;color:#555;font-weight:600}
 .segbtn .segcap{font-size:.62rem}
 .hero-hyphen{font-size:1rem}
 .hero-num{gap:.2rem}
-.seg-explain{min-height:16rem}
+.seg-explain{min-height:9rem}
 }
 .flagbadges{display:flex;flex-wrap:wrap;gap:.4rem;margin:.2rem 0 .6rem}
 .fbadge{display:inline-block;padding:.28rem .6rem;border-radius:999px;font-size:.82rem;font-weight:600;border:1px solid}
@@ -140,7 +140,7 @@ ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd).replace(
 <style>${CSS}</style>
 </head>
 <body>
-<header><a class="logo" href="/tel/">datumoj.com/tel</a><span class="meta">日本の電話番号データベース</span></header>
+<header><a class="logo" href="/tel/">日本の電話番号データベース</a><span class="meta">datumoj.com/tel</span></header>
 <main>
 ${body}
 </main>
