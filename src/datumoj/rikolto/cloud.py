@@ -647,13 +647,17 @@ def project(*, work_dir: Path | None = None, write: bool = False) -> dict:
                 try:
                     leases.release(lease.holder, lease.token)
                 except Exception:  # noqa: BLE001 -- Release failures must be visible.
-                    result.update(exit_status=1, reason="lease_release_failed")
+                    result["exit_status"] = 1
+                    result.setdefault("reason", "lease_release_failed")
+                    result.setdefault("cleanup_errors", []).append("lease_release_failed")
                 if "after_bytes" in result:
                     try:
                         result["after_bytes"] = _project_storage_bytes(manager.store)
                     except Exception:  # noqa: BLE001 -- Do not claim a verified final total if listing failed.
                         result.pop("after_bytes", None)
-                        result.update(exit_status=1, reason="storage_check_failed")
+                        result["exit_status"] = 1
+                        result.setdefault("reason", "storage_check_failed")
+                        result.setdefault("cleanup_errors", []).append("storage_check_failed")
     return result
 
 
