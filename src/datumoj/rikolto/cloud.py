@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
@@ -20,7 +21,7 @@ from threading import Lock
 from datumoj.rikolto import wiring
 from datumoj.rikolto.analysis.reports import previous_week_period, weekly_report
 from datumoj.rikolto.core.budget import ParseBudget
-from datumoj.rikolto.core.contracts import PreconditionFailed
+from datumoj.rikolto.core.contracts import PreconditionFailed, StateObject
 from datumoj.rikolto.core.http import PoliteHttpFetcher
 from datumoj.rikolto.core.lease import LEASE_KEY, LeaseError, LeaseManager
 from datumoj.rikolto.core.models import FetchOutcome, PublishState
@@ -544,6 +545,91 @@ def _project_storage_bytes(store):
                    for page in client.get_paginator("list_objects_v2").paginate(Bucket=bucket["Name"])
                    for obj in page.get("Contents", []))
     return sum(obj.size_bytes for obj in store.list_objects(""))
+
+
+def _usage_objects(store):
+    if not isinstance(store, S3StateObjectStore):
+        return store.list_objects(""), []
+    # Capacity covers this whole bucket, including data outside the configured
+    # namespace. Never enumerate other buckets (the read token need not allow it).
+    base = store._prefix + "/" if store._prefix else ""
+    scoped, other = [], []
+    for page in store._client.get_paginator("list_objects_v2").paginate(Bucket=store._bucket):
+        for obj in page.get("Contents", []):
+            key = obj["Key"]
+            if key.startswith(base):
+                scoped.append(StateObject(key[len(base):], obj["Size"], obj["ETag"]))
+            else:
+                other.append(StateObject(key, obj["Size"], obj["ETag"]))
+    return scoped, other
+
+
+def _usage_manifest(manager, generation, path):
+    from datumoj.rikolto.core.state import _block_groups, _digest
+
+    copy = next(c for c in generation.stores if c.name == "manifest.sqlite")
+    parts = _block_groups(generation.stores).get(copy.name, [copy])
+    # Only manifest blocks are fetched; the assembled checksum entry is virtual.
+    with path.open("wb") as stream:
+        for part in parts:
+            found = manager.store.get(part.key)
+            if found is None or len(found[0]) != part.size_bytes or _digest(found[0]) != part.sha256:
+                raise ValueError("invalid_manifest")
+            stream.write(found[0])
+    with path.open("rb") as stream:
+        if path.stat().st_size != copy.size_bytes or hashlib.file_digest(stream, "sha256").hexdigest() != copy.sha256:
+            raise ValueError("invalid_manifest")
+
+
+def usage(*, work_dir: Path | None = None) -> dict:
+    """Inventory this bucket without leases, probes, restore, writes or deletes.
+
+    Reads the current pointer, descriptors and current manifest only. All errors
+    cross this boundary as fixed phase/reason codes, never SDK or source text.
+    """
+    from botocore.exceptions import ClientError
+
+    from datumoj.rikolto.capacity import inventory
+
+    phase = "configuration"
+    with ExitStack() as stack, _quiet():
+        try:
+            root = _empty_work_root(work_dir, stack)
+            manager = wiring.build_state(root)
+            phase = "list"
+            objects, other = _usage_objects(manager.store)
+            phase = "generations"
+            current, etag = manager._current()
+            generations = [manager._generation(int(match[1])) for obj in objects
+                           if (match := re.fullmatch(r"generations/([1-9][0-9]*)\.json", obj.key))]
+            generation = next((g for g in generations if g.generation == current), None)
+            if generation is None:
+                raise ValueError("current_missing")
+            if any(g.generation > current for g in generations):
+                raise ValueError("orphan_generation")
+            phase = "manifest"
+            root.mkdir(parents=True, exist_ok=True)
+            manifest = root / "manifest.sqlite"
+            _usage_manifest(manager, generation, manifest)
+            phase = "inventory"
+            specs = load_registry(Path(__file__).resolve().parents[3] / "sources").all()
+            result = inventory(objects, generations, current, manifest, specs, now=utcnow(),
+                               raw_enabled=os.environ.get("R2_RAW_CLEANUP", "off").lower() == "on",
+                               other_objects=other)
+            if manager._current() != (current, etag):
+                raise ValueError("generation_changed")
+            return result
+        except Exception as exc:  # noqa: BLE001 -- Only fixed reasons leave the read-only cloud boundary.
+            reason = f"{phase}_failed"
+            if isinstance(exc, ClientError) and exc.response.get("Error", {}).get("Code") in {
+                "AccessDenied", "Forbidden", "403", "AllAccessDisabled",
+            }:
+                reason = f"{phase}_denied"
+            elif isinstance(exc, ValueError) and str(exc) in {
+                "workspace_not_empty", "current_missing", "orphan_generation", "generation_changed",
+            }:
+                reason = str(exc)
+            return {"exit_status": 1, "phase": phase, "reason": reason}
 
 
 def _projection_estimate(pipeline):

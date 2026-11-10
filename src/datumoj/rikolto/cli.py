@@ -198,6 +198,17 @@ def cloud_project(
     raise typer.Exit(result.get("exit_status", 0))
 
 
+@cloud_app.command("usage")
+def cloud_usage(
+    work_dir: Path | None = typer.Option(None, "--work-dir", help="空的工作目录；默认使用临时目录"),
+) -> None:
+    from datumoj.rikolto.cloud import usage
+
+    result = usage(work_dir=work_dir)
+    typer.echo(_json(result))
+    raise typer.Exit(result.get("exit_status", 0))
+
+
 @cloud_app.command("cleanup")
 def cloud_cleanup(
     work_dir: Path | None = typer.Option(None, "--work-dir", help="空的工作目录；默认使用临时目录"),
