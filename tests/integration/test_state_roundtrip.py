@@ -120,7 +120,8 @@ def test_state_roundtrip_and_incremental_second_source(tmp_path, monkeypatch, ca
 
         for spec in specs:
             crawl(spec, "123", 0)
-        assert original.reindex(original.pipeline_deps) == 4
+        # Four body blocks plus one observation projection per source.
+        assert original.reindex(original.pipeline_deps) == 6
         expected = _results(original)
         with mock_aws():
             client = boto3.client("s3", region_name="us-east-1", aws_access_key_id="testing", aws_secret_access_key="testing")
@@ -133,7 +134,8 @@ def test_state_roundtrip_and_incremental_second_source(tmp_path, monkeypatch, ca
                 first = manager.push()
                 first_keys = {key for key, _ in store.uploads}
                 report = manager.restore(tmp_path / "restored")
-                assert report["sampled_chunks"] == 4 and report["sampled_observations"] == 2
+                # Restore samples at most five of the six searchable blocks.
+                assert report["sampled_chunks"] == 5 and report["sampled_observations"] == 2
                 restored = wiring.build(tmp_path / "restored", overrides)
                 actual = _results(restored)
                 assert actual == expected

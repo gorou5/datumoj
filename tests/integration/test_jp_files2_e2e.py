@@ -91,7 +91,7 @@ def test_each_source_fetch_parse_query_and_citation(tmp_path, source, blocked):
         assert len(parsed.parsed) == 1 and not parsed.failed
         indexed = deps.reindex(deps.pipeline_deps, source)
         if source == 'jp-mhlw':
-            assert indexed == 1  # A1 title (suppression rule) is the only searchable chunk.
+            assert indexed == 1537  # A1 suppression rule plus 48 * 2 * 2 * 8 observation rows.
             hit, = deps.retriever.search(['10未満'], k=10, source_ids=[source]).data
             assert parse_locator(hit.locator)['cell'] == 'A1'
             result = deps.tools.query_sql(

@@ -186,6 +186,18 @@ def cloud_embed(
     raise typer.Exit(result["exit_status"])
 
 
+@cloud_app.command("project")
+def cloud_project(
+    work_dir: Path | None = typer.Option(None, "--work-dir", help="空的工作目录；默认使用临时目录"),
+    write: bool = typer.Option(False, "--write/--dry-run", help="确认统计后写入；默认只统计"),
+) -> None:
+    from datumoj.rikolto.cloud import project
+
+    result = project(work_dir=work_dir, write=write)
+    typer.echo(_json(result))
+    raise typer.Exit(result.get("exit_status", 0))
+
+
 @cloud_app.command("cleanup")
 def cloud_cleanup(
     work_dir: Path | None = typer.Option(None, "--work-dir", help="空的工作目录；默认使用临时目录"),
@@ -806,11 +818,21 @@ def index(
     ctx: typer.Context,
     rebuild: bool = typer.Option(False, "--rebuild", help="从当前文档块重建索引"),
     vectors_only: bool = typer.Option(False, "--vectors-only", help="只重试暂缺文档的向量嵌入"),
+    projections_only: bool = typer.Option(False, "--projections-only", help="只补投影与对应全文索引"),
 ) -> None:
     """解析新快照并更新索引；可选择全量重建或只补做向量。"""
     if ctx.invoked_subcommand is not None:
         return
+    if projections_only and (rebuild or vectors_only):
+        raise typer.BadParameter("--rebuild、--vectors-only、--projections-only 不能同时使用")
     def action(deps: Any) -> None:
+        if projections_only:
+            from datumoj.rikolto.pipeline import backfill_projections, projection_counts
+
+            sources = projection_counts(deps.pipeline_deps)
+            count = backfill_projections(deps.pipeline_deps, update_keyword=True)
+            typer.echo(_json({"added_chunks": count, "sources": sources}))
+            return
         if vectors_only:
             count = deps.reindex(deps.pipeline_deps, vectors_only=True)
             typer.echo(f"向量补做完成：更新 {count} 个块")

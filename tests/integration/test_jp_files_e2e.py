@@ -43,8 +43,8 @@ def restore(deps, citation):
 
 
 @pytest.mark.parametrize("source,fixture,count", [
-    ("jp-ksj", "ksj/P05-22_41_GML.zip", 21),
-    ("jp-census", "census2024/c1_001_1.xlsx", 1),
+    ("jp-ksj", "ksj/P05-22_41_GML.zip", 22),  # 21 body blocks + catalog entry.
+    ("jp-census", "census2024/c1_001_1.xlsx", 5888),  # Title + catalog entry + 1962 * 3 rows.
 ])
 @pytest.mark.parametrize("blocked", [False, True])
 def test_each_source_fetch_parse_query_and_citation(tmp_path, source, fixture, count, blocked):
