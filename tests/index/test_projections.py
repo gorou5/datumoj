@@ -199,3 +199,88 @@ def test_legacy_backfill_selects_rows_before_newer_catalog_metadata(deps):
     assert deps.chunks.get_document(KEY).snapshot_sha256 == row.sha256
     assert any("#projection:row:" in chunk.chunk_id for chunk in deps.chunks.chunks_for(KEY))
     assert backfill_projections(deps) == 0
+
+
+def test_incremental_fingerprint_matches_original_for_a_single_pass_iterable():
+    import hashlib
+
+    from datumoj.rikolto.index.projections import projection_fingerprint
+
+    chunks = [make_chunk(KEY, "ab" * 32, f"row={i}", "日本語\nnewline") for i in range(3)]
+    for selected in ([], chunks[:1], chunks):
+        assert projection_fingerprint(iter(selected)) == hashlib.sha256(
+            "\n".join(c.model_dump_json() for c in selected).encode(),
+        ).hexdigest()
+
+
+def test_shared_document_across_tables_keeps_149_order_and_fingerprint(deps):
+    from datumoj.rikolto.index.projections import project
+
+    snap = make_snapshot()
+    deps.manifest.record_snapshot(snap)
+    dataset = make_dataset(KEY, "Catalog title", snapshot_sha256=snap.sha256, locator="entry=1")
+    deps.catalog.upsert([dataset])
+    rows = [make_observation(f"o{i}", None, note="秘匿", source_id="jp-test", dataset_key=KEY, table_key=f"t{i}",
+                             snapshot_sha256=snap.sha256, locator=f"row={i}") for i in range(3)]
+    for row in rows:
+        deps.observations.write_table(row.source_id, row.table_key, [row])
+    expected_doc, expected_chunks = project([dataset], rows)[0]
+    assert backfill_projections(deps, update_keyword=True) == 4
+    assert deps.chunks.chunks_for(KEY) == expected_chunks
+    assert deps.chunks.get_document(KEY) == expected_doc
+    assert backfill_projections(deps, update_keyword=True) == 0
+    assert deps.chunks.chunks_for(KEY) == expected_chunks
+
+
+def test_recovery_queries_only_snapshot_and_exact_catalog_keys(deps, monkeypatch):
+    from datumoj.rikolto.pipeline import _projection_inputs
+
+    snap = ingest(deps, "first")
+    ingest(deps, "second", seconds=1)
+    queries, lookups = [], []
+    query = deps.observations.query_readonly
+    lookup = deps.catalog.get_dataset
+
+    def restricted(sql, **kwargs):
+        queries.append(sql)
+        assert f"snapshot_sha256 = '{snap.sha256}'" in sql
+        return query(sql, **kwargs)
+
+    def get(key):
+        lookups.append(key)
+        return lookup(key)
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("snapshot recovery scanned the source catalog")
+
+    monkeypatch.setattr(deps.observations, "query_readonly", restricted)
+    monkeypatch.setattr(deps.catalog, "get_dataset", get)
+    monkeypatch.setattr(deps.catalog, "search", forbidden)
+    datasets, rows = _projection_inputs(deps, "jp-test", snap.sha256, [KEY])
+    assert datasets == [] and rows == []  # Current structured data belongs to the second snapshot.
+    assert queries and lookups == [KEY]
+
+
+def test_index_projections_only_skips_parsing_reindex_and_vectors(deps, monkeypatch):
+    import json
+    from types import SimpleNamespace
+
+    from typer.testing import CliRunner
+
+    from datumoj.rikolto import cli
+
+    ingest(deps, "legacy")
+    deps.chunks = FakeChunkStore()
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("unrelated indexing invoked")
+
+    monkeypatch.setattr(deps.vectors, "add", forbidden)
+    monkeypatch.setattr(cli, "_run", lambda feature, action: action(SimpleNamespace(
+        pipeline_deps=deps, parse_pending=forbidden, reindex=forbidden,
+    )))
+    response = CliRunner().invoke(cli.app, ["index", "--projections-only"])
+    assert response.exit_code == 0, response.output
+    assert json.loads(response.output) == {
+        "added_chunks": 2, "sources": {"jp-test": {"catalog_entries": 1, "observation_rows": 1, "new_chunks": 2}},
+    }

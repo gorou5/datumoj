@@ -38,6 +38,8 @@ from datumoj.rikolto.pipeline import (
     _recover_staged,
     _retry_vectors,
     _start_vectors,
+    backfill_projections,
+    projection_counts,
 )
 
 _BACKFILL_BATCH = 32
@@ -529,6 +531,126 @@ def _empty_work_root(work_dir, stack):
     if root.is_symlink() or (root.exists() and (not root.is_dir() or any(root.iterdir()))):
         raise ValueError("workspace_not_empty")
     return root
+
+
+def _project_storage_bytes(store):
+    if isinstance(store, S3StateObjectStore):
+        # list_objects() is namespace-scoped. The storage ceiling applies to
+        # every bucket and prefix in the account, including non-Rikolto data.
+        client = store._client
+        return sum(obj["Size"]
+                   for buckets in client.get_paginator("list_buckets").paginate()
+                   for bucket in buckets.get("Buckets", [])
+                   for page in client.get_paginator("list_objects_v2").paginate(Bucket=bucket["Name"])
+                   for obj in page.get("Contents", []))
+    return sum(obj.size_bytes for obj in store.list_objects(""))
+
+
+def _projection_estimate(pipeline):
+    sources = projection_counts(pipeline)
+    count = size = 0
+    for chunk in pipeline.chunks.iter_chunks():
+        count += 1
+        size += len(chunk.model_dump_json().encode())
+    average = math.ceil(size / count) if count else 0
+    new = sum(row["new_chunks"] for row in sources.values())
+    # An empty legacy block store has no empirical average. Use actual projected
+    # JSON sizes in that case, rather than claiming that new blocks cost zero.
+    if not count and new:
+        from datumoj.rikolto.index.projections import project as project_blocks
+        from datumoj.rikolto.pipeline import _projection_batches
+
+        size = sum(len(chunk.model_dump_json().encode())
+                   for _, datasets, rows in _projection_batches(pipeline)
+                   for _, chunks in project_blocks(datasets, rows) for chunk in chunks)
+        average = math.ceil(size / new)
+    return {"sources": sources, "new_chunks": new, "existing_chunks": count,
+            "average_chunk_bytes": average, "estimated_new_bytes": new * average}
+
+
+def project(*, work_dir: Path | None = None, write: bool = False) -> dict:
+    """Preview locally by default; explicit writes use the leased generation publisher."""
+    result = {}
+    deps = leases = lease = None
+    phase = "configuration"
+    with ExitStack() as stack, _quiet():
+        try:
+            root = _empty_work_root(work_dir, stack)
+            manager = wiring.build_state(root)
+            phase = "restore"
+            history = manager.list()
+            number = history[0].generation if history else 0
+            if history:
+                manager.restore(root, generation=number, raw="remote")
+            else:
+                root.mkdir(parents=True, exist_ok=True)
+            with workspace_lock(root):
+                deps = wiring.build(root, {"vectors": None})
+                deps.require("index")
+                phase = "estimate"
+                result = _projection_estimate(deps.pipeline_deps)
+                result["current_bytes"] = _project_storage_bytes(manager.store)
+                if not write:
+                    return result
+                if result["current_bytes"] + result["estimated_new_bytes"] > 8_500_000_000:
+                    result.update(exit_status=1, reason="storage_limit_exceeded")
+                    return result
+                if not result["new_chunks"]:
+                    return {**result, "generation": number, "before_bytes": result["current_bytes"],
+                            "after_bytes": result["current_bytes"], "added_chunks": 0}
+                # Report the measured account total before the first R2 write
+                # (lease acquisition itself writes), keeping stdout as one JSON.
+                print(json.dumps({key: result[key] for key in ("current_bytes", "estimated_new_bytes")}),
+                      file=sys.__stderr__, flush=True)
+                phase = "lease_acquire"
+                leases = LeaseManager(manager.store)
+                lease = leases.acquire(f"{manager.writer.kind}/{uuid.uuid4().hex}", force=True)
+                with leases.maintain(lease) as check:
+                    # The preview was lease-free. Reject a stale base rather than
+                    # publishing over work committed between restore and acquire.
+                    current = manager.list()
+                    if (current[0].generation if current else 0) != number:
+                        raise ValueError("generation_changed")
+                    if manager.store.get(f"generations/{number + 1}.json") is not None:
+                        raise ValueError("orphan_generation")
+                    phase = "storage_check"
+                    result["before_bytes"] = _project_storage_bytes(manager.store)
+                    if result["before_bytes"] + result["estimated_new_bytes"] > 8_500_000_000:
+                        result.update(exit_status=1, reason="storage_limit_exceeded")
+                        return result
+                    if not _probe_lease_writes(manager.store, check):
+                        raise ValueError("storage_conditional_unsupported")
+                    manager.before_write = _throttled_check(check)
+                    manager.before_metadata_write = manager.before_publish = check
+                    phase = "projections"
+                    with local_write(root):
+                        result["added_chunks"] = backfill_projections(deps.pipeline_deps, update_keyword=True)
+                    phase = "publish"
+                    check()
+                    generation = (StateManager.push(manager, retain_local=True)
+                                  if isinstance(manager, StateManager) else manager.push())
+                    result["generation"] = generation.generation
+                    result["after_bytes"] = _project_storage_bytes(manager.store)
+        except Exception:  # noqa: BLE001 -- Hide source text and SDK configuration at the cloud boundary.
+            result.update(exit_status=1, reason=f"{phase}_failed")
+        finally:
+            if deps is not None:
+                for name in ("manifest", "chunks", "keyword", "catalog", "change_log", "raw"):
+                    close = getattr(getattr(deps, name, None), "close", None)
+                    if callable(close):
+                        with suppress(Exception):
+                            close()
+            if lease is not None:
+                try:
+                    leases.release(lease.holder, lease.token)
+                except Exception:  # noqa: BLE001 -- Release failures must be visible.
+                    result.update(exit_status=1, reason="lease_release_failed")
+                if "after_bytes" in result:
+                    try:
+                        result["after_bytes"] = _project_storage_bytes(manager.store)
+                    except Exception:  # noqa: BLE001 -- Do not claim a verified final total if listing failed.
+                        result.update(exit_status=1, reason="storage_check_failed")
+    return result
 
 
 def _probe_lease_writes(store, check):

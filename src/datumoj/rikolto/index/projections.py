@@ -14,8 +14,14 @@ def is_projection(chunk: Chunk | ScoredChunk) -> bool:
     return chunk.chunk_id.startswith(f"{chunk.doc_key}{_MARKER}")
 
 
-def projection_fingerprint(chunks: list[Chunk]) -> str:
-    return hashlib.sha256("\n".join(chunk.model_dump_json() for chunk in chunks).encode()).hexdigest()
+def projection_fingerprint(chunks: Iterable[Chunk]) -> str:
+    digest = hashlib.sha256()
+    separator = b""
+    for chunk in chunks:
+        digest.update(separator)
+        digest.update(chunk.model_dump_json().encode())
+        separator = b"\n"
+    return digest.hexdigest()
 
 
 def project(datasets: Iterable[Dataset], observations: Iterable[Observation]) -> list[tuple[Document, list[Chunk]]]:

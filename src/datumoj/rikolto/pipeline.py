@@ -440,10 +440,11 @@ def _recover_staged(
                     # Structured-only outputs can be reconstructed without reading
                     # a second copy of every serialized row from the block store.
                     if projected is None:
-                        datasets, observations = _projection_inputs(deps, snap.source_id)
+                        datasets, observations = _projection_inputs(
+                            deps, snap.source_id, snap.sha256, record.doc_keys,
+                        )
                         projected = {doc.doc_key: chunks for doc, chunks in project(
-                            [d for d in datasets if d.snapshot_sha256 == snap.sha256],
-                            [o for o in observations if o.snapshot_sha256 == snap.sha256],
+                            datasets, observations,
                         )}
                     chunks = projected.get(key, [])
                     if projection_fingerprint(chunks) != current.metadata.get("projection_fingerprint"):
@@ -786,50 +787,106 @@ def _reconcile_catalog_content_state(deps: PipelineDeps, source_id: str | None) 
                 )
 
 
-def _projection_inputs(deps: PipelineDeps, source_id: str | None) -> tuple[list[Dataset], list[Observation]]:
-    filters = CatalogFilter(source_ids=[source_id]) if source_id is not None else None
-    datasets = [hit.dataset for hit in deps.catalog.search("", filters=filters, k=1_000_000)]
+def _projection_rows(deps: PipelineDeps, table, snapshot_sha256: str | None = None) -> list[Observation]:
+    source = table.source_id.replace("'", "''")
+    key = table.table_key.replace("'", "''")
+    condition = f"source_id = '{source}' AND table_key = '{key}'"
+    if snapshot_sha256 is not None:
+        sha = snapshot_sha256.replace("'", "''")
+        condition += f" AND snapshot_sha256 = '{sha}'"
+    return deps.observations.query_readonly(
+        f"SELECT * FROM observations WHERE {condition}", max_rows=max(1, table.rows),
+    ).provenance
+
+
+def _projection_inputs(
+    deps: PipelineDeps, source_id: str, snapshot_sha256: str, doc_keys: Iterable[str],
+) -> tuple[list[Dataset], list[Observation]]:
+    # CatalogFilter has no snapshot predicate: use the parse record's exact keys
+    # rather than loading the source catalog and filtering it afterwards.
+    datasets = [dataset for key in doc_keys if (dataset := deps.catalog.get_dataset(key)) is not None
+                and dataset.source_id == source_id and dataset.snapshot_sha256 == snapshot_sha256]
     observations = []
     for table in deps.observations.describe().tables:
-        if source_id is not None and table.source_id != source_id:
-            continue
-        source = table.source_id.replace("'", "''")
-        key = table.table_key.replace("'", "''")
-        observations.extend(deps.observations.query_readonly(
-            f"SELECT * FROM observations WHERE source_id = '{source}' AND table_key = '{key}'",
-            max_rows=max(1, table.rows),
-        ).provenance)
+        if table.source_id == source_id:
+            observations.extend(_projection_rows(deps, table, snapshot_sha256))
     return datasets, observations
 
 
-def backfill_projections(deps: PipelineDeps, source_id: str | None = None) -> int:
-    """Restore projection blocks for reindex, without opening raw or invoking parsers."""
-    datasets, observations = _projection_inputs(deps, source_id)
+def _projection_batches(deps: PipelineDeps, source_id: str | None = None):
+    tables = deps.observations.describe().tables
+    # Process all row groups before catalog-only snapshots, as in MAPLE-149.
+    for table in tables:
+        if source_id is None or table.source_id == source_id:
+            yield table.source_id, [], _projection_rows(deps, table)
+    sources = ([source_id] if source_id is not None else
+               sorted({spec.id for spec in deps.registry.all()} | {table.source_id for table in tables}))
+    for sid in sources:
+        datasets = [hit.dataset for hit in deps.catalog.search(
+            "", filters=CatalogFilter(source_ids=[sid]), k=1_000_000,
+        )]
+        yield sid, datasets, []
+        del datasets
+
+
+def projection_counts(deps: PipelineDeps, source_id: str | None = None) -> dict[str, dict[str, int]]:
+    """Count candidate inputs and absent blocks without mutating any store."""
+    counts = {}
+    for sid, datasets, observations in _projection_batches(deps, source_id):
+        row = counts.setdefault(sid, {"catalog_entries": 0, "observation_rows": 0, "new_chunks": 0})
+        row["catalog_entries"] += len(datasets)
+        row["observation_rows"] += len(observations)
+        for _, chunks in project(datasets, observations):
+            row["new_chunks"] += sum(deps.chunks.get_chunk(chunk.chunk_id, chunk.snapshot_sha256) is None
+                                     for chunk in chunks)
+    return counts
+
+
+def _backfill_projection(deps: PipelineDeps, doc, projected, *, update_keyword: bool) -> int:
+    snapshots = [snap for snap in deps.manifest.snapshots_by_sha256(doc.snapshot_sha256)
+                 if snap.source_id == doc.source_id and snap.outcome is FetchOutcome.ok]
+    if not snapshots:
+        raise ValueError(f"投影缺少来源快照：{doc.doc_key}")
+    snap = max(snapshots, key=lambda snap: deps.manifest.snapshot_order(snap.snapshot_id))
+    existing_doc = deps.chunks.get_document(doc.doc_key, doc.snapshot_sha256)
+    existing = deps.chunks.chunks_for(doc.doc_key, doc.snapshot_sha256)
+    merged = {chunk.chunk_id: chunk for chunk in existing}
+    merged.update((chunk.chunk_id, chunk) for chunk in projected)
+    combined = list(merged.values())
     count = 0
-    projections = project(datasets, observations)
-    # Rows select the current snapshot before metadata from another snapshot.
-    projections.sort(key=lambda item: all("#projection:entry:" in chunk.chunk_id for chunk in item[1]))
-    for doc, projected in projections:
-        snapshots = [snap for snap in deps.manifest.snapshots_by_sha256(doc.snapshot_sha256)
-                     if snap.source_id == doc.source_id and snap.outcome is FetchOutcome.ok]
-        if not snapshots:
-            raise ValueError(f"投影缺少来源快照：{doc.doc_key}")
-        snap = max(snapshots, key=lambda snap: deps.manifest.snapshot_order(snap.snapshot_id))
-        existing_doc = deps.chunks.get_document(doc.doc_key, doc.snapshot_sha256)
-        existing = deps.chunks.chunks_for(doc.doc_key, doc.snapshot_sha256)
-        merged = {chunk.chunk_id: chunk for chunk in existing}
-        merged.update((chunk.chunk_id, chunk) for chunk in projected)
-        combined = list(merged.values())
-        if combined != existing:
-            document = existing_doc or doc
-            if document.metadata.get("projection") == "keyword":
-                document = document.model_copy(update={"metadata": {
-                    **document.metadata, "projection_fingerprint": projection_fingerprint(combined),
-                }})
-            deps.chunks.put_document(document, combined, publish=False)
-            existing_ids = {chunk.chunk_id for chunk in existing}
-            count += sum(chunk.chunk_id not in existing_ids for chunk in projected)
-        _publish_current(deps, doc.doc_key, snap, rewritten=True)
+    if combined != existing:
+        document = existing_doc or doc
+        if document.metadata.get("projection") == "keyword":
+            document = document.model_copy(update={"metadata": {
+                **document.metadata, "projection_fingerprint": projection_fingerprint(combined),
+            }})
+        deps.chunks.put_document(document, combined, publish=False)
+        existing_ids = {chunk.chunk_id for chunk in existing}
+        count = sum(chunk.chunk_id not in existing_ids for chunk in projected)
+    if _publish_current(deps, doc.doc_key, snap, rewritten=True) and update_keyword:
+        deps.keyword.delete(doc.doc_key)
+        deps.keyword.add(combined)
+    return count
+
+
+def backfill_projections(
+    deps: PipelineDeps, source_id: str | None = None, *, update_keyword: bool = False,
+) -> int:
+    """Restore one table/source at a time; memory is bounded by the largest batch/document."""
+    count = 0
+    for _, datasets, observations in _projection_batches(deps, source_id):
+        if observations:
+            # Include matching catalog blocks first, preserving 149's block order,
+            # title and fingerprint even when one document spans several tables.
+            versions = {(row.dataset_key, row.snapshot_sha256) for row in observations}
+            datasets = [dataset for key in sorted({key for key, _ in versions})
+                        if (dataset := deps.catalog.get_dataset(key)) is not None
+                        and (key, dataset.snapshot_sha256) in versions]
+        count += sum(_backfill_projection(deps, doc, chunks, update_keyword=update_keyword)
+                     for doc, chunks in project(datasets, observations))
+        # Release the previous input and projected document before reading the
+        # next table, including references held by loop variables.
+        del datasets, observations
     return count
 
 
