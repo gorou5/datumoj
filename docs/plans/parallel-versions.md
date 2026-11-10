@@ -12,7 +12,7 @@
 
 | 代号 | 目标（一句话） | 计划 | 认领 | 状态 |
 | --- | --- | --- | --- | --- |
-| **KATABAMI（片喰）** | R2 容量治理：弄清 8 GB 花在哪里，把团队的 9 GB 规则变成代码里的硬闸门，降到安全线以下 | `docs/plans/katabami-r2-capacity.md` | 待认领 | 草案 |
+| **KATABAMI（片喰）** | R2 容量治理：弄清 8 GB 花在哪里，把团队的 9 GB 规则变成代码里的硬闸门，降到安全线以下 | `docs/plans/katabami-r2-capacity.md` | aaronjin2023（#170） | 草案 |
 | **PAULOWNIA（桐）** | 法人实体解析试点：接入法人番号与 KKJ 采购公告，建实体关系层和第一个匹配基线 | `docs/plans/paulownia-entity-resolution.md` | 待认领 | 草案 |
 | **AOI（葵）** | 国际来源二：BIS、WHO GHO、UNICEF、FAOSTAT、联合国人口司，补上 0.4 缺口表里引用最多的来源 | `docs/plans/aoi-intl-sources-2.md` | 待认领 | 草案 |
 | **BELLFLOWER（桔梗）** | 注册层发布为数据集：把来源注册表和资源目录连同出处、许可发成公开数据集 | `docs/plans/bellflower-registry-dataset.md` | 待认领 | 草案 |
@@ -20,7 +20,7 @@
 
 剩余候选代号：菊 Chrysanthemum。新增版本时从没用过的家纹里挑（`docs/PLAN.md` 第 8.1 节）。
 
-**认领方式：**在计划 PR 或之后的认领 PR 里留言"认领 <代号>"，由主对话把"认领"一列改成认领人，随里程碑记录一起更新到 plan.datumoj.com。一个版本只由一个人（或一个小组）负责到底。
+**认领方式：**在计划 PR、之后的认领 PR 或对应 issue 里留言"认领 <代号>"（三处都算），由主对话统一登记到"认领"一列；同一版本以最先登记的为准，随里程碑记录一起更新到 plan.datumoj.com。一个版本只由一个人（或一个小组）负责到底。
 
 ## 3. 规则
 
@@ -55,7 +55,7 @@
 - GitHub Actions 的并发组 `rikolto-cloud-run` 是共用的，新增云端作业要加入同一并发组（`cancel-in-progress: false`）。注意同一组默认只保留一个待运行位置，新排队的会顶掉原来排队的那个：新增作业要说明被顶掉时怎么补跑（例如下一轮定时自然补上，或手动重新触发），不要让验收或一次性回填静默丢失。
 
 ### 3.5 来源与许可
-- 新来源先做来源核实（官方接口、覆盖范围、凭据、配额、robots、许可、云端模型条款，附官方 URL 和核对日期），写成 `docs/plans/<代号>-sources.md`，人确认后才写采集器；做法参照 `docs/plans/0.4-wisteria-sources.md`。
+- 新来源先做来源核实（官方接口、覆盖范围、凭据、配额、robots、许可、云端模型条款，附官方 URL 和核对日期），写成 `docs/plans/<代号>-sources.md`，人确认后才写采集器。每个来源一节，固定写这几项：官方接口和文档 URL、覆盖范围（指标、地区、时间）、凭据和申请方式、配额与限速、robots、许可名称和链接、云端模型条款、核对日期、未确认事项。（PR #169 的 `docs/plans/0.4-wisteria-sources.md` 合并后可作为完整示例。）
 - 许可没核实完的来源：`outflow: no_outflow`、`cloud_model_ok: false`。
 
 ### 3.6 每个版本的计划写什么
