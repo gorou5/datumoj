@@ -630,6 +630,7 @@ def project(*, work_dir: Path | None = None, write: bool = False) -> dict:
                     generation = (StateManager.push(manager, retain_local=True)
                                   if isinstance(manager, StateManager) else manager.push())
                     result["generation"] = generation.generation
+                    phase = "post_publish_check"
                     result["after_bytes"] = _project_storage_bytes(manager.store)
         except Exception:  # noqa: BLE001 -- Hide source text and SDK configuration at the cloud boundary.
             result.update(exit_status=1, reason=f"{phase}_failed")

@@ -13,6 +13,7 @@ import sys
 import tracemalloc
 from contextlib import closing
 from dataclasses import replace
+from pathlib import Path
 
 from datumoj.rikolto.index.projections import project
 from datumoj.rikolto.pipeline import PipelineDeps, _backfill_projection, _projection_batches, backfill_projections
@@ -100,7 +101,8 @@ def test_batched_peak_is_sublinear_and_below_one_shot(tmp_path, capsys):
         ("import json,sys; from pathlib import Path; "
         "from tests.regressions.test_audit_150 import audit; "
         "print(json.dumps(audit(Path(sys.argv[1]))))"), str(tmp_path),
-    ], capture_output=True, text=True, check=True)
+    ], capture_output=True, text=True, check=False, cwd=Path(__file__).resolve().parents[2])
+    assert response.returncode == 0, response.stderr
     evidence = json.loads(response.stdout)
     with capsys.disabled():
         print("\nAUDIT 150 MEMORY " + json.dumps(evidence, sort_keys=True))
