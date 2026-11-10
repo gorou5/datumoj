@@ -284,3 +284,19 @@ def test_index_projections_only_skips_parsing_reindex_and_vectors(deps, monkeypa
     assert json.loads(response.output) == {
         "added_chunks": 2, "sources": {"jp-test": {"catalog_entries": 1, "observation_rows": 1, "new_chunks": 2}},
     }
+
+
+def test_projection_table_read_does_not_use_the_10s_user_query_limit():
+    from types import SimpleNamespace
+
+    from datumoj.rikolto.pipeline import _PROJECTION_READ_TIMEOUT_S, _projection_rows
+
+    seen = {}
+
+    def query_readonly(sql, max_rows=1000, timeout_s=10):
+        seen["timeout_s"] = timeout_s
+        return SimpleNamespace(provenance=[])
+
+    deps = SimpleNamespace(observations=SimpleNamespace(query_readonly=query_readonly))
+    _projection_rows(deps, SimpleNamespace(source_id="s", table_key="t", rows=3))
+    assert seen["timeout_s"] == _PROJECTION_READ_TIMEOUT_S > 10

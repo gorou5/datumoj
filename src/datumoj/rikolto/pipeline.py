@@ -787,6 +787,10 @@ def _reconcile_catalog_content_state(deps: PipelineDeps, source_id: str | None) 
                 )
 
 
+# Internal whole-table batch read: the 10 s user-query limit is too tight on slower runners.
+_PROJECTION_READ_TIMEOUT_S = 600
+
+
 def _projection_rows(deps: PipelineDeps, table, snapshot_sha256: str | None = None) -> list[Observation]:
     source = table.source_id.replace("'", "''")
     key = table.table_key.replace("'", "''")
@@ -796,6 +800,7 @@ def _projection_rows(deps: PipelineDeps, table, snapshot_sha256: str | None = No
         condition += f" AND snapshot_sha256 = '{sha}'"
     return deps.observations.query_readonly(
         f"SELECT * FROM observations WHERE {condition}", max_rows=max(1, table.rows),
+        timeout_s=_PROJECTION_READ_TIMEOUT_S,
     ).provenance
 
 
