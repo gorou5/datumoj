@@ -632,8 +632,10 @@ def project(*, work_dir: Path | None = None, write: bool = False) -> dict:
                     result["generation"] = generation.generation
                     phase = "post_publish_check"
                     result["after_bytes"] = _project_storage_bytes(manager.store)
-        except Exception:  # noqa: BLE001 -- Hide source text and SDK configuration at the cloud boundary.
-            result.update(exit_status=1, reason=f"{phase}_failed")
+        except Exception as error:  # noqa: BLE001 -- Hide source text and SDK configuration at the cloud boundary.
+            # Only our own fixed refusal codes pass through; anything else reports the phase alone.
+            known = isinstance(error, ValueError) and str(error) in _PROJECT_REFUSALS
+            result.update(exit_status=1, reason=str(error) if known else f"{phase}_failed")
         finally:
             if deps is not None:
                 for name in ("manifest", "chunks", "keyword", "catalog", "change_log", "raw"):
@@ -653,6 +655,9 @@ def project(*, work_dir: Path | None = None, write: bool = False) -> dict:
                         result.pop("after_bytes", None)
                         result.update(exit_status=1, reason="storage_check_failed")
     return result
+
+
+_PROJECT_REFUSALS = frozenset({"generation_changed", "orphan_generation", "storage_conditional_unsupported"})
 
 
 def _probe_lease_writes(store, check):

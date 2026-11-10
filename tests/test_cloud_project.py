@@ -187,7 +187,7 @@ def test_lost_generation_is_rejected_under_lease(world, monkeypatch):
 
     monkeypatch.setattr(StateManager, "list", history)
     result = cloud.project(work_dir=world.tmp / "raced", write=True)
-    assert result["exit_status"] == 1
+    assert result["exit_status"] == 1 and result["reason"] == "generation_changed"
     assert set(world.store.writes) == {"write-lease.json"}
     assert json.loads(world.store.get("current.json")[0])["generation"] == 1
 
@@ -196,7 +196,7 @@ def test_orphan_is_not_silently_published_instead_of_projections(world):
     world.store.put("generations/2.json", b"synthetic orphan")
     world.store.writes.clear()
     result = cloud.project(work_dir=world.tmp / "orphan", write=True)
-    assert result["exit_status"] == 1
+    assert result["exit_status"] == 1 and result["reason"] == "orphan_generation"
     assert set(world.store.writes) == {"write-lease.json"}
     assert json.loads(world.store.get("current.json")[0])["generation"] == 1
 
