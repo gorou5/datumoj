@@ -208,3 +208,11 @@ def test_capacity_is_rechecked_after_acquiring_lease(world, monkeypatch):
     assert result["reason"] == "storage_limit_exceeded"
     assert set(world.store.writes) == {"write-lease.json"}
     assert json.loads(world.store.get("current.json")[0])["generation"] == 1
+
+
+def test_non_empty_work_dir_reports_its_own_reason(world):
+    work_dir = world.tmp / "occupied"
+    work_dir.mkdir()
+    (work_dir / "left-over").write_text("x")
+    result = cloud.project(work_dir=work_dir, write=False)
+    assert result["exit_status"] == 1 and result["reason"] == "workspace_not_empty"

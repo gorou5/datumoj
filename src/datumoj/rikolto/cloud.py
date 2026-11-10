@@ -657,7 +657,8 @@ def project(*, work_dir: Path | None = None, write: bool = False) -> dict:
     return result
 
 
-_PROJECT_REFUSALS = frozenset({"generation_changed", "orphan_generation", "storage_conditional_unsupported"})
+_PROJECT_REFUSALS = frozenset({"generation_changed", "orphan_generation", "storage_conditional_unsupported",
+                               "workspace_not_empty"})
 
 
 def _probe_lease_writes(store, check):
