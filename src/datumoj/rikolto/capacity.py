@@ -1,0 +1,94 @@
+"""Read-only, bucket-scoped capacity accounting. Output never contains object keys.
+
+Inputs are namespace-relative inventory, validated generation descriptors and the
+current manifest.sqlite. Only that SQLite file is read; no storage API is called.
+Bytes are decimal bytes; headroom is signed (negative means above the threshold).
+Copy statistics count physical objects once, excluding checksum-only descriptors.
+Logical stores sharing an object each reference its bytes, so store rows need not
+sum to the bucket total. Raw source rows, in contrast, are mutually exclusive.
+"""
+
+from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
+
+from pydantic import TypeAdapter
+
+from datumoj.rikolto.core.contracts import SourceSpec, StateObject
+from datumoj.rikolto.core.models import SourceId, StateGeneration
+from datumoj.rikolto.core.state import _raw_key, _ro, plan_cleanup
+
+
+def _counts(objects):
+    return {"objects": len(objects), "bytes": sum(obj.size_bytes for obj in objects)}
+
+
+def _store_name(name):
+    name = name.split(".blocks/", 1)[0]
+    if name.startswith("vectors/"):
+        return "vectors"
+    if name.startswith("parquet/"):
+        return "parquet"
+    if name in {"manifest.sqlite", "chunks.sqlite", "keyword.sqlite", "catalog.sqlite", "changes.sqlite",
+                "observations.duckdb", "runs.jsonl", "control.json", "vectors-state.json"}:
+        return name
+    return "other"
+
+
+def inventory(objects: list[StateObject], generations: list[StateGeneration], current: int,
+              manifest: Path, specs: list[SourceSpec], *, now: datetime, raw_enabled: bool = False,
+              other_objects: tuple[StateObject, ...] | list[StateObject] = ()) -> dict:
+    """Account only for this bucket; outside-namespace objects remain unclassified."""
+    by_key = {obj.key: obj for obj in objects}
+    groups = {name: [] for name in ("generations", "copies", "raw", "other")}
+    for obj in objects:
+        prefix = obj.key.split("/", 1)[0] if "/" in obj.key else "other"
+        groups[prefix if prefix in groups else "other"].append(obj)
+    groups["other"].extend(other_objects)
+    total = _counts([*objects, *other_objects])
+
+    references = defaultdict(set)
+    stores = defaultdict(set)
+    for generation in generations:
+        for copy in generation.stores:
+            if copy.format == "sqlite-blocks-v1":
+                continue  # This entry checks the assembled file; it is not an object.
+            references[copy.key].add(generation.generation)
+            stores[_store_name(copy.name)].add(copy.key)
+    per_generation = []
+    for generation in sorted(generations, key=lambda g: g.generation):
+        keys = {copy.key for copy in generation.stores if copy.format != "sqlite-blocks-v1"}
+        per_generation.append({
+            "generation": generation.generation,
+            "referenced_bytes": sum(by_key[key].size_bytes for key in keys if key in by_key),
+            "exclusive_bytes": sum(by_key[key].size_bytes for key in keys
+                                   if key in by_key and len(references[key]) == 1),
+        })
+
+    sources = defaultdict(set)
+    with _ro(manifest) as db:
+        for sha, source in db.execute("SELECT DISTINCT sha256,source_id FROM snapshots WHERE sha256 IS NOT NULL"):
+            TypeAdapter(SourceId).validate_python(source)
+            sources[_raw_key("raw", sha)].add(source)
+    by_source = defaultdict(list)
+    by_source["shared"] = []
+    by_source["unreferenced"] = []
+    for obj in groups["raw"]:
+        refs = sources.get(obj.key, set())
+        source = "shared" if len(refs) > 1 else next(iter(refs)) if refs else "unreferenced"
+        by_source[source].append(obj)
+
+    plan = plan_cleanup(objects, generations, current, manifest, specs, now=now)
+    return {
+        "scope": "this_bucket",
+        "total": total,
+        "headroom_bytes": {"7gb": 7_000_000_000 - total["bytes"],
+                           "8_5gb": 8_500_000_000 - total["bytes"], "9gb": 9_000_000_000 - total["bytes"]},
+        "prefixes": {name: _counts(group) for name, group in groups.items()},
+        "current_generation": next((row for row in per_generation if row["generation"] == current), None),
+        "generations": per_generation,
+        "raw_sources": {source: _counts(group) for source, group in sorted(by_source.items())},
+        "stores": {name: {"bytes": sum(by_key[key].size_bytes for key in keys if key in by_key)}
+                   for name, keys in sorted(stores.items())},
+        "reclaimable": {**{kind: _counts(group) for kind, group in plan.items()}, "raw_enabled": raw_enabled},
+    }

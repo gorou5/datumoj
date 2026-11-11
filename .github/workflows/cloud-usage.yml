@@ -1,0 +1,48 @@
+name: Cloud usage
+
+'on':
+  workflow_dispatch:
+
+concurrency:
+  group: rikolto-cloud-run
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    if: github.repository == 'gorou5/datumoj'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v6.0.1
+        with:
+          version: '0.7.12'
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --frozen --python 3.12
+      - name: Inventory this bucket (read only)
+        shell: bash
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          DATUMOJ_S3_BUCKET: ${{ secrets.DATUMOJ_S3_BUCKET }}
+          DATUMOJ_S3_PREFIX: ${{ secrets.DATUMOJ_S3_PREFIX }}
+          R2_RAW_CLEANUP: ${{ vars['R2_RAW_CLEANUP'] }}
+        run: |
+          set -euo pipefail
+          status=0
+          uv run --frozen rikolto cloud usage > usage.json || status=$?
+          {
+            echo 'Statistics cover this bucket only (统计范围为本桶).'
+            echo '```json'
+            cat usage.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat usage.json
+          exit "$status"
