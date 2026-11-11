@@ -19,6 +19,7 @@ license:
   cloud_model_ok: false
   notes: README の規約確認を参考とするが、添付ファイルを含む個別の権利は未確認。
 scope:
+  raw_retention_days: 30
   seeds:
     - url: https://www8.cao.go.jp/cstp/openinnovation/index.html
       label: イノベーション推進（科学技術・イノベーション推進事務局）
@@ -36,4 +37,4 @@ scope:
   pdf_recheck_days: 7
   head_probe: true
 # New sources are disabled by control.json defaults; switches do not belong in YAML.
-retention_note: 日次の限定巡回。raw は出典再現用の不変スナップショット。保存期限・削除方針は unknown。
+retention_note: 日次の限定巡回。raw は出典再現用の不変スナップショット。raw 保留 30 天，过期后由云端清理删除（最新快照受保护）；观测值历史随代次保留。
