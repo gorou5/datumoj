@@ -1,9 +1,10 @@
 # tel — tel.datumoj.com 日本电话番号数据库
 
 > **【迁移通告 / 移管のお知らせ】** 本目录已于 **2026-11-10** 迁出：代码移至独立仓库
-> **https://github.com/sandal9u/tel**，运行环境（Worker／D1／R2）移至 nbfun 账户
+> [sandal9u/tel](https://github.com/sandal9u/tel)，运行环境（Worker／D1／R2）移至 nbfun 账户
 > （源站 tel.nbfun.com，对外仍为 datumoj.com/tel）。本目录自迁移日起**冻结**，
 > 不再接受 tel 相关提交；后续开发、部署与文档一律在新仓库进行。
+> 如无法访问新仓库，请在[本仓库的 Issues](https://github.com/gorou5/datumoj/issues)提交访问请求并 @sandal9u。
 
 日本の電話番号データベース。番号ページはデータベースの区画表からアクセス時に
 組み立てて生成する（1番号1行のデータは持たない）。設計書は
