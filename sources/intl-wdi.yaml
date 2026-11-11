@@ -27,4 +27,4 @@ scope:
     NY.GDP.MKTP.CD: current US$
     NY.GDP.MKTP.CN: current LCU（各国本币）
     SP.DYN.LE00.IN: 年
-retention_note: 每次重读整个选定区间，保留历史快照。raw 保留 30 天，过期后由云端清理删除（最新快照受保护）；观测值历史随代次保留。
+retention_note: 每次重读整个选定区间，保留历史快照。raw 保留 30 天，启用 R2_RAW_CLEANUP 后过期由云端清理删除（最新快照受保护）；观测值历史随代次保留。

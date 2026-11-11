@@ -33,4 +33,4 @@ scope:
       query: A.PC_GDP+MIO_EUR.S13.B9+GD.EL
       startPeriod: "2000"
       endPeriod: "2015"
-retention_note: 每日保留原始快照与观测值历史用于修订追踪，不以新值覆盖旧快照；不伪造历史发布版本。raw 保留 30 天，过期后由云端清理删除（最新快照受保护）；观测值历史随代次保留。
+retention_note: 每日保留原始快照与观测值历史用于修订追踪，不以新值覆盖旧快照；不伪造历史发布版本。raw 保留 30 天，启用 R2_RAW_CLEANUP 后过期由云端清理删除（最新快照受保护）；观测值历史随代次保留。

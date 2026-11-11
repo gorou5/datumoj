@@ -22,4 +22,4 @@ scope:
   raw_retention_days: 30
   catalogue: publ
   download_resources: false
-retention_note: 保留原始元数据快照用于追溯。raw 保留 30 天，过期后由云端清理删除（最新快照受保护）；观测值历史随代次保留。
+retention_note: 保留原始元数据快照用于追溯。raw 保留 30 天，启用 R2_RAW_CLEANUP 后过期由云端清理删除（最新快照受保护）；观测值历史随代次保留。

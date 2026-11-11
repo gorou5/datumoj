@@ -22,4 +22,4 @@ scope:
   raw_retention_days: 30
   files:
     - https://nlftp.mlit.go.jp/ksj/gml/data/P05/P05-22/P05-22_41_GML.zip
-retention_note: 原始 ZIP 用于出处还原和离线重解析。raw 保留 30 天，过期后由云端清理删除（最新快照受保护）；观测值历史随代次保留。
+retention_note: 原始 ZIP 用于出处还原和离线重解析。raw 保留 30 天，启用 R2_RAW_CLEANUP 后过期由云端清理删除（最新快照受保护）；观测值历史随代次保留。

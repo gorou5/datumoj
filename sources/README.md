@@ -24,7 +24,7 @@
 
 只有逐项核实许可后才能填 `redistribution: allowed`；此时必须填写许可名称、官方许可 URL、署名文本和 `verified_at` 日期。将 `outflow` 放宽到 `raw_ok` / `derived_only`，或设 `cloud_model_ok: true`，还必须填写许可名称、官方许可 URL、`verified_at` 日期及 `notes` 中的核对依据；`raw_ok` 另须填写 `attribution`。`verified_at` / `notes` 分别对应任务字段 `license_verified_at` / `license_notes`，两者放在嵌套的 `license` 对象中以遵循契约。
 
-云端清理根据 `scope.raw_retention_days` 判断 raw 是否过期；同一 raw 被多份快照引用时，采用最长保留天数，并以最近一次抓取时间起算。每个资源的最新成功快照默认受保护，`scope.raw_expire_latest_types` 中列出的资源类型例外（`jp-jma` 为 `["entry"]`）。过期且不再受保护的 raw 由云端清理删除；待发布、发布失败等保护条件及代次引用检查仍然生效。观测值历史随代次保留，raw 不压缩。
+云端清理根据 `scope.raw_retention_days` 判断 raw 是否过期；同一 raw 被多份快照引用时，采用最长保留天数，并以最近一次抓取时间起算。每个资源的最新成功快照默认受保护，`scope.raw_expire_latest_types` 中列出的资源类型例外（`jp-jma` 为 `["entry"]`）。过期且不再受保护的 raw 在启用 `R2_RAW_CLEANUP`（默认 `off`）后由云端清理删除；待发布、发布失败等保护条件及代次引用检查仍然生效。观测值历史随代次保留，raw 不压缩。
 
 ## 许可核对方法
 
@@ -57,5 +57,5 @@ scope:
   raw_retention_days: 30
   endpoints: [/laws, /law_data/{law_id}, /law_revisions/{law_id}]
 needs_key: null
-retention_note: raw 保留 30 天，过期后由云端清理删除（最新快照受保护）；观测值历史随代次保留。
+retention_note: raw 保留 30 天，启用 R2_RAW_CLEANUP 后过期由云端清理删除（最新快照受保护）；观测值历史随代次保留。
 ```

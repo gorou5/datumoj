@@ -31,4 +31,4 @@ scope:
   formats: [csv, xlsx, xls, pdf, json, xml]
   max_file_bytes: 209715200   # 单文件 200MB（2026-10-21 团队决定）
 needs_key: null
-retention_note: raw 保留 30 天，过期后由云端清理删除（最新快照受保护）；观测值历史随代次保留。
+retention_note: raw 保留 30 天，启用 R2_RAW_CLEANUP 后过期由云端清理删除（最新快照受保护）；观测值历史随代次保留。

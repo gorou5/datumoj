@@ -26,4 +26,4 @@ scope:
   short_retention: true
   feeds:
     - https://www.data.jma.go.jp/developer/xml/feed/regular_l.xml
-retention_note: 长期 feed 为约 7 天滑动窗口，轮询频率为每小时。raw 保留 3 天，过期后由云端清理删除（最新快照受保护，entry 类型除外）；观测值历史随代次保留。
+retention_note: 长期 feed 为约 7 天滑动窗口，轮询频率为每小时。raw 保留 3 天，启用 R2_RAW_CLEANUP 后过期由云端清理删除（最新快照受保护，entry 类型除外）；观测值历史随代次保留。

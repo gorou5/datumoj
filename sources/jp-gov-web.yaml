@@ -37,4 +37,4 @@ scope:
   pdf_recheck_days: 7
   head_probe: true
 # New sources are disabled by control.json defaults; switches do not belong in YAML.
-retention_note: 日次の限定巡回。raw は出典再現用の不変スナップショット。raw 保留 30 天，过期后由云端清理删除（最新快照受保护）；观测值历史随代次保留。
+retention_note: 日次の限定巡回。raw は出典再現用の不変スナップショット。raw 保留 30 天，启用 R2_RAW_CLEANUP 后过期由云端清理删除（最新快照受保护）；观测值历史随代次保留。

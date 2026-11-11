@@ -22,4 +22,4 @@ scope:
   raw_retention_days: 30
   url: https://www.mhlw.go.jp/content/12400000/001711941.zip
   member: 08_特定健診_問診項目/標準的な質問票（質問項目１）　都道府県別性年齢階級別分布.xlsx
-retention_note: 原始 ZIP 用于出处还原和离线重解析。raw 保留 30 天，过期后由云端清理删除（最新快照受保护）；观测值历史随代次保留。
+retention_note: 原始 ZIP 用于出处还原和离线重解析。raw 保留 30 天，启用 R2_RAW_CLEANUP 后过期由云端清理删除（最新快照受保护）；观测值历史随代次保留。
