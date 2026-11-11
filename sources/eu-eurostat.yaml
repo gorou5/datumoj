@@ -19,6 +19,7 @@ license:
   verified_at: null
   notes: 统计数据再利用须署名；修改须说明。范围仅含 EU 成员国 EL、DE、FR、NL；逐数据集特别条件尚待核对。
 scope:
+  raw_retention_days: 30
   datasets:
     - id: nama_10_gdp
       query: A.CP_MEUR.B1GQ.DE+FR+NL
@@ -32,4 +33,4 @@ scope:
       query: A.PC_GDP+MIO_EUR.S13.B9+GD.EL
       startPeriod: "2000"
       endPeriod: "2015"
-retention_note: 每日保留原始快照与观测值历史用于修订追踪，不以新值覆盖旧快照；不伪造历史发布版本。保留期限与清理策略待项目统一确定，当前不自动删除。
+retention_note: 每日保留原始快照与观测值历史用于修订追踪，不以新值覆盖旧快照；不伪造历史发布版本。raw 保留 30 天，过期后由云端清理删除（最新快照受保护）；观测值历史随代次保留。
