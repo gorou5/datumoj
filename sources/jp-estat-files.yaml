@@ -22,6 +22,7 @@ license:
 # 每项：stat_inf_id、survey、title（文件里的表题须包含它）、layout（只认 wide_area_by_year /
 # census_area_by_measure）、expected_area_level；census_area_by_measure 另写 area_code（文件实际地区以内容核对）。
 scope:
+  raw_retention_days: 30
   tables:
     - stat_inf_id: "000013168605"
       survey: 人口推計
@@ -40,3 +41,4 @@ scope:
       layout: census_area_by_measure
       expected_area_level: prefecture
       area_code: "27000"
+retention_note: raw 保留 30 天，过期后由云端清理删除（最新快照受保护）；观测值历史随代次保留。

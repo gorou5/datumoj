@@ -19,6 +19,7 @@ license:
   verified_at: null
   notes: 条目元数据 CC BY 4.0，v1 记为 PDL1.0，待核对（决策文档 8.2）。采集器拒收超过 25 MiB 的文件；ZIP 展开总量限制 250 MiB、10000 条目。
 scope:
+  raw_retention_days: 30
   municipality_code: "134023"
   url: https://data.address-br.digital.go.jp/mt_town/city/mt_town_city134023.csv.zip
-retention_note: 原始 ZIP 用于出处还原和离线重解析；清理沿用项目快照保留策略。
+retention_note: 原始 ZIP 用于出处还原和离线重解析。raw 保留 30 天，过期后由云端清理删除（最新快照受保护）；观测值历史随代次保留。

@@ -19,6 +19,7 @@ license:
   verified_at: null
   notes: 网站政策适用 PDL1.0；完整利用条件核对前仅内部使用。采集器拒收超过 25 MiB 的文件；ZIP 展开总量限制 250 MiB、10000 条目。遮蔽值不推算。
 scope:
+  raw_retention_days: 30
   url: https://www.mhlw.go.jp/content/12400000/001711941.zip
   member: 08_特定健診_問診項目/標準的な質問票（質問項目１）　都道府県別性年齢階級別分布.xlsx
-retention_note: 原始 ZIP 用于出处还原和离线重解析；清理沿用项目快照保留策略。
+retention_note: 原始 ZIP 用于出处还原和离线重解析。raw 保留 30 天，过期后由云端清理删除（最新快照受保护）；观测值历史随代次保留。
