@@ -228,7 +228,13 @@ def _vectors(path, chunks):
         raise ValueError("invalid_vector_generation")
     active = "chunks" if generation == 0 else f"chunks_g{generation}"
     db = lancedb.connect(str(path))
-    names = db.list_tables().tables
+    names = []
+    page = db.list_tables()
+    while True:
+        names.extend(page.tables)
+        if page.page_token is None:
+            break
+        page = db.list_tables(page_token=page.page_token)
     if active not in names:
         raise ValueError("missing_vector_table")
     if chunks is not None:

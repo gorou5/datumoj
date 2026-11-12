@@ -36,8 +36,10 @@ def test_no_receipt_only_changes_age_threshold(tmp_path, former_days):
     objects = [obj(raw_key(snap), snap.size) for snap in snapshots.values()]
     current = generation(1, [copy("control.json", b"synthetic")], T0)
     plan = plan_cleanup(objects, [current], 1, path, specs, now=T0)
-    # Independent 104 oracle with only the age threshold normalized to 48h.
+    # The source limit applies below the unchanged 48h ceiling.
     expected = {raw_key(snapshots[name]) for name, age in ages.items()
-                if age >= 48 and name in {"old", "boundary", "young"}}
+                if age >= min(former_days * 24, 48) and name in {"old", "boundary", "young"}}
     assert {item.key for item in plan["raw"]} == expected
-    assert expected == {raw_key(snapshots["old"]), raw_key(snapshots["boundary"])}
+    assert expected == {raw_key(snapshots["old"]), raw_key(snapshots["boundary"])} | (
+        {raw_key(snapshots["young"])} if former_days < 2 else set()
+    )

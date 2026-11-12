@@ -47,6 +47,7 @@ from datumoj.rikolto.core.models import (
     parse_context_fingerprint,
 )
 from datumoj.rikolto.core.nas_receipt import RAW_LIFETIME, NasReceipt, read_receipt
+from datumoj.rikolto.core.registry import load_registry
 from datumoj.rikolto.core.schedule import _locked
 from datumoj.rikolto.core.state_s3 import check_key, delete_retired_objects
 from datumoj.rikolto.index.coverage import index_is_rebuilding
@@ -220,13 +221,16 @@ def _raw_key(prefix: str, sha: str) -> str:
     return f"{prefix.rstrip('/')}/{sha[:2]}/{sha}"
 
 
-def _raw_refs(root: Path) -> set[str]:
+def _raw_refs(root: Path, *, specs: list[SourceSpec] | None = None) -> set[str]:
     if not (root / "manifest.sqlite").exists():
         raise StateError("状态缺少 manifest")
     with _ro(root / "manifest.sqlite") as db:
         refs = {r[0] for r in db.execute("SELECT DISTINCT sha256 FROM snapshots WHERE sha256 IS NOT NULL")}
         if db.execute("SELECT 1 FROM sqlite_master WHERE name='raw_allowed_missing'").fetchone():
             refs -= {r[0] for r in db.execute("SELECT sha256 FROM raw_allowed_missing")}
+    if specs is not None:
+        _, protected = _raw_policy(root / "manifest.sqlite", specs)
+        refs |= protected
     for sha in refs:
         _raw_key("raw", sha)
     return refs
@@ -485,9 +489,8 @@ def _sample_provenance(root: Path, *, raw: str, refs: set[str]) -> dict[str, int
             "raw_verification": "sha256" if raw == "local" else "remote_keys_only"}
 
 
-def raw_retention(manifest: Path, specs: list[SourceSpec], now: datetime,
-                  receipt: NasReceipt | None = None) -> dict[str, datetime]:
-    """Read eligible raw SHA → expiry; any snapshot's protection vetoes deletion."""
+def _raw_policy(manifest: Path, specs: list[SourceSpec]) -> tuple[dict[str, datetime], set[str]]:
+    """Share expiry and protection rules between cleanup and restore."""
     policies = {spec.id: spec for spec in specs}
     with _ro(manifest) as db:
         no_parser = set(db.execute(
@@ -499,7 +502,7 @@ def raw_retention(manifest: Path, specs: list[SourceSpec], now: datetime,
                          "LEFT JOIN publish_states p USING(snapshot_id) ORDER BY s.fetched_at,s.seq")]
         latest = {(snap.source_id, snap.resource_url): snap.snapshot_id
                   for snap, _, _ in snapshots if snap.outcome is FetchOutcome.ok}
-        latest_fetch = {}
+        expiry = {}
         protected = set()
         for snap, meta, state in snapshots:
             if snap.sha256 is None:
@@ -508,7 +511,10 @@ def raw_retention(manifest: Path, specs: list[SourceSpec], now: datetime,
             scope = spec.scope if spec else {}
             expire_types = scope.get("raw_expire_latest_types", [])
             sha = snap.sha256
-            latest_fetch[sha] = max(latest_fetch.get(sha, snap.fetched_at), snap.fetched_at)
+            lifetime = min(timedelta(days=scope.get("raw_retention_days", 30)), RAW_LIFETIME)
+            deadline = snap.fetched_at + lifetime
+            # Shared content survives until every referencing fetch expires.
+            expiry[sha] = max(expiry.get(sha, deadline), deadline)
             context = parse_context_fingerprint(snap, meta)
             # A reusable parse is not proof this observation was published.
             # Only a terminal no-parser result can dispense with publication.
@@ -518,9 +524,16 @@ def raw_retention(manifest: Path, specs: list[SourceSpec], now: datetime,
                     or (latest.get((snap.source_id, snap.resource_url)) == snap.snapshot_id
                         and meta.get("resource_type") not in expire_types)):
                 protected.add(sha)
-        return {sha: min(fetched + RAW_LIFETIME, receipt.archived_at)
-                if receipt is not None and sha in receipt.sha256 else fetched + RAW_LIFETIME
-                for sha, fetched in latest_fetch.items() if sha not in protected}
+        return expiry, protected
+
+
+def raw_retention(manifest: Path, specs: list[SourceSpec], now: datetime,
+                  receipt: NasReceipt | None = None) -> dict[str, datetime]:
+    """Read eligible raw SHA → expiry; any snapshot's protection vetoes deletion."""
+    expiry, protected = _raw_policy(manifest, specs)
+    return {sha: min(deadline, receipt.archived_at)
+            if receipt is not None and sha in receipt.sha256 else deadline
+            for sha, deadline in expiry.items() if sha not in protected}
 
 
 def plan_cleanup(objects: list[StateObject], history: list[StateGeneration], current: int,
@@ -736,7 +749,7 @@ class StateManager:
             candidate = _validate_generation(orphan[0], number + 1)
             # Continue only this exact candidate, checking raw by key inventory.
             with self._temporary_stage(prefix="datumoj-state-") as stage:
-                self._materialize(candidate, stage, raw="remote", raw_keys=raw_keys)
+                self._materialize(candidate, stage, raw="remote")
                 with self._timed("publish"):
                     self._publish(candidate, etag)
                 if retain_local:
@@ -970,8 +983,7 @@ class StateManager:
         except Exception:  # noqa: BLE001 -- 代次列表校验边界必须隐藏任意 SDK 错误。
             raise StateError("状态代次列表校验失败") from None
 
-    def _materialize(self, candidate: StateGeneration, stage: Path, *, raw: str,
-                     raw_keys: set[str] | None = None) -> dict:
+    def _materialize(self, candidate: StateGeneration, stage: Path, *, raw: str) -> dict:
         groups = _block_groups(candidate.stores)
         for copy in candidate.stores:
             _validate_copy(copy)
@@ -1047,24 +1059,40 @@ class StateManager:
             _check_schema(stage)
             if _vector_coverage(stage) != candidate.vector_coverage:
                 raise StateError("向量恢复覆盖校验失败")
-            refs = _raw_refs(stage)
+            specs = load_registry(Path(__file__).resolve().parents[4] / "sources").all()
+            refs = _raw_refs(stage, specs=specs)
         with self._timed("download_raw"):
+            with _ro(stage / "manifest.sqlite") as db:
+                sizes = {}
+                for sha, text in db.execute("SELECT sha256,snapshot FROM snapshots WHERE sha256 IS NOT NULL"):
+                    size = json.loads(text)["size"]
+                    if sha in refs:
+                        if sha in sizes and sizes[sha] != size:
+                            raise StateError("manifest raw 大小不一致")
+                        sizes[sha] = size
             if raw == "remote":
-                if raw_keys is None:
-                    raw_keys = set(self.store.list(candidate.raw_prefix + "/"))
+                raw_sizes = {obj.key: obj.size_bytes for obj in self.store.list_objects(candidate.raw_prefix + "/")}
+                for sha, size in sizes.items():
+                    key = _raw_key(candidate.raw_prefix, sha)
+                    if key not in raw_sizes:
+                        raise StateError("远端缺少 manifest 引用的 raw")
+                    if raw_sizes[key] != size:
+                        raise StateError("raw SHA256 或大小校验失败")
+            else:
+                # Local pulls wrap storage with a read-through cache. Verify the
+                # downloaded bytes directly, preserving that wrapper's boundary.
+                raw_keys = set(self.store.list(candidate.raw_prefix + "/"))
                 if any(_raw_key(candidate.raw_prefix, sha) not in raw_keys for sha in refs):
                     raise StateError("远端缺少 manifest 引用的 raw")
-            else:
-                if raw_keys is None:
-                    raw_keys = set(self.store.list(candidate.raw_prefix + "/"))
                 with closing(SqliteManifest(stage / "manifest.sqlite")) as manifest:
                     available_optional = {sha for sha in manifest.raw_markers()
                                           if _raw_key(candidate.raw_prefix, sha) in raw_keys}
 
                 def download_raw(sha):
                     found = self._get(_raw_key(candidate.raw_prefix, sha))
-                    if found is None or _digest(found[0]) != sha:
-                        raise StateError("raw SHA256 校验失败")
+                    if (found is None or _digest(found[0]) != sha
+                            or sha in sizes and len(found[0]) != sizes[sha]):
+                        raise StateError("raw SHA256 或大小校验失败")
                     path = stage / _raw_key("raw", sha)
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(found[0])
