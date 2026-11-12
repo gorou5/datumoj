@@ -587,26 +587,49 @@ def _usage_objects(store):
 
 
 def _usage_manifest(manager, generation, path):
+    copy = next(c for c in generation.stores if c.name == "manifest.sqlite")
+    _usage_copy(manager, generation, copy, path)
+
+
+def _usage_copy(manager, generation, copy, path):
     from datumoj.rikolto.core.state import _block_groups, _digest
 
-    copy = next(c for c in generation.stores if c.name == "manifest.sqlite")
     parts = _block_groups(generation.stores).get(copy.name, [copy])
-    # Only manifest blocks are fetched; the assembled checksum entry is virtual.
+    # The assembled SQLite checksum entry is virtual, never an object GET.
+    path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("wb") as stream:
         for part in parts:
             found = manager.store.get(part.key)
             if found is None or len(found[0]) != part.size_bytes or _digest(found[0]) != part.sha256:
-                raise ValueError("invalid_manifest")
+                raise ValueError("invalid_usage_copy")
             stream.write(found[0])
     with path.open("rb") as stream:
         if path.stat().st_size != copy.size_bytes or hashlib.file_digest(stream, "sha256").hexdigest() != copy.sha256:
-            raise ValueError("invalid_manifest")
+            raise ValueError("invalid_usage_copy")
 
 
-def usage(*, work_dir: Path | None = None) -> dict:
+def _usage_databases(manager, generation, root, now):
+    from datumoj.rikolto.db_usage import measure_usage
+
+    paths = {"manifest": root / "manifest.sqlite"}
+    for copy in generation.stores:
+        if copy.name in {"chunks.sqlite", "changes.sqlite", "catalog.sqlite"}:
+            path = root / copy.name
+            _usage_copy(manager, generation, copy, path)
+            paths[copy.name.removesuffix(".sqlite")] = path
+        elif copy.name.startswith("vectors/") and copy.name != "vectors/vectors-state.json":
+            path = root / copy.name
+            if not path.resolve().is_relative_to(root.resolve()):
+                raise ValueError("invalid_usage_path")
+            _usage_copy(manager, generation, copy, path)
+            paths["vectors"] = root / "vectors"
+    return measure_usage(**paths, now=now)
+
+
+def usage(*, work_dir: Path | None = None, db: bool = False) -> dict:
     """Inventory this bucket without leases, probes, restore, writes or deletes.
 
-    Reads the current pointer, descriptors and current manifest only. All errors
+    Optionally measures current database copies in a disposable directory. All errors
     cross this boundary as fixed phase/reason codes, never SDK or source text.
     """
     from botocore.exceptions import ClientError
@@ -631,6 +654,8 @@ def usage(*, work_dir: Path | None = None) -> dict:
                 raise ValueError("orphan_generation")
             phase = "manifest"
             root.mkdir(parents=True, exist_ok=True)
+            if db:
+                root = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="db-usage-", dir=root)))
             manifest = root / "manifest.sqlite"
             _usage_manifest(manager, generation, manifest)
             phase = "inventory"
@@ -638,6 +663,10 @@ def usage(*, work_dir: Path | None = None) -> dict:
             result = inventory(objects, generations, current, manifest, specs, now=utcnow(),
                                raw_enabled=os.environ.get("R2_RAW_CLEANUP", "off").lower() == "on",
                                other_objects=other)
+            if db:
+                phase = "db"
+                result["db"] = _usage_databases(manager, generation, root, utcnow())
+                phase = "inventory"
             if manager._current() != (current, etag):
                 raise ValueError("generation_changed")
             return result

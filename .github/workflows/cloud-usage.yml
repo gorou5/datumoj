@@ -2,6 +2,11 @@ name: Cloud usage
 
 'on':
   workflow_dispatch:
+    inputs:
+      db:
+        description: Measure database contents (read only)
+        type: boolean
+        default: false
 
 concurrency:
   group: rikolto-cloud-run
@@ -34,10 +39,15 @@ jobs:
           DATUMOJ_S3_BUCKET: ${{ secrets.DATUMOJ_S3_BUCKET }}
           DATUMOJ_S3_PREFIX: ${{ secrets.DATUMOJ_S3_PREFIX }}
           R2_RAW_CLEANUP: ${{ vars['R2_RAW_CLEANUP'] }}
+          USAGE_DB: ${{ inputs.db }}
         run: |
           set -euo pipefail
           status=0
-          uv run --frozen rikolto cloud usage > usage.json || status=$?
+          args=(uv run --frozen rikolto cloud usage)
+          if [[ "$USAGE_DB" == "true" ]]; then
+            args+=(--db)
+          fi
+          "${args[@]}" > usage.json || status=$?
           {
             echo 'Statistics cover this bucket only (统计范围为本桶).'
             echo '```json'
