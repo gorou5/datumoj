@@ -20,7 +20,8 @@ license:
   verified_at: null
   notes: Reproduction under 1 CFR § 2.6; do not use NARA/OFR official logos or seals. Verification pending.
 scope:
+  raw_retention_days: 30
   types: [RULE, PRORULE, NOTICE]
   start_date: '2026-10-01'
   lookback_days: 7
-retention_note: API metadata and structured XML snapshots support section retrieval and reproducible citations; retain under the existing raw snapshot lifecycle, without pre-2026-10-01 backfill.
+retention_note: API metadata and structured XML snapshots support section retrieval and reproducible citations; retain under the existing raw snapshot lifecycle, without pre-2026-10-01 backfill. raw 保留 30 天，过期后由云端清理删除（最新快照受保护）；观测值历史随代次保留。

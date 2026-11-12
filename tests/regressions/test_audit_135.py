@@ -3,6 +3,7 @@
 import pytest
 
 from datumoj.rikolto.core.lease import LeaseError
+from datumoj.rikolto.core.state import RETENTION_WINDOW
 from datumoj.rikolto.core.state_s3 import S3StateObjectStore, delete_retired_objects
 from datumoj.rikolto.testing.fakes import FakeStateObjectStore
 from datumoj.rikolto.testing.samples import T0
@@ -132,8 +133,8 @@ def test_errors_override_deleted_and_unconfirmed_keys_are_not_counted(monkeypatc
 @pytest.mark.parametrize("phase", ["generations", "copies", "raw"])
 def test_partial_failure_counts_only_confirmed_deletions_and_stops(archive, monkeypatch, phase):
     snapshots = [record(archive, f"entry-{index}") for index in range(3)]
-    for day in (0, 4, 8, 10):
-        publish(archive, T0 + day * DAY, monkeypatch)
+    for when in (T0, T0 + 7 * DAY - RETENTION_WINDOW, T0 + 10 * DAY - RETENTION_WINDOW, T0 + 10 * DAY):
+        publish(archive, when, monkeypatch)
     for index in range(401):
         archive.store.put(f"copies/sha256/orphan-{index:03}", b"x" * (index + 1))
     archive.store.put("write-lease.json", b"synthetic coordination object")

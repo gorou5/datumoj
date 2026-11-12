@@ -127,6 +127,22 @@ def test_source_config_declares_hourly_feed():
     assert spec.scope["feeds"] == [FEED_URL]
 
 
+def test_source_config_limits_fetches_to_one_day_including_boundary():
+    source = yaml.safe_load((Path(__file__).parents[2] / "sources" / "jp-jma.yaml").read_text(encoding="utf-8"))
+    spec = SourceSpec.model_validate(source)
+    assert spec.scope["raw_retention_days"] == 1
+    entries = [("old", "2026-10-19T11:59:59Z"), ("boundary", "2026-10-19T12:00:00Z"),
+               ("recent", "2026-10-20T11:00:00Z")]
+    urls = {name: f"https://www.data.jma.go.jp/{name}.xml" for name, _ in entries}
+    feed = (f'<feed xmlns="{ATOM}"><updated>2026-10-20T12:00:00Z</updated>'
+            + "".join(f'<entry><id>{urls[name]}</id><updated>{when}</updated></entry>'
+                      for name, when in entries) + '</feed>').encode()
+    routes = {FEED_URL: feed, urls["boundary"]: b"synthetic boundary", urls["recent"]: b"synthetic recent"}
+    # T0 is deliberately unrelated to feed.updated: cutoff comes from the feed.
+    steps = drive_crawler(JmaFeedCrawler(), spec, FakeHttpFetcher(routes, now=lambda: T0), now=T0)
+    assert [step.task.url for step in steps] == [FEED_URL, urls["boundary"], urls["recent"]]
+
+
 def test_changing_feed_id_does_not_redownload_saved_entry():
     entry_id = "https://www.data.jma.go.jp/developer/xml/data/sample.xml"
     first = f'''<feed xmlns="{ATOM}"><updated>2026-10-20T20:51:31+09:00</updated><id>feed#long_1</id>

@@ -12,7 +12,7 @@ from datumoj.rikolto.core import state as state_module
 from datumoj.rikolto.core.contracts import CrawlContext, FetchResult, FetchTask
 from datumoj.rikolto.core.manifest import SqliteManifest
 from datumoj.rikolto.core.models import FetchOutcome, PublishState
-from datumoj.rikolto.core.state import StateManager
+from datumoj.rikolto.core.state import RETENTION_WINDOW, StateManager
 from datumoj.rikolto.crawlers.jma_feed import FEED_URL, JmaFeedCrawler
 from datumoj.rikolto.testing.fakes import FakeParser, FakeRegistry, FakeStateObjectStore
 from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
@@ -93,7 +93,7 @@ def test_ten_days_bound_copies_expire_entries_and_restore_every_survivor(archive
         for path in (world.manager.data_dir / "raw").glob("*/*"):
             if not world.store.exists(f"raw/{path.parent.name}/{path.name}"):
                 path.unlink()
-    assert len(world.manager.list()) == 4  # inclusive 72-hour boundary
+    assert len(world.manager.list()) == RETENTION_WINDOW // DAY + 1  # Inclusive boundary.
     assert max(counts[7:]) <= counts[4] + 1
     assert report["generations_deleted"] == 1
     assert report["total_bytes"] == sum(obj.size_bytes for obj in world.store.list_objects(""))
@@ -117,13 +117,13 @@ def test_ten_days_bound_copies_expire_entries_and_restore_every_survivor(archive
     assert list(JmaFeedCrawler().after_fetch(FetchTask(url=FEED_URL, meta={"resource_type": "feed"}), result, ctx)) == []
 
 
-def test_marking_72h_boundary_and_unmarked_retained_generation_veto(archive, monkeypatch):
+def test_marking_boundary_and_unmarked_retained_generation_veto(archive, monkeypatch):
     snap = record(archive, "old-entry")
-    publish(archive, T0 + DAY, monkeypatch)  # a retained, unmarked manifest
-    _, marked = publish(archive, T0 + 4 * DAY, monkeypatch)
+    publish(archive, T0 + 7 * DAY - 2 * RETENTION_WINDOW, monkeypatch)  # A retained, unmarked manifest.
+    _, marked = publish(archive, T0 + 7 * DAY - RETENTION_WINDOW, monkeypatch)
     assert marked == 1
     assert cleanup(archive, T0 + 7 * DAY - timedelta(microseconds=1), raw_enabled=True)["raw_deleted"] == 0
-    # At exactly seven days the mark is 72h old, and all retained manifests carry it.
+    # At exactly seven days the mark is one retention window old, and all retained manifests carry it.
     publish(archive, T0 + 7 * DAY, monkeypatch)
     assert cleanup(archive, T0 + 7 * DAY, raw_enabled=True)["raw_deleted"] == 1
     assert not archive.store.exists(raw_key(snap))
@@ -136,7 +136,7 @@ def test_old_current_and_boundary_generation_keep_shared_blocks(archive, monkeyp
     first_blocks = {copy.key for copy in first.stores}
     second_blocks = {copy.key for copy in second.stores}
     assert first_blocks & second_blocks
-    assert cleanup(archive, T0 + 3 * DAY)["generations_deleted"] == 0
+    assert cleanup(archive, T0 + RETENTION_WINDOW)["generations_deleted"] == 0
     report = cleanup(archive, T0 + 20 * DAY)
     assert report["generations_deleted"] == 1
     assert [g.generation for g in archive.manager.list()] == [2]
@@ -149,7 +149,7 @@ def test_old_current_and_boundary_generation_keep_shared_blocks(archive, monkeyp
 def test_switches_report_backlog_and_reenable(archive, monkeypatch, enabled, raw_enabled):
     snap = record(archive, "entry")
     publish(archive, T0, monkeypatch)
-    publish(archive, T0 + 4 * DAY, monkeypatch)
+    publish(archive, T0 + 7 * DAY - RETENTION_WINDOW, monkeypatch)
     publish(archive, T0 + 10 * DAY, monkeypatch)
     archive.store.put("copies/sha256/orphan", b"orphan")
     before = archive.store.list_objects("")
@@ -222,7 +222,7 @@ def test_cleanup_failure_and_lease_loss_stop_deletions(archive, monkeypatch):
 
 def test_archived_parse_skips_and_cite_keeps_metadata(archive, monkeypatch):
     snap = record(archive, "entry")
-    publish(archive, T0 + 4 * DAY, monkeypatch)
+    publish(archive, T0 + 7 * DAY - RETENTION_WINDOW, monkeypatch)
     publish(archive, T0 + 8 * DAY, monkeypatch)
     assert cleanup(archive, T0 + 8 * DAY, raw_enabled=True)["raw_deleted"] == 1
     # Mimic the next round's remote raw backend, rather than the test's local cache.
@@ -261,8 +261,8 @@ def test_default_retention_and_short_retention_marking(archive):
     eligible = archive.manager.raw_retention(archive.specs, T0 + 40 * DAY)
     assert eligible == {old.sha256: T0 + 30 * DAY}
     assert latest.sha256 not in eligible
-    assert archive.manager.mark_raw(archive.specs, T0 + 27 * DAY - timedelta(microseconds=1)) == 0
-    assert archive.manager.mark_raw(archive.specs, T0 + 27 * DAY) == 1
+    assert archive.manager.mark_raw(archive.specs, T0 + 30 * DAY - RETENTION_WINDOW - timedelta(microseconds=1)) == 0
+    assert archive.manager.mark_raw(archive.specs, T0 + 30 * DAY - RETENTION_WINDOW) == 1
     short = make_spec("jp-jma", scope={"raw_retention_days": 1, "raw_expire_latest_types": ["entry"]})
     archive.specs = [short]
     assert archive.manager.mark_raw(archive.specs, T0 + DAY) == 1

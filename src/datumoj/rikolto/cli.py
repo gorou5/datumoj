@@ -201,10 +201,11 @@ def cloud_project(
 @cloud_app.command("usage")
 def cloud_usage(
     work_dir: Path | None = typer.Option(None, "--work-dir", help="空的工作目录；默认使用临时目录"),
+    db: bool = typer.Option(False, "--db", help="只读统计当前代数据库内部空间"),
 ) -> None:
     from datumoj.rikolto.cloud import usage
 
-    result = usage(work_dir=work_dir)
+    result = usage(work_dir=work_dir, **({"db": True} if db else {}))
     typer.echo(_json(result))
     raise typer.Exit(result.get("exit_status", 0))
 
