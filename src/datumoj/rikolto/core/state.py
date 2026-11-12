@@ -46,6 +46,7 @@ from datumoj.rikolto.core.models import (
     VectorCoverage,
     parse_context_fingerprint,
 )
+from datumoj.rikolto.core.nas_receipt import RAW_LIFETIME, NasReceipt, read_receipt
 from datumoj.rikolto.core.schedule import _locked
 from datumoj.rikolto.core.state_s3 import check_key, delete_retired_objects
 from datumoj.rikolto.index.coverage import index_is_rebuilding
@@ -78,7 +79,8 @@ _BLOCK_SIZE = 256 * 1024
 _SQLITE_BLOCK = "sqlite-block-v1"
 _SQLITE_BLOCKS = "sqlite-blocks-v1"
 _CLEANUP_MAX_SECONDS = 600
-# Keep generation retention, raw marker protection and advance marking in sync.
+# Age-based deletion waits this long after marking. Receipt-based deletion may
+# proceed sooner only when every retained non-current generation postdates the mark.
 RETENTION_WINDOW = timedelta(hours=24)
 
 
@@ -483,7 +485,8 @@ def _sample_provenance(root: Path, *, raw: str, refs: set[str]) -> dict[str, int
             "raw_verification": "sha256" if raw == "local" else "remote_keys_only"}
 
 
-def raw_retention(manifest: Path, specs: list[SourceSpec], now: datetime) -> dict[str, datetime]:
+def raw_retention(manifest: Path, specs: list[SourceSpec], now: datetime,
+                  receipt: NasReceipt | None = None) -> dict[str, datetime]:
     """Read eligible raw SHA → expiry; any snapshot's protection vetoes deletion."""
     policies = {spec.id: spec for spec in specs}
     with _ro(manifest) as db:
@@ -497,18 +500,15 @@ def raw_retention(manifest: Path, specs: list[SourceSpec], now: datetime) -> dic
         latest = {(snap.source_id, snap.resource_url): snap.snapshot_id
                   for snap, _, _ in snapshots if snap.outcome is FetchOutcome.ok}
         latest_fetch = {}
-        retention = {}
         protected = set()
         for snap, meta, state in snapshots:
             if snap.sha256 is None:
                 continue
             spec = policies.get(snap.source_id)
             scope = spec.scope if spec else {}
-            days = scope.get("raw_retention_days", 30)
             expire_types = scope.get("raw_expire_latest_types", [])
             sha = snap.sha256
             latest_fetch[sha] = max(latest_fetch.get(sha, snap.fetched_at), snap.fetched_at)
-            retention[sha] = max(retention.get(sha, days), days)
             context = parse_context_fingerprint(snap, meta)
             # A reusable parse is not proof this observation was published.
             # Only a terminal no-parser result can dispense with publication.
@@ -518,13 +518,15 @@ def raw_retention(manifest: Path, specs: list[SourceSpec], now: datetime) -> dic
                     or (latest.get((snap.source_id, snap.resource_url)) == snap.snapshot_id
                         and meta.get("resource_type") not in expire_types)):
                 protected.add(sha)
-        return {sha: fetched + timedelta(days=retention[sha])
+        return {sha: min(fetched + RAW_LIFETIME, receipt.archived_at)
+                if receipt is not None and sha in receipt.sha256 else fetched + RAW_LIFETIME
                 for sha, fetched in latest_fetch.items() if sha not in protected}
 
 
 def plan_cleanup(objects: list[StateObject], history: list[StateGeneration], current: int,
                  manifest: Path, specs: list[SourceSpec], *, now: datetime,
-                 check: Callable[[], None] = lambda: None) -> dict[str, list[StateObject]]:
+                 check: Callable[[], None] = lambda: None,
+                 receipt: NasReceipt | None = None) -> dict[str, list[StateObject]]:
     """Plan GC from an inventory and a read-only manifest; never contact storage.
 
     Switches affect execution, not eligibility. Descriptors newer than current
@@ -539,11 +541,16 @@ def plan_cleanup(objects: list[StateObject], history: list[StateGeneration], cur
     copies = {c.key for g in retained for c in g.stores}
     required = {_raw_key("raw", sha) for sha in _raw_refs(manifest.parent)}
     with _ro(manifest) as db:
-        optional = {sha for sha, marked_at in db.execute("SELECT sha256,marked_at FROM raw_allowed_missing")
-                    if now - datetime.fromisoformat(marked_at).replace(tzinfo=UTC) >= RETENTION_WINDOW}
-    # Retained non-current generations postdate the protected mark; current refs use this manifest.
+        markers = {sha: datetime.fromisoformat(marked_at).replace(tzinfo=UTC)
+                   for sha, marked_at in db.execute("SELECT sha256,marked_at FROM raw_allowed_missing")}
+    optional = {sha for sha, marked_at in markers.items()
+                if now - marked_at >= RETENTION_WINDOW or receipt is not None and sha in receipt.sha256}
+    # Legacy writers and rollbacks may have published an unmarked manifest. Even
+    # an aged marker cannot authorize deletion while such a generation survives.
+    optional = {sha for sha in optional
+                if all(g.created_at >= markers[sha] for g in retained if g.generation != current)}
     check()
-    candidates = raw_retention(manifest, specs, now)
+    candidates = raw_retention(manifest, specs, now, receipt)
     check()
     raw_keys = {_raw_key("raw", sha) for sha in optional if sha in candidates and now >= candidates[sha]}
     return {
@@ -830,17 +837,20 @@ class StateManager:
         return raw_retention(self.data_dir / "manifest.sqlite", specs, now)
 
     def mark_raw(self, specs: list[SourceSpec], now: datetime) -> int:
-        """Mark one retention window before expiry, before the publication snapshot.
+        """Mark all raw before its first publication, independent of expiry time.
 
-        Marking is independent of delete switches; existing mark times stay intact.
+        Return newly marked deletion-eligible hashes, preserving raw_marked's
+        existing counting boundary. Protected hashes also carry rollback metadata.
+        Existing timestamps survive retries and publication-state transitions.
         """
         candidates = self.raw_retention(specs, now)
+        with _ro(self.data_dir / "manifest.sqlite") as db:
+            hashes = {row[0] for row in db.execute("SELECT DISTINCT sha256 FROM snapshots WHERE sha256 IS NOT NULL")}
         with closing(SqliteManifest(self.data_dir / "manifest.sqlite")) as manifest:
             before = manifest.raw_markers()
-            for sha, expires in candidates.items():
-                if now >= expires - RETENTION_WINDOW:
-                    manifest.mark_raw_optional(sha, now)
-            return len(manifest.raw_markers()) - len(before)
+            for sha in hashes - before.keys():
+                manifest.mark_raw_optional(sha, now)
+            return len(set(candidates) - before.keys())
 
     def cleanup(self, specs: list[SourceSpec], *, now: datetime, check: Callable[[], None],
                 enabled: bool = True, raw_enabled: bool = False, marked: int = 0,
@@ -855,6 +865,8 @@ class StateManager:
         report = {"enabled": enabled, "raw_enabled": raw_enabled, "generations_deleted": 0,
                   "copies_deleted": 0, "copies_deleted_bytes": 0, "raw_marked": marked,
                   "raw_deleted": 0, "raw_deleted_bytes": 0, "reclaimable_generations": 0,
+                  "receipt_status": "missing", "raw_deleted_by_receipt": 0, "raw_deleted_by_receipt_bytes": 0,
+                  "raw_deleted_by_age": 0, "raw_deleted_by_age_bytes": 0,
                   "reclaimable_copies": 0, "reclaimable_copies_bytes": 0,
                   "reclaimable_raw": 0, "reclaimable_raw_bytes": 0,
                   "total_bytes": 0, "over_7gb": False, "failures": 0, "elapsed_s": 0.0, "timed_out": False}
@@ -896,8 +908,12 @@ class StateManager:
             if current and current not in numbers:
                 raise StateError("当前代次清单缺失")
             check_time()
+            report["receipt_status"], receipt = read_receipt(self.store, now=now)
+            check_time()
+            age_expiry = self.raw_retention(specs, now)
+            check_time()
             plan = plan_cleanup(list(objects.values()), history, current, self.data_dir / "manifest.sqlite",
-                                specs, now=now, check=check_time)
+                                specs, now=now, check=check_time, receipt=receipt)
             expired, copy_objects, raw_objects = (plan[kind] for kind in ("generations", "copies", "raw"))
             report.update(reclaimable_generations=len(expired), reclaimable_copies=len(copy_objects),
                           reclaimable_copies_bytes=sum(obj.size_bytes for obj in copy_objects),
@@ -910,6 +926,12 @@ class StateManager:
                         report[f"{kind}_deleted"] += len(deleted)
                         if kind != "generations":
                             report[f"{kind}_deleted_bytes"] += size
+                        if kind == "raw":
+                            for obj in deleted:
+                                sha = obj.key.rsplit("/", 1)[-1]
+                                reason = "age" if now >= age_expiry[sha] else "receipt"
+                                report[f"raw_deleted_by_{reason}"] += 1
+                                report[f"raw_deleted_by_{reason}_bytes"] += obj.size_bytes
                         report["total_bytes"] -= size
                         report["failures"] += failures
                         if failures:

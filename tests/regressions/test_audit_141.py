@@ -27,7 +27,7 @@ def _feed(times=TIMES, updated=UPDATED):
 def _spec(days=3):
     scope = {"feeds": [FEED_URL]}
     if days is not None:
-        scope["raw_retention_days"] = days
+        scope["feed_lookback_days"] = days
     return make_spec("jp-jma", kind="jma_feed", base_url=FEED_URL,
                      allowed_hosts=["www.data.jma.go.jp"], scope=scope)
 
@@ -71,7 +71,7 @@ def test_no_retention_configuration_fetches_entire_window():
 def test_nonpositive_retention_does_not_filter(days):
     # SourceSpec rejects these values on load; exercise the crawler guard alone.
     spec = _spec(days=None)
-    spec = spec.model_copy(update={"scope": {**spec.scope, "raw_retention_days": days}})
+    spec = spec.model_copy(update={"scope": {**spec.scope, "feed_lookback_days": days}})
     assert _run(_feed(), spec) == URLS
 
 

@@ -43,7 +43,7 @@ def test_cleanup_downloads_no_content_with_many_generations(tmp_path, monkeypatc
     root = tmp_path / "data"
     root.mkdir()
     store = CountingStore()
-    spec = make_spec(scope={"raw_retention_days": 7, "raw_expire_latest_types": ["entry"]})
+    spec = make_spec(scope={"raw_retention_days": 2, "raw_expire_latest_types": ["entry"]})
     old = make_snapshot(snapshot_id="old", fetched_at=T0 - 10 * DAY)
     needed = make_snapshot(snapshot_id="needed", data=b"synthetic protected feed")
     with closing(SqliteManifest(root / "manifest.sqlite")) as manifest:
@@ -81,7 +81,7 @@ def test_cleanup_downloads_no_content_with_many_generations(tmp_path, monkeypatc
     assert report["failures"] == 0 and report["raw_deleted"] == report["copies_deleted"] == 1
     assert [key for key in store.gets if key.startswith(("copies/", "raw/"))] == []
     assert store.inventories == 1  # Content reads and inventory calls stay constant when history doubles.
-    assert len(store.gets) == count + 1  # Only small descriptors and the current pointer are read.
+    assert len(store.gets) == count + 2  # Small descriptors, current pointer and the fixed receipt key only.
     assert not store.exists(raw_key(old)) and store.exists(raw_key(needed))
     for number in range(1, count + 1):
         for mode in ("remote", "local"):
@@ -102,7 +102,7 @@ def legacy_retention(manager, specs):
         for source_id in source_ids:
             spec = policies.get(source_id)
             scope = spec.scope if spec else {}
-            days = scope.get("raw_retention_days", 30)
+            days = 2  # Uniform 48-hour lifetime, including unknown-source policies.
             snapshots = manifest.snapshots_for(source_id)
             latest = {snap.resource_url: snap.snapshot_id for snap in snapshots if snap.outcome is FetchOutcome.ok}
             for snap in snapshots:
@@ -170,7 +170,7 @@ def test_retention_matches_legacy_and_uses_two_queries(archive, monkeypatch):
 
 def test_rollback_removes_marker_and_remarking_restarts_protection(archive, monkeypatch):
     snap = record(archive, "entry")
-    original, _ = publish(archive, T0, monkeypatch)
+    original = archive.manager.push()  # Simulate an unmarked legacy generation.
     publish(archive, T0 + 7 * DAY - RETENTION_WINDOW, monkeypatch)
     # Restore the unmarked manifest exactly as a rollback would, then publish forward.
     target = archive.root / "rollback"
@@ -191,11 +191,11 @@ def test_aged_marker_still_waits_for_retention_expiry(archive, monkeypatch):
     snap = record(archive, "entry")
     archive.deps.manifest.mark_raw_optional(snap.sha256, T0)
     publish(archive, T0, monkeypatch)
-    publish(archive, T0 + 4 * DAY, monkeypatch)
-    assert cleanup(archive, T0 + 4 * DAY, raw_enabled=True)["raw_deleted"] == 0
+    publish(archive, T0 + DAY, monkeypatch)
+    assert cleanup(archive, T0 + DAY, raw_enabled=True)["raw_deleted"] == 0
     assert archive.store.exists(raw_key(snap))
-    publish(archive, T0 + 7 * DAY, monkeypatch)
-    assert cleanup(archive, T0 + 7 * DAY, raw_enabled=True)["raw_deleted"] == 1
+    publish(archive, T0 + 2 * DAY, monkeypatch)
+    assert cleanup(archive, T0 + 2 * DAY, raw_enabled=True)["raw_deleted"] == 1
 
 
 @pytest.mark.parametrize("phase", ["planning", "descriptors", "generations", "copies", "raw", "lease"])
@@ -292,6 +292,8 @@ def test_cloud_timeout_preserves_publication_and_progress_whitelist(world, monke
         "enabled", "raw_enabled", "generations_deleted", "copies_deleted", "copies_deleted_bytes", "raw_marked",
         "raw_deleted", "raw_deleted_bytes", "reclaimable_generations", "reclaimable_copies", "reclaimable_copies_bytes",
         "reclaimable_raw", "reclaimable_raw_bytes", "total_bytes", "over_7gb", "failures", "elapsed_s", "timed_out",
+        "receipt_status", "raw_deleted_by_receipt", "raw_deleted_by_receipt_bytes",
+        "raw_deleted_by_age", "raw_deleted_by_age_bytes",
     }
     events = [json.loads(line) for line in stream.getvalue().splitlines()]
     assert [row["event"] for row in events][-3:] == ["publish_end", "cleanup_end", "round_end"]

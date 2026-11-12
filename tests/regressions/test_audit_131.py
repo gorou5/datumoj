@@ -25,7 +25,7 @@ FEED = (f'<feed xmlns="http://www.w3.org/2005/Atom"><updated>2026-01-01T00:00:00
 
 @pytest.fixture
 def archive(tmp_path):
-    spec = make_spec("jp-jma", scope={"raw_retention_days": 7, "raw_expire_latest_types": ["entry"]},
+    spec = make_spec("jp-jma", scope={"raw_retention_days": 2, "raw_expire_latest_types": ["entry"]},
                      base_url=FEED_URL, allowed_hosts=["www.data.jma.go.jp"])
     deps = wiring.build(tmp_path / "data", {"registry": FakeRegistry([spec]), "vectors": None,
                                           "parsers": {("fake", "text/plain"): FakeParser}})
@@ -87,7 +87,7 @@ def test_ten_days_bound_copies_expire_entries_and_restore_every_survivor(archive
         report = cleanup(world, when, raw_enabled=True, marked=marked)
         assert report["failures"] == 0
         counts.append(len(world.store.list("copies/sha256/")))
-        assert world.store.exists(raw_key(entry)) == (day < 7)
+        assert world.store.exists(raw_key(entry)) == (day < 2)
         assert world.store.exists(raw_key(feed))
         # Cloud rounds restore remote raw; no local cache resurrects deleted bytes.
         for path in (world.manager.data_dir / "raw").glob("*/*"):
@@ -119,13 +119,20 @@ def test_ten_days_bound_copies_expire_entries_and_restore_every_survivor(archive
 
 def test_marking_boundary_and_unmarked_retained_generation_veto(archive, monkeypatch):
     snap = record(archive, "old-entry")
-    publish(archive, T0 + 7 * DAY - 2 * RETENTION_WINDOW, monkeypatch)  # A retained, unmarked manifest.
-    _, marked = publish(archive, T0 + 7 * DAY - RETENTION_WINDOW, monkeypatch)
+    # Simulate a legacy unmarked publication, then enter the new marking policy.
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return T0 + 2 * DAY - 2 * RETENTION_WINDOW
+
+    monkeypatch.setattr(state_module, "datetime", Clock)
+    archive.manager.push()
+    _, marked = publish(archive, T0 + 2 * DAY - RETENTION_WINDOW, monkeypatch)
     assert marked == 1
-    assert cleanup(archive, T0 + 7 * DAY - timedelta(microseconds=1), raw_enabled=True)["raw_deleted"] == 0
-    # At exactly seven days the mark is one retention window old, and all retained manifests carry it.
-    publish(archive, T0 + 7 * DAY, monkeypatch)
-    assert cleanup(archive, T0 + 7 * DAY, raw_enabled=True)["raw_deleted"] == 1
+    assert cleanup(archive, T0 + 2 * DAY - timedelta(microseconds=1), raw_enabled=True)["raw_deleted"] == 0
+    # At exactly two days the mark is one retention window old, and all retained manifests carry it.
+    publish(archive, T0 + 2 * DAY, monkeypatch)
+    assert cleanup(archive, T0 + 2 * DAY, raw_enabled=True)["raw_deleted"] == 1
     assert not archive.store.exists(raw_key(snap))
 
 
@@ -149,7 +156,7 @@ def test_old_current_and_boundary_generation_keep_shared_blocks(archive, monkeyp
 def test_switches_report_backlog_and_reenable(archive, monkeypatch, enabled, raw_enabled):
     snap = record(archive, "entry")
     publish(archive, T0, monkeypatch)
-    publish(archive, T0 + 7 * DAY - RETENTION_WINDOW, monkeypatch)
+    publish(archive, T0 + 2 * DAY - RETENTION_WINDOW, monkeypatch)
     publish(archive, T0 + 10 * DAY, monkeypatch)
     archive.store.put("copies/sha256/orphan", b"orphan")
     before = archive.store.list_objects("")
@@ -175,13 +182,13 @@ def test_policy_latest_pending_staged_and_multiple_sources(archive):
     assert set(world.manager.raw_retention(world.specs, T0 + 40 * DAY)) == {entry.sha256}
     other = make_spec("jp-other", scope={"raw_expire_latest_types": ["entry"]})
     world.specs.append(other)
-    # Same raw: older source requires 30d, newest fetch is from the 7d source.
+    # Shared hashes use the newest fetch, with the uniform 48-hour lifetime.
     record(world, "other-ref", when=T0 - 10 * DAY, data=world.deps.raw.get(entry.sha256), source_id="jp-other", parsed=False)
     world.deps.manifest.record_publish_state("other-ref", PublishState.published)
     record(world, "recent-ref", when=T0 + 2 * DAY, data=world.deps.raw.get(entry.sha256), parsed=False)
     world.deps.manifest.record_publish_state("recent-ref", PublishState.published)
     expiry = world.manager.raw_retention(world.specs, T0 + 40 * DAY)
-    assert expiry[entry.sha256] == T0 + 32 * DAY
+    assert expiry[entry.sha256] == T0 + 4 * DAY
     assert all(snap.sha256 not in expiry for snap in (protected, pending, staged))
     # One source's latest protection vetoes expiration of a shared hash.
     world.specs[-1] = make_spec("jp-other")
@@ -222,7 +229,7 @@ def test_cleanup_failure_and_lease_loss_stop_deletions(archive, monkeypatch):
 
 def test_archived_parse_skips_and_cite_keeps_metadata(archive, monkeypatch):
     snap = record(archive, "entry")
-    publish(archive, T0 + 7 * DAY - RETENTION_WINDOW, monkeypatch)
+    publish(archive, T0 + 2 * DAY - RETENTION_WINDOW, monkeypatch)
     publish(archive, T0 + 8 * DAY, monkeypatch)
     assert cleanup(archive, T0 + 8 * DAY, raw_enabled=True)["raw_deleted"] == 1
     # Mimic the next round's remote raw backend, rather than the test's local cache.
@@ -259,20 +266,21 @@ def test_default_retention_and_short_retention_marking(archive):
     old = record(archive, "old", url=ENTRY)
     latest = record(archive, "latest", when=T0 + DAY, url=ENTRY)
     eligible = archive.manager.raw_retention(archive.specs, T0 + 40 * DAY)
-    assert eligible == {old.sha256: T0 + 30 * DAY}
+    assert eligible == {old.sha256: T0 + 2 * DAY}
     assert latest.sha256 not in eligible
-    assert archive.manager.mark_raw(archive.specs, T0 + 30 * DAY - RETENTION_WINDOW - timedelta(microseconds=1)) == 0
-    assert archive.manager.mark_raw(archive.specs, T0 + 30 * DAY - RETENTION_WINDOW) == 1
-    short = make_spec("jp-jma", scope={"raw_retention_days": 1, "raw_expire_latest_types": ["entry"]})
-    archive.specs = [short]
     assert archive.manager.mark_raw(archive.specs, T0 + DAY) == 1
+    assert archive.manager.mark_raw(archive.specs, T0 + DAY) == 0
+    assert archive.deps.manifest.raw_markers()[old.sha256] == T0 + DAY
+    short = make_spec("jp-jma", scope={"raw_retention_days": 2, "raw_expire_latest_types": ["entry"]})
+    archive.specs = [short]
+    assert archive.manager.mark_raw(archive.specs, T0 + DAY) == 0
     assert archive.deps.manifest.raw_markers()[latest.sha256] == T0 + DAY
 
 
 def test_fresh_marker_after_unmarked_publication_restarts_grace(archive, monkeypatch):
     snap = record(archive, "entry")
     # An older reader/writer published a manifest without the new additive table.
-    publish(archive, T0, monkeypatch)
+    archive.manager.push()
     class Clock(datetime):
         @classmethod
         def now(cls, tz=None):
@@ -290,8 +298,8 @@ def test_fresh_marker_after_unmarked_publication_restarts_grace(archive, monkeyp
 
 
 def test_cleanup_does_not_repeat_post_publish_verification(archive, monkeypatch):
-    record(archive, "entry")
-    publish(archive, T0, monkeypatch)
+    record(archive, "entry", when=T0 + 9 * DAY)
+    publish(archive, T0 + 9 * DAY, monkeypatch)
     archive.store.put("copies/sha256/orphan", b"orphan")
     before = archive.store.list_objects("")
 

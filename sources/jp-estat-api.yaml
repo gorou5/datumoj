@@ -20,7 +20,7 @@ license:
   verified_at: null
   notes: 'API 規約 https://www.e-stat.go.jp/api/terms-of-use このサービスは、政府統計総合窓口(e-Stat)のAPI機能を使用していますが、サービスの内容は国によって保証されたものではありません。'
 scope:
-  raw_retention_days: 30
+  raw_retention_days: 2
   stats_codes: ['00200524', '00200531', '00200573']
   tables:
     - stats_data_id: '0003443838'
@@ -32,4 +32,4 @@ scope:
     - stats_data_id: '0003427113'
       filters: {cdTab: '1', cdCat01: '0001', cdArea: '00000'}
       unit: 2020年=100
-retention_note: raw 保留 30 天，过期后由云端清理删除（最新快照受保护）；观测值历史随代次保留。
+retention_note: raw 最多 48 小时，NAS 存档确认后可提前删除（最新快照受保护）；观测值历史随代次保留。
