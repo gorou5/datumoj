@@ -9,6 +9,7 @@ sum to the bucket total. Raw source rows, in contrast, are mutually exclusive.
 """
 
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -17,6 +18,48 @@ from pydantic import TypeAdapter
 from datumoj.rikolto.core.contracts import SourceSpec, StateObject
 from datumoj.rikolto.core.models import SourceId, StateGeneration
 from datumoj.rikolto.core.state import _raw_key, _ro, plan_cleanup
+
+
+@dataclass(frozen=True)
+class CapacityLimits:
+    report: int = 7_000_000_000
+    freeze: int = 8_500_000_000
+    stop: int = 9_000_000_000
+    crawl_reserve: int = 500_000_000
+
+    def __post_init__(self):
+        if (any(type(value) is not int or value <= 0 for value in
+                (self.report, self.freeze, self.stop, self.crawl_reserve))
+                or not self.report < self.freeze < self.stop):
+            raise ValueError("invalid_capacity_limits")
+
+
+LIMITS = CapacityLimits()  # Validate once at import; all write gates use these limits.
+
+
+def gate(current_bytes: int | None, estimated_new_bytes: int | None, category: str, *,
+         reserve_bytes: int = 0) -> dict:
+    """Decide using total + growth + reserve. Unknown sizes fail closed except reclamation.
+
+    Categories and reasons are fixed codes. No storage identifiers or source text
+    enter this result. The crawl caller supplies LIMITS.crawl_reserve exactly once.
+    """
+    if category not in {"essential", "optional", "reclaim"}:
+        raise ValueError("invalid_write_category")
+    sizes = (current_bytes, estimated_new_bytes, reserve_bytes)
+    unknown = any(type(value) is not int or value < 0 for value in sizes)
+    projected = None if unknown else sum(sizes)
+    tier = ("stop" if unknown or projected >= LIMITS.stop else
+            "freeze" if projected >= LIMITS.freeze else
+            "report" if projected >= LIMITS.report else "normal")
+    allowed = category == "reclaim" or (not unknown and tier != "stop"
+                                        and (tier != "freeze" or category == "essential"))
+    return {"current_bytes": current_bytes if type(current_bytes) is int and current_bytes >= 0 else None,
+            "estimated_new_bytes": estimated_new_bytes if type(estimated_new_bytes) is int
+            and estimated_new_bytes >= 0 else None,
+            "reserve_bytes": reserve_bytes if type(reserve_bytes) is int and reserve_bytes >= 0 else None,
+            "projected_bytes": projected, "tier": tier, "allowed": allowed,
+            "reason": "capacity_unknown" if unknown else f"capacity_{tier}", "skipped_steps": []}
 
 
 def _counts(objects):
@@ -82,8 +125,8 @@ def inventory(objects: list[StateObject], generations: list[StateGeneration], cu
     return {
         "scope": "this_bucket",
         "total": total,
-        "headroom_bytes": {"7gb": 7_000_000_000 - total["bytes"],
-                           "8_5gb": 8_500_000_000 - total["bytes"], "9gb": 9_000_000_000 - total["bytes"]},
+        "headroom_bytes": {"7gb": LIMITS.report - total["bytes"],
+                           "8_5gb": LIMITS.freeze - total["bytes"], "9gb": LIMITS.stop - total["bytes"]},
         "prefixes": {name: _counts(group) for name, group in groups.items()},
         "current_generation": next((row for row in per_generation if row["generation"] == current), None),
         "generations": per_generation,
