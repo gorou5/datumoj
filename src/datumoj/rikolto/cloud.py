@@ -8,6 +8,7 @@ import logging
 import math
 import os
 import re
+import shutil
 import sys
 import tempfile
 import time
@@ -20,6 +21,7 @@ from threading import Lock
 
 from datumoj.rikolto import wiring
 from datumoj.rikolto.analysis.reports import previous_week_period, weekly_report
+from datumoj.rikolto.capacity import LIMITS, gate
 from datumoj.rikolto.core.budget import ParseBudget
 from datumoj.rikolto.core.contracts import PreconditionFailed, StateObject
 from datumoj.rikolto.core.http import PoliteHttpFetcher
@@ -535,16 +537,36 @@ def _empty_work_root(work_dir, stack):
 
 
 def _project_storage_bytes(store):
-    if isinstance(store, S3StateObjectStore):
-        # list_objects() is namespace-scoped. The storage ceiling applies to
-        # every bucket and prefix in the account, including non-Rikolto data.
-        client = store._client
-        return sum(obj["Size"]
-                   for buckets in client.get_paginator("list_buckets").paginate()
-                   for bucket in buckets.get("Buckets", [])
-                   for page in client.get_paginator("list_objects_v2").paginate(Bucket=bucket["Name"])
-                   for obj in page.get("Contents", []))
-    return sum(obj.size_bytes for obj in store.list_objects(""))
+    scoped, other = _usage_objects(store)
+    sizes = [obj.size_bytes for obj in (*scoped, *other)]
+    if any(type(size) is not int or size < 0 for size in sizes):
+        raise ValueError("invalid_capacity_size")
+    return sum(sizes)
+
+
+def _round_capacity(manager, *, embed_only=False):
+    current = estimate = None
+    try:
+        current = _project_storage_bytes(manager.store)
+        # Embedding republishes local stores. Budget a complete replacement of
+        # the current stores, without counting checksum-only SQLite descriptors.
+        history = manager.list() if embed_only else []
+        estimate = sum(copy.size_bytes for copy in history[0].stores
+                       if copy.format != "sqlite-blocks-v1") if history else 0
+    except Exception:  # noqa: BLE001 -- An unavailable inventory/estimate must fail closed.
+        estimate = None
+    return gate(current, estimate, "optional" if embed_only else "essential",
+                reserve_bytes=0 if embed_only else LIMITS.crawl_reserve)
+
+
+def _report_capacity(capacity):
+    if capacity["tier"] != "normal":
+        print(json.dumps({"event": "capacity", **capacity}), file=sys.__stderr__, flush=True)
+
+
+def _next_round(result):
+    if result.get("cleanup", {}).get("total_bytes", 0) >= LIMITS.stop:
+        result["capacity"]["next_round"] = "cleanup_only"
 
 
 def _usage_objects(store):
@@ -656,7 +678,7 @@ def _projection_estimate(pipeline):
 
 def project(*, work_dir: Path | None = None, write: bool = False) -> dict:
     """Preview locally by default; explicit writes use the leased generation publisher."""
-    result = {}
+    result = {"capacity": gate(None, None, "optional")}
     deps = leases = lease = None
     phase = "configuration"
     with ExitStack() as stack, _quiet():
@@ -674,11 +696,14 @@ def project(*, work_dir: Path | None = None, write: bool = False) -> dict:
                 deps = wiring.build(root, {"vectors": None})
                 deps.require("index")
                 phase = "estimate"
-                result = _projection_estimate(deps.pipeline_deps)
+                result.update(_projection_estimate(deps.pipeline_deps))
                 result["current_bytes"] = _project_storage_bytes(manager.store)
+                result["capacity"] = gate(result["current_bytes"], result["estimated_new_bytes"], "optional")
                 if not write:
                     return result
-                if result["current_bytes"] + result["estimated_new_bytes"] > 8_500_000_000:
+                _report_capacity(result["capacity"])
+                if not result["capacity"]["allowed"]:
+                    result["capacity"]["skipped_steps"] = ["project"]
                     result.update(exit_status=1, reason="storage_limit_exceeded")
                     return result
                 if not result["new_chunks"]:
@@ -700,8 +725,12 @@ def project(*, work_dir: Path | None = None, write: bool = False) -> dict:
                     if manager.store.get(f"generations/{number + 1}.json") is not None:
                         raise ValueError("orphan_generation")
                     phase = "storage_check"
+                    result["capacity"] = gate(None, result["estimated_new_bytes"], "optional")
                     result["before_bytes"] = _project_storage_bytes(manager.store)
-                    if result["before_bytes"] + result["estimated_new_bytes"] > 8_500_000_000:
+                    result["capacity"] = gate(result["before_bytes"], result["estimated_new_bytes"], "optional")
+                    _report_capacity(result["capacity"])
+                    if not result["capacity"]["allowed"]:
+                        result["capacity"]["skipped_steps"] = ["project"]
                         result.update(exit_status=1, reason="storage_limit_exceeded")
                         return result
                     if not _probe_lease_writes(manager.store, check):
@@ -718,10 +747,14 @@ def project(*, work_dir: Path | None = None, write: bool = False) -> dict:
                     result["generation"] = generation.generation
                     phase = "post_publish_check"
                     result["after_bytes"] = _project_storage_bytes(manager.store)
+                    if result["after_bytes"] >= LIMITS.stop:
+                        result["capacity"]["next_round"] = "cleanup_only"
         except Exception as error:  # noqa: BLE001 -- Hide source text and SDK configuration at the cloud boundary.
             # Only our own fixed refusal codes pass through; anything else reports the phase alone.
             known = isinstance(error, ValueError) and str(error) in _PROJECT_REFUSALS
             result.update(exit_status=1, reason=str(error) if known else f"{phase}_failed")
+            if result["capacity"]["reason"] == "capacity_unknown":
+                result["capacity"]["skipped_steps"] = ["project"]
         finally:
             if deps is not None:
                 for name in ("manifest", "chunks", "keyword", "catalog", "change_log", "raw"):
@@ -777,6 +810,19 @@ def _probe_lease_writes(store, check):
     return store.get(LEASE_KEY) == (data, updated)
 
 
+def _cleanup_restored(manager, root, check, result, *, enabled, raw_enabled, max_minutes):
+    """Shared cleanup-only path; start its full time allowance after restore."""
+    with workspace_lock(root):
+        check()
+        result["phase"] = "initialization"
+        specs = load_registry(Path(__file__).resolve().parents[3] / "sources").all()
+        result["phase"] = "cleanup"
+        result["cleanup"] = manager.cleanup(
+            specs, now=utcnow(), check=check, enabled=enabled, raw_enabled=raw_enabled,
+            deadline=time.monotonic() + max_minutes * 60 + _PIPELINE_GRACE_SECONDS + 1,
+        )
+
+
 def cleanup_only(*, work_dir: Path | None = None, max_minutes: float, delete: bool = False) -> dict:
     """Clean already published state; default to inventory only, never publish or mark raw.
 
@@ -829,20 +875,13 @@ def cleanup_only(*, work_dir: Path | None = None, max_minutes: float, delete: bo
                         result["restore_timings"] = _safe_timings(getattr(manager, "last_timings", {}))
                 else:
                     root.mkdir(parents=True, exist_ok=True)
-                with workspace_lock(root):
-                    check()
-                    result["phase"] = "initialization"
-                    specs = load_registry(Path(__file__).resolve().parents[3] / "sources").all()
-                    result["phase"] = "cleanup"
-                    result["cleanup"] = manager.cleanup(
-                        specs, now=utcnow(), check=check, enabled=enabled, raw_enabled=raw_enabled,
-                        deadline=time.monotonic() + max_minutes * 60 + _PIPELINE_GRACE_SECONDS + 1,
-                    )
-                    report = result["cleanup"]
-                    reason = ("cleanup_failed" if report["failures"] else
-                              "cleanup_timed_out" if report["timed_out"] else None)
-                    result.update(status="failed" if reason else "completed",
-                                  exit_status=int(reason is not None), reason=reason)
+                _cleanup_restored(manager, root, check, result, enabled=enabled,
+                                  raw_enabled=raw_enabled, max_minutes=max_minutes)
+                report = result["cleanup"]
+                reason = ("cleanup_failed" if report["failures"] else
+                          "cleanup_timed_out" if report["timed_out"] else None)
+                result.update(status="failed" if reason else "completed",
+                              exit_status=int(reason is not None), reason=reason)
         except Exception:  # noqa: BLE001 -- Cloud boundary must never expose SDK/configuration errors.
             result.update(status="failed", exit_status=1, reason=f"{result['phase']}_failed")
         finally:
@@ -871,6 +910,7 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
         result = {"status": "failed", "exit_status": 1, "generation": None,
                   "embedded": 0, "vector_pending": 0, "embedding_deferred": 0, "embedding_failed": 0,
                   "budget_exhausted": False, "reason": None, "publish_timings": {}, "restore_timings": {}}
+    result["capacity"] = gate(None, None, "optional" if embed_only else "essential")
     cleanup_enabled = not no_cleanup and os.environ.get("R2_CLEANUP", "on").lower() != "off"
     raw_cleanup_enabled = os.environ.get("R2_RAW_CLEANUP", "off").lower() == "on"
     result["cleanup"] = {"enabled": cleanup_enabled, "raw_enabled": raw_cleanup_enabled,
@@ -893,11 +933,30 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
             manager = wiring.build_state(root)
             if isinstance(manager.store, S3StateObjectStore):
                 manager.transfer_workers = 8
-            phase = "storage_probe"
-            probe = probe_conditional_writes(manager.store)
-            if not probe["supported"]:
-                result.update(reason="storage_conditional_unsupported", phase=phase, storage_probe=probe)
-                return result
+            # This preflight selects the probe, not the run decision: run must
+            # still acquire and restore before refusing work (restore errors win).
+            # Near capacity, probe unchanged owned lease bytes instead of creating
+            # disposable objects. Preserve the existing low-capacity probe path.
+            if embed_only:
+                preflight = _round_capacity(manager, embed_only=True)
+                result["capacity"] = preflight
+                _report_capacity(preflight)
+                if not preflight["allowed"]:
+                    preflight["skipped_steps"] = ["backfill", "publish"]
+                    result.update(status="skipped", exit_status=0, reason=preflight["reason"])
+                    return result
+                lease_probe = preflight["tier"] != "normal"
+            else:
+                try:
+                    lease_probe = _project_storage_bytes(manager.store) + LIMITS.crawl_reserve >= LIMITS.report
+                except Exception:  # noqa: BLE001 -- Use only lease bytes if disposable probes may be unsafe.
+                    lease_probe = True
+            if not lease_probe:
+                phase = "storage_probe"
+                probe = probe_conditional_writes(manager.store)
+                if not probe["supported"]:
+                    result.update(reason="storage_conditional_unsupported", phase=phase, storage_probe=probe)
+                    return result
             leases = LeaseManager(manager.store)
             phase = "lease_acquire"
             try:
@@ -916,17 +975,6 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                 phase = "restore"
                 history = manager.list()
                 number = history[0].generation if history else 0
-                # Resume an immutable orphan before new work. Otherwise push()
-                # would publish that old candidate and silently discard this round.
-                if manager.store.get(f"generations/{number + 1}.json") is not None:
-                    with tempfile.TemporaryDirectory(prefix="datumoj-orphan-") as directory:
-                        recovery = StateManager(manager.store, directory, writer=manager.writer,
-                                                before_publish=check, transfer_workers=manager.transfer_workers)
-                        recovery.cache_dir = manager.cache_dir
-                        recovery.before_write = _throttled_check(check)
-                        recovery.before_metadata_write = check
-                        recovery.push()
-                    history = manager.list()
                 if history:
                     try:
                         manager.restore(root, raw="remote")
@@ -934,6 +982,48 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         result["restore_timings"] = _safe_timings(getattr(manager, "last_timings", {}))
                 else:
                     root.mkdir(parents=True, exist_ok=True)
+                if lease_probe:
+                    phase = "storage_probe"
+                    if not _probe_lease_writes(manager.store, check):
+                        result.update(reason="storage_conditional_unsupported", phase=phase)
+                        return result
+                phase = "capacity"
+                capacity = result["capacity"] = _round_capacity(manager, embed_only=embed_only)
+                _report_capacity(capacity)
+                orphan = manager.store.get(f"generations/{number + 1}.json") is not None
+                if not capacity["allowed"]:
+                    capacity["skipped_steps"] = (["backfill", "publish"] if embed_only else
+                                                 ["crawl", "backfill", "mark_raw", "publish", "weekly_report"])
+                    result.update(status="skipped", exit_status=0, reason=capacity["reason"])
+                    if not embed_only:
+                        # Never resume/publish an orphan in the cleanup-only path.
+                        if orphan:
+                            result["cleanup"].update(failures=0, reason="orphan_generation")
+                        else:
+                            phase = "cleanup"
+                            _cleanup_restored(manager, root, check, result, enabled=cleanup_enabled,
+                                              raw_enabled=raw_cleanup_enabled, max_minutes=max_minutes)
+                            _next_round(result)
+                    return result
+                if capacity["tier"] == "freeze":
+                    capacity["skipped_steps"] = ["backfill", "weekly_report"]
+                # Resume only after the capacity decision. Otherwise a stop round
+                # could publish an orphan. Clear only this round's restored files
+                # before restoring the resumed generation; no stores are open yet.
+                if orphan:
+                    phase = "restore"
+                    with tempfile.TemporaryDirectory(prefix="datumoj-orphan-") as directory:
+                        recovery = StateManager(manager.store, directory, writer=manager.writer,
+                                                before_publish=check, transfer_workers=manager.transfer_workers)
+                        recovery.cache_dir = manager.cache_dir
+                        recovery.before_write = _throttled_check(check)
+                        recovery.before_metadata_write = check
+                        recovery.push()
+                    shutil.rmtree(root)
+                    try:
+                        manager.restore(root, raw="remote")
+                    finally:
+                        result["restore_timings"] = _safe_timings(getattr(manager, "last_timings", {}))
                 with workspace_lock(root):
                     check()
                     phase = "initialization"
@@ -1006,8 +1096,9 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         phase = "staged_recovery"
                         with local_write(root):
                             remaining = _recover(deps, remaining, started + max_minutes * 60 + _PIPELINE_GRACE_SECONDS)
-                        phase = "backfill"
-                        remaining = _backfill(deps, remaining, started, max_minutes, check, result, before_round)
+                        if capacity["tier"] != "freeze":
+                            phase = "backfill"
+                            remaining = _backfill(deps, remaining, started, max_minutes, check, result, before_round)
                     phase = "maintenance"
                     maintenance_operation = "local_write_enter"
                     with local_write(root):
@@ -1055,15 +1146,21 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                     else:
                         # Older injected managers can publish without optional maintenance.
                         result["cleanup"]["failures"] = 1
+                    _next_round(result)
                     _progress("cleanup_end", started, result)
                     if not embed_only:
                         result["source_health"] = _source_health(scheduler, result["source_health"], generation)
                     failed = bool(result["embedding_failed"] if embed_only else result["failed_sources"])
-                    if not failed and not embed_only:
+                    if not failed and not embed_only and capacity["tier"] != "freeze":
                         phase = "weekly_report"
-                        result["weekly_report_key"] = publish_previous_week_report(
-                            manager.store, deps, utcnow(), generation,
-                        )
+                        weekly_capacity = _round_capacity(manager, embed_only=True)
+                        _report_capacity(weekly_capacity)
+                        if weekly_capacity["allowed"] and capacity.get("next_round") != "cleanup_only":
+                            result["weekly_report_key"] = publish_previous_week_report(
+                                manager.store, deps, utcnow(), generation,
+                            )
+                        else:
+                            capacity["skipped_steps"].append("weekly_report")
                     result.update(status="failed" if failed else "completed", exit_status=int(failed),
                                   reason=("embedding_failed" if embed_only else "source_failed") if failed else None)
         except Exception as exc:  # noqa: BLE001 -- 云端运行边界必须把任意 SDK 或插件失败记为本轮失败。

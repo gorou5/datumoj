@@ -129,7 +129,8 @@ def test_cloud_run_only_claims_weekly_key_after_a_successful_round(
         generation=1, created_at=datetime(2026, 10, 20, tzinfo=UTC), last_successful_runs={},
     )
     manager = SimpleNamespace(
-        store=SimpleNamespace(get=lambda _key: None), writer=SimpleNamespace(kind="nas"),
+        store=SimpleNamespace(get=lambda _key: None, list_objects=lambda _prefix: []),
+        writer=SimpleNamespace(kind="nas"),
         list=list, push=lambda: generation,
         before_write=None, before_publish=None,
     )

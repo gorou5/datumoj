@@ -90,7 +90,7 @@ def test_dry_run_has_only_counts_and_bytes_and_never_writes_or_leases(world, mon
     assert result["estimated_new_bytes"] == result["average_chunk_bytes"] * 11 > 0
     assert result["current_bytes"] > 0 and result["existing_chunks"] == 1
     assert not world.store.writes and world.store._objects == before
-    assert all(type(value) is int for key, value in result.items() if key != "sources")
+    assert all(type(value) is int for key, value in result.items() if key not in {"sources", "capacity"})
     print("PROJECT DRY RUN", json.dumps(result, sort_keys=True))
 
 
@@ -126,7 +126,7 @@ def test_write_advances_generation_and_indexes_only_projections(world):
     assert second["added_chunks"] == 0 and second["generation"] == 2
 
 
-def test_storage_total_includes_other_prefixes_and_buckets(monkeypatch):
+def test_storage_total_uses_usage_bucket_scope(monkeypatch):
     # The StateObjectStore inventory would see only its Rikolto prefix.
     from datumoj.rikolto.core.state_s3 import S3StateObjectStore
 
@@ -138,16 +138,14 @@ def test_storage_total_includes_other_prefixes_and_buckets(monkeypatch):
 
         def paginate(self, **kwargs):
             calls.append((self.operation, kwargs))
-            if self.operation == "list_buckets":
-                return [{"Buckets": [{"Name": "primary"}]}, {"Buckets": [{"Name": "secondary"}]}]
-            return [{"Contents": [{"Key": "rikolto/a", "Size": 3}]},
-                    {"Contents": [{"Key": "tel/b", "Size": 7}]}]
+            return [{"Contents": [{"Key": "rikolto/a", "Size": 3, "ETag": '"synthetic-a"'}]},
+                    {"Contents": [{"Key": "tel/b", "Size": 7, "ETag": '"synthetic-b"'}]}]
 
     store = S3StateObjectStore.__new__(S3StateObjectStore)
     store._client = SimpleNamespace(get_paginator=Paginator)
-    assert cloud._project_storage_bytes(store) == 20
-    assert calls == [("list_buckets", {}), ("list_objects_v2", {"Bucket": "primary"}),
-                     ("list_objects_v2", {"Bucket": "secondary"})]
+    store._bucket, store._prefix = "primary", "rikolto"
+    assert cloud._project_storage_bytes(store) == 10
+    assert calls == [("list_objects_v2", {"Bucket": "primary"})]
 
 
 @pytest.mark.parametrize("options,write", [([], False), (["--dry-run"], False), (["--write"], True)])
