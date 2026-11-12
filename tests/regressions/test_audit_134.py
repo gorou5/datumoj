@@ -14,7 +14,7 @@ from datumoj.rikolto.core import state as state_module
 from datumoj.rikolto.core.contracts import NO_PARSER, ParseRecord, ParseStatus
 from datumoj.rikolto.core.manifest import SqliteManifest
 from datumoj.rikolto.core.models import FetchOutcome, PublishState, parse_context_fingerprint
-from datumoj.rikolto.core.state import StateManager
+from datumoj.rikolto.core.state import RETENTION_WINDOW, StateManager
 from datumoj.rikolto.testing.fakes import FakeStateObjectStore
 from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 from tests.regressions.test_audit_131 import DAY, cleanup, publish, raw_key, record
@@ -64,7 +64,7 @@ def test_cleanup_downloads_no_content_with_many_generations(tmp_path, monkeypatc
     for number in range(1, count + 1):
         generation = base.model_copy(update={
             "generation": number, "previous_generation": number - 1 or None,
-            "created_at": T0 - timedelta(hours=(count - number) * 72 / count),
+            "created_at": T0 - RETENTION_WINDOW * (count - number) / count,
         })
         store.put(f"generations/{number}.json", generation.model_dump_json().encode())
     store.put("current.json", json.dumps({"generation": count}).encode())
@@ -168,10 +168,10 @@ def test_retention_matches_legacy_and_uses_two_queries(archive, monkeypatch):
     assert len(queries) == 2
 
 
-def test_rollback_removes_marker_and_remarking_restarts_72_hours(archive, monkeypatch):
+def test_rollback_removes_marker_and_remarking_restarts_protection(archive, monkeypatch):
     snap = record(archive, "entry")
     original, _ = publish(archive, T0, monkeypatch)
-    publish(archive, T0 + 4 * DAY, monkeypatch)
+    publish(archive, T0 + 7 * DAY - RETENTION_WINDOW, monkeypatch)
     # Restore the unmarked manifest exactly as a rollback would, then publish forward.
     target = archive.root / "rollback"
     archive.manager.restore(target, original.generation, raw="remote")
@@ -181,9 +181,9 @@ def test_rollback_removes_marker_and_remarking_restarts_72_hours(archive, monkey
     assert cleanup(archive, T0 + 10 * DAY, raw_enabled=True)["raw_deleted"] == 0
     _, marked = publish(archive, T0 + 10 * DAY, monkeypatch)
     assert marked == 1
-    assert cleanup(archive, T0 + 13 * DAY - timedelta(microseconds=1), raw_enabled=True)["raw_deleted"] == 0
-    publish(archive, T0 + 13 * DAY, monkeypatch)
-    assert cleanup(archive, T0 + 13 * DAY, raw_enabled=True)["raw_deleted"] == 1
+    assert cleanup(archive, T0 + 10 * DAY + RETENTION_WINDOW - timedelta(microseconds=1), raw_enabled=True)["raw_deleted"] == 0
+    publish(archive, T0 + 10 * DAY + RETENTION_WINDOW, monkeypatch)
+    assert cleanup(archive, T0 + 10 * DAY + RETENTION_WINDOW, raw_enabled=True)["raw_deleted"] == 1
     assert not archive.store.exists(raw_key(snap))
 
 
@@ -203,7 +203,7 @@ def test_timeout_stops_safely_and_next_round_continues(archive, monkeypatch, pha
     snap = record(archive, "entry")
     second = record(archive, "second")
     publish(archive, T0, monkeypatch)
-    publish(archive, T0 + 4 * DAY, monkeypatch)
+    publish(archive, T0 + 7 * DAY - RETENTION_WINDOW, monkeypatch)
     publish(archive, T0 + 10 * DAY, monkeypatch)
     for name in ("orphan-a", "orphan-b"):
         archive.store.put(f"copies/sha256/{name}", b"orphan")

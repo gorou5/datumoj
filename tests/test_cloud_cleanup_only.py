@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -9,7 +10,7 @@ from typer.testing import CliRunner
 
 from datumoj.rikolto import cli, cloud
 from datumoj.rikolto.core.lease import LEASE_KEY, LeaseManager
-from datumoj.rikolto.core.state import StateManager
+from datumoj.rikolto.core.state import RETENTION_WINDOW, StateManager
 from datumoj.rikolto.testing.fakes import FakeRegistry
 from datumoj.rikolto.testing.samples import T0
 from tests.regressions.test_audit_131 import DAY, publish, raw_key, record
@@ -27,9 +28,11 @@ def cleanup_world(archive, monkeypatch):
     feed = record(archive, "protected", resource_type="feed")
     publish(archive, T0, monkeypatch)
     fresh = record(archive, "unexpired", when=T0 + 5 * DAY)
-    for snap, day in ((old, 4), (young, 8), (fresh, 7)):
+    now = T0 + 10 * DAY
+    for snap, marked_at in ((old, T0 + 4 * DAY), (young, now - RETENTION_WINDOW + timedelta(hours=1)),
+                            (fresh, T0 + 7 * DAY)):
         # A prior, shorter retention policy may have marked fresh before expiry.
-        archive.deps.manifest.mark_raw_optional(snap.sha256, T0 + day * DAY)
+        archive.deps.manifest.mark_raw_optional(snap.sha256, marked_at)
     generation, _ = publish(archive, T0 + 10 * DAY, monkeypatch)
     archive.store.put("copies/sha256/unreferenced", b"synthetic unused copy")
     monkeypatch.setenv("R2_CLEANUP", "on")
