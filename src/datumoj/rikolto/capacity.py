@@ -34,6 +34,8 @@ class CapacityLimits:
             raise ValueError("invalid_capacity_limits")
 
 
+WEEKLY_REPORT_RESERVE = 1_000_000  # Conservative upper bound for one Markdown object.
+
 LIMITS = CapacityLimits()  # Validate once at import; all write gates use these limits.
 
 

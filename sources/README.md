@@ -14,7 +14,7 @@
 | `max_total_bytes`、`max_files` | 单来源累计字节数和文件数上限，必须大于 0。 |
 | `schedule` | 可用值：`hourly`（每小时）、`daily`（每天）、`weekly`（每 7 天）、`monthly`（每 30 天）、`manual`（不自动运行）；可留空（永不到期）。 |
 | `scope` | 非空对象，列出该采集器允许请求的数据范围或端点。 |
-| `scope.raw_retention_days` | 必填，统一为 2 天。raw 最多 48 小时，NAS 存档确认后可提前删除，最新快照受保护。 |
+| `scope.raw_retention_days` | 必填，现有来源为 2 天；保留期取 min(来源天数, 48 小时)，有效 NAS 回执可提前到期，最新快照受保护。 |
 | `scope.raw_expire_latest_types` | 可选，资源类型字符串列表，缺省为空；列出的类型即使是最新快照也允许过期。 |
 | `needs_key` | 无需凭据时留空；需要时只写 `env:UPPERCASE_NAME`，不写 Key 值。 |
 | `retention_note` | 必填，写明 raw 最多 48 小时、NAS 存档确认后可提前删除、最新快照受保护，并保留来源特有说明。 |
@@ -24,9 +24,9 @@
 
 只有逐项核实许可后才能填 `redistribution: allowed`；此时必须填写许可名称、官方许可 URL、署名文本和 `verified_at` 日期。将 `outflow` 放宽到 `raw_ok` / `derived_only`，或设 `cloud_model_ok: true`，还必须填写许可名称、官方许可 URL、`verified_at` 日期及 `notes` 中的核对依据；`raw_ok` 另须填写 `attribution`。`verified_at` / `notes` 分别对应任务字段 `license_verified_at` / `license_notes`，两者放在嵌套的 `license` 对象中以遵循契约。
 
-所有来源的 `scope.raw_retention_days` 统一为 2。raw 最多 48 小时，NAS 存档确认后可提前删除，最新快照受保护。同一 raw 被多份快照引用时，从最近一次抓取时间起算。每个资源的最新成功快照默认受保护，`scope.raw_expire_latest_types` 中列出的资源类型例外（`jp-jma` 为 `["entry"]`）。待发布、发布失败、当前 manifest 必需引用和保留代次的回滚保护优先。观测值历史随代次保留，raw 不压缩。
+所有来源的 `scope.raw_retention_days` 统一为 2。raw 最多 48 小时，NAS 存档确认后可提前删除，最新快照受保护。到期时间 = min(抓取时间 + `scope.raw_retention_days`, 抓取时间 + 48 小时, 有效回执确认时间)；48 小时是上限，配置 1 天即 24 小时到期。同一 raw 被多份快照引用时，须等所有引用的年龄期限到期。每个资源的最新成功快照默认受保护，`scope.raw_expire_latest_types` 中列出的资源类型例外（`jp-jma` 为 `["entry"]`）。待发布、发布失败、当前 manifest 必需引用和保留代次的回滚保护优先。观测值历史随代次保留，raw 不压缩。
 
-NAS 回执固定写到 `receipts/nas-raw.json`，有效期 48 小时，只携带版本、UTC 存档时间及经过内容校验的 SHA-256。缺失、损坏、过期时按 48 小时清理。JMA 的 `scope.feed_lookback_days` 显式设为 7，缺省也是 7，以 feed 的 `updated` 为基准，与 raw 保留期独立。
+NAS 回执固定写到 `receipts/nas-raw.json`，有效期 48 小时，只携带版本、UTC 存档时间及经过内容校验的 SHA-256。缺失、损坏、不可读、过期时按 min(来源天数, 48 小时) 清理。空目录或没有合格文件时命令不上传，非零退出并返回 `no_qualified_raw_files`；成功的标准输出只含条数和时间。JMA 的 `scope.feed_lookback_days` 显式设为 7，缺省也是 7，以 feed 的 `updated` 为基准，与 raw 保留期独立。
 
 ## 许可核对方法
 

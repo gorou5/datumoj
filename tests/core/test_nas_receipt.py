@@ -48,7 +48,7 @@ def test_missing_stale_and_exact_freshness_boundary():
 def test_storage_read_error_disables_early_deletion(monkeypatch):
     store = FakeStateObjectStore()
     monkeypatch.setattr(store, "get", lambda key: (_ for _ in ()).throw(OSError("synthetic")))
-    assert read_receipt(store, now=T0) == ("invalid", None)
+    assert read_receipt(store, now=T0) == ("unreadable", None)
 
 
 def local_raw(tmp_path):
@@ -71,13 +71,15 @@ def test_hashes_verified_and_single_put_contains_no_paths(tmp_path, monkeypatch)
     store = FakeStateObjectStore()
     puts = []
     put = store.put
+    get = store.get
     monkeypatch.setattr(store, "put", lambda key, data: (puts.append(key), put(key, data)))
     monkeypatch.setattr(store, "get", lambda key: pytest.fail("receipt publisher must not read storage"))
     monkeypatch.setattr(store, "list", lambda key: pytest.fail("receipt publisher must not list storage"))
     value = publish_receipt(store, root, now=T0)
     assert puts == [RECEIPT_KEY]
-    assert value == {"version": 1, "archived_at": T0.astimezone(UTC).isoformat(), "sha256": [sha]}
-    assert str(root) not in json.dumps(value) and set(value) == {"version", "archived_at", "sha256"}
+    assert json.loads(get(RECEIPT_KEY)[0])["sha256"] == [sha]
+    assert value == {"count": 1, "archived_at": T0.astimezone(UTC).isoformat()}
+    assert str(root) not in json.dumps(value)
 
 
 def test_cli_uses_same_single_key_boundary(tmp_path, monkeypatch):
@@ -87,9 +89,11 @@ def test_cli_uses_same_single_key_boundary(tmp_path, monkeypatch):
     result = CliRunner().invoke(cli.app, ["nas", "receipt", str(root)])
     assert result.exit_code == 0, result.output
     value = json.loads(result.output)
-    assert value["sha256"] == [sha]
+    assert value["count"] == 1 and sha not in result.output
     assert store.list("") == [RECEIPT_KEY]
-    assert json.loads(store.get(RECEIPT_KEY)[0]) == value
+    assert json.loads(store.get(RECEIPT_KEY)[0]) == {
+        "version": 1, "archived_at": value["archived_at"], "sha256": [sha],
+    }
 
 
 def test_missing_local_directory_never_replaces_receipt(tmp_path):

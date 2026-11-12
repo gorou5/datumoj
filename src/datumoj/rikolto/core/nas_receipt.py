@@ -59,13 +59,14 @@ def read_receipt(store: StateObjectStore, *, now: datetime) -> tuple[str, NasRec
         found = store.get(RECEIPT_KEY)
         return parse_receipt(found[0] if found is not None else None, now=now)
     except Exception:  # noqa: BLE001 -- Receipt I/O must fall back to age-based cleanup.
-        return "invalid", None
+        return "unreadable", None
 
 
 def publish_receipt(store: StateObjectStore, raw_dir: Path, *, now: datetime | None = None) -> dict:
     """Stream/hash raw/<prefix>/<sha> files, skipping mismatches and symlinks.
 
-    Missing/unreadable input raises before uploading. The output omits all paths.
+    Missing, unreadable or empty input raises before uploading. Return only the
+    count and archive time; the stored receipt retains the verified hashes.
     """
     if not raw_dir.is_dir() or raw_dir.is_symlink():
         raise ValueError("raw directory required")
@@ -81,9 +82,11 @@ def publish_receipt(store: StateObjectStore, raw_dir: Path, *, now: datetime | N
                 digest = hashlib.file_digest(stream, "sha256").hexdigest()
             if digest == path.name:
                 hashes.append(digest)
+    if not hashes:
+        raise ValueError("no_qualified_raw_files")
     archived_at = now or datetime.now(UTC)
     if archived_at.tzinfo is None:
         raise ValueError("aware archive time required")
     receipt = {"version": 1, "archived_at": archived_at.astimezone(UTC).isoformat(), "sha256": hashes}
     store.put(RECEIPT_KEY, json.dumps(receipt, separators=(",", ":")).encode())
-    return receipt
+    return {"count": len(hashes), "archived_at": receipt["archived_at"]}

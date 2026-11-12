@@ -150,7 +150,18 @@ def _state_call(action: Callable[[], Any]) -> None:
 def nas_receipt(raw_dir: Path = typer.Argument(..., help="rclone 拉取的本地 raw 目录")) -> None:
     from datumoj.rikolto.core.nas_receipt import publish_receipt
 
-    _state_call(lambda: publish_receipt(wiring.build_state(_data_dir()).store, raw_dir))
+    try:
+        result = publish_receipt(wiring.build_state(_data_dir()).store, raw_dir)
+    except ValueError as exc:
+        if str(exc) == "no_qualified_raw_files":
+            typer.echo(_json({"reason": "no_qualified_raw_files"}))
+        else:
+            typer.echo(_json({"error": "状态操作失败，请检查配置、代次完整性和写入状态"}))
+        raise typer.Exit(1) from None
+    except Exception:  # noqa: BLE001 -- Hide configuration and storage details.
+        typer.echo(_json({"error": "状态操作失败，请检查配置、代次完整性和写入状态"}))
+        raise typer.Exit(1) from None
+    typer.echo(_json(result))
 
 
 @cloud_app.command("check")

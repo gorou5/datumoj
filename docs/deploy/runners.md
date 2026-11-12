@@ -229,34 +229,37 @@ S3/R2 使用 DeleteObjects 串行批量删除，每批最多 200 个键，每批
 上述截止时间来自命令声明的预算，不读取或修改平台作业时限，也不截断发布。
 这替代了每轮重复恢复和下载最多数十份 manifest 的耗时；实际清理耗时见 `cleanup.elapsed_s`。
 
-所有来源的 `scope.raw_retention_days` 统一为 2。raw 最多 48 小时，NAS 存档确认后可提前删除，最新快照受保护。同一哈希的年龄从最近一次抓取起算，运行时也固定使用 48 小时上限。
+所有来源的 `scope.raw_retention_days` 统一为 2。raw 最多 48 小时，NAS 存档确认后可提前删除，最新快照受保护。同一哈希须等所有引用的年龄期限到期；来源的 `raw_retention_days` 生效，48 小时是上限。
 JMA 使用独立的 `scope.feed_lookback_days: 7`，缺省为 7。按 feed 自身 `updated` 减去回看天数截断，包含截止点，不使用本机时钟。
 entry 时间缺失、无法解析或没有时区时照常抓取，feed 时间无效时不做截止。已保存的 entry id 继续去重，limit 只计实际调度的条目。
 每个 URL 最新的成功快照、待发布、staged 和 failed 快照受保护。
 `scope.raw_expire_latest_types` 默认空列表，jp-jma 保持 `["entry"]`，feed 仍受保护。
 
 发布前 `mark_raw` 在 raw 首次进入代次时就写入 manifest 的“允许缺失”标记，已有时间戳保持原值。
-标记也覆盖当前受保护的 raw，以便它将来成为历史快照时，所有旧代次均允许原文缺失。
+标记也覆盖当前受保护的 raw，以便它将来成为历史快照时可过期；还原时只豁免所选代次 manifest 中不受保护的 raw。
+还原仍检查该代次最新成功、待发布、staged 和 failed 快照的 raw 是否存在且大小一致；受保护 raw 缺失会报错，包括较新代次已允许删除其原文的旧代次。
 `raw_marked` 延续原有计数边界，只计本轮新标记且具备删除资格的哈希，保护中的哈希只补回滚元数据。
 `state.py` 的 `RETENTION_WINDOW = timedelta(hours=24)` 继续控制旧代次保留和按年龄清理的标记保护。
 清理只读当前 manifest、代次描述和固定回执，不下载逐代 manifest 或 raw 正文。
 删除需要通过最新/发布状态保护、当前 manifest 必需引用检查，且标记时间不得晚于任何保留的非当前代次。
-无有效回执时，raw 到达 48 小时且标记满 24 小时才可删除。
+无有效回执时，raw 到达 min(来源 `raw_retention_days`, 48 小时) 且标记满 24 小时才可删除。
 有效回执允许在标记未满 24 小时时提前删除，但必须通过相同的保留代次时间检查。
 旧写入器或回滚留下的未标记代次早于新标记时，raw 会继续保留到这些代次退休。
 
 NAS 在 rclone 成功拉取后，由人配置运行 `rikolto nas receipt /local/archive/raw`。
 命令按 `raw/<前两位>/<sha256>` 布局流式校验本地文件，内容哈希与文件名相符才收录，跳过符号链接和不符布局的条目。
 缺失或不可读的目录会使命令失败，上传前失败保留已有回执。
+空目录或没有合格文件时不上传、不覆盖旧回执，非零退出并返回固定原因 `no_qualified_raw_files`。标准输出只含 `count` 和 `archived_at`，不打印哈希列表。读取失败记为 `unreadable`，内容不合格记为 `invalid`。
+
 命令通过现有状态存储接口只向相对键 `receipts/nas-raw.json` 写一次，不读取远端键。
 版本 1 回执只有 `version`、`archived_at` 和 `sha256` 三个字段。`archived_at` 为 UTC ISO 时间，`sha256` 为小写 64 位十六进制列表。
 格式、额外字段、哈希和时间严格校验，未来时间也拒收。超过 48 小时为 stale，恰好 48 小时仍有效。
 缺失、无效、读取失败或过期回执均退回按年龄清理。
-raw 到期时间取最近抓取时间加 48 小时与回执存档时间的较早值。
+raw 到期时间 = min(抓取时间 + 来源 `raw_retention_days`, 抓取时间 + 48 小时, 有效回执存档时间)。配置 1 天时 24 小时到期；共享哈希须等所有引用的年龄期限到期，再与回执时间取较早值。
 回执不携带本地路径、主机名或账号，命令错误输出沿用状态命令的脱敏边界。
 
-清理报告新增 `receipt_status`（ok、missing、invalid、stale）、`raw_deleted_by_receipt`、
-`raw_deleted_by_age` 以及各自的 `_bytes` 字段。超过 48 小时的确认删除计入 age，其余提前删除计入 receipt。
+清理报告新增 `receipt_status`（ok、missing、invalid、unreadable、stale）、`raw_deleted_by_receipt`、
+`raw_deleted_by_age` 以及各自的 `_bytes` 字段。达到来源年龄期限（上限 48 小时）的确认删除计入 age，其余提前删除计入 receipt。
 两类之和等于原有 raw 删除总计，只计存储明确确认的删除。
 本任务的离线报告样例、回执样例和逐来源保留期对照保存在 `results/DATUMOJ-KATABAMI-106/`。
 

@@ -35,6 +35,10 @@ class CountingStore(FakeStateObjectStore):
         self.lists.append(prefix)
         return super().list(prefix)
 
+    def list_objects(self, prefix=""):
+        self.lists.append(prefix)
+        return super().list_objects(prefix)
+
     def put_if_absent(self, key, data):
         if self.fail and self.fail(key):
             raise OSError("synthetic failure")

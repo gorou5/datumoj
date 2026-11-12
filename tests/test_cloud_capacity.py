@@ -62,7 +62,10 @@ def test_run_allowance_table(world, monkeypatch, total, tier):
     assert result["capacity"]["current_bytes"] == total
     assert result["capacity"]["projected_bytes"] == total + 500_000_000
     if tier == "stop":
-        assert result["status"] == "skipped" and result["reason"] == "capacity_stop"
+        # This empty bucket has no manifest to clean; its existing cleanup
+        # failure must now be visible rather than reported as a successful skip.
+        assert result["status"] == "failed" and result["reason"] == "capacity_stop_cleanup_failed"
+        assert result["exit_status"] != 0 and result["cleanup"]["failures"]
         assert not result["capacity"]["allowed"] and result["generation"] is None
         assert set(writes) == {LEASE_KEY}  # No disposable probes, raw or generation writes.
         assert remote(world).get("current.json") is None and not world.components
@@ -176,7 +179,8 @@ def test_unknown_usage_fails_closed(world, monkeypatch, mode):
 
     monkeypatch.setattr(cloud, "_usage_objects", unavailable)
     result = invoke_embed(world) if mode == "embed" else invoke(world)[0]
-    assert result["status"] == "skipped" and result["reason"] == "capacity_unknown"
+    assert result["status"] == "failed" and result["reason"] == "capacity_unknown"
+    assert result["exit_status"] != 0
     assert result["capacity"]["reason"] == "capacity_unknown"
     assert result["generation"] is None and not world.components
     if mode == "embed":
@@ -247,13 +251,14 @@ def test_stop_after_slow_restore_has_full_cleanup_window(world, monkeypatch):
 
 @pytest.mark.parametrize("no_cleanup", [False, True])
 def test_stop_respects_cleanup_switch(world, monkeypatch, no_cleanup):
+    assert invoke(world, "first")[0]["generation"] == 1
     capacity_inventory(monkeypatch, 9_100_000_000)
     result, _ = invoke(world, "stopped", *(["--no-cleanup"] if no_cleanup else []))
     assert result["reason"] == "capacity_stop"
     assert result["cleanup"]["enabled"] is (not no_cleanup)
 
 
-def test_stop_never_resumes_existing_orphan(world, monkeypatch):
+def test_stop_resumes_existing_orphan(world, monkeypatch):
     publish = StateManager._publish
     monkeypatch.setattr(StateManager, "_publish", lambda *args: (_ for _ in ()).throw(PreconditionFailed()))
     invoke(world, "orphan")
@@ -261,5 +266,6 @@ def test_stop_never_resumes_existing_orphan(world, monkeypatch):
     capacity_inventory(monkeypatch, 9_100_000_000)
     result, _ = invoke(world, "blocked")
     assert result["reason"] == "capacity_stop"
-    assert result["cleanup"]["reason"] == "orphan_generation"
-    assert remote(world).get("current.json") is None
+    assert result["orphan_resumed"] is True
+    assert result["cleanup"]["failures"] == 0
+    assert json.loads(remote(world).get("current.json")[0])["generation"] == 1

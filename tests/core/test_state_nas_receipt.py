@@ -9,7 +9,7 @@ from datumoj.rikolto.core import state as state_module
 from datumoj.rikolto.core.manifest import SqliteManifest
 from datumoj.rikolto.core.models import PublishState
 from datumoj.rikolto.core.nas_receipt import RECEIPT_KEY, parse_receipt
-from datumoj.rikolto.core.state import raw_retention
+from datumoj.rikolto.core.state import StateError, raw_retention
 from datumoj.rikolto.testing.samples import T0
 from tests.core.test_nas_receipt import receipt_bytes
 from tests.regressions.test_audit_131 import DAY, cleanup, publish, raw_key, record
@@ -141,7 +141,10 @@ def test_latest_raw_already_marked_in_first_generation_before_it_becomes_history
     report = cleanup(archive, T0 + HOUR, raw_enabled=True)
     assert report["raw_deleted_by_receipt"] == 1
     assert not archive.store.exists(raw_key(old)) and archive.store.exists(raw_key(latest))
-    assert archive.manager.restore(archive.root / "first-feed-rollback", first.generation, raw="local")["verified"]
+    # A retained manifest still protects its own latest feed, even when a newer
+    # manifest authorized deleting that raw. Restore must expose the missing body.
+    with pytest.raises(StateError, match="远端缺少 manifest 引用的 raw"):
+        archive.manager.restore(archive.root / "first-feed-rollback", first.generation, raw="local")
 
 
 def test_receipt_and_age_counters_partition_confirmed_deletions(archive, monkeypatch):
