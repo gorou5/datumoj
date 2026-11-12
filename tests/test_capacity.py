@@ -10,6 +10,7 @@ from datumoj.rikolto.capacity import inventory
 from datumoj.rikolto.core.contracts import StateObject
 from datumoj.rikolto.core.manifest import SqliteManifest
 from datumoj.rikolto.core.models import StateGeneration, StateWriter, StoreCopy
+from datumoj.rikolto.core.state import RETENTION_WINDOW
 from datumoj.rikolto.testing.samples import T0, make_snapshot, make_spec
 
 
@@ -82,7 +83,7 @@ def test_all_dimensions_are_physical_deduplicated_and_current_is_separate(accoun
 
 def test_retention_boundary_current_is_always_retained_and_signed_headroom(accounting):
     objects, generations, manifest = accounting
-    report = inventory(objects, generations, 2, manifest, [], now=T0 + timedelta(hours=72), raw_enabled=True,
+    report = inventory(objects, generations, 2, manifest, [], now=T0 + RETENTION_WINDOW, raw_enabled=True,
                        other_objects=[obj("outside/copies/private", 9_000_000_000)])
     assert report["reclaimable"]["generations"] == {"objects": 0, "bytes": 0}
     assert report["reclaimable"]["raw_enabled"] is True

@@ -78,6 +78,8 @@ _BLOCK_SIZE = 256 * 1024
 _SQLITE_BLOCK = "sqlite-block-v1"
 _SQLITE_BLOCKS = "sqlite-blocks-v1"
 _CLEANUP_MAX_SECONDS = 600
+# Keep generation retention, raw marker protection and advance marking in sync.
+RETENTION_WINDOW = timedelta(hours=24)
 
 
 class _CleanupTimeout(Exception):
@@ -532,14 +534,14 @@ def plan_cleanup(objects: list[StateObject], history: list[StateGeneration], cur
     history = [g for g in history if g.generation <= current]
     if current and current not in {g.generation for g in history}:
         raise StateError("当前代次清单缺失")
-    retained = [g for g in history if g.generation == current or now - g.created_at <= timedelta(hours=72)]
+    retained = [g for g in history if g.generation == current or now - g.created_at <= RETENTION_WINDOW]
     expired = [inventory[f"generations/{g.generation}.json"] for g in history if g not in retained]
     copies = {c.key for g in retained for c in g.stores}
     required = {_raw_key("raw", sha) for sha in _raw_refs(manifest.parent)}
     with _ro(manifest) as db:
         optional = {sha for sha, marked_at in db.execute("SELECT sha256,marked_at FROM raw_allowed_missing")
-                    if now - datetime.fromisoformat(marked_at).replace(tzinfo=UTC) >= timedelta(hours=72)}
-    # Retained non-current generations postdate the >=72h mark; current refs use this manifest.
+                    if now - datetime.fromisoformat(marked_at).replace(tzinfo=UTC) >= RETENTION_WINDOW}
+    # Retained non-current generations postdate the protected mark; current refs use this manifest.
     check()
     candidates = raw_retention(manifest, specs, now)
     check()
@@ -828,12 +830,15 @@ class StateManager:
         return raw_retention(self.data_dir / "manifest.sqlite", specs, now)
 
     def mark_raw(self, specs: list[SourceSpec], now: datetime) -> int:
-        """Mark before taking the publication snapshot, independent of delete switches."""
+        """Mark one retention window before expiry, before the publication snapshot.
+
+        Marking is independent of delete switches; existing mark times stay intact.
+        """
         candidates = self.raw_retention(specs, now)
         with closing(SqliteManifest(self.data_dir / "manifest.sqlite")) as manifest:
             before = manifest.raw_markers()
             for sha, expires in candidates.items():
-                if now >= expires - timedelta(hours=72):
+                if now >= expires - RETENTION_WINDOW:
                     manifest.mark_raw_optional(sha, now)
             return len(manifest.raw_markers()) - len(before)
 
