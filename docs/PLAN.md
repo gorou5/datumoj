@@ -292,8 +292,13 @@ datumoj/
 | 0.2 | **TACHIBANA（橘）** | 日本扩面与持续运营：省厅和自治体政策网页与 PDF、BODIK、抓取监控、每周变化报告、存储适配层（为网络存储做准备）、注册层描述导出，并补上 IVY 遗留的检索缺口。KKJ 采购公告移出本版本（2026-10-22） | **开发完成**，已合并进 `main`（#15，2026-10-22），检查点 m1 已打 tag；H4 真实问答验收待做。计划见 `docs/plans/0.2-tachibana.md` |
 | 0.3 | **MAPLE（楓）** | 定时运行（2026-10-25 改为自有 NAS：NAS 跑全部流程，raw 和索引在 NAS 上的 S3 兼容存储、可重建、按来源设频率，即 ADR 0002 的实现；GitHub Actions 和 R2 的写法保留不启用；2026-10-30 再改：GitHub Actions 定时运行、状态存 R2、从零抓取，NAS 以后从 R2 取数据；一周试运行）；欧美来源（data.europa.eu、Eurostat、法国门户、Federal Register、世界银行 WDI；英德荷门户因 robots 禁止 API 移出，2026-10-26）；日本新来源（e-Stat API、国土数值信息、2024 经济普查、医疗开放数据、ABR 地址）；现有系统改名 Rikolto 并回归（2026-10-26 从 0.4 移来） | 计划见 `docs/plans/0.3-maple.md` |
 | 0.4 | **WISTERIA（藤）** | 新子系统 Eltiro（按外部项目注入的需求，匹配并提取资料库里的数据，带出处和许可闸门）；观测值按发布时间查询；试点所需的国际来源（IMF、OECD、ILO、UN COMTRADE、WTO） | 草案，计划见 `docs/plans/0.4-wisteria.md` |
+| 发布时定 | **KATABAMI（片喰）** | 并行小版本：R2 容量治理（盘点、容量闸门、按来源保留期限、降到安全线） | 草案，aaronjin2023 已认领（#170）。计划见 `docs/plans/katabami-r2-capacity.md` |
+| 发布时定 | **PAULOWNIA（桐）** | 并行小版本：法人实体解析试点（法人番号、KKJ 采购公告、实体关系层、匹配基线与评测） | 草案，待认领。计划见 `docs/plans/paulownia-entity-resolution.md` |
+| 发布时定 | **AOI（葵）** | 并行小版本：国际来源二（BIS、WHO GHO、UNICEF、FAOSTAT、UN WPP） | 草案，待认领。计划见 `docs/plans/aoi-intl-sources-2.md` |
+| 发布时定 | **BELLFLOWER（桔梗）** | 并行小版本：来源注册层发布为数据集 | 草案，待认领。计划见 `docs/plans/bellflower-registry-dataset.md` |
+| 发布时定 | **OAK（柏）** | 并行小版本：NAS 从 R2 增量拉取的下游副本 | 草案，待认领。计划见 `docs/plans/oak-nas-downstream.md` |
 
-其他候选代号：片喰 Katabami、柏 Oak、桐 Paulownia、葵 Aoi、桔梗 Bellflower、菊 Chrysanthemum。
+其他候选代号：菊 Chrysanthemum。
 
 ### 8.3 IVY（0.1）内部的检查点
 
@@ -303,6 +308,15 @@ datumoj/
 | M1 法令链路 | `v0.1.0-ivy-m1` | 真实抓取 200 部法令，重复抓取不会重复下载；`datumoj search "個人情報の第三者提供"` 返回条文和出处；法令题 Recall@10 ≥ 0.85 | DATUMOJ-IVY-901 |
 | M2 目录与统计 | `v0.1.0-ivy-m2` | 能搜到 e-Gov 目录的数据集；`datumoj sql` 查都道府县人口并附出处；JMA 开始每小时轮询 | DATUMOJ-IVY-902 |
 | M3 AI 分析入口 | `v0.1.0-ivy-m3`，H6 验收后打 `v0.1.0-ivy` | 在 Claude 里通过 MCP 问“東京都と大阪府の人口推移を比較して、関連する法改正もあれば”，得到带出处的回答；60 题全部达标。**IVY 完成，第一阶段完成** | DATUMOJ-IVY-903 |
+
+### 8.4 并行小版本（2026-11-11 起）
+
+0.4 之后，除了一条主线版本外，另提供若干**单一目标的小版本**供团队成员认领、同时开发；每人同一时间只做一个版本。规则见 `docs/plans/parallel-versions.md`，要点：
+
+- 每个小版本从 `main` 建 `feature/<代号小写>`，做完向 `main` 提 PR；**谁先通过验收谁先合并**；合并不等于发布，版本号在发布时按发布先后定（0.3、0.4 先发布）。需要真实云端验收的，离线验收后先合进 `main`、新写入默认关闭，再从 `main` 做真实验收。
+- 认领：在计划 PR、认领 PR 或对应 issue 下留言"认领 <代号>"，主对话更新版本表和 https://plan.datumoj.com/ 。
+- 共用文件（数据模型、契约、注册表 schema、CLI 和装配）只加不改；需要改契约的先单独提一个小 PR 合进 `main`。
+- 云端写入只从 `main` 运行，遵守 R2 容量规则（#84），写入前给出估算增量。
 
 ## 9. 旧项目可复用的东西（只借鉴，不迁移代码）
 
