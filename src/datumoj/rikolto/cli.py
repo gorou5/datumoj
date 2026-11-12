@@ -36,6 +36,7 @@ launchd_app = typer.Typer(no_args_is_help=True, help="生成、安装或卸载 l
 registry_app = typer.Typer(no_args_is_help=True, help="数据源注册表导出。")
 report_app = typer.Typer(no_args_is_help=True, help="生成资料库变化报告。")
 diagnose_app = typer.Typer(no_args_is_help=True, help="只读检查本地证据，不升级数据库。")
+nas_app = typer.Typer(no_args_is_help=True, help="确认 NAS raw 存档。")
 state_app = typer.Typer(no_args_is_help=True, help="推送和校验恢复状态代次。")
 lease_app = typer.Typer(no_args_is_help=True, help="写入租约；后续命令从 DATUMOJ_LEASE_TOKEN 读取令牌。")
 cloud_app = typer.Typer(no_args_is_help=True, help="持租约运行到期来源并发布云端代次。")
@@ -47,6 +48,7 @@ app.add_typer(registry_app, name="registry")
 app.add_typer(report_app, name="report")
 app.add_typer(diagnose_app, name="diagnose")
 app.add_typer(state_app, name="state")
+app.add_typer(nas_app, name="nas")
 app.add_typer(cloud_app, name="cloud")
 app.add_typer(index_app, name="index")
 observations_app = typer.Typer(no_args_is_help=True, help="观测值来源发布历史。")
@@ -142,6 +144,13 @@ def _state_call(action: Callable[[], Any]) -> None:
         # Even configuration/SDK/validation exceptions can contain secrets.
         typer.echo(_json({"error": "状态操作失败，请检查配置、代次完整性和写入状态"}))
         raise typer.Exit(1) from None
+
+
+@nas_app.command("receipt")
+def nas_receipt(raw_dir: Path = typer.Argument(..., help="rclone 拉取的本地 raw 目录")) -> None:
+    from datumoj.rikolto.core.nas_receipt import publish_receipt
+
+    _state_call(lambda: publish_receipt(wiring.build_state(_data_dir()).store, raw_dir))
 
 
 @cloud_app.command("check")

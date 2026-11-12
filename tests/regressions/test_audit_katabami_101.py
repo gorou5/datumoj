@@ -26,6 +26,8 @@ def test_usage_and_cleanup_preview_share_exact_reclaimable_counts_and_bytes(clea
         "enabled", "raw_enabled", "generations_deleted", "copies_deleted", "copies_deleted_bytes", "raw_marked",
         "raw_deleted", "raw_deleted_bytes", "reclaimable_generations", "reclaimable_copies", "reclaimable_copies_bytes",
         "reclaimable_raw", "reclaimable_raw_bytes", "total_bytes", "over_7gb", "failures", "elapsed_s", "timed_out",
+        "receipt_status", "raw_deleted_by_receipt", "raw_deleted_by_receipt_bytes",
+        "raw_deleted_by_age", "raw_deleted_by_age_bytes",
     }
     for kind in ("generations", "copies", "raw"):
         assert usage["reclaimable"][kind]["objects"] == report[f"reclaimable_{kind}"]

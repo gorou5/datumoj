@@ -33,7 +33,7 @@ def test_all_sources_explicitly_declare_retention():
 
 def test_sources_keep_agreed_retention_policy():
     for spec in load_registry(SOURCES).all():
-        assert spec.scope["raw_retention_days"] == (1 if spec.id == "jp-jma" else 30), spec.id
+        assert spec.scope["raw_retention_days"] == 2, spec.id
         assert spec.scope.get("raw_expire_latest_types", []) == (["entry"] if spec.id == "jp-jma" else [])
 
 

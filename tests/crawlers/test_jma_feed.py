@@ -127,11 +127,12 @@ def test_source_config_declares_hourly_feed():
     assert spec.scope["feeds"] == [FEED_URL]
 
 
-def test_source_config_limits_fetches_to_one_day_including_boundary():
+def test_source_config_limits_fetches_to_seven_days_including_boundary():
     source = yaml.safe_load((Path(__file__).parents[2] / "sources" / "jp-jma.yaml").read_text(encoding="utf-8"))
     spec = SourceSpec.model_validate(source)
-    assert spec.scope["raw_retention_days"] == 1
-    entries = [("old", "2026-10-19T11:59:59Z"), ("boundary", "2026-10-19T12:00:00Z"),
+    assert spec.scope["raw_retention_days"] == 2
+    assert spec.scope["feed_lookback_days"] == 7
+    entries = [("old", "2026-10-13T11:59:59Z"), ("boundary", "2026-10-13T12:00:00Z"),
                ("recent", "2026-10-20T11:00:00Z")]
     urls = {name: f"https://www.data.jma.go.jp/{name}.xml" for name, _ in entries}
     feed = (f'<feed xmlns="{ATOM}"><updated>2026-10-20T12:00:00Z</updated>'
@@ -191,3 +192,21 @@ def test_feed_snapshot_does_not_become_a_document():
     data = (FIXTURES / "regular_l.snapshot1.xml").read_bytes()
     snapshot = make_snapshot("jp-jma", FEED_URL, data)
     assert JmaXmlParser().parse(snapshot, data).documents == []
+
+
+@pytest.mark.parametrize("explicit_lookback", [False, True])
+def test_seven_day_lookback_is_independent_of_two_day_raw_retention(explicit_lookback):
+    url = "https://www.data.jma.go.jp/developer/xml/data/five-days-old.xml"
+    feed = (f'<feed xmlns="{ATOM}"><updated>2026-10-20T12:00:00Z</updated>'
+            f'<entry><id>{url}</id><updated>2026-10-15T12:00:00Z</updated>'
+            f'<link type="application/xml" href="{url}"/></entry></feed>').encode()
+    scope = {"feeds": [FEED_URL], "raw_retention_days": 2}
+    if explicit_lookback:
+        scope["feed_lookback_days"] = 7
+    spec = _spec().model_copy(update={"scope": scope})
+    manifest, raw = FakeManifest(), FakeRawStore()
+    fetcher = FakeHttpFetcher({FEED_URL: feed, url: b"synthetic message"}, now=lambda: T0)
+    steps = drive_crawler(JmaFeedCrawler(), spec, fetcher, manifest=manifest, raw=raw, now=T0)
+    assert [step.task.url for step in steps] == [FEED_URL, url]
+    again = drive_crawler(JmaFeedCrawler(), spec, fetcher, manifest=manifest, raw=raw, now=T0)
+    assert [step.task.url for step in again] == [FEED_URL]

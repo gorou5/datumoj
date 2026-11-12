@@ -92,7 +92,7 @@ class JmaFeedCrawler(Crawler):
             return ()
 
         updated, entries = _feed_entries(result.content or b"")
-        days = ctx.spec.scope.get("raw_retention_days")
+        days = ctx.spec.scope.get("feed_lookback_days", 7)
         feed_updated = _updated_at(updated)
         if type(days) is int and days > 0 and feed_updated is not None:
             cutoff = feed_updated - timedelta(days=days)
