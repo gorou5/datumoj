@@ -237,7 +237,16 @@ entry 时间缺失、无法解析或没有时区时照常抓取，feed 时间无
 
 发布前 `mark_raw` 在 raw 首次进入代次时就写入 manifest 的“允许缺失”标记，已有时间戳保持原值。
 标记也覆盖当前受保护的 raw，以便它将来成为历史快照时可过期；还原时只豁免所选代次 manifest 中不受保护的 raw。
-还原仍检查该代次最新成功、待发布、staged 和 failed 快照的 raw 是否存在且大小一致；受保护 raw 缺失会报错，包括较新代次已允许删除其原文的旧代次。
+还原仍检查该代次最新成功、待发布、staged 和 failed 快照的 raw 是否存在且大小一致。
+保留旧代次不代表保留它引用的全部 raw：较新代次可能已按回执或年龄规则删除旧代次中仍受保护的原文。
+还原非 `current.json` 指向的旧代次时，缺少受保护 raw 会报固定原因 `rollback_raw_expired`，不交出恢复目录；
+当前代次缺 raw 仍报“远端缺少 manifest 引用的 raw”，大小或哈希不符仍按原规则报错。
+本规则不为回滚额外保留 raw；回滚前需要另行确认原文仍可用。
+
+`capacity.allowed`、`tier` 和 `reason` 表示轮开始时的准入判断，不表示发布是否成功。
+轮内越线停抓用 `capacity.mid_round_stop: true`、`skipped_sources` 和 `next_round: cleanup_only` 表示，
+已完成来源仍照常发布；本轮发布结果以 `status` 和 `generation` 为准。
+
 `raw_marked` 延续原有计数边界，只计本轮新标记且具备删除资格的哈希，保护中的哈希只补回滚元数据。
 `state.py` 的 `RETENTION_WINDOW = timedelta(hours=24)` 继续控制旧代次保留和按年龄清理的标记保护。
 清理只读当前 manifest、代次描述和固定回执，不下载逐代 manifest 或 raw 正文。

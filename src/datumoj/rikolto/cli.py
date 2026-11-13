@@ -25,7 +25,7 @@ from datumoj.rikolto.core.monitor import attach_cloud_status
 from datumoj.rikolto.core.pull import data_state
 from datumoj.rikolto.core.pull import pull as _pull_state
 from datumoj.rikolto.core.registry_export import export_registry
-from datumoj.rikolto.core.state import local_write
+from datumoj.rikolto.core.state import StateError, local_write
 from datumoj.rikolto.core.storage import load_storage_config
 from datumoj.rikolto.index.coverage import INDEX_REBUILDING, rebuilding_index
 from datumoj.rikolto.pipeline import vector_status
@@ -140,9 +140,11 @@ def _json(value: Any) -> str:
 def _state_call(action: Callable[[], Any]) -> None:
     try:
         typer.echo(_json(action()))
-    except Exception:  # noqa: BLE001 -- 状态操作边界隐藏任意配置或 SDK 失败。
+    except Exception as exc:  # noqa: BLE001 -- 状态操作边界隐藏任意配置或 SDK 失败。
         # Even configuration/SDK/validation exceptions can contain secrets.
-        typer.echo(_json({"error": "状态操作失败，请检查配置、代次完整性和写入状态"}))
+        reason = ("rollback_raw_expired" if isinstance(exc, StateError) and str(exc) == "rollback_raw_expired"
+                  else "状态操作失败，请检查配置、代次完整性和写入状态")
+        typer.echo(_json({"error": reason}))
         raise typer.Exit(1) from None
 
 

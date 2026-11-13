@@ -52,6 +52,14 @@ class S3RawStore:
         return f"{self._prefix + '/' if self._prefix else ''}raw/{sha256[:2]}/{sha256}"
 
     def put(self, data: bytes | IO[bytes]) -> str:
+        return self.put_with_status(data)[0]
+
+    def put_with_status(self, data: bytes | IO[bytes]) -> tuple[str, bool]:
+        """Return the hash and whether the key was absent before this write.
+
+        Keep the RawStore put result unchanged; capacity accounting can reuse
+        this existence check, including when corrupt existing content is repaired.
+        """
         with tempfile.TemporaryFile(mode="w+b") as target:
             digest = hashlib.sha256()
             if isinstance(data, bytes):
@@ -64,13 +72,14 @@ class S3RawStore:
                     digest.update(block)
                     target.write(block)
             sha256 = digest.hexdigest()
-            if self.exists(sha256):
+            existed = self.exists(sha256)
+            if existed:
                 try:
                     self.verify(sha256)
                 except (CorruptedBlob, NotFoundError):
                     pass
                 else:
-                    return sha256
+                    return sha256, False
             target.seek(0)
             try:
                 self._client.upload_fileobj(
@@ -79,7 +88,7 @@ class S3RawStore:
                 )
             except (BotoCoreError, ClientError):
                 raise ContractError("S3 上传失败，请检查服务、桶权限和凭证") from None
-            return sha256
+            return sha256, not existed
 
     def exists(self, sha256: str) -> bool:
         key = self._key(sha256)

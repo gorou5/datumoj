@@ -143,7 +143,7 @@ def test_latest_raw_already_marked_in_first_generation_before_it_becomes_history
     assert not archive.store.exists(raw_key(old)) and archive.store.exists(raw_key(latest))
     # A retained manifest still protects its own latest feed, even when a newer
     # manifest authorized deleting that raw. Restore must expose the missing body.
-    with pytest.raises(StateError, match="远端缺少 manifest 引用的 raw"):
+    with pytest.raises(StateError, match="^rollback_raw_expired$"):
         archive.manager.restore(archive.root / "first-feed-rollback", first.generation, raw="local")
 
 
