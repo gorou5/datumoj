@@ -1131,6 +1131,8 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                     check()
                     phase = "initialization"
                     deps = wiring.build(root)
+                    if isinstance(manager, StateManager) and manager.specs is None:
+                        manager.specs = deps.registry.all()
                     for feature in (("index",) if embed_only else ("crawl", "parse", "index")):
                         deps.require(feature)
                     if not embed_only:
@@ -1181,6 +1183,25 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                                 started, started + max_minutes * 60 + _PIPELINE_GRACE_SECONDS,
                             )
                             capacity["uploaded_raw_bytes"] = uploads.bytes
+                            # Account for the completed source, including the final one.
+                            # Keep admission fields and the initial byte baseline intact.
+                            completed_capacity = gate(
+                                current_bytes=capacity["current_bytes"], estimated_new_bytes=uploads.bytes,
+                                category="essential", reserve_bytes=LIMITS.crawl_reserve,
+                            )
+                            _report_capacity(completed_capacity)
+                            if completed_capacity["tier"] in {"freeze", "stop"}:
+                                capacity.update(mid_round_freeze=True,
+                                                mid_round_projected_bytes=completed_capacity["projected_bytes"],
+                                                skipped_steps=["backfill", "weekly_report"])
+                            if completed_capacity["tier"] == "stop":
+                                capacity.update(mid_round_stop=True, projected_bytes=completed_capacity["projected_bytes"],
+                                                next_round="cleanup_only", skipped_sources=[
+                                    {"source_id": skipped, "reason": "capacity_stop_mid_round"}
+                                    for skipped in due[source_index + 1:]
+                                ])
+                                if capacity["skipped_sources"]:
+                                    capacity["skipped_steps"].insert(0, "crawl")
                             health = record.pop("source_health", None)
                             if health is not None:
                                 health["consecutive_failures"], health["first_failure_at"] = _failure_streak(
@@ -1213,7 +1234,7 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         phase = "staged_recovery"
                         with local_write(root):
                             remaining = _recover(deps, remaining, started + max_minutes * 60 + _PIPELINE_GRACE_SECONDS)
-                        if capacity["tier"] not in {"freeze", "stop"} and not capacity.get("mid_round_stop"):
+                        if capacity["tier"] not in {"freeze", "stop"} and not capacity.get("mid_round_freeze"):
                             phase = "backfill"
                             remaining = _backfill(deps, remaining, started, max_minutes, check, result, before_round)
                     phase = "maintenance"
@@ -1270,7 +1291,7 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         result["source_health"] = _source_health(scheduler, result["source_health"], generation)
                     failed = bool(result["embedding_failed"] if embed_only else result["failed_sources"])
                     if (not failed and not embed_only and capacity["tier"] not in {"freeze", "stop"}
-                            and not capacity.get("mid_round_stop")):
+                            and not capacity.get("mid_round_freeze")):
                         phase = "weekly_report"
                         weekly_capacity = _round_capacity(manager, weekly_report=True)
                         _report_capacity(weekly_capacity)

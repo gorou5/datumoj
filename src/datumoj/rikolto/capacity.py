@@ -118,6 +118,7 @@ def inventory(objects: list[StateObject], generations: list[StateGeneration], cu
         "current_generation": next((row for row in per_generation if row["generation"] == current), None),
         "generations": per_generation,
         "raw_sources": raw_source_counts(groups["raw"], manifest),
+        "unrecognized_raw_keys": len(plan["unrecognized_raw"]),
         "reclaimable_by_source": raw_source_counts([*plan["raw"], *plan["orphan_raw"]], manifest),
         "stores": {name: {"bytes": sum(by_key[key].size_bytes for key in keys if key in by_key)}
                    for name, keys in sorted(stores.items())},
