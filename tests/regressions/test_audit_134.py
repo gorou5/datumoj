@@ -294,6 +294,8 @@ def test_cloud_timeout_preserves_publication_and_progress_whitelist(world, monke
         "reclaimable_raw", "reclaimable_raw_bytes", "total_bytes", "over_7gb", "failures", "elapsed_s", "timed_out",
         "receipt_status", "raw_deleted_by_receipt", "raw_deleted_by_receipt_bytes",
         "raw_deleted_by_age", "raw_deleted_by_age_bytes",
+        "by_source", "reclaimable_orphan_raw", "reclaimable_orphan_raw_bytes", "orphan_raw_enabled",
+        "orphan_raw_deleted", "orphan_raw_deleted_bytes", "orphan_raw_skip_reason",
     }
     events = [json.loads(line) for line in stream.getvalue().splitlines()]
     assert [row["event"] for row in events][-3:] == ["publish_end", "cleanup_end", "round_end"]

@@ -67,6 +67,7 @@ jobs:
           DATUMOJ_RAW_BACKEND: s3
           R2_CLEANUP: ${{ vars['R2_CLEANUP'] }}
           R2_RAW_CLEANUP: ${{ vars['R2_RAW_CLEANUP'] }}
+          R2_ORPHAN_RAW_CLEANUP: ${{ vars['R2_ORPHAN_RAW_CLEANUP'] }}
         shell: bash
         run: |
           set -euo pipefail

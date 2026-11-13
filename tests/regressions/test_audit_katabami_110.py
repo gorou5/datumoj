@@ -161,6 +161,9 @@ def test_below_7gb_preserves_previous_result(world):
     capacity = result.pop("capacity")
     assert capacity["tier"] == "normal" and capacity["skipped_sources"] == []
     assert capacity["uploaded_raw_bytes"] > 0
+    for key in ("by_source", "reclaimable_orphan_raw", "reclaimable_orphan_raw_bytes", "orphan_raw_enabled",
+                "orphan_raw_deleted", "orphan_raw_deleted_bytes", "orphan_raw_skip_reason"):
+        result["cleanup"].pop(key, None)
     assert stable_result(result) == BASELINES["run"]
 
 

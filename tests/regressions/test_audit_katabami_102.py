@@ -202,5 +202,8 @@ def test_normal_result_matches_pre_gate_baseline(world, mode):
     capacity = result.pop("capacity")
     assert capacity["tier"] == "normal" and capacity["allowed"]
     assert capacity["skipped_steps"] == []
+    for key in ("by_source", "reclaimable_orphan_raw", "reclaimable_orphan_raw_bytes", "orphan_raw_enabled",
+                "orphan_raw_deleted", "orphan_raw_deleted_bytes", "orphan_raw_skip_reason"):
+        result["cleanup"].pop(key, None)
     expected = BASELINES[mode]
     assert stable_result(result) == expected
