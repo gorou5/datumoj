@@ -28,6 +28,7 @@ from datumoj.rikolto.core.http import PoliteHttpFetcher
 from datumoj.rikolto.core.lease import LEASE_KEY, LeaseError, LeaseManager
 from datumoj.rikolto.core.models import FetchOutcome, PublishState
 from datumoj.rikolto.core.monitor import _ledger_first_attempts, evaluate_cloud_alerts
+from datumoj.rikolto.core.nas_receipt import read_receipt
 from datumoj.rikolto.core.registry import load_registry
 from datumoj.rikolto.core.runner import DEFAULT_MAX_RUN_SECONDS
 from datumoj.rikolto.core.schedule import Scheduler, utcnow, workspace_lock, write_control
@@ -462,6 +463,29 @@ def _recover(deps, remaining, deadline=None):
     return pipeline._vector_remaining
 
 
+def _weekly_report_bytes(content: str) -> bytes:
+    data = content.encode("utf-8")
+    if len(data) <= WEEKLY_REPORT_RESERVE:
+        return data
+    lines = content.splitlines(keepends=True)
+    # weekly_report renders each event on one line, with an optional title.
+    events = [line.startswith(("- 摘要：", "- 标题：")) for line in lines]
+    omitted = sum(events)
+
+    def notice(count):
+        return f"\n\n报告超过 1 MB，后续内容已省略；省略 {count} 条事件。\n".encode()
+
+    budget = WEEKLY_REPORT_RESERVE - len(notice(omitted))
+    kept = bytearray()
+    for line, event in zip(lines, events, strict=True):
+        encoded = line.encode("utf-8")
+        if len(kept) + len(encoded) > budget:
+            break
+        kept.extend(encoded)
+        omitted -= event
+    return bytes(kept) + notice(omitted)
+
+
 def publish_previous_week_report(store, deps, now: datetime, generation=None) -> str:
     """Publish the previous ISO week's report once, using an immutable key."""
     report_at = generation.created_at if generation is not None else now
@@ -492,7 +516,7 @@ def publish_previous_week_report(store, deps, now: datetime, generation=None) ->
             ))
         content = weekly_report(deps, start, end, alerts)
         try:
-            store.put_if_absent(object_key, content.encode("utf-8"))
+            store.put_if_absent(object_key, _weekly_report_bytes(content))
         except PreconditionFailed:
             # Another successful round won the same weekly key.
             pass
@@ -712,9 +736,12 @@ def usage(*, work_dir: Path | None = None, db: bool = False) -> dict:
             _usage_manifest(manager, generation, manifest)
             phase = "inventory"
             specs = load_registry(Path(__file__).resolve().parents[3] / "sources").all()
-            result = inventory(objects, generations, current, manifest, specs, now=utcnow(),
+            now = utcnow()
+            _, receipt = read_receipt(manager.store, now=now)
+            result = inventory(objects, generations, current, manifest, specs, now=now,
                                raw_enabled=os.environ.get("R2_RAW_CLEANUP", "off").lower() == "on",
-                               other_objects=other)
+                               other_objects=other, receipt=receipt,
+                               retained_refs=manager.generation_raw_references)
             if db:
                 phase = "db"
                 result["db"] = _usage_databases(manager, generation, root, utcnow())
@@ -1234,7 +1261,8 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         phase = "staged_recovery"
                         with local_write(root):
                             remaining = _recover(deps, remaining, started + max_minutes * 60 + _PIPELINE_GRACE_SECONDS)
-                        if capacity["tier"] not in {"freeze", "stop"} and not capacity.get("mid_round_freeze"):
+                        if (capacity["tier"] not in {"freeze", "stop"}
+                                and not (capacity.get("mid_round_freeze") or capacity.get("mid_round_stop"))):
                             phase = "backfill"
                             remaining = _backfill(deps, remaining, started, max_minutes, check, result, before_round)
                     phase = "maintenance"
@@ -1291,7 +1319,7 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         result["source_health"] = _source_health(scheduler, result["source_health"], generation)
                     failed = bool(result["embedding_failed"] if embed_only else result["failed_sources"])
                     if (not failed and not embed_only and capacity["tier"] not in {"freeze", "stop"}
-                            and not capacity.get("mid_round_freeze")):
+                            and not (capacity.get("mid_round_freeze") or capacity.get("mid_round_stop"))):
                         phase = "weekly_report"
                         weekly_capacity = _round_capacity(manager, weekly_report=True)
                         _report_capacity(weekly_capacity)
