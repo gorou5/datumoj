@@ -1,6 +1,6 @@
 {
   "_说明": "plan/index.html 的“版本路线图”和“里程碑”两节由本文件渲染。由主对话在节点上更新，调度器派出的任务 agent 不改本文件。status 只有对应的 PR 已合并进 main 才能写 done（IVY 期间直接推送 main，pr 为 null）。规则见 CLAUDE.md 与 docs/PLAN.md 第 8.1 节。",
-  "updated": "2026-11-08",
+  "updated": "2026-11-13",
   "versions": [
     {
       "version": "0.1",
@@ -37,6 +37,15 @@
       "summary": "Eltiro：接受外部需求，匹配序列、固定代次取数运算、按许可闸门输出；观测值按发布时间查询；模型路由。",
       "tag": null,
       "plan": "docs/plans/0.4-wisteria.md"
+    },
+    {
+      "version": "KATABAMI",
+      "codename": "片喰",
+      "status": "doing",
+      "label": "开发中（feature/katabami，并行小版本，aaronjin2023 认领）",
+      "summary": "R2 容量治理：只读盘点、写入前容量闸门、按来源保留期限、降到安全线以下。",
+      "tag": null,
+      "plan": "docs/plans/katabami-r2-capacity.md"
     }
   ],
   "milestones": [
@@ -214,6 +223,39 @@
       "tag": null,
       "pr": 54,
       "summary": "Eltiro 契约（ADR 0006）与观测值按发布时间查询（ADR 0007）于 2026-10-28 人审通过（集成任务 WISTERIA-901）；2026-10-30 随检查点 m0 同步进 main（PR #54，不打 tag）。",
+      "acceptance": null
+    },
+    {
+      "version": "KATABAMI",
+      "id": "P1",
+      "title": "计划合并",
+      "status": "done",
+      "date": "2026-11-12",
+      "tag": null,
+      "pr": 170,
+      "summary": "并行小版本规则与五个候选版本（KATABAMI、PAULOWNIA、AOI、BELLFLOWER、OAK）的计划合并进 main。",
+      "acceptance": null
+    },
+    {
+      "version": "KATABAMI",
+      "id": "B1",
+      "title": "第一批进 main（001/101/102/104/107）",
+      "status": "done",
+      "date": "2026-11-12",
+      "tag": null,
+      "pr": 174,
+      "summary": "101 只读盘点先经 #173 进 main（2026-11-11）；其余随 #174 于 2026-11-12 合并：旧代次保留缩到 24 小时、容量闸门、只读测量。",
+      "acceptance": null
+    },
+    {
+      "version": "KATABAMI",
+      "id": "B2",
+      "title": "第二批进 main（103/106/109/110/111）",
+      "status": "done",
+      "date": "2026-11-13",
+      "tag": null,
+      "pr": 176,
+      "summary": "随 #176 于 2026-11-13 合并：raw 最多保留 48 小时并按 NAS 回执提前删、容量闸门失败可见与轮内复查、孤儿 raw 回收（默认关闭）。",
       "acceptance": null
     }
   ]
