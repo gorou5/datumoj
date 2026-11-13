@@ -578,11 +578,13 @@ class StateManager:
 
     ``before_publish`` must raise if a caller's write lease has been lost. It is
     called immediately before each pointer CAS, including orphan continuation.
+    ``specs`` supplies the caller's loaded registry for restore verification;
+    omitting it preserves the repository sources/ fallback.
     """
 
     def __init__(self, store: StateObjectStore, data_dir: str | Path, *,
                  writer: StateWriter | None = None, before_publish: Callable[[], None] | None = None,
-                 transfer_workers: int = 1):
+                 transfer_workers: int = 1, specs: list[SourceSpec] | None = None):
         if type(transfer_workers) is not int or transfer_workers < 1:
             raise ValueError("transfer_workers 必须为正整数")
         self.store = store
@@ -592,6 +594,7 @@ class StateManager:
         self.before_write: Callable[[], None] | None = None
         self.before_metadata_write: Callable[[], None] | None = None
         self.transfer_workers = transfer_workers
+        self.specs = specs
         self._existing_lock = Lock()
         self.cache_dir: Path | None = None
         self.last_timings: dict[str, float] = {}
@@ -741,15 +744,17 @@ class StateManager:
                 self._generation(number)
             # One paginated listing per content namespace, never HEAD/GET per blob.
             copies = set(self.store.list("copies/sha256/"))
-            raw_keys = set(self.store.list("raw/"))
             orphan = self._get(f"generations/{number + 1}.json")
+            raw_sizes = ({obj.key: obj.size_bytes for obj in self.store.list_objects("raw/")}
+                         if orphan is not None else None)
+            raw_keys = set(raw_sizes) if raw_sizes is not None else set(self.store.list("raw/"))
         if orphan is not None:
             with self._timed("stage"), _frozen(self.data_dir):
                 pass
             candidate = _validate_generation(orphan[0], number + 1)
             # Continue only this exact candidate, checking raw by key inventory.
             with self._temporary_stage(prefix="datumoj-state-") as stage:
-                self._materialize(candidate, stage, raw="remote")
+                self._materialize(candidate, stage, raw="remote", raw_sizes=raw_sizes)
                 with self._timed("publish"):
                     self._publish(candidate, etag)
                 if retain_local:
@@ -983,7 +988,8 @@ class StateManager:
         except Exception:  # noqa: BLE001 -- 代次列表校验边界必须隐藏任意 SDK 错误。
             raise StateError("状态代次列表校验失败") from None
 
-    def _materialize(self, candidate: StateGeneration, stage: Path, *, raw: str) -> dict:
+    def _materialize(self, candidate: StateGeneration, stage: Path, *, raw: str,
+                     raw_sizes: dict[str, int] | None = None, rollback: bool = False) -> dict:
         groups = _block_groups(candidate.stores)
         for copy in candidate.stores:
             _validate_copy(copy)
@@ -1059,7 +1065,9 @@ class StateManager:
             _check_schema(stage)
             if _vector_coverage(stage) != candidate.vector_coverage:
                 raise StateError("向量恢复覆盖校验失败")
-            specs = load_registry(Path(__file__).resolve().parents[4] / "sources").all()
+            specs = self.specs
+            if specs is None:
+                specs = load_registry(Path(__file__).resolve().parents[4] / "sources").all()
             refs = _raw_refs(stage, specs=specs)
         with self._timed("download_raw"):
             with _ro(stage / "manifest.sqlite") as db:
@@ -1070,20 +1078,23 @@ class StateManager:
                         if sha in sizes and sizes[sha] != size:
                             raise StateError("manifest raw 大小不一致")
                         sizes[sha] = size
-            if raw == "remote":
+            if raw_sizes is None and raw == "remote":
                 raw_sizes = {obj.key: obj.size_bytes for obj in self.store.list_objects(candidate.raw_prefix + "/")}
+            raw_keys = (set(raw_sizes) if raw_sizes is not None else
+                        set(self.store.list(candidate.raw_prefix + "/")))
+            missing = {sha for sha in refs if _raw_key(candidate.raw_prefix, sha) not in raw_keys}
+            if missing:
+                if rollback and missing & _raw_policy(stage / "manifest.sqlite", specs)[1]:
+                    raise StateError("rollback_raw_expired")
+                raise StateError("远端缺少 manifest 引用的 raw")
+            if raw == "remote":
                 for sha, size in sizes.items():
                     key = _raw_key(candidate.raw_prefix, sha)
-                    if key not in raw_sizes:
-                        raise StateError("远端缺少 manifest 引用的 raw")
                     if raw_sizes[key] != size:
                         raise StateError("raw SHA256 或大小校验失败")
             else:
                 # Local pulls wrap storage with a read-through cache. Verify the
                 # downloaded bytes directly, preserving that wrapper's boundary.
-                raw_keys = set(self.store.list(candidate.raw_prefix + "/"))
-                if any(_raw_key(candidate.raw_prefix, sha) not in raw_keys for sha in refs):
-                    raise StateError("远端缺少 manifest 引用的 raw")
                 with closing(SqliteManifest(stage / "manifest.sqlite")) as manifest:
                     available_optional = {sha for sha in manifest.raw_markers()
                                           if _raw_key(candidate.raw_prefix, sha) in raw_keys}
@@ -1131,7 +1142,8 @@ class StateManager:
             with self._temporary_stage(prefix=".datumoj-restore-", dir=target.parent) as directory:
                 stage = directory / "data"
                 stage.mkdir()
-                report = self._materialize(candidate, stage, raw=raw)
+                report = self._materialize(candidate, stage, raw=raw,
+                                           rollback=candidate.generation != history[0].generation)
                 # No credentials, endpoint or bucket are persisted. Wiring loads
                 # connection configuration from the existing environment.
                 (stage / "state-storage.json").write_text(json.dumps({"raw_backend": "s3" if raw == "remote" else "local"}))

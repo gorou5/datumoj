@@ -232,7 +232,7 @@ def _vectors(path, chunks):
     page = db.list_tables()
     while True:
         names.extend(page.tables)
-        if page.page_token is None:
+        if not page.page_token:
             break
         page = db.list_tables(page_token=page.page_token)
     if active not in names:

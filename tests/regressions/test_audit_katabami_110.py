@@ -119,7 +119,8 @@ def test_sources_stop_only_between_sources_and_still_publish(tmp_path, monkeypat
     assert all(args[0] == initial and kwargs == {"reserve_bytes": 500_000_000}
                for args, kwargs in source_gates)
     if expected == 1:
-        assert capacity["tier"] == "stop" and capacity["projected_bytes"] == 9_100_000_000
+        assert capacity["tier"] == "freeze" and capacity["mid_round_stop"]
+        assert capacity["projected_bytes"] == 9_100_000_000
         assert capacity["next_round"] == "cleanup_only"
         assert capacity["skipped_sources"] == [
             {"source_id": spec.id, "reason": "capacity_stop_mid_round"} for spec in specs[1:]

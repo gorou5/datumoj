@@ -601,11 +601,17 @@ class _RawUploads:
         return self._put(data, hashlib.sha256(data).hexdigest(), len(data))
 
     def _put(self, data, sha256, size):
-        existed = self.raw.exists(sha256)
+        from datumoj.rikolto.core.rawstore_s3 import S3RawStore
+
         if not isinstance(data, bytes):
             data.seek(0)
-        result = self.raw.put(data)
-        if not existed:
+        if isinstance(self.raw, S3RawStore):
+            result, created = self.raw.put_with_status(data)
+        else:
+            existed = self.raw.exists(sha256)
+            result = self.raw.put(data)
+            created = not existed
+        if created:
             self.bytes += size
         return result
 
@@ -1080,9 +1086,13 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                 # Unknown capacity never authorizes any publication.
                 if orphan and (capacity["allowed"] or stopped):
                     phase = "restore"
+                    specs = manager.specs
+                    if specs is None:
+                        specs = load_registry(Path(__file__).resolve().parents[3] / "sources").all()
                     with tempfile.TemporaryDirectory(prefix="datumoj-orphan-") as directory:
                         recovery = StateManager(manager.store, directory, writer=manager.writer,
-                                                before_publish=check, transfer_workers=manager.transfer_workers)
+                                                before_publish=check, transfer_workers=manager.transfer_workers,
+                                                specs=specs)
                         recovery.cache_dir = manager.cache_dir
                         recovery.before_write = _throttled_check(check)
                         recovery.before_metadata_write = check
@@ -1143,7 +1153,8 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                                                    reserve_bytes=LIMITS.crawl_reserve)
                             _report_capacity(source_capacity)
                             if source_capacity["tier"] == "stop":
-                                capacity.update(source_capacity, next_round="cleanup_only", skipped_sources=[
+                                capacity.update(mid_round_stop=True, projected_bytes=source_capacity["projected_bytes"],
+                                                next_round="cleanup_only", skipped_sources=[
                                     {"source_id": skipped, "reason": "capacity_stop_mid_round"}
                                     for skipped in due[source_index:]
                                 ], skipped_steps=["crawl", "backfill", "weekly_report"])
@@ -1194,7 +1205,7 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         phase = "staged_recovery"
                         with local_write(root):
                             remaining = _recover(deps, remaining, started + max_minutes * 60 + _PIPELINE_GRACE_SECONDS)
-                        if capacity["tier"] not in {"freeze", "stop"}:
+                        if capacity["tier"] not in {"freeze", "stop"} and not capacity.get("mid_round_stop"):
                             phase = "backfill"
                             remaining = _backfill(deps, remaining, started, max_minutes, check, result, before_round)
                     phase = "maintenance"
@@ -1249,7 +1260,8 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                     if not embed_only:
                         result["source_health"] = _source_health(scheduler, result["source_health"], generation)
                     failed = bool(result["embedding_failed"] if embed_only else result["failed_sources"])
-                    if not failed and not embed_only and capacity["tier"] not in {"freeze", "stop"}:
+                    if (not failed and not embed_only and capacity["tier"] not in {"freeze", "stop"}
+                            and not capacity.get("mid_round_stop")):
                         phase = "weekly_report"
                         weekly_capacity = _round_capacity(manager, weekly_report=True)
                         _report_capacity(weekly_capacity)
