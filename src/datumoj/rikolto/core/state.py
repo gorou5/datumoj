@@ -76,6 +76,7 @@ _SQLITE = {
 _SMALL = {"runs.jsonl", "control.json", "vectors-state.json"}
 _EMPTY_DUCK = b'{"format":"duckdb-empty-v1"}\n'
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
+_RAW_KEY = re.compile(r"raw/([0-9a-f]{2})/\1[0-9a-f]{62}\Z")
 _LOG = logging.getLogger(__name__)
 _VECTOR_STATE = "vectors/vectors-state.json"
 _BLOCK_SIZE = 256 * 1024
@@ -560,14 +561,26 @@ def _has_orphan_generation(objects: list[StateObject], current: int) -> bool:
                if (match := re.fullmatch(r"generations/([1-9][0-9]*)\.json", obj.key)))
 
 
+def _manifest_raw_references(manifest: Path) -> set[str]:
+    """Include optional hashes and marker-only provenance in orphan protection."""
+    with _ro(manifest) as db:
+        refs = {row[0] for row in db.execute("SELECT DISTINCT sha256 FROM snapshots WHERE sha256 IS NOT NULL")}
+        refs.update(row[0] for row in db.execute("SELECT sha256 FROM raw_allowed_missing"))
+    for sha in refs:
+        _raw_key("raw", sha)
+    return refs
+
+
 def plan_cleanup(objects: list[StateObject], history: list[StateGeneration], current: int,
                  manifest: Path, specs: list[SourceSpec], *, now: datetime,
                  check: Callable[[], None] = lambda: None,
-                 receipt: NasReceipt | None = None) -> dict[str, list[StateObject]]:
-    """Plan GC from an inventory and a read-only manifest; never contact storage.
+                 receipt: NasReceipt | None = None,
+                 retained_refs: Callable[[StateGeneration], set[str]] | None = None) -> dict:
+    """Plan GC from inventory/manifests; delegate retained reads to the caller.
 
     Switches affect execution, not eligibility. Unpublished descriptors veto
-    orphan raw reclamation. Execution must hold a write lease and recheck it.
+    orphan raw reclamation. The supplied reader loads only retained manifests;
+    unavailable references veto that class. Execution must hold a write lease.
     """
     inventory = {obj.key: obj for obj in objects}
     history = [g for g in history if g.generation <= current]
@@ -580,9 +593,7 @@ def plan_cleanup(objects: list[StateObject], history: list[StateGeneration], cur
     with _ro(manifest) as db:
         markers = {sha: datetime.fromisoformat(marked_at).replace(tzinfo=UTC)
                    for sha, marked_at in db.execute("SELECT sha256,marked_at FROM raw_allowed_missing")}
-        # Unlike _raw_refs, include optional raw: it has published provenance.
-        referenced = {row[0] for row in db.execute("SELECT DISTINCT sha256 FROM snapshots WHERE sha256 IS NOT NULL")}
-        referenced.update(markers)
+    referenced = _manifest_raw_references(manifest)
     optional = {sha for sha, marked_at in markers.items()
                 if now - marked_at >= RETENTION_WINDOW or receipt is not None and sha in receipt.sha256}
     # Legacy writers and rollbacks may have published an unmarked manifest. Even
@@ -593,12 +604,32 @@ def plan_cleanup(objects: list[StateObject], history: list[StateGeneration], cur
     candidates = raw_retention(manifest, specs, now, receipt)
     check()
     raw_keys = {_raw_key("raw", sha) for sha in optional if sha in candidates and now >= candidates[sha]}
+    recognized_raw = [obj for obj in objects if _RAW_KEY.fullmatch(obj.key)]
+    orphan_raw = [obj for obj in recognized_raw if obj.key.rsplit("/", 1)[-1] not in referenced]
+    skip_reason = "orphan_generation" if _has_orphan_generation(objects, current) else None
+    if orphan_raw and skip_reason is None:
+        for generation in retained:
+            if generation.generation == current:
+                continue
+            check()
+            try:
+                if retained_refs is None:
+                    raise StateError("保留代次引用读取器缺失")
+                referenced.update(retained_refs(generation))
+            except _CleanupTimeout:
+                raise
+            except Exception:  # noqa: BLE001 -- Missing/corrupt retained refs veto only orphan raw.
+                skip_reason = "retained_refs_unavailable"
+                break
+            check()
+        orphan_raw = [obj for obj in orphan_raw if obj.key.rsplit("/", 1)[-1] not in referenced]
     return {
         "generations": expired,
         "copies": [obj for obj in objects if obj.key.startswith("copies/sha256/") and obj.key not in copies],
         "raw": [obj for obj in objects if obj.key in raw_keys and obj.key not in required],
-        "orphan_raw": [] if _has_orphan_generation(objects, current) else [
-            obj for obj in objects if obj.key.startswith("raw/") and obj.key.rsplit("/", 1)[-1] not in referenced],
+        "orphan_raw": [] if skip_reason else orphan_raw,
+        "orphan_raw_skip_reason": skip_reason,
+        "unrecognized_raw": [obj for obj in objects if obj.key.startswith("raw/") and not _RAW_KEY.fullmatch(obj.key)],
     }
 
 
@@ -607,7 +638,7 @@ class StateManager:
 
     ``before_publish`` must raise if a caller's write lease has been lost. It is
     called immediately before each pointer CAS, including orphan continuation.
-    ``specs`` supplies the caller's loaded registry for restore verification;
+    ``specs`` supplies the caller's loaded registry for publication and restore;
     omitting it preserves the repository sources/ fallback.
     """
 
@@ -629,6 +660,10 @@ class StateManager:
         self.last_timings: dict[str, float] = {}
         # Composition hooks may restore after push; preserve the push measurements.
         self.last_push_timings: dict[str, float] = {}
+
+    def _source_specs(self) -> list[SourceSpec]:
+        return (self.specs if self.specs is not None else
+                load_registry(Path(__file__).resolve().parents[4] / "sources").all())
 
     @contextmanager
     def _timed(self, stage: str) -> Iterator[None]:
@@ -768,6 +803,7 @@ class StateManager:
             self._check_write()
             if not self.data_dir.is_dir():
                 raise StateError("数据目录不存在")
+            specs = self._source_specs()
             number, etag = self._current()
             if number:
                 self._generation(number)
@@ -783,17 +819,17 @@ class StateManager:
             candidate = _validate_generation(orphan[0], number + 1)
             # Continue only this exact candidate, checking raw by key inventory.
             with self._temporary_stage(prefix="datumoj-state-") as stage:
-                self._materialize(candidate, stage, raw="remote", raw_sizes=raw_sizes)
+                self._materialize(candidate, stage, raw="remote", raw_sizes=raw_sizes, specs=specs)
                 with self._timed("publish"):
                     self._publish(candidate, etag)
                 if retain_local:
-                    self._verify_publication(candidate, stage)
+                    self._verify_publication(candidate, stage, specs=specs)
             return candidate
         with self._temporary_stage(prefix="datumoj-state-") as stage:
             with self._timed("stage"):
                 stores, runs, coverage = _copy_boundary(self.data_dir, stage)
             with self._timed("validate"):
-                refs = _raw_refs(stage)
+                refs = _raw_refs(stage, specs=specs)
                 for copy in stores:
                     _validate_copy(copy)
                 created_at = datetime.now(UTC)
@@ -850,10 +886,11 @@ class StateManager:
             with self._timed("publish"):
                 self._publish(candidate, etag)
             if retain_local:
-                self._verify_publication(candidate, stage, uploaded_raw=uploaded_raw)
+                self._verify_publication(candidate, stage, specs=specs, uploaded_raw=uploaded_raw)
             return candidate
 
     def _verify_publication(self, candidate: StateGeneration, stage: Path, *,
+                            specs: list[SourceSpec],
                             uploaded_raw: dict[str, int] | None = None) -> None:
         """Check object inventories and retain the already frozen publication."""
         from datumoj.rikolto.store.observations import retain_generation
@@ -868,7 +905,7 @@ class StateManager:
                 for key, size in (uploaded_raw or {}).items():
                     if raw.get(key) != size:
                         raise StateError('发布后 raw 缺失或大小不符')
-                refs = _raw_refs(stage)
+                refs = _raw_refs(stage, specs=specs)
                 with _ro(stage / 'manifest.sqlite') as db:
                     for sha, text in db.execute('SELECT sha256,snapshot FROM snapshots WHERE sha256 IS NOT NULL'):
                         if sha in refs and raw.get(_raw_key(candidate.raw_prefix, sha)) != json.loads(text)['size']:
@@ -966,9 +1003,14 @@ class StateManager:
             age_expiry = self.raw_retention(specs, now)
             check_time()
             plan = plan_cleanup(list(objects.values()), history, current, self.data_dir / "manifest.sqlite",
-                                specs, now=now, check=check_time, receipt=receipt)
+                                specs, now=now, check=check_time, receipt=receipt,
+                                retained_refs=self.generation_raw_references)
             expired, copy_objects, raw_objects = (plan[kind] for kind in ("generations", "copies", "raw"))
             orphan_raw = plan["orphan_raw"]
+            report["orphan_raw_skip_reason"] = plan["orphan_raw_skip_reason"]
+            # Keep reports for standard inventories unchanged, including old consumers.
+            if plan["unrecognized_raw"]:
+                report["unrecognized_raw_keys"] = len(plan["unrecognized_raw"])
             report.update(reclaimable_orphan_raw=len(orphan_raw),
                           reclaimable_orphan_raw_bytes=sum(obj.size_bytes for obj in orphan_raw),
                           by_source=raw_source_counts([*raw_objects, *orphan_raw], self.data_dir / "manifest.sqlite"))
@@ -1028,14 +1070,24 @@ class StateManager:
         except Exception:  # noqa: BLE001 -- 代次列表校验边界必须隐藏任意 SDK 错误。
             raise StateError("状态代次列表校验失败") from None
 
-    def _materialize(self, candidate: StateGeneration, stage: Path, *, raw: str,
-                     raw_sizes: dict[str, int] | None = None, rollback: bool = False) -> dict:
-        groups = _block_groups(candidate.stores)
-        for copy in candidate.stores:
+    def generation_raw_references(self, candidate: StateGeneration) -> set[str]:
+        """Read a retained manifest with the restore checksum/cache boundary."""
+        stores = [copy for copy in candidate.stores
+                  if copy.name == "manifest.sqlite" or copy.name.startswith("manifest.sqlite.blocks/")]
+        if not any(copy.name == "manifest.sqlite" for copy in stores):
+            raise StateError("状态缺少 manifest")
+        with self._temporary_stage(prefix="retained-refs-") as stage:
+            self._materialize_copies(stores, stage)
+            return _manifest_raw_references(stage / "manifest.sqlite")
+
+    def _materialize_copies(self, stores: list[StoreCopy], stage: Path) -> None:
+        """Download only the selected stores, retaining restore validation and reuse."""
+        groups = _block_groups(stores)
+        for copy in stores:
             _validate_copy(copy)
 
         cache_valid = True
-        for copy in candidate.stores:
+        for copy in stores:
             if copy.format == _SQLITE_BLOCKS:
                 continue
             cached = self._cache_path(copy.sha256)
@@ -1072,10 +1124,10 @@ class StateManager:
                 self.last_timings['downloaded_bytes'] += len(found[0])
             return found[0]
 
-        ordered = (block for copy in candidate.stores if copy.format != _SQLITE_BLOCK
+        ordered = (block for copy in stores if copy.format != _SQLITE_BLOCK
                    for block in (groups[copy.name] if copy.format == _SQLITE_BLOCKS else [copy]))
         with self._timed("download_copies"), closing(self._transfer(download, ordered)) as downloads:
-            for copy in candidate.stores:
+            for copy in stores:
                 if copy.format == _SQLITE_BLOCK:
                     continue
                 path = _copy_path(stage, copy.name)
@@ -1099,15 +1151,19 @@ class StateManager:
                     duckdb.connect(str(path)).close()
                 else:
                     path.write_bytes(data)
+
+    def _materialize(self, candidate: StateGeneration, stage: Path, *, raw: str,
+                     raw_sizes: dict[str, int] | None = None, rollback: bool = False,
+                     specs: list[SourceSpec] | None = None) -> dict:
+        self._materialize_copies(candidate.stores, stage)
         with self._timed("validate"):
             _check_schema(stage)
             _rebuild_keyword(stage)
             _check_schema(stage)
             if _vector_coverage(stage) != candidate.vector_coverage:
                 raise StateError("向量恢复覆盖校验失败")
-            specs = self.specs
             if specs is None:
-                specs = load_registry(Path(__file__).resolve().parents[4] / "sources").all()
+                specs = self._source_specs()
             refs = _raw_refs(stage, specs=specs)
         with self._timed("download_raw"):
             with _ro(stage / "manifest.sqlite") as db:
