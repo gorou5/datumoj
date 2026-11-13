@@ -25,7 +25,7 @@ from datumoj.rikolto.core.monitor import attach_cloud_status
 from datumoj.rikolto.core.pull import data_state
 from datumoj.rikolto.core.pull import pull as _pull_state
 from datumoj.rikolto.core.registry_export import export_registry
-from datumoj.rikolto.core.state import local_write
+from datumoj.rikolto.core.state import StateError, local_write
 from datumoj.rikolto.core.storage import load_storage_config
 from datumoj.rikolto.index.coverage import INDEX_REBUILDING, rebuilding_index
 from datumoj.rikolto.pipeline import vector_status
@@ -36,6 +36,7 @@ launchd_app = typer.Typer(no_args_is_help=True, help="生成、安装或卸载 l
 registry_app = typer.Typer(no_args_is_help=True, help="数据源注册表导出。")
 report_app = typer.Typer(no_args_is_help=True, help="生成资料库变化报告。")
 diagnose_app = typer.Typer(no_args_is_help=True, help="只读检查本地证据，不升级数据库。")
+nas_app = typer.Typer(no_args_is_help=True, help="确认 NAS raw 存档。")
 state_app = typer.Typer(no_args_is_help=True, help="推送和校验恢复状态代次。")
 lease_app = typer.Typer(no_args_is_help=True, help="写入租约；后续命令从 DATUMOJ_LEASE_TOKEN 读取令牌。")
 cloud_app = typer.Typer(no_args_is_help=True, help="持租约运行到期来源并发布云端代次。")
@@ -47,6 +48,7 @@ app.add_typer(registry_app, name="registry")
 app.add_typer(report_app, name="report")
 app.add_typer(diagnose_app, name="diagnose")
 app.add_typer(state_app, name="state")
+app.add_typer(nas_app, name="nas")
 app.add_typer(cloud_app, name="cloud")
 app.add_typer(index_app, name="index")
 observations_app = typer.Typer(no_args_is_help=True, help="观测值来源发布历史。")
@@ -138,10 +140,30 @@ def _json(value: Any) -> str:
 def _state_call(action: Callable[[], Any]) -> None:
     try:
         typer.echo(_json(action()))
-    except Exception:  # noqa: BLE001 -- 状态操作边界隐藏任意配置或 SDK 失败。
+    except Exception as exc:  # noqa: BLE001 -- 状态操作边界隐藏任意配置或 SDK 失败。
         # Even configuration/SDK/validation exceptions can contain secrets.
+        reason = ("rollback_raw_expired" if isinstance(exc, StateError) and str(exc) == "rollback_raw_expired"
+                  else "状态操作失败，请检查配置、代次完整性和写入状态")
+        typer.echo(_json({"error": reason}))
+        raise typer.Exit(1) from None
+
+
+@nas_app.command("receipt")
+def nas_receipt(raw_dir: Path = typer.Argument(..., help="rclone 拉取的本地 raw 目录")) -> None:
+    from datumoj.rikolto.core.nas_receipt import publish_receipt
+
+    try:
+        result = publish_receipt(wiring.build_state(_data_dir()).store, raw_dir)
+    except ValueError as exc:
+        if str(exc) == "no_qualified_raw_files":
+            typer.echo(_json({"reason": "no_qualified_raw_files"}))
+        else:
+            typer.echo(_json({"error": "状态操作失败，请检查配置、代次完整性和写入状态"}))
+        raise typer.Exit(1) from None
+    except Exception:  # noqa: BLE001 -- Hide configuration and storage details.
         typer.echo(_json({"error": "状态操作失败，请检查配置、代次完整性和写入状态"}))
         raise typer.Exit(1) from None
+    typer.echo(_json(result))
 
 
 @cloud_app.command("check")

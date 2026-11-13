@@ -89,7 +89,7 @@ def test_legacy_marker_keeps_timestamp_and_waits_a_full_new_window(archive, monk
     assert cleanup(archive, marked_at + RETENTION_WINDOW, raw_enabled=True)["raw_deleted"] == 1
 
 
-def test_advance_marking_uses_window_without_rewriting_existing_marks(tmp_path):
+def test_first_eligible_marking_without_rewriting_existing_marks(tmp_path):
     path = tmp_path / "manifest.sqlite"
     snap = make_snapshot()
     spec = make_spec(scope={"raw_retention_days": 7, "raw_expire_latest_types": ["entry"]})
@@ -97,8 +97,7 @@ def test_advance_marking_uses_window_without_rewriting_existing_marks(tmp_path):
         manifest.record_snapshot(snap, {"resource_type": "entry"})
         manifest.record_publish_state(snap.snapshot_id, PublishState.published)
     manager = StateManager(FakeStateObjectStore(), tmp_path)
-    marked_at = T0 + 7 * DAY - RETENTION_WINDOW
-    assert manager.mark_raw([spec], marked_at - timedelta(microseconds=1)) == 0
+    marked_at = T0
     assert manager.mark_raw([spec], marked_at) == 1
     assert manager.mark_raw([spec], marked_at + DAY) == 0
     with closing(SqliteManifest(path)) as manifest:

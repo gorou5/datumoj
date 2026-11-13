@@ -17,7 +17,7 @@ import sqlite3
 import tempfile
 import time
 import uuid
-from collections import deque
+from collections import defaultdict, deque
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack, closing, contextmanager, suppress
@@ -30,6 +30,7 @@ from typing import Literal
 import duckdb
 import lancedb
 import pyarrow as pa
+from pydantic import TypeAdapter
 
 from datumoj.rikolto.core.citations import document_snapshot
 from datumoj.rikolto.core.contracts import ContractError, PreconditionFailed, SourceSpec, StateObject, StateObjectStore
@@ -39,6 +40,7 @@ from datumoj.rikolto.core.models import (
     FetchOutcome,
     PublishState,
     Snapshot,
+    SourceId,
     SourceRun,
     StateGeneration,
     StateWriter,
@@ -46,6 +48,8 @@ from datumoj.rikolto.core.models import (
     VectorCoverage,
     parse_context_fingerprint,
 )
+from datumoj.rikolto.core.nas_receipt import RAW_LIFETIME, NasReceipt, read_receipt
+from datumoj.rikolto.core.registry import load_registry
 from datumoj.rikolto.core.schedule import _locked
 from datumoj.rikolto.core.state_s3 import check_key, delete_retired_objects
 from datumoj.rikolto.index.coverage import index_is_rebuilding
@@ -78,7 +82,8 @@ _BLOCK_SIZE = 256 * 1024
 _SQLITE_BLOCK = "sqlite-block-v1"
 _SQLITE_BLOCKS = "sqlite-blocks-v1"
 _CLEANUP_MAX_SECONDS = 600
-# Keep generation retention, raw marker protection and advance marking in sync.
+# Age-based deletion waits this long after marking. Receipt-based deletion may
+# proceed sooner only when every retained non-current generation postdates the mark.
 RETENTION_WINDOW = timedelta(hours=24)
 
 
@@ -218,13 +223,16 @@ def _raw_key(prefix: str, sha: str) -> str:
     return f"{prefix.rstrip('/')}/{sha[:2]}/{sha}"
 
 
-def _raw_refs(root: Path) -> set[str]:
+def _raw_refs(root: Path, *, specs: list[SourceSpec] | None = None) -> set[str]:
     if not (root / "manifest.sqlite").exists():
         raise StateError("状态缺少 manifest")
     with _ro(root / "manifest.sqlite") as db:
         refs = {r[0] for r in db.execute("SELECT DISTINCT sha256 FROM snapshots WHERE sha256 IS NOT NULL")}
         if db.execute("SELECT 1 FROM sqlite_master WHERE name='raw_allowed_missing'").fetchone():
             refs -= {r[0] for r in db.execute("SELECT sha256 FROM raw_allowed_missing")}
+    if specs is not None:
+        _, protected = _raw_policy(root / "manifest.sqlite", specs)
+        refs |= protected
     for sha in refs:
         _raw_key("raw", sha)
     return refs
@@ -483,8 +491,8 @@ def _sample_provenance(root: Path, *, raw: str, refs: set[str]) -> dict[str, int
             "raw_verification": "sha256" if raw == "local" else "remote_keys_only"}
 
 
-def raw_retention(manifest: Path, specs: list[SourceSpec], now: datetime) -> dict[str, datetime]:
-    """Read eligible raw SHA → expiry; any snapshot's protection vetoes deletion."""
+def _raw_policy(manifest: Path, specs: list[SourceSpec]) -> tuple[dict[str, datetime], set[str]]:
+    """Share expiry and protection rules between cleanup and restore."""
     policies = {spec.id: spec for spec in specs}
     with _ro(manifest) as db:
         no_parser = set(db.execute(
@@ -496,19 +504,19 @@ def raw_retention(manifest: Path, specs: list[SourceSpec], now: datetime) -> dic
                          "LEFT JOIN publish_states p USING(snapshot_id) ORDER BY s.fetched_at,s.seq")]
         latest = {(snap.source_id, snap.resource_url): snap.snapshot_id
                   for snap, _, _ in snapshots if snap.outcome is FetchOutcome.ok}
-        latest_fetch = {}
-        retention = {}
+        expiry = {}
         protected = set()
         for snap, meta, state in snapshots:
             if snap.sha256 is None:
                 continue
             spec = policies.get(snap.source_id)
             scope = spec.scope if spec else {}
-            days = scope.get("raw_retention_days", 30)
             expire_types = scope.get("raw_expire_latest_types", [])
             sha = snap.sha256
-            latest_fetch[sha] = max(latest_fetch.get(sha, snap.fetched_at), snap.fetched_at)
-            retention[sha] = max(retention.get(sha, days), days)
+            lifetime = min(timedelta(days=scope.get("raw_retention_days", 30)), RAW_LIFETIME)
+            deadline = snap.fetched_at + lifetime
+            # Shared content survives until every referencing fetch expires.
+            expiry[sha] = max(expiry.get(sha, deadline), deadline)
             context = parse_context_fingerprint(snap, meta)
             # A reusable parse is not proof this observation was published.
             # Only a terminal no-parser result can dispense with publication.
@@ -518,17 +526,48 @@ def raw_retention(manifest: Path, specs: list[SourceSpec], now: datetime) -> dic
                     or (latest.get((snap.source_id, snap.resource_url)) == snap.snapshot_id
                         and meta.get("resource_type") not in expire_types)):
                 protected.add(sha)
-        return {sha: fetched + timedelta(days=retention[sha])
-                for sha, fetched in latest_fetch.items() if sha not in protected}
+        return expiry, protected
+
+
+def raw_retention(manifest: Path, specs: list[SourceSpec], now: datetime,
+                  receipt: NasReceipt | None = None) -> dict[str, datetime]:
+    """Read eligible raw SHA → expiry; any snapshot's protection vetoes deletion."""
+    expiry, protected = _raw_policy(manifest, specs)
+    return {sha: min(deadline, receipt.archived_at)
+            if receipt is not None and sha in receipt.sha256 else deadline
+            for sha, deadline in expiry.items() if sha not in protected}
+
+
+def raw_source_counts(objects: list[StateObject], manifest: Path) -> dict[str, dict[str, int]]:
+    """Count physical raw once, using the same source ownership as capacity inventory."""
+    sources = defaultdict(set)
+    with _ro(manifest) as db:
+        for sha, source in db.execute("SELECT DISTINCT sha256,source_id FROM snapshots WHERE sha256 IS NOT NULL"):
+            TypeAdapter(SourceId).validate_python(source)
+            sources[_raw_key("raw", sha)].add(source)
+    counts = {"shared": {"objects": 0, "bytes": 0}, "unreferenced": {"objects": 0, "bytes": 0}}
+    for obj in objects:
+        refs = sources.get(obj.key, set())
+        source = "shared" if len(refs) > 1 else next(iter(refs)) if refs else "unreferenced"
+        row = counts.setdefault(source, {"objects": 0, "bytes": 0})
+        row["objects"] += 1
+        row["bytes"] += obj.size_bytes
+    return dict(sorted(counts.items()))
+
+
+def _has_orphan_generation(objects: list[StateObject], current: int) -> bool:
+    return any(int(match[1]) > current for obj in objects
+               if (match := re.fullmatch(r"generations/([1-9][0-9]*)\.json", obj.key)))
 
 
 def plan_cleanup(objects: list[StateObject], history: list[StateGeneration], current: int,
                  manifest: Path, specs: list[SourceSpec], *, now: datetime,
-                 check: Callable[[], None] = lambda: None) -> dict[str, list[StateObject]]:
+                 check: Callable[[], None] = lambda: None,
+                 receipt: NasReceipt | None = None) -> dict[str, list[StateObject]]:
     """Plan GC from an inventory and a read-only manifest; never contact storage.
 
-    Switches affect execution, not eligibility. Descriptors newer than current
-    are not published history, matching cleanup's existing inventory boundary.
+    Switches affect execution, not eligibility. Unpublished descriptors veto
+    orphan raw reclamation. Execution must hold a write lease and recheck it.
     """
     inventory = {obj.key: obj for obj in objects}
     history = [g for g in history if g.generation <= current]
@@ -539,17 +578,27 @@ def plan_cleanup(objects: list[StateObject], history: list[StateGeneration], cur
     copies = {c.key for g in retained for c in g.stores}
     required = {_raw_key("raw", sha) for sha in _raw_refs(manifest.parent)}
     with _ro(manifest) as db:
-        optional = {sha for sha, marked_at in db.execute("SELECT sha256,marked_at FROM raw_allowed_missing")
-                    if now - datetime.fromisoformat(marked_at).replace(tzinfo=UTC) >= RETENTION_WINDOW}
-    # Retained non-current generations postdate the protected mark; current refs use this manifest.
+        markers = {sha: datetime.fromisoformat(marked_at).replace(tzinfo=UTC)
+                   for sha, marked_at in db.execute("SELECT sha256,marked_at FROM raw_allowed_missing")}
+        # Unlike _raw_refs, include optional raw: it has published provenance.
+        referenced = {row[0] for row in db.execute("SELECT DISTINCT sha256 FROM snapshots WHERE sha256 IS NOT NULL")}
+        referenced.update(markers)
+    optional = {sha for sha, marked_at in markers.items()
+                if now - marked_at >= RETENTION_WINDOW or receipt is not None and sha in receipt.sha256}
+    # Legacy writers and rollbacks may have published an unmarked manifest. Even
+    # an aged marker cannot authorize deletion while such a generation survives.
+    optional = {sha for sha in optional
+                if all(g.created_at >= markers[sha] for g in retained if g.generation != current)}
     check()
-    candidates = raw_retention(manifest, specs, now)
+    candidates = raw_retention(manifest, specs, now, receipt)
     check()
     raw_keys = {_raw_key("raw", sha) for sha in optional if sha in candidates and now >= candidates[sha]}
     return {
         "generations": expired,
         "copies": [obj for obj in objects if obj.key.startswith("copies/sha256/") and obj.key not in copies],
         "raw": [obj for obj in objects if obj.key in raw_keys and obj.key not in required],
+        "orphan_raw": [] if _has_orphan_generation(objects, current) else [
+            obj for obj in objects if obj.key.startswith("raw/") and obj.key.rsplit("/", 1)[-1] not in referenced],
     }
 
 
@@ -558,11 +607,13 @@ class StateManager:
 
     ``before_publish`` must raise if a caller's write lease has been lost. It is
     called immediately before each pointer CAS, including orphan continuation.
+    ``specs`` supplies the caller's loaded registry for restore verification;
+    omitting it preserves the repository sources/ fallback.
     """
 
     def __init__(self, store: StateObjectStore, data_dir: str | Path, *,
                  writer: StateWriter | None = None, before_publish: Callable[[], None] | None = None,
-                 transfer_workers: int = 1):
+                 transfer_workers: int = 1, specs: list[SourceSpec] | None = None):
         if type(transfer_workers) is not int or transfer_workers < 1:
             raise ValueError("transfer_workers 必须为正整数")
         self.store = store
@@ -572,6 +623,7 @@ class StateManager:
         self.before_write: Callable[[], None] | None = None
         self.before_metadata_write: Callable[[], None] | None = None
         self.transfer_workers = transfer_workers
+        self.specs = specs
         self._existing_lock = Lock()
         self.cache_dir: Path | None = None
         self.last_timings: dict[str, float] = {}
@@ -721,15 +773,17 @@ class StateManager:
                 self._generation(number)
             # One paginated listing per content namespace, never HEAD/GET per blob.
             copies = set(self.store.list("copies/sha256/"))
-            raw_keys = set(self.store.list("raw/"))
             orphan = self._get(f"generations/{number + 1}.json")
+            raw_sizes = ({obj.key: obj.size_bytes for obj in self.store.list_objects("raw/")}
+                         if orphan is not None else None)
+            raw_keys = set(raw_sizes) if raw_sizes is not None else set(self.store.list("raw/"))
         if orphan is not None:
             with self._timed("stage"), _frozen(self.data_dir):
                 pass
             candidate = _validate_generation(orphan[0], number + 1)
             # Continue only this exact candidate, checking raw by key inventory.
             with self._temporary_stage(prefix="datumoj-state-") as stage:
-                self._materialize(candidate, stage, raw="remote", raw_keys=raw_keys)
+                self._materialize(candidate, stage, raw="remote", raw_sizes=raw_sizes)
                 with self._timed("publish"):
                     self._publish(candidate, etag)
                 if retain_local:
@@ -830,20 +884,24 @@ class StateManager:
         return raw_retention(self.data_dir / "manifest.sqlite", specs, now)
 
     def mark_raw(self, specs: list[SourceSpec], now: datetime) -> int:
-        """Mark one retention window before expiry, before the publication snapshot.
+        """Mark all raw before its first publication, independent of expiry time.
 
-        Marking is independent of delete switches; existing mark times stay intact.
+        Return newly marked deletion-eligible hashes, preserving raw_marked's
+        existing counting boundary. Protected hashes also carry rollback metadata.
+        Existing timestamps survive retries and publication-state transitions.
         """
         candidates = self.raw_retention(specs, now)
+        with _ro(self.data_dir / "manifest.sqlite") as db:
+            hashes = {row[0] for row in db.execute("SELECT DISTINCT sha256 FROM snapshots WHERE sha256 IS NOT NULL")}
         with closing(SqliteManifest(self.data_dir / "manifest.sqlite")) as manifest:
             before = manifest.raw_markers()
-            for sha, expires in candidates.items():
-                if now >= expires - RETENTION_WINDOW:
-                    manifest.mark_raw_optional(sha, now)
-            return len(manifest.raw_markers()) - len(before)
+            for sha in hashes - before.keys():
+                manifest.mark_raw_optional(sha, now)
+            return len(set(candidates) - before.keys())
 
     def cleanup(self, specs: list[SourceSpec], *, now: datetime, check: Callable[[], None],
                 enabled: bool = True, raw_enabled: bool = False, marked: int = 0,
+                orphan_raw_enabled: bool = False,
                 deadline: float | None = None, clock: Callable[[], float] | None = None) -> dict:
         """Best effort GC, called only after publication and post-publication verification.
 
@@ -855,8 +913,13 @@ class StateManager:
         report = {"enabled": enabled, "raw_enabled": raw_enabled, "generations_deleted": 0,
                   "copies_deleted": 0, "copies_deleted_bytes": 0, "raw_marked": marked,
                   "raw_deleted": 0, "raw_deleted_bytes": 0, "reclaimable_generations": 0,
+                  "receipt_status": "missing", "raw_deleted_by_receipt": 0, "raw_deleted_by_receipt_bytes": 0,
+                  "raw_deleted_by_age": 0, "raw_deleted_by_age_bytes": 0,
                   "reclaimable_copies": 0, "reclaimable_copies_bytes": 0,
                   "reclaimable_raw": 0, "reclaimable_raw_bytes": 0,
+                  "by_source": {}, "reclaimable_orphan_raw": 0, "reclaimable_orphan_raw_bytes": 0,
+                  "orphan_raw_enabled": orphan_raw_enabled, "orphan_raw_deleted": 0,
+                  "orphan_raw_deleted_bytes": 0, "orphan_raw_skip_reason": None,
                   "total_bytes": 0, "over_7gb": False, "failures": 0, "elapsed_s": 0.0, "timed_out": False}
         clock = clock or time.monotonic
         started = clock()
@@ -885,6 +948,8 @@ class StateManager:
             report["over_7gb"] = report["total_bytes"] > 7_000_000_000
             check_time()
             current, _ = self._current()
+            if _has_orphan_generation(list(objects.values()), current):
+                report["orphan_raw_skip_reason"] = "orphan_generation"
             # The inventory already includes descriptors, including gaps left by GC.
             numbers = sorted((int(key.removeprefix("generations/").removesuffix(".json")) for key in objects
                               if re.fullmatch(r"generations/[1-9][0-9]*\.json", key)
@@ -896,20 +961,35 @@ class StateManager:
             if current and current not in numbers:
                 raise StateError("当前代次清单缺失")
             check_time()
+            report["receipt_status"], receipt = read_receipt(self.store, now=now)
+            check_time()
+            age_expiry = self.raw_retention(specs, now)
+            check_time()
             plan = plan_cleanup(list(objects.values()), history, current, self.data_dir / "manifest.sqlite",
-                                specs, now=now, check=check_time)
+                                specs, now=now, check=check_time, receipt=receipt)
             expired, copy_objects, raw_objects = (plan[kind] for kind in ("generations", "copies", "raw"))
+            orphan_raw = plan["orphan_raw"]
+            report.update(reclaimable_orphan_raw=len(orphan_raw),
+                          reclaimable_orphan_raw_bytes=sum(obj.size_bytes for obj in orphan_raw),
+                          by_source=raw_source_counts([*raw_objects, *orphan_raw], self.data_dir / "manifest.sqlite"))
             report.update(reclaimable_generations=len(expired), reclaimable_copies=len(copy_objects),
                           reclaimable_copies_bytes=sum(obj.size_bytes for obj in copy_objects),
                           reclaimable_raw=len(raw_objects), reclaimable_raw_bytes=sum(obj.size_bytes for obj in raw_objects))
             if enabled:
                 for kind, group in (("generations", expired), ("copies", copy_objects),
-                                    ("raw", raw_objects if raw_enabled else [])):
+                                    ("raw", raw_objects if raw_enabled else []),
+                                    ("orphan_raw", orphan_raw if raw_enabled and orphan_raw_enabled else [])):
                     for deleted, failures in delete_retired_objects(self.store, group, check_delete):
                         size = sum(obj.size_bytes for obj in deleted)
                         report[f"{kind}_deleted"] += len(deleted)
                         if kind != "generations":
                             report[f"{kind}_deleted_bytes"] += size
+                        if kind == "raw":
+                            for obj in deleted:
+                                sha = obj.key.rsplit("/", 1)[-1]
+                                reason = "age" if now >= age_expiry[sha] else "receipt"
+                                report[f"raw_deleted_by_{reason}"] += 1
+                                report[f"raw_deleted_by_{reason}_bytes"] += obj.size_bytes
                         report["total_bytes"] -= size
                         report["failures"] += failures
                         if failures:
@@ -949,7 +1029,7 @@ class StateManager:
             raise StateError("状态代次列表校验失败") from None
 
     def _materialize(self, candidate: StateGeneration, stage: Path, *, raw: str,
-                     raw_keys: set[str] | None = None) -> dict:
+                     raw_sizes: dict[str, int] | None = None, rollback: bool = False) -> dict:
         groups = _block_groups(candidate.stores)
         for copy in candidate.stores:
             _validate_copy(copy)
@@ -1025,24 +1105,45 @@ class StateManager:
             _check_schema(stage)
             if _vector_coverage(stage) != candidate.vector_coverage:
                 raise StateError("向量恢复覆盖校验失败")
-            refs = _raw_refs(stage)
+            specs = self.specs
+            if specs is None:
+                specs = load_registry(Path(__file__).resolve().parents[4] / "sources").all()
+            refs = _raw_refs(stage, specs=specs)
         with self._timed("download_raw"):
+            with _ro(stage / "manifest.sqlite") as db:
+                sizes = {}
+                for sha, text in db.execute("SELECT sha256,snapshot FROM snapshots WHERE sha256 IS NOT NULL"):
+                    size = json.loads(text)["size"]
+                    if sha in refs:
+                        if sha in sizes and sizes[sha] != size:
+                            raise StateError("manifest raw 大小不一致")
+                        sizes[sha] = size
+            if raw_sizes is None and raw == "remote":
+                raw_sizes = {obj.key: obj.size_bytes for obj in self.store.list_objects(candidate.raw_prefix + "/")}
+            raw_keys = (set(raw_sizes) if raw_sizes is not None else
+                        set(self.store.list(candidate.raw_prefix + "/")))
+            missing = {sha for sha in refs if _raw_key(candidate.raw_prefix, sha) not in raw_keys}
+            if missing:
+                if rollback and missing & _raw_policy(stage / "manifest.sqlite", specs)[1]:
+                    raise StateError("rollback_raw_expired")
+                raise StateError("远端缺少 manifest 引用的 raw")
             if raw == "remote":
-                if raw_keys is None:
-                    raw_keys = set(self.store.list(candidate.raw_prefix + "/"))
-                if any(_raw_key(candidate.raw_prefix, sha) not in raw_keys for sha in refs):
-                    raise StateError("远端缺少 manifest 引用的 raw")
+                for sha, size in sizes.items():
+                    key = _raw_key(candidate.raw_prefix, sha)
+                    if raw_sizes[key] != size:
+                        raise StateError("raw SHA256 或大小校验失败")
             else:
-                if raw_keys is None:
-                    raw_keys = set(self.store.list(candidate.raw_prefix + "/"))
+                # Local pulls wrap storage with a read-through cache. Verify the
+                # downloaded bytes directly, preserving that wrapper's boundary.
                 with closing(SqliteManifest(stage / "manifest.sqlite")) as manifest:
                     available_optional = {sha for sha in manifest.raw_markers()
                                           if _raw_key(candidate.raw_prefix, sha) in raw_keys}
 
                 def download_raw(sha):
                     found = self._get(_raw_key(candidate.raw_prefix, sha))
-                    if found is None or _digest(found[0]) != sha:
-                        raise StateError("raw SHA256 校验失败")
+                    if (found is None or _digest(found[0]) != sha
+                            or sha in sizes and len(found[0]) != sizes[sha]):
+                        raise StateError("raw SHA256 或大小校验失败")
                     path = stage / _raw_key("raw", sha)
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(found[0])
@@ -1081,7 +1182,8 @@ class StateManager:
             with self._temporary_stage(prefix=".datumoj-restore-", dir=target.parent) as directory:
                 stage = directory / "data"
                 stage.mkdir()
-                report = self._materialize(candidate, stage, raw=raw)
+                report = self._materialize(candidate, stage, raw=raw,
+                                           rollback=candidate.generation != history[0].generation)
                 # No credentials, endpoint or bucket are persisted. Wiring loads
                 # connection configuration from the existing environment.
                 (stage / "state-storage.json").write_text(json.dumps({"raw_backend": "s3" if raw == "remote" else "local"}))

@@ -26,8 +26,10 @@ def cleanup_world(archive, monkeypatch):
     old = record(archive, "expired")
     young = record(archive, "young-mark")
     feed = record(archive, "protected", resource_type="feed")
-    publish(archive, T0, monkeypatch)
-    fresh = record(archive, "unexpired", when=T0 + 5 * DAY)
+    with monkeypatch.context() as legacy:
+        legacy.setattr(archive.manager, "mark_raw", lambda specs, now: 0)
+        publish(archive, T0, monkeypatch)  # Legacy unmarked publication for the young-marker guard.
+    fresh = record(archive, "unexpired", when=T0 + 9 * DAY)
     now = T0 + 10 * DAY
     for snap, marked_at in ((old, T0 + 4 * DAY), (young, now - RETENTION_WINDOW + timedelta(hours=1)),
                             (fresh, T0 + 7 * DAY)):

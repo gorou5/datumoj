@@ -23,7 +23,7 @@ license:
   notes: 利用規約尚未逐项核对；数据集级 license_id 全站为空，许可以资源级为准（记在资源快照 meta 的 license）；核对前仅内部使用
 # 目录元数据全量抓取；资源文件只下载白名单内的（不在白名单的只留元数据）。
 scope:
-  raw_retention_days: 30
+  raw_retention_days: 2
   q: "*:*"
   rows: 100
   incremental: true
@@ -31,4 +31,4 @@ scope:
   formats: [csv, xlsx, xls, pdf, json, xml]
   max_file_bytes: 209715200   # 单文件 200MB（2026-10-21 团队决定）
 needs_key: null
-retention_note: raw 保留 30 天，过期后由云端清理删除（最新快照受保护）；观测值历史随代次保留。
+retention_note: raw 最多 48 小时，NAS 存档确认后可提前删除（最新快照受保护）；观测值历史随代次保留。

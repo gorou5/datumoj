@@ -217,7 +217,7 @@ S3/R2 使用 DeleteObjects 串行批量删除，每批最多 200 个键，每批
 清理失败不改变本轮发布结果或退出码。
 清理不再调用整代恢复，也不下载任何 `copies/` 副本块、逐代 manifest 或 raw 正文；
 发布后校验仍在发布路径完成。副本依赖只读代次 JSON 中的 `generation.stores`。
-每轮只列一次对象库存，并读取当前指针与代次 JSON；这些小型清单的读取仍随代次数增长，
+每轮只列一次对象库存，并读取当前指针、代次 JSON 和固定 NAS 回执。代次 JSON 的读取仍随代次数增长，
 受现有存储契约限制，无法仅凭库存里的键、大小和 ETag 推导副本引用。
 72/144 个保留代次的离线回归均断言副本和 raw GET 为 0、库存 LIST 为 1，且每代均可恢复。
 
@@ -229,25 +229,75 @@ S3/R2 使用 DeleteObjects 串行批量删除，每批最多 200 个键，每批
 上述截止时间来自命令声明的预算，不读取或修改平台作业时限，也不截断发布。
 这替代了每轮重复恢复和下载最多数十份 manifest 的耗时；实际清理耗时见 `cleanup.elapsed_s`。
 
-来源的 `scope.raw_retention_days` 必须是正整数，默认 30 天；jp-jma 为 1 天。
-JMA 抓取器在显式配置正整数 `scope.raw_retention_days` 时，只抓 feed 自身 `updated`
-减去该天数之后（含截止点）的条目，不使用本机时钟。长期 feed 窗口里更早的条目不会回补，
-避免反复抓取已超出 raw 保留期的电文及状态副本，挤占团队 R2 的 9 GB 上限。
-jp-jma 的抓取窗口随之缩为 1 天，定时停跑超过 1 天会留下缺口。
-entry 时间缺失、无法解析或没有时区时照常抓取；feed 时间无法解析或没有时区时不做截止。
-未配置或非正整数时，抓取器保持原有全窗口行为；配置契约仍会拒绝显式的非正整数值，
-不改变 raw 清理策略。离线增量集成测试仅移除临时 `jp-jma` 来源的保留天数，以继续核验旧样本的条目差异。
-同一 raw 的年龄从最近一次抓取算起，跨来源采用最长保留期。
-每个 URL 最新的成功快照、待解析和 staged 快照受保护；
-`scope.raw_expire_latest_types` 默认空列表，jp-jma 设为 `["entry"]`，允许旧 entry 过期，feed 仍受保护。
-`state.py` 的 `RETENTION_WINDOW = timedelta(hours=24)` 同时控制旧代次保留、raw 标记保护和提前标记，三处必须联动。
-raw 在到期前 24 小时先写入 manifest 的“允许缺失”标记；不足 24 小时的保留期立即标记。
-raw 判定只读工作目录里的当前 manifest；保留策略所需快照、元数据和发布状态通过联表批量读取，
-再取一次 no-parser 集合，不逐快照查询。只有当前标记满 24 小时、达到保留期、仍是保留策略候选、
-且不在当前代次必需 raw 引用中才删除。其他保留代次均在最近 24 小时创建，晚于这个标记，
-所以也带有允许缺失标记，恢复时不要求这份 raw；当前代次即使更早，也直接按自己的 manifest 判定。
-因此无需再逐代下载 manifest 验证。
-回滚恢复出的当前 manifest 若没有标记，就不会删；之后重新标记，以新时间重新等待完整 24 小时。
+所有来源的 `scope.raw_retention_days` 统一为 2。raw 最多 48 小时，NAS 存档确认后可提前删除，最新快照受保护。同一哈希须等所有引用的年龄期限到期；来源的 `raw_retention_days` 生效，48 小时是上限。
+JMA 使用独立的 `scope.feed_lookback_days: 7`，缺省为 7。按 feed 自身 `updated` 减去回看天数截断，包含截止点，不使用本机时钟。
+entry 时间缺失、无法解析或没有时区时照常抓取，feed 时间无效时不做截止。已保存的 entry id 继续去重，limit 只计实际调度的条目。
+每个 URL 最新的成功快照、待发布、staged 和 failed 快照受保护。
+`scope.raw_expire_latest_types` 默认空列表，jp-jma 保持 `["entry"]`，feed 仍受保护。
+
+发布前 `mark_raw` 在 raw 首次进入代次时就写入 manifest 的“允许缺失”标记，已有时间戳保持原值。
+标记也覆盖当前受保护的 raw，以便它将来成为历史快照时可过期；还原时只豁免所选代次 manifest 中不受保护的 raw。
+还原仍检查该代次最新成功、待发布、staged 和 failed 快照的 raw 是否存在且大小一致。
+保留旧代次不代表保留它引用的全部 raw：较新代次可能已按回执或年龄规则删除旧代次中仍受保护的原文。
+还原非 `current.json` 指向的旧代次时，缺少受保护 raw 会报固定原因 `rollback_raw_expired`，不交出恢复目录；
+当前代次缺 raw 仍报“远端缺少 manifest 引用的 raw”，大小或哈希不符仍按原规则报错。
+本规则不为回滚额外保留 raw；回滚前需要另行确认原文仍可用。
+
+`capacity.allowed`、`tier` 和 `reason` 表示轮开始时的准入判断，不表示发布是否成功。
+轮内越线停抓用 `capacity.mid_round_stop: true`、`skipped_sources` 和 `next_round: cleanup_only` 表示，
+已完成来源仍照常发布；本轮发布结果以 `status` 和 `generation` 为准。
+
+`raw_marked` 延续原有计数边界，只计本轮新标记且具备删除资格的哈希，保护中的哈希只补回滚元数据。
+`state.py` 的 `RETENTION_WINDOW = timedelta(hours=24)` 继续控制旧代次保留和按年龄清理的标记保护。
+清理只读当前 manifest、代次描述和固定回执，不下载逐代 manifest 或 raw 正文。
+删除需要通过最新/发布状态保护、当前 manifest 必需引用检查，且标记时间不得晚于任何保留的非当前代次。
+无有效回执时，raw 到达 min(来源 `raw_retention_days`, 48 小时) 且标记满 24 小时才可删除。
+有效回执允许在标记未满 24 小时时提前删除，但必须通过相同的保留代次时间检查。
+旧写入器或回滚留下的未标记代次早于新标记时，raw 会继续保留到这些代次退休。
+
+NAS 在 rclone 成功拉取后，由人配置运行 `rikolto nas receipt /local/archive/raw`。
+命令按 `raw/<前两位>/<sha256>` 布局流式校验本地文件，内容哈希与文件名相符才收录，跳过符号链接和不符布局的条目。
+缺失或不可读的目录会使命令失败，上传前失败保留已有回执。
+空目录或没有合格文件时不上传、不覆盖旧回执，非零退出并返回固定原因 `no_qualified_raw_files`。标准输出只含 `count` 和 `archived_at`，不打印哈希列表。读取失败记为 `unreadable`，内容不合格记为 `invalid`。
+
+命令通过现有状态存储接口只向相对键 `receipts/nas-raw.json` 写一次，不读取远端键。
+版本 1 回执只有 `version`、`archived_at` 和 `sha256` 三个字段。`archived_at` 为 UTC ISO 时间，`sha256` 为小写 64 位十六进制列表。
+格式、额外字段、哈希和时间严格校验，未来时间也拒收。超过 48 小时为 stale，恰好 48 小时仍有效。
+缺失、无效、读取失败或过期回执均退回按年龄清理。
+raw 到期时间 = min(抓取时间 + 来源 `raw_retention_days`, 抓取时间 + 48 小时, 有效回执存档时间)。配置 1 天时 24 小时到期；共享哈希须等所有引用的年龄期限到期，再与回执时间取较早值。
+回执不携带本地路径、主机名或账号，命令错误输出沿用状态命令的脱敏边界。
+
+清理报告新增 `receipt_status`（ok、missing、invalid、unreadable、stale）、`raw_deleted_by_receipt`、
+`raw_deleted_by_age` 以及各自的 `_bytes` 字段。达到来源年龄期限（上限 48 小时）的确认删除计入 age，其余提前删除计入 receipt。
+两类之和等于原有 raw 删除总计，只计存储明确确认的删除。
+本任务的离线报告样例、回执样例和逐来源保留期对照保存在 `results/DATUMOJ-KATABAMI-106/`。
+
+KATABAMI-106 的版本 1 回执样例（合成内容哈希）如下。
+
+```json
+{"version":1,"archived_at":"2026-11-12T00:00:00+00:00","sha256":["2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"]}
+```
+
+假存储报告使用 49 小时 raw（14 B）、1 小时 raw（15 B）和受保护最新快照，确认删除结果如下。
+
+| receipt_status | raw_deleted | raw_deleted_by_age | age 字节 | raw_deleted_by_receipt | receipt 字节 | failures |
+|---|---|---|---|---|---|---|
+| ok | 2 | 1 | 14 | 1 | 15 | 0 |
+| missing | 1 | 1 | 14 | 0 | 0 | 0 |
+| invalid | 1 | 1 | 14 | 0 | 0 | 0 |
+| stale | 1 | 1 | 14 | 0 | 0 | 0 |
+
+四种情形均保留最新快照。逐来源对照为 jp-jma 从 1 天改为 2 天，其余 16 个来源从 30 天改为 2 天。
+
+| KATABAMI-106 检查 | 结果 |
+|---|---|
+| 任务指定 audit 131、134、141、katabami 101、102、104、受保护 audit 117 和 143 | 90 passed |
+| acceptance.automated 第一条定向命令 | 84 passed |
+| 状态存储、CLI、容量、cloud run/embed/cleanup 等调用方现有文件 | 346 passed |
+| make lint | All checks passed |
+
+全量测试按任务运行限制交由调度器执行，真实 R2/NAS 操作和人类验收尚待完成。
+证据目录受 gitignore 忽略，沙箱禁止更新 worktree 的外部 Git 索引，完整日志及样例保存在任务工作树。
 
 工作流传入两个仓库变量：`R2_CLEANUP` 默认开启，设为 `off` 暂停所有清理删除；
 `R2_RAW_CLEANUP` 默认 `off`，只有设为 `on` 才真正删除 raw。

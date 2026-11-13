@@ -22,6 +22,11 @@ BASELINES = {
             "over_7gb": False,
             "raw_deleted": 0,
             "raw_deleted_bytes": 0,
+            "receipt_status": "missing",
+            "raw_deleted_by_receipt": 0,
+            "raw_deleted_by_receipt_bytes": 0,
+            "raw_deleted_by_age": 0,
+            "raw_deleted_by_age_bytes": 0,
             "raw_enabled": False,
             "raw_marked": 0,
             "reclaimable_copies": 0,
@@ -133,6 +138,11 @@ BASELINES = {
             "over_7gb": False,
             "raw_deleted": 0,
             "raw_deleted_bytes": 0,
+            "receipt_status": "missing",
+            "raw_deleted_by_receipt": 0,
+            "raw_deleted_by_receipt_bytes": 0,
+            "raw_deleted_by_age": 0,
+            "raw_deleted_by_age_bytes": 0,
             "raw_enabled": False,
             "raw_marked": 0,
             "reclaimable_copies": 0,
@@ -192,5 +202,8 @@ def test_normal_result_matches_pre_gate_baseline(world, mode):
     capacity = result.pop("capacity")
     assert capacity["tier"] == "normal" and capacity["allowed"]
     assert capacity["skipped_steps"] == []
+    for key in ("by_source", "reclaimable_orphan_raw", "reclaimable_orphan_raw_bytes", "orphan_raw_enabled",
+                "orphan_raw_deleted", "orphan_raw_deleted_bytes", "orphan_raw_skip_reason"):
+        result["cleanup"].pop(key, None)
     expected = BASELINES[mode]
     assert stable_result(result) == expected

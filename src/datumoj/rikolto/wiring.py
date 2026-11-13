@@ -13,7 +13,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any
 
-from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult, discover_parsers
+from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult, SourceSpec, discover_parsers
 from datumoj.rikolto.core.state import StateManager as _StateManager
 from datumoj.rikolto.core.state import local_write
 from datumoj.rikolto.core.storage import build_state_store, load_storage_config
@@ -460,15 +460,19 @@ def _build(data_dir: str | Path | None = None, overrides: dict[str, Any] | None 
     return wiring
 
 
-def build_state(data_dir: str | Path | None = None):
-    """State commands avoid opening or migrating live data stores."""
+def build_state(data_dir: str | Path | None = None, *, specs: list[SourceSpec] | None = None):
+    """State commands avoid opening or migrating live data stores.
+
+    Supply loaded specs when composing outside the repository. The default
+    registry is loaded at materialization so restore errors keep their boundary.
+    """
     from datumoj.rikolto.core.models import StateWriter
 
     config = load_storage_config(data_dir=data_dir)
     run_id = os.environ.get("GITHUB_RUN_ID")
     kind = state_writer_kind()
     writer = StateWriter(kind=kind, run_id=run_id or uuid.uuid4().hex)
-    return _ReleaseStateManager(build_state_store(config), config.data_dir, writer=writer)
+    return _ReleaseStateManager(build_state_store(config), config.data_dir, writer=writer, specs=specs)
 
 
 def state_writer_kind() -> str:
@@ -491,6 +495,15 @@ def build_tools() -> Any:
 # The state implementation remains unchanged. These composition hooks retain the
 # exact verified publication boundary for observation queries.
 class _ReleaseStateManager(_StateManager):
+    def _materialize(self, candidate, stage, **kwargs):
+        # Load at the restore boundary so registry failures retain the existing
+        # fixed restore reason. Embedded/package callers can supply specs to build_state.
+        if self.specs is None:
+            from datumoj.rikolto.core.registry import load_registry
+
+            self.specs = load_registry(Path(__file__).resolve().parents[3] / "sources").all()
+        return super()._materialize(candidate, stage, **kwargs)
+
     def restore(self, target, generation=None, *, raw="local"):
         report = super().restore(target, generation, raw=raw)
         if raw == "local":

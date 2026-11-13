@@ -21,7 +21,7 @@ from threading import Lock
 
 from datumoj.rikolto import wiring
 from datumoj.rikolto.analysis.reports import previous_week_period, weekly_report
-from datumoj.rikolto.capacity import LIMITS, gate
+from datumoj.rikolto.capacity import LIMITS, WEEKLY_REPORT_RESERVE, gate
 from datumoj.rikolto.core.budget import ParseBudget
 from datumoj.rikolto.core.contracts import PreconditionFailed, StateObject
 from datumoj.rikolto.core.http import PoliteHttpFetcher
@@ -544,24 +544,76 @@ def _project_storage_bytes(store):
     return sum(sizes)
 
 
-def _round_capacity(manager, *, embed_only=False):
+def _round_capacity(manager, *, embed_only=False, weekly_report=False):
     current = estimate = None
     try:
         current = _project_storage_bytes(manager.store)
         # Embedding republishes local stores. Budget a complete replacement of
         # the current stores, without counting checksum-only SQLite descriptors.
-        history = manager.list() if embed_only else []
-        estimate = sum(copy.size_bytes for copy in history[0].stores
-                       if copy.format != "sqlite-blocks-v1") if history else 0
+        if weekly_report:
+            estimate = WEEKLY_REPORT_RESERVE
+        else:
+            history = manager.list() if embed_only else []
+            estimate = sum(copy.size_bytes for copy in history[0].stores
+                           if copy.format != "sqlite-blocks-v1") if history else 0
     except Exception:  # noqa: BLE001 -- An unavailable inventory/estimate must fail closed.
         estimate = None
-    return gate(current, estimate, "optional" if embed_only else "essential",
-                reserve_bytes=0 if embed_only else LIMITS.crawl_reserve)
+    return gate(current, estimate, "optional" if embed_only or weekly_report else "essential",
+                reserve_bytes=0 if embed_only or weekly_report else LIMITS.crawl_reserve)
 
 
 def _report_capacity(capacity):
     if capacity["tier"] != "normal":
         print(json.dumps({"event": "capacity", **capacity}), file=sys.__stderr__, flush=True)
+
+
+class _RawUploads:
+    """Count successful new raw content through the existing RawStore contract."""
+
+    def __init__(self, raw):
+        self.raw = raw
+        self.bytes = 0
+
+    def __getattr__(self, name):
+        return getattr(self.raw, name)
+
+    def get(self, sha256):
+        return self.raw.get(sha256)
+
+    def open(self, sha256):
+        return self.raw.open(sha256)
+
+    def exists(self, sha256):
+        return self.raw.exists(sha256)
+
+    def verify(self, sha256):
+        return self.raw.verify(sha256)
+
+    def put(self, data):
+        if not isinstance(data, bytes):
+            # Preserve streaming and caller ownership, including non-seekable inputs.
+            with tempfile.TemporaryFile() as spool:
+                digest = hashlib.sha256()
+                while block := data.read(1 << 20):
+                    digest.update(block)
+                    spool.write(block)
+                return self._put(spool, digest.hexdigest(), spool.tell())
+        return self._put(data, hashlib.sha256(data).hexdigest(), len(data))
+
+    def _put(self, data, sha256, size):
+        from datumoj.rikolto.core.rawstore_s3 import S3RawStore
+
+        if not isinstance(data, bytes):
+            data.seek(0)
+        if isinstance(self.raw, S3RawStore):
+            result, created = self.raw.put_with_status(data)
+        else:
+            existed = self.raw.exists(sha256)
+            result = self.raw.put(data)
+            created = not existed
+        if created:
+            self.bytes += size
+        return result
 
 
 def _next_round(result):
@@ -839,7 +891,7 @@ def _probe_lease_writes(store, check):
     return store.get(LEASE_KEY) == (data, updated)
 
 
-def _cleanup_restored(manager, root, check, result, *, enabled, raw_enabled, max_minutes):
+def _cleanup_restored(manager, root, check, result, *, enabled, raw_enabled, orphan_raw_enabled, max_minutes):
     """Shared cleanup-only path; start its full time allowance after restore."""
     with workspace_lock(root):
         check()
@@ -848,6 +900,7 @@ def _cleanup_restored(manager, root, check, result, *, enabled, raw_enabled, max
         result["phase"] = "cleanup"
         result["cleanup"] = manager.cleanup(
             specs, now=utcnow(), check=check, enabled=enabled, raw_enabled=raw_enabled,
+            orphan_raw_enabled=orphan_raw_enabled,
             deadline=time.monotonic() + max_minutes * 60 + _PIPELINE_GRACE_SECONDS + 1,
         )
 
@@ -860,10 +913,12 @@ def cleanup_only(*, work_dir: Path | None = None, max_minutes: float, delete: bo
     """
     enabled = delete and os.environ.get("R2_CLEANUP", "on").lower() != "off"
     raw_enabled = os.environ.get("R2_RAW_CLEANUP", "off").lower() == "on"
+    orphan_raw_enabled = os.environ.get("R2_ORPHAN_RAW_CLEANUP", "off") == "on"
     result = {"status": "failed", "exit_status": 1, "reason": None, "phase": "configuration",
               "mode": "delete" if delete else "dry_run", "generation": None,
               "cleanup": {"enabled": enabled, "raw_enabled": raw_enabled,
                           "failures": 0, "elapsed_s": 0.0, "timed_out": False}, "restore_timings": {}}
+    result["cleanup"].update(orphan_raw_enabled=orphan_raw_enabled, orphan_raw_skip_reason=None)
     leases = lease = None
     with _quiet():
         stack = ExitStack()
@@ -896,6 +951,7 @@ def cleanup_only(*, work_dir: Path | None = None, max_minutes: float, delete: bo
                 result["generation"] = number = history[0].generation if history else 0
                 if manager.store.get(f"generations/{number + 1}.json") is not None:
                     result["reason"] = "orphan_generation"
+                    result["cleanup"]["orphan_raw_skip_reason"] = "orphan_generation"
                     return result
                 if history:
                     try:
@@ -905,7 +961,8 @@ def cleanup_only(*, work_dir: Path | None = None, max_minutes: float, delete: bo
                 else:
                     root.mkdir(parents=True, exist_ok=True)
                 _cleanup_restored(manager, root, check, result, enabled=enabled,
-                                  raw_enabled=raw_enabled, max_minutes=max_minutes)
+                                  raw_enabled=raw_enabled, orphan_raw_enabled=orphan_raw_enabled,
+                                  max_minutes=max_minutes)
                 report = result["cleanup"]
                 reason = ("cleanup_failed" if report["failures"] else
                           "cleanup_timed_out" if report["timed_out"] else None)
@@ -942,8 +999,10 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
     result["capacity"] = gate(None, None, "optional" if embed_only else "essential")
     cleanup_enabled = not no_cleanup and os.environ.get("R2_CLEANUP", "on").lower() != "off"
     raw_cleanup_enabled = os.environ.get("R2_RAW_CLEANUP", "off").lower() == "on"
+    orphan_raw_cleanup_enabled = os.environ.get("R2_ORPHAN_RAW_CLEANUP", "off") == "on"
     result["cleanup"] = {"enabled": cleanup_enabled, "raw_enabled": raw_cleanup_enabled,
                          "elapsed_s": 0.0, "timed_out": False}
+    result["cleanup"].update(orphan_raw_enabled=orphan_raw_cleanup_enabled, orphan_raw_skip_reason=None)
     phase = "configuration"
     manager = leases = lease = deps = None
     started = time.monotonic()
@@ -972,8 +1031,17 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                 _report_capacity(preflight)
                 if not preflight["allowed"]:
                     preflight["skipped_steps"] = ["backfill", "publish"]
-                    result.update(status="skipped", exit_status=0, reason=preflight["reason"])
-                    return result
+                    unknown = preflight["reason"] == "capacity_unknown"
+                    result.update(status="failed" if unknown else "skipped", exit_status=int(unknown),
+                                  reason=preflight["reason"])
+                    # A stopped embedding retry may still finish an already uploaded
+                    # orphan. Ordinary freeze/stop skips keep their lease-free path.
+                    history = manager.list() if preflight["tier"] == "stop" and not unknown else []
+                    number = history[0].generation if history else 0
+                    if unknown or preflight["tier"] != "stop" or manager.store.get(
+                        f"generations/{number + 1}.json"
+                    ) is None:
+                        return result
                 lease_probe = preflight["tier"] != "normal"
             else:
                 try:
@@ -1020,39 +1088,45 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                 capacity = result["capacity"] = _round_capacity(manager, embed_only=embed_only)
                 _report_capacity(capacity)
                 orphan = manager.store.get(f"generations/{number + 1}.json") is not None
-                if not capacity["allowed"]:
-                    capacity["skipped_steps"] = (["backfill", "publish"] if embed_only else
-                                                 ["crawl", "backfill", "mark_raw", "publish", "weekly_report"])
-                    result.update(status="skipped", exit_status=0, reason=capacity["reason"])
-                    if not embed_only:
-                        # Never resume/publish an orphan in the cleanup-only path.
-                        if orphan:
-                            result["cleanup"].update(failures=0, reason="orphan_generation")
-                        else:
-                            phase = "cleanup"
-                            _cleanup_restored(manager, root, check, result, enabled=cleanup_enabled,
-                                              raw_enabled=raw_cleanup_enabled, max_minutes=max_minutes)
-                            _next_round(result)
-                    return result
-                if capacity["tier"] == "freeze":
-                    capacity["skipped_steps"] = ["backfill", "weekly_report"]
-                # Resume only after the capacity decision. Otherwise a stop round
-                # could publish an orphan. Clear only this round's restored files
-                # before restoring the resumed generation; no stores are open yet.
-                if orphan:
+                stopped = capacity["reason"] == "capacity_stop"
+                # Finish only an immutable uploaded orphan before stop cleanup.
+                # Unknown capacity never authorizes any publication.
+                if orphan and (capacity["allowed"] or stopped):
                     phase = "restore"
+                    specs = manager.specs
+                    if specs is None:
+                        specs = load_registry(Path(__file__).resolve().parents[3] / "sources").all()
                     with tempfile.TemporaryDirectory(prefix="datumoj-orphan-") as directory:
                         recovery = StateManager(manager.store, directory, writer=manager.writer,
-                                                before_publish=check, transfer_workers=manager.transfer_workers)
+                                                before_publish=check, transfer_workers=manager.transfer_workers,
+                                                specs=specs)
                         recovery.cache_dir = manager.cache_dir
                         recovery.before_write = _throttled_check(check)
                         recovery.before_metadata_write = check
                         recovery.push()
+                    result["orphan_resumed"] = True
                     shutil.rmtree(root)
                     try:
                         manager.restore(root, raw="remote")
                     finally:
                         result["restore_timings"] = _safe_timings(getattr(manager, "last_timings", {}))
+                if not capacity["allowed"]:
+                    capacity["skipped_steps"] = (["backfill", "publish"] if embed_only else
+                                                 ["crawl", "backfill", "mark_raw", "publish", "weekly_report"])
+                    unknown = capacity["reason"] == "capacity_unknown"
+                    result.update(status="failed" if unknown else "skipped", exit_status=int(unknown),
+                                  reason=capacity["reason"])
+                    if stopped and (not embed_only or orphan):
+                        phase = "cleanup"
+                        _cleanup_restored(manager, root, check, result, enabled=cleanup_enabled,
+                                          raw_enabled=raw_cleanup_enabled,
+                                          orphan_raw_enabled=orphan_raw_cleanup_enabled, max_minutes=max_minutes)
+                        _next_round(result)
+                        if result["cleanup"].get("failures") or result["cleanup"].get("timed_out"):
+                            result.update(status="failed", exit_status=1, reason="capacity_stop_cleanup_failed")
+                    return result
+                if capacity["tier"] == "freeze":
+                    capacity["skipped_steps"] = ["backfill", "weekly_report"]
                 with workspace_lock(root):
                     check()
                     phase = "initialization"
@@ -1073,12 +1147,25 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         remaining = max_embed
                         pipeline = getattr(deps, "pipeline_deps", None)
                         before_round = _failure_counts(pipeline) if pipeline is not None else {}
-                        for source_id in due:
+                        uploads = _RawUploads(getattr(deps, "raw", None))
+                        deps.raw = uploads
+                        capacity.update(uploaded_raw_bytes=0, skipped_sources=[])
+                        for source_index, source_id in enumerate(due):
                             phase = "lease_check"
                             check()
                             seconds_left = max_minutes * 60 - (time.monotonic() - started)
                             if seconds_left < 60:
                                 result["budget_exhausted"] = True
+                                break
+                            source_capacity = gate(capacity["current_bytes"], uploads.bytes, "essential",
+                                                   reserve_bytes=LIMITS.crawl_reserve)
+                            _report_capacity(source_capacity)
+                            if source_capacity["tier"] == "stop":
+                                capacity.update(mid_round_stop=True, projected_bytes=source_capacity["projected_bytes"],
+                                                next_round="cleanup_only", skipped_sources=[
+                                    {"source_id": skipped, "reason": "capacity_stop_mid_round"}
+                                    for skipped in due[source_index:]
+                                ], skipped_steps=["crawl", "backfill", "weekly_report"])
                                 break
                             phase = "run_ledger"
                             spec = scheduler.sources[source_id]
@@ -1093,6 +1180,7 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                                 deps, spec.model_copy(update={"scope": scope}), scheduler, remaining,
                                 started, started + max_minutes * 60 + _PIPELINE_GRACE_SECONDS,
                             )
+                            capacity["uploaded_raw_bytes"] = uploads.bytes
                             health = record.pop("source_health", None)
                             if health is not None:
                                 health["consecutive_failures"], health["first_failure_at"] = _failure_streak(
@@ -1125,7 +1213,7 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         phase = "staged_recovery"
                         with local_write(root):
                             remaining = _recover(deps, remaining, started + max_minutes * 60 + _PIPELINE_GRACE_SECONDS)
-                        if capacity["tier"] != "freeze":
+                        if capacity["tier"] not in {"freeze", "stop"} and not capacity.get("mid_round_stop"):
                             phase = "backfill"
                             remaining = _backfill(deps, remaining, started, max_minutes, check, result, before_round)
                     phase = "maintenance"
@@ -1169,6 +1257,7 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         result["cleanup"] = cleanup(
                             deps.registry.all(), now=utcnow(), check=check,
                             enabled=cleanup_enabled, raw_enabled=raw_cleanup_enabled, marked=marked,
+                            orphan_raw_enabled=orphan_raw_cleanup_enabled,
                             deadline=started + (max_minutes + reserve_minutes) * 60 + _PIPELINE_GRACE_SECONDS,
                         )
                         result["cleanup"]["failures"] += marking_failed
@@ -1180,9 +1269,10 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                     if not embed_only:
                         result["source_health"] = _source_health(scheduler, result["source_health"], generation)
                     failed = bool(result["embedding_failed"] if embed_only else result["failed_sources"])
-                    if not failed and not embed_only and capacity["tier"] != "freeze":
+                    if (not failed and not embed_only and capacity["tier"] not in {"freeze", "stop"}
+                            and not capacity.get("mid_round_stop")):
                         phase = "weekly_report"
-                        weekly_capacity = _round_capacity(manager, embed_only=True)
+                        weekly_capacity = _round_capacity(manager, weekly_report=True)
                         _report_capacity(weekly_capacity)
                         if weekly_capacity["allowed"] and capacity.get("next_round") != "cleanup_only":
                             result["weekly_report_key"] = publish_previous_week_report(
