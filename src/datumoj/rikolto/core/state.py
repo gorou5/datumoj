@@ -76,6 +76,7 @@ _SQLITE = {
 _SMALL = {"runs.jsonl", "control.json", "vectors-state.json"}
 _EMPTY_DUCK = b'{"format":"duckdb-empty-v1"}\n'
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
+_RAW_KEY = re.compile(r"raw/([0-9a-f]{2})/\1[0-9a-f]{62}\Z")
 _LOG = logging.getLogger(__name__)
 _VECTOR_STATE = "vectors/vectors-state.json"
 _BLOCK_SIZE = 256 * 1024
@@ -593,12 +594,14 @@ def plan_cleanup(objects: list[StateObject], history: list[StateGeneration], cur
     candidates = raw_retention(manifest, specs, now, receipt)
     check()
     raw_keys = {_raw_key("raw", sha) for sha in optional if sha in candidates and now >= candidates[sha]}
+    recognized_raw = [obj for obj in objects if _RAW_KEY.fullmatch(obj.key)]
     return {
         "generations": expired,
         "copies": [obj for obj in objects if obj.key.startswith("copies/sha256/") and obj.key not in copies],
         "raw": [obj for obj in objects if obj.key in raw_keys and obj.key not in required],
         "orphan_raw": [] if _has_orphan_generation(objects, current) else [
-            obj for obj in objects if obj.key.startswith("raw/") and obj.key.rsplit("/", 1)[-1] not in referenced],
+            obj for obj in recognized_raw if obj.key.rsplit("/", 1)[-1] not in referenced],
+        "unrecognized_raw": [obj for obj in objects if obj.key.startswith("raw/") and not _RAW_KEY.fullmatch(obj.key)],
     }
 
 
@@ -607,7 +610,7 @@ class StateManager:
 
     ``before_publish`` must raise if a caller's write lease has been lost. It is
     called immediately before each pointer CAS, including orphan continuation.
-    ``specs`` supplies the caller's loaded registry for restore verification;
+    ``specs`` supplies the caller's loaded registry for publication and restore;
     omitting it preserves the repository sources/ fallback.
     """
 
@@ -629,6 +632,10 @@ class StateManager:
         self.last_timings: dict[str, float] = {}
         # Composition hooks may restore after push; preserve the push measurements.
         self.last_push_timings: dict[str, float] = {}
+
+    def _source_specs(self) -> list[SourceSpec]:
+        return (self.specs if self.specs is not None else
+                load_registry(Path(__file__).resolve().parents[4] / "sources").all())
 
     @contextmanager
     def _timed(self, stage: str) -> Iterator[None]:
@@ -768,6 +775,7 @@ class StateManager:
             self._check_write()
             if not self.data_dir.is_dir():
                 raise StateError("数据目录不存在")
+            specs = self._source_specs()
             number, etag = self._current()
             if number:
                 self._generation(number)
@@ -783,17 +791,17 @@ class StateManager:
             candidate = _validate_generation(orphan[0], number + 1)
             # Continue only this exact candidate, checking raw by key inventory.
             with self._temporary_stage(prefix="datumoj-state-") as stage:
-                self._materialize(candidate, stage, raw="remote", raw_sizes=raw_sizes)
+                self._materialize(candidate, stage, raw="remote", raw_sizes=raw_sizes, specs=specs)
                 with self._timed("publish"):
                     self._publish(candidate, etag)
                 if retain_local:
-                    self._verify_publication(candidate, stage)
+                    self._verify_publication(candidate, stage, specs=specs)
             return candidate
         with self._temporary_stage(prefix="datumoj-state-") as stage:
             with self._timed("stage"):
                 stores, runs, coverage = _copy_boundary(self.data_dir, stage)
             with self._timed("validate"):
-                refs = _raw_refs(stage)
+                refs = _raw_refs(stage, specs=specs)
                 for copy in stores:
                     _validate_copy(copy)
                 created_at = datetime.now(UTC)
@@ -850,10 +858,11 @@ class StateManager:
             with self._timed("publish"):
                 self._publish(candidate, etag)
             if retain_local:
-                self._verify_publication(candidate, stage, uploaded_raw=uploaded_raw)
+                self._verify_publication(candidate, stage, specs=specs, uploaded_raw=uploaded_raw)
             return candidate
 
     def _verify_publication(self, candidate: StateGeneration, stage: Path, *,
+                            specs: list[SourceSpec],
                             uploaded_raw: dict[str, int] | None = None) -> None:
         """Check object inventories and retain the already frozen publication."""
         from datumoj.rikolto.store.observations import retain_generation
@@ -868,7 +877,7 @@ class StateManager:
                 for key, size in (uploaded_raw or {}).items():
                     if raw.get(key) != size:
                         raise StateError('发布后 raw 缺失或大小不符')
-                refs = _raw_refs(stage)
+                refs = _raw_refs(stage, specs=specs)
                 with _ro(stage / 'manifest.sqlite') as db:
                     for sha, text in db.execute('SELECT sha256,snapshot FROM snapshots WHERE sha256 IS NOT NULL'):
                         if sha in refs and raw.get(_raw_key(candidate.raw_prefix, sha)) != json.loads(text)['size']:
@@ -969,6 +978,9 @@ class StateManager:
                                 specs, now=now, check=check_time, receipt=receipt)
             expired, copy_objects, raw_objects = (plan[kind] for kind in ("generations", "copies", "raw"))
             orphan_raw = plan["orphan_raw"]
+            # Keep reports for standard inventories unchanged, including old consumers.
+            if plan["unrecognized_raw"]:
+                report["unrecognized_raw_keys"] = len(plan["unrecognized_raw"])
             report.update(reclaimable_orphan_raw=len(orphan_raw),
                           reclaimable_orphan_raw_bytes=sum(obj.size_bytes for obj in orphan_raw),
                           by_source=raw_source_counts([*raw_objects, *orphan_raw], self.data_dir / "manifest.sqlite"))
@@ -1029,7 +1041,8 @@ class StateManager:
             raise StateError("状态代次列表校验失败") from None
 
     def _materialize(self, candidate: StateGeneration, stage: Path, *, raw: str,
-                     raw_sizes: dict[str, int] | None = None, rollback: bool = False) -> dict:
+                     raw_sizes: dict[str, int] | None = None, rollback: bool = False,
+                     specs: list[SourceSpec] | None = None) -> dict:
         groups = _block_groups(candidate.stores)
         for copy in candidate.stores:
             _validate_copy(copy)
@@ -1105,9 +1118,8 @@ class StateManager:
             _check_schema(stage)
             if _vector_coverage(stage) != candidate.vector_coverage:
                 raise StateError("向量恢复覆盖校验失败")
-            specs = self.specs
             if specs is None:
-                specs = load_registry(Path(__file__).resolve().parents[4] / "sources").all()
+                specs = self._source_specs()
             refs = _raw_refs(stage, specs=specs)
         with self._timed("download_raw"):
             with _ro(stage / "manifest.sqlite") as db:
