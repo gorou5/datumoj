@@ -13,11 +13,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from pydantic import TypeAdapter
-
 from datumoj.rikolto.core.contracts import SourceSpec, StateObject
-from datumoj.rikolto.core.models import SourceId, StateGeneration
-from datumoj.rikolto.core.state import _raw_key, _ro, plan_cleanup
+from datumoj.rikolto.core.models import StateGeneration
+from datumoj.rikolto.core.state import plan_cleanup, raw_source_counts
 
 
 @dataclass(frozen=True)
@@ -110,19 +108,6 @@ def inventory(objects: list[StateObject], generations: list[StateGeneration], cu
                                    if key in by_key and len(references[key]) == 1),
         })
 
-    sources = defaultdict(set)
-    with _ro(manifest) as db:
-        for sha, source in db.execute("SELECT DISTINCT sha256,source_id FROM snapshots WHERE sha256 IS NOT NULL"):
-            TypeAdapter(SourceId).validate_python(source)
-            sources[_raw_key("raw", sha)].add(source)
-    by_source = defaultdict(list)
-    by_source["shared"] = []
-    by_source["unreferenced"] = []
-    for obj in groups["raw"]:
-        refs = sources.get(obj.key, set())
-        source = "shared" if len(refs) > 1 else next(iter(refs)) if refs else "unreferenced"
-        by_source[source].append(obj)
-
     plan = plan_cleanup(objects, generations, current, manifest, specs, now=now)
     return {
         "scope": "this_bucket",
@@ -132,8 +117,10 @@ def inventory(objects: list[StateObject], generations: list[StateGeneration], cu
         "prefixes": {name: _counts(group) for name, group in groups.items()},
         "current_generation": next((row for row in per_generation if row["generation"] == current), None),
         "generations": per_generation,
-        "raw_sources": {source: _counts(group) for source, group in sorted(by_source.items())},
+        "raw_sources": raw_source_counts(groups["raw"], manifest),
+        "reclaimable_by_source": raw_source_counts([*plan["raw"], *plan["orphan_raw"]], manifest),
         "stores": {name: {"bytes": sum(by_key[key].size_bytes for key in keys if key in by_key)}
                    for name, keys in sorted(stores.items())},
-        "reclaimable": {**{kind: _counts(group) for kind, group in plan.items()}, "raw_enabled": raw_enabled},
+        "reclaimable": {**{kind: _counts(plan[kind]) for kind in ("generations", "copies", "raw")},
+                        "raw_enabled": raw_enabled},
     }

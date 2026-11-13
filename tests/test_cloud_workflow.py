@@ -198,7 +198,7 @@ def test_cleanup_workflow_is_manual_dry_run_and_reuses_writer_protection():
     assert '"$CLEANUP_DELETE" = "true"' in command["run"]
     assert command["env"]["CLEANUP_DELETE"] == "${{ inputs.delete }}"
     expected_env = embed["jobs"]["run"]["steps"][-1]["env"]
-    assert {k: v for k, v in command["env"].items() if k != "CLEANUP_DELETE"} == expected_env
+    assert {k: v for k, v in command["env"].items() if k not in {"CLEANUP_DELETE", "R2_ORPHAN_RAW_CLEANUP"}} == expected_env
     assert "ollama" not in json.dumps(workflow).lower()
     assert "schedule" not in workflow["on"]
 
@@ -218,3 +218,11 @@ def test_cleanup_shell_passes_delete_only_via_env(tmp_path, delete, extra):
         "run", "--frozen", "rikolto", "cloud", "cleanup", "--max-minutes", "100", *extra,
     ]
     assert not (tmp_path / "injected").exists()
+
+
+@pytest.mark.parametrize("name", ["run", "cleanup"])
+def test_orphan_raw_cleanup_uses_repository_variable(name):
+    steps = load(WORKFLOWS / f"cloud-{name}.yml")["jobs"]["run"]["steps"]
+    environments = [step["env"] for step in steps if "R2_ORPHAN_RAW_CLEANUP" in step.get("env", {})]
+    assert len(environments) == 1
+    assert environments[0]["R2_ORPHAN_RAW_CLEANUP"] == "${{ vars['R2_ORPHAN_RAW_CLEANUP'] }}"

@@ -17,7 +17,7 @@ import sqlite3
 import tempfile
 import time
 import uuid
-from collections import deque
+from collections import defaultdict, deque
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack, closing, contextmanager, suppress
@@ -30,6 +30,7 @@ from typing import Literal
 import duckdb
 import lancedb
 import pyarrow as pa
+from pydantic import TypeAdapter
 
 from datumoj.rikolto.core.citations import document_snapshot
 from datumoj.rikolto.core.contracts import ContractError, PreconditionFailed, SourceSpec, StateObject, StateObjectStore
@@ -39,6 +40,7 @@ from datumoj.rikolto.core.models import (
     FetchOutcome,
     PublishState,
     Snapshot,
+    SourceId,
     SourceRun,
     StateGeneration,
     StateWriter,
@@ -536,14 +538,36 @@ def raw_retention(manifest: Path, specs: list[SourceSpec], now: datetime,
             for sha, deadline in expiry.items() if sha not in protected}
 
 
+def raw_source_counts(objects: list[StateObject], manifest: Path) -> dict[str, dict[str, int]]:
+    """Count physical raw once, using the same source ownership as capacity inventory."""
+    sources = defaultdict(set)
+    with _ro(manifest) as db:
+        for sha, source in db.execute("SELECT DISTINCT sha256,source_id FROM snapshots WHERE sha256 IS NOT NULL"):
+            TypeAdapter(SourceId).validate_python(source)
+            sources[_raw_key("raw", sha)].add(source)
+    counts = {"shared": {"objects": 0, "bytes": 0}, "unreferenced": {"objects": 0, "bytes": 0}}
+    for obj in objects:
+        refs = sources.get(obj.key, set())
+        source = "shared" if len(refs) > 1 else next(iter(refs)) if refs else "unreferenced"
+        row = counts.setdefault(source, {"objects": 0, "bytes": 0})
+        row["objects"] += 1
+        row["bytes"] += obj.size_bytes
+    return dict(sorted(counts.items()))
+
+
+def _has_orphan_generation(objects: list[StateObject], current: int) -> bool:
+    return any(int(match[1]) > current for obj in objects
+               if (match := re.fullmatch(r"generations/([1-9][0-9]*)\.json", obj.key)))
+
+
 def plan_cleanup(objects: list[StateObject], history: list[StateGeneration], current: int,
                  manifest: Path, specs: list[SourceSpec], *, now: datetime,
                  check: Callable[[], None] = lambda: None,
                  receipt: NasReceipt | None = None) -> dict[str, list[StateObject]]:
     """Plan GC from an inventory and a read-only manifest; never contact storage.
 
-    Switches affect execution, not eligibility. Descriptors newer than current
-    are not published history, matching cleanup's existing inventory boundary.
+    Switches affect execution, not eligibility. Unpublished descriptors veto
+    orphan raw reclamation. Execution must hold a write lease and recheck it.
     """
     inventory = {obj.key: obj for obj in objects}
     history = [g for g in history if g.generation <= current]
@@ -556,6 +580,9 @@ def plan_cleanup(objects: list[StateObject], history: list[StateGeneration], cur
     with _ro(manifest) as db:
         markers = {sha: datetime.fromisoformat(marked_at).replace(tzinfo=UTC)
                    for sha, marked_at in db.execute("SELECT sha256,marked_at FROM raw_allowed_missing")}
+        # Unlike _raw_refs, include optional raw: it has published provenance.
+        referenced = {row[0] for row in db.execute("SELECT DISTINCT sha256 FROM snapshots WHERE sha256 IS NOT NULL")}
+        referenced.update(markers)
     optional = {sha for sha, marked_at in markers.items()
                 if now - marked_at >= RETENTION_WINDOW or receipt is not None and sha in receipt.sha256}
     # Legacy writers and rollbacks may have published an unmarked manifest. Even
@@ -570,6 +597,8 @@ def plan_cleanup(objects: list[StateObject], history: list[StateGeneration], cur
         "generations": expired,
         "copies": [obj for obj in objects if obj.key.startswith("copies/sha256/") and obj.key not in copies],
         "raw": [obj for obj in objects if obj.key in raw_keys and obj.key not in required],
+        "orphan_raw": [] if _has_orphan_generation(objects, current) else [
+            obj for obj in objects if obj.key.startswith("raw/") and obj.key.rsplit("/", 1)[-1] not in referenced],
     }
 
 
@@ -867,6 +896,7 @@ class StateManager:
 
     def cleanup(self, specs: list[SourceSpec], *, now: datetime, check: Callable[[], None],
                 enabled: bool = True, raw_enabled: bool = False, marked: int = 0,
+                orphan_raw_enabled: bool = False,
                 deadline: float | None = None, clock: Callable[[], float] | None = None) -> dict:
         """Best effort GC, called only after publication and post-publication verification.
 
@@ -882,6 +912,9 @@ class StateManager:
                   "raw_deleted_by_age": 0, "raw_deleted_by_age_bytes": 0,
                   "reclaimable_copies": 0, "reclaimable_copies_bytes": 0,
                   "reclaimable_raw": 0, "reclaimable_raw_bytes": 0,
+                  "by_source": {}, "reclaimable_orphan_raw": 0, "reclaimable_orphan_raw_bytes": 0,
+                  "orphan_raw_enabled": orphan_raw_enabled, "orphan_raw_deleted": 0,
+                  "orphan_raw_deleted_bytes": 0, "orphan_raw_skip_reason": None,
                   "total_bytes": 0, "over_7gb": False, "failures": 0, "elapsed_s": 0.0, "timed_out": False}
         clock = clock or time.monotonic
         started = clock()
@@ -910,6 +943,8 @@ class StateManager:
             report["over_7gb"] = report["total_bytes"] > 7_000_000_000
             check_time()
             current, _ = self._current()
+            if _has_orphan_generation(list(objects.values()), current):
+                report["orphan_raw_skip_reason"] = "orphan_generation"
             # The inventory already includes descriptors, including gaps left by GC.
             numbers = sorted((int(key.removeprefix("generations/").removesuffix(".json")) for key in objects
                               if re.fullmatch(r"generations/[1-9][0-9]*\.json", key)
@@ -928,12 +963,17 @@ class StateManager:
             plan = plan_cleanup(list(objects.values()), history, current, self.data_dir / "manifest.sqlite",
                                 specs, now=now, check=check_time, receipt=receipt)
             expired, copy_objects, raw_objects = (plan[kind] for kind in ("generations", "copies", "raw"))
+            orphan_raw = plan["orphan_raw"]
+            report.update(reclaimable_orphan_raw=len(orphan_raw),
+                          reclaimable_orphan_raw_bytes=sum(obj.size_bytes for obj in orphan_raw),
+                          by_source=raw_source_counts([*raw_objects, *orphan_raw], self.data_dir / "manifest.sqlite"))
             report.update(reclaimable_generations=len(expired), reclaimable_copies=len(copy_objects),
                           reclaimable_copies_bytes=sum(obj.size_bytes for obj in copy_objects),
                           reclaimable_raw=len(raw_objects), reclaimable_raw_bytes=sum(obj.size_bytes for obj in raw_objects))
             if enabled:
                 for kind, group in (("generations", expired), ("copies", copy_objects),
-                                    ("raw", raw_objects if raw_enabled else [])):
+                                    ("raw", raw_objects if raw_enabled else []),
+                                    ("orphan_raw", orphan_raw if raw_enabled and orphan_raw_enabled else [])):
                     for deleted, failures in delete_retired_objects(self.store, group, check_delete):
                         size = sum(obj.size_bytes for obj in deleted)
                         report[f"{kind}_deleted"] += len(deleted)

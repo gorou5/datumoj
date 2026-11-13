@@ -885,7 +885,7 @@ def _probe_lease_writes(store, check):
     return store.get(LEASE_KEY) == (data, updated)
 
 
-def _cleanup_restored(manager, root, check, result, *, enabled, raw_enabled, max_minutes):
+def _cleanup_restored(manager, root, check, result, *, enabled, raw_enabled, orphan_raw_enabled, max_minutes):
     """Shared cleanup-only path; start its full time allowance after restore."""
     with workspace_lock(root):
         check()
@@ -894,6 +894,7 @@ def _cleanup_restored(manager, root, check, result, *, enabled, raw_enabled, max
         result["phase"] = "cleanup"
         result["cleanup"] = manager.cleanup(
             specs, now=utcnow(), check=check, enabled=enabled, raw_enabled=raw_enabled,
+            orphan_raw_enabled=orphan_raw_enabled,
             deadline=time.monotonic() + max_minutes * 60 + _PIPELINE_GRACE_SECONDS + 1,
         )
 
@@ -906,10 +907,12 @@ def cleanup_only(*, work_dir: Path | None = None, max_minutes: float, delete: bo
     """
     enabled = delete and os.environ.get("R2_CLEANUP", "on").lower() != "off"
     raw_enabled = os.environ.get("R2_RAW_CLEANUP", "off").lower() == "on"
+    orphan_raw_enabled = os.environ.get("R2_ORPHAN_RAW_CLEANUP", "off") == "on"
     result = {"status": "failed", "exit_status": 1, "reason": None, "phase": "configuration",
               "mode": "delete" if delete else "dry_run", "generation": None,
               "cleanup": {"enabled": enabled, "raw_enabled": raw_enabled,
                           "failures": 0, "elapsed_s": 0.0, "timed_out": False}, "restore_timings": {}}
+    result["cleanup"].update(orphan_raw_enabled=orphan_raw_enabled, orphan_raw_skip_reason=None)
     leases = lease = None
     with _quiet():
         stack = ExitStack()
@@ -942,6 +945,7 @@ def cleanup_only(*, work_dir: Path | None = None, max_minutes: float, delete: bo
                 result["generation"] = number = history[0].generation if history else 0
                 if manager.store.get(f"generations/{number + 1}.json") is not None:
                     result["reason"] = "orphan_generation"
+                    result["cleanup"]["orphan_raw_skip_reason"] = "orphan_generation"
                     return result
                 if history:
                     try:
@@ -951,7 +955,8 @@ def cleanup_only(*, work_dir: Path | None = None, max_minutes: float, delete: bo
                 else:
                     root.mkdir(parents=True, exist_ok=True)
                 _cleanup_restored(manager, root, check, result, enabled=enabled,
-                                  raw_enabled=raw_enabled, max_minutes=max_minutes)
+                                  raw_enabled=raw_enabled, orphan_raw_enabled=orphan_raw_enabled,
+                                  max_minutes=max_minutes)
                 report = result["cleanup"]
                 reason = ("cleanup_failed" if report["failures"] else
                           "cleanup_timed_out" if report["timed_out"] else None)
@@ -988,8 +993,10 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
     result["capacity"] = gate(None, None, "optional" if embed_only else "essential")
     cleanup_enabled = not no_cleanup and os.environ.get("R2_CLEANUP", "on").lower() != "off"
     raw_cleanup_enabled = os.environ.get("R2_RAW_CLEANUP", "off").lower() == "on"
+    orphan_raw_cleanup_enabled = os.environ.get("R2_ORPHAN_RAW_CLEANUP", "off") == "on"
     result["cleanup"] = {"enabled": cleanup_enabled, "raw_enabled": raw_cleanup_enabled,
                          "elapsed_s": 0.0, "timed_out": False}
+    result["cleanup"].update(orphan_raw_enabled=orphan_raw_cleanup_enabled, orphan_raw_skip_reason=None)
     phase = "configuration"
     manager = leases = lease = deps = None
     started = time.monotonic()
@@ -1102,7 +1109,8 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                     if stopped and (not embed_only or orphan):
                         phase = "cleanup"
                         _cleanup_restored(manager, root, check, result, enabled=cleanup_enabled,
-                                          raw_enabled=raw_cleanup_enabled, max_minutes=max_minutes)
+                                          raw_enabled=raw_cleanup_enabled,
+                                          orphan_raw_enabled=orphan_raw_cleanup_enabled, max_minutes=max_minutes)
                         _next_round(result)
                         if result["cleanup"].get("failures") or result["cleanup"].get("timed_out"):
                             result.update(status="failed", exit_status=1, reason="capacity_stop_cleanup_failed")
@@ -1238,6 +1246,7 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         result["cleanup"] = cleanup(
                             deps.registry.all(), now=utcnow(), check=check,
                             enabled=cleanup_enabled, raw_enabled=raw_cleanup_enabled, marked=marked,
+                            orphan_raw_enabled=orphan_raw_cleanup_enabled,
                             deadline=started + (max_minutes + reserve_minutes) * 60 + _PIPELINE_GRACE_SECONDS,
                         )
                         result["cleanup"]["failures"] += marking_failed

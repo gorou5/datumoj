@@ -1154,7 +1154,9 @@ def test_cleanup_switches_and_publication_lease_boundary(
     assert report["reclaimable_copies"] == 1 and report["copies_deleted"] == int(enabled)
     assert report["receipt_status"] == "missing"
     assert all(isinstance(value, (int, bool)) for key, value in report.items()
-               if key not in {"elapsed_s", "receipt_status"})
+               if key not in {"elapsed_s", "receipt_status", "by_source", "orphan_raw_skip_reason"})
+    assert isinstance(report["by_source"], dict)
+    assert report["orphan_raw_skip_reason"] in {None, "orphan_generation"}
     assert isinstance(report["elapsed_s"], float) and report["elapsed_s"] >= 0
     assert report["timed_out"] is False
     assert remote(world).exists("copies/sha256/synthetic-orphan") is not enabled
