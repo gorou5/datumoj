@@ -1,7 +1,8 @@
 """Read-only, bucket-scoped capacity accounting. Output never contains object keys.
 
 Inputs are namespace-relative inventory, validated generation descriptors and the
-current manifest.sqlite. Only that SQLite file is read; no storage API is called.
+current manifest.sqlite and optional validated NAS receipt. Retained manifest
+references are read through the caller's reader only for orphan raw candidates.
 Bytes are decimal bytes; headroom is signed (negative means above the threshold).
 Copy statistics count physical objects once, excluding checksum-only descriptors.
 Logical stores sharing an object each reference its bytes, so store rows need not
@@ -9,12 +10,14 @@ sum to the bucket total. Raw source rows, in contrast, are mutually exclusive.
 """
 
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 from datumoj.rikolto.core.contracts import SourceSpec, StateObject
 from datumoj.rikolto.core.models import StateGeneration
+from datumoj.rikolto.core.nas_receipt import NasReceipt
 from datumoj.rikolto.core.state import plan_cleanup, raw_source_counts
 
 
@@ -80,7 +83,9 @@ def _store_name(name):
 
 def inventory(objects: list[StateObject], generations: list[StateGeneration], current: int,
               manifest: Path, specs: list[SourceSpec], *, now: datetime, raw_enabled: bool = False,
-              other_objects: tuple[StateObject, ...] | list[StateObject] = ()) -> dict:
+              other_objects: tuple[StateObject, ...] | list[StateObject] = (),
+              receipt: NasReceipt | None = None,
+              retained_refs: Callable[[StateGeneration], set[str]] | None = None) -> dict:
     """Account only for this bucket; outside-namespace objects remain unclassified."""
     by_key = {obj.key: obj for obj in objects}
     groups = {name: [] for name in ("generations", "copies", "raw", "other")}
@@ -108,7 +113,8 @@ def inventory(objects: list[StateObject], generations: list[StateGeneration], cu
                                    if key in by_key and len(references[key]) == 1),
         })
 
-    plan = plan_cleanup(objects, generations, current, manifest, specs, now=now)
+    plan = plan_cleanup(objects, generations, current, manifest, specs, now=now,
+                        receipt=receipt, retained_refs=retained_refs)
     return {
         "scope": "this_bucket",
         "total": total,
@@ -118,7 +124,7 @@ def inventory(objects: list[StateObject], generations: list[StateGeneration], cu
         "current_generation": next((row for row in per_generation if row["generation"] == current), None),
         "generations": per_generation,
         "raw_sources": raw_source_counts(groups["raw"], manifest),
-        "unrecognized_raw_keys": len(plan["unrecognized_raw"]),
+        **({"unrecognized_raw_keys": len(plan["unrecognized_raw"])} if plan["unrecognized_raw"] else {}),
         "reclaimable_by_source": raw_source_counts([*plan["raw"], *plan["orphan_raw"]], manifest),
         "stores": {name: {"bytes": sum(by_key[key].size_bytes for key in keys if key in by_key)}
                    for name, keys in sorted(stores.items())},

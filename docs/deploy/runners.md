@@ -215,7 +215,9 @@ S3/R2 使用 DeleteObjects 串行批量删除，每批最多 200 个键，每批
 未确认删除的对象计入 `cleanup.failures`，立即停止后续批次，下一轮重新规划。
 代次清单批次有任何失败，就停止副本块和 raw 删除，保全剩余清单的依赖。
 清理失败不改变本轮发布结果或退出码。
-清理不再调用整代恢复，也不下载任何 `copies/` 副本块、逐代 manifest 或 raw 正文；
+清理不调用整代恢复，也不下载 raw 正文；没有孤儿 raw 候选时不下载副本块或逐代 manifest。
+存在候选时仅读取保留代次的 manifest，复用恢复路径的分块下载、哈希/大小校验和缓存；
+不还原其他库，这些额外读取的耗时计入 `cleanup.elapsed_s`。
 发布后校验仍在发布路径完成。副本依赖只读代次 JSON 中的 `generation.stores`。
 每轮只列一次对象库存，并读取当前指针、代次 JSON 和固定 NAS 回执。代次 JSON 的读取仍随代次数增长，
 受现有存储契约限制，无法仅凭库存里的键、大小和 ETag 推导副本引用。
@@ -249,11 +251,23 @@ entry 时间缺失、无法解析或没有时区时照常抓取，feed 时间无
 
 `raw_marked` 延续原有计数边界，只计本轮新标记且具备删除资格的哈希，保护中的哈希只补回滚元数据。
 `state.py` 的 `RETENTION_WINDOW = timedelta(hours=24)` 继续控制旧代次保留和按年龄清理的标记保护。
-清理只读当前 manifest、代次描述和固定回执，不下载逐代 manifest 或 raw 正文。
+常规 raw 到期清理只读当前 manifest、代次描述和固定回执，不下载逐代 manifest 或 raw 正文。
 删除需要通过最新/发布状态保护、当前 manifest 必需引用检查，且标记时间不得晚于任何保留的非当前代次。
 无有效回执时，raw 到达 min(来源 `raw_retention_days`, 48 小时) 且标记满 24 小时才可删除。
 有效回执允许在标记未满 24 小时时提前删除，但必须通过相同的保留代次时间检查。
 旧写入器或回滚留下的未标记代次早于新标记时，raw 会继续保留到这些代次退休。
+
+孤儿 raw 删除必须等 DATUMOJ-KATABAMI-113 合并并部署后才可考虑启用；
+`R2_RAW_CLEANUP=on` 和 `R2_ORPHAN_RAW_CLEANUP=on` 必须同时显式设置，缺省均关闭，
+总清理开关和命令的预览/删除模式仍生效。本任务不打开任何开关。
+只有当前及全部保留代次的 manifest 都不引用的标准 raw 键才算孤儿；
+引用包含 snapshots 的 sha256 与 raw_allowed_missing（包括仅有标记的哈希）。
+从旧代次恢复再发布后，另一保留代次独有的 raw 仍受此规则保护，直到该代次退出保留期。
+任何保留代次 manifest 缺块、不可读或校验失败，整类孤儿 raw 跳过，
+`orphan_raw_skip_reason=retained_refs_unavailable`；其他类别继续按原规则处理。
+高于当前指针的孤儿代次仍使整类跳过，原因码为 `orphan_generation`。
+非标准 raw 键不删除；清理报告和容量盘点仅在非零时输出 `unrecognized_raw_keys`，
+兼容既有报告消费者。上述保护不改变 NAS 回执或年龄到期的常规 raw 删除规则。
 
 NAS 在 rclone 成功拉取后，由人配置运行 `rikolto nas receipt /local/archive/raw`。
 命令按 `raw/<前两位>/<sha256>` 布局流式校验本地文件，内容哈希与文件名相符才收录，跳过符号链接和不符布局的条目。
@@ -264,8 +278,15 @@ NAS 在 rclone 成功拉取后，由人配置运行 `rikolto nas receipt /local/
 版本 1 回执只有 `version`、`archived_at` 和 `sha256` 三个字段。`archived_at` 为 UTC ISO 时间，`sha256` 为小写 64 位十六进制列表。
 格式、额外字段、哈希和时间严格校验，未来时间也拒收。超过 48 小时为 stale，恰好 48 小时仍有效。
 缺失、无效、读取失败或过期回执均退回按年龄清理。
+`cloud usage` 使用与清理相同的回执读取和有效性判断，将回执传入共用删除规划，
+因此 `reclaimable.raw` 和 `reclaimable_by_source` 与同一库存、时刻的清理预览一致，输出不新增字段。
 raw 到期时间 = min(抓取时间 + 来源 `raw_retention_days`, 抓取时间 + 48 小时, 有效回执存档时间)。配置 1 天时 24 小时到期；共享哈希须等所有引用的年龄期限到期，再与回执时间取较早值。
 回执不携带本地路径、主机名或账号，命令错误输出沿用状态命令的脱敏边界。
+
+云端周报上传前按 UTF-8 字节数检查 `capacity.WEEKLY_REPORT_RESERVE`（1,000,000 字节）。
+超限时只保留能放下的完整行，结尾注明截断及省略的事件条数；正常长度正文保持不变。
+周报仍作为非必要写入经过容量闸门；轮内标记 `mid_round_freeze` 或 `mid_round_stop` 时，
+嵌入补做和周报都跳过。
 
 清理报告新增 `receipt_status`（ok、missing、invalid、unreadable、stale）、`raw_deleted_by_receipt`、
 `raw_deleted_by_age` 以及各自的 `_bytes` 字段。达到来源年龄期限（上限 48 小时）的确认删除计入 age，其余提前删除计入 receipt。
