@@ -567,6 +567,49 @@ def _report_capacity(capacity):
         print(json.dumps({"event": "capacity", **capacity}), file=sys.__stderr__, flush=True)
 
 
+class _RawUploads:
+    """Count successful new raw content through the existing RawStore contract."""
+
+    def __init__(self, raw):
+        self.raw = raw
+        self.bytes = 0
+
+    def __getattr__(self, name):
+        return getattr(self.raw, name)
+
+    def get(self, sha256):
+        return self.raw.get(sha256)
+
+    def open(self, sha256):
+        return self.raw.open(sha256)
+
+    def exists(self, sha256):
+        return self.raw.exists(sha256)
+
+    def verify(self, sha256):
+        return self.raw.verify(sha256)
+
+    def put(self, data):
+        if not isinstance(data, bytes):
+            # Preserve streaming and caller ownership, including non-seekable inputs.
+            with tempfile.TemporaryFile() as spool:
+                digest = hashlib.sha256()
+                while block := data.read(1 << 20):
+                    digest.update(block)
+                    spool.write(block)
+                return self._put(spool, digest.hexdigest(), spool.tell())
+        return self._put(data, hashlib.sha256(data).hexdigest(), len(data))
+
+    def _put(self, data, sha256, size):
+        existed = self.raw.exists(sha256)
+        if not isinstance(data, bytes):
+            data.seek(0)
+        result = self.raw.put(data)
+        if not existed:
+            self.bytes += size
+        return result
+
+
 def _next_round(result):
     if result.get("cleanup", {}).get("total_bytes", 0) >= LIMITS.stop:
         result["capacity"]["next_round"] = "cleanup_only"
@@ -1086,12 +1129,24 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         remaining = max_embed
                         pipeline = getattr(deps, "pipeline_deps", None)
                         before_round = _failure_counts(pipeline) if pipeline is not None else {}
-                        for source_id in due:
+                        uploads = _RawUploads(getattr(deps, "raw", None))
+                        deps.raw = uploads
+                        capacity.update(uploaded_raw_bytes=0, skipped_sources=[])
+                        for source_index, source_id in enumerate(due):
                             phase = "lease_check"
                             check()
                             seconds_left = max_minutes * 60 - (time.monotonic() - started)
                             if seconds_left < 60:
                                 result["budget_exhausted"] = True
+                                break
+                            source_capacity = gate(capacity["current_bytes"], uploads.bytes, "essential",
+                                                   reserve_bytes=LIMITS.crawl_reserve)
+                            _report_capacity(source_capacity)
+                            if source_capacity["tier"] == "stop":
+                                capacity.update(source_capacity, next_round="cleanup_only", skipped_sources=[
+                                    {"source_id": skipped, "reason": "capacity_stop_mid_round"}
+                                    for skipped in due[source_index:]
+                                ], skipped_steps=["crawl", "backfill", "weekly_report"])
                                 break
                             phase = "run_ledger"
                             spec = scheduler.sources[source_id]
@@ -1106,6 +1161,7 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                                 deps, spec.model_copy(update={"scope": scope}), scheduler, remaining,
                                 started, started + max_minutes * 60 + _PIPELINE_GRACE_SECONDS,
                             )
+                            capacity["uploaded_raw_bytes"] = uploads.bytes
                             health = record.pop("source_health", None)
                             if health is not None:
                                 health["consecutive_failures"], health["first_failure_at"] = _failure_streak(
@@ -1138,7 +1194,7 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         phase = "staged_recovery"
                         with local_write(root):
                             remaining = _recover(deps, remaining, started + max_minutes * 60 + _PIPELINE_GRACE_SECONDS)
-                        if capacity["tier"] != "freeze":
+                        if capacity["tier"] not in {"freeze", "stop"}:
                             phase = "backfill"
                             remaining = _backfill(deps, remaining, started, max_minutes, check, result, before_round)
                     phase = "maintenance"
@@ -1193,7 +1249,7 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                     if not embed_only:
                         result["source_health"] = _source_health(scheduler, result["source_health"], generation)
                     failed = bool(result["embedding_failed"] if embed_only else result["failed_sources"])
-                    if not failed and not embed_only and capacity["tier"] != "freeze":
+                    if not failed and not embed_only and capacity["tier"] not in {"freeze", "stop"}:
                         phase = "weekly_report"
                         weekly_capacity = _round_capacity(manager, weekly_report=True)
                         _report_capacity(weekly_capacity)
