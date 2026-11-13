@@ -251,11 +251,11 @@
       "version": "KATABAMI",
       "id": "B2",
       "title": "第二批进 main（103/106/109/110/111）",
-      "status": "doing",
+      "status": "done",
       "date": "2026-11-13",
       "tag": null,
       "pr": 176,
-      "summary": "raw 最多保留 48 小时并按 NAS 回执提前删、容量闸门失败可见与轮内复查、孤儿 raw 回收（默认关闭）。",
+      "summary": "随 #176 于 2026-11-13 合并：raw 最多保留 48 小时并按 NAS 回执提前删、容量闸门失败可见与轮内复查、孤儿 raw 回收（默认关闭）。",
       "acceptance": null
     }
   ]
