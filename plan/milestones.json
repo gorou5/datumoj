@@ -1,6 +1,6 @@
 {
   "_说明": "plan/index.html 的“版本路线图”和“里程碑”两节由本文件渲染。由主对话在节点上更新，调度器派出的任务 agent 不改本文件。status 只有对应的 PR 已合并进 main 才能写 done（IVY 期间直接推送 main，pr 为 null）。规则见 CLAUDE.md 与 docs/PLAN.md 第 8.1 节。",
-  "updated": "2026-11-13",
+  "updated": "2026-11-14",
   "versions": [
     {
       "version": "0.1",
@@ -256,6 +256,17 @@
       "tag": null,
       "pr": 176,
       "summary": "随 #176 于 2026-11-13 合并：raw 最多保留 48 小时并按 NAS 回执提前删、容量闸门失败可见与轮内复查、孤儿 raw 回收（默认关闭）。",
+      "acceptance": null
+    },
+    {
+      "version": "KATABAMI",
+      "id": "B3",
+      "title": "收尾进 main（112/113）",
+      "status": "done",
+      "date": "2026-11-13",
+      "tag": null,
+      "pr": 177,
+      "summary": "随 #177 于 2026-11-13 合并：发布核验改用受保护 raw 集合、轮内容量复查补全（8.5 GB 冻结补做、9 GB 停抓）、孤儿 raw 判定纳入所有保留代次。",
       "acceptance": null
     }
   ]
