@@ -41,7 +41,7 @@ questions:
   calls: [{tool: search_docs, args: {queries: startup public procurement guideline, sources: [jp-gov-web], k: 5}}]
 - id: h5-en-3
   lang: en
-  question: What changed in the data library over the last three days?
+  question: What changed in the data library since 2026-11-13 (UTC)?
   calls: [{tool: list_changes, args: {since: "2026-11-13T00:00:00Z", limit: 20}}]
 - id: h5-en-4
   lang: en
