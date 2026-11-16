@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--NSI Web Service v10.11.8.0-->
+<message:Structure xmlns:message="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/message" xmlns:structure="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/structure" xmlns:common="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/common">
+  <message:Header>
+    <message:ID>IDREF18243</message:ID>
+    <message:Test>false</message:Test>
+    <message:Prepared>2026-11-17T00:32:06.3007425+01:00</message:Prepared>
+    <message:Sender id="Unknown" />
+    <message:Receiver id="Unknown" />
+  </message:Header>
+  <message:Structures>
+    <structure:Constraints>
+      <structure:ContentConstraint id="CR_A_DSD_NAMAIN10@DF_TABLE1_EXPENDITURE" agencyID="OECD.SDD.NAD" version="2.0" validFrom="2026-11-16T07:54:30Z" isExternalReference="false" isFinal="false" type="Actual">
+        <common:Annotations>
+          <common:Annotation>
+            <common:AnnotationTitle>A</common:AnnotationTitle>
+            <common:AnnotationType>ReleaseVersion</common:AnnotationType>
+          </common:Annotation>
+          <common:Annotation id="obs_count">
+            <common:AnnotationTitle>780865</common:AnnotationTitle>
+            <common:AnnotationType>sdmx_metrics</common:AnnotationType>
+          </common:Annotation>
+        </common:Annotations>
+        <common:Name xml:lang="en">Availability (A) for DSD_NAMAIN10@DF_TABLE1_EXPENDITURE</common:Name>
+        <structure:ConstraintAttachment>
+          <structure:Dataflow>
+            <Ref id="DSD_NAMAIN10@DF_TABLE1_EXPENDITURE" version="2.0" agencyID="OECD.SDD.NAD" package="datastructure" class="Dataflow" />
+          </structure:Dataflow>
+        </structure:ConstraintAttachment>
+        <structure:CubeRegion include="true">
+          <common:KeyValue id="FREQ">
+            <common:Value>A</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="REF_AREA">
+            <common:Value>CHN</common:Value>
+            <common:Value>ESP</common:Value>
+            <common:Value>ISR</common:Value>
+            <common:Value>ITA</common:Value>
+            <common:Value>SRB</common:Value>
+            <common:Value>TUR</common:Value>
+            <common:Value>HKG</common:Value>
+            <common:Value>DEU</common:Value>
+            <common:Value>IND</common:Value>
+            <common:Value>USA</common:Value>
+            <common:Value>MKD</common:Value>
+            <common:Value>HUN</common:Value>
+            <common:Value>SVN</common:Value>
+            <common:Value>LUX</common:Value>
+            <common:Value>BGR</common:Value>
+            <common:Value>SEN</common:Value>
+            <common:Value>SAU</common:Value>
+            <common:Value>AUS</common:Value>
+            <common:Value>FIN</common:Value>
+            <common:Value>EA20</common:Value>
+            <common:Value>NLD</common:Value>
+            <common:Value>SVK</common:Value>
+            <common:Value>ROU</common:Value>
+            <common:Value>KAZ</common:Value>
+            <common:Value>MAR</common:Value>
+            <common:Value>CAN</common:Value>
+            <common:Value>BEL</common:Value>
+            <common:Value>LTU</common:Value>
+            <common:Value>CYP</common:Value>
+            <common:Value>PRT</common:Value>
+            <common:Value>MLT</common:Value>
+            <common:Value>GBR</common:Value>
+            <common:Value>BRA</common:Value>
+            <common:Value>CHL</common:Value>
+            <common:Value>DNK</common:Value>
+            <common:Value>MDG</common:Value>
+            <common:Value>ZAF</common:Value>
+            <common:Value>SWE</common:Value>
+            <common:Value>CMR</common:Value>
+            <common:Value>ISL</common:Value>
+            <common:Value>IDN</common:Value>
+            <common:Value>EU15</common:Value>
+            <common:Value>FRA</common:Value>
+            <common:Value>ARG</common:Value>
+            <common:Value>LVA</common:Value>
+            <common:Value>POL</common:Value>
+            <common:Value>SGP</common:Value>
+            <common:Value>RUS</common:Value>
+            <common:Value>AUT</common:Value>
+            <common:Value>EU27_2020</common:Value>
+            <common:Value>NZL</common:Value>
+            <common:Value>OECD26</common:Value>
+            <common:Value>CZE</common:Value>
+            <common:Value>IRL</common:Value>
+            <common:Value>GEO</common:Value>
+            <common:Value>MEX</common:Value>
+            <common:Value>CHE</common:Value>
+            <common:Value>KOR</common:Value>
+            <common:Value>COL</common:Value>
+            <common:Value>NOR</common:Value>
+            <common:Value>EU</common:Value>
+            <common:Value>OECDE</common:Value>
+            <common:Value>GRC</common:Value>
+            <common:Value>CPV</common:Value>
+            <common:Value>DEU_F</common:Value>
+            <common:Value>OECD</common:Value>
+            <common:Value>CRI</common:Value>
+            <common:Value>EST</common:Value>
+            <common:Value>HRV</common:Value>
+            <common:Value>ALB</common:Value>
+            <common:Value>JPN</common:Value>
+            <common:Value>ZMB</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="SECTOR">
+            <common:Value>S15</common:Value>
+            <common:Value>_Z</common:Value>
+            <common:Value>S14</common:Value>
+            <common:Value>S1M</common:Value>
+            <common:Value>S1</common:Value>
+            <common:Value>S13</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="COUNTERPART_SECTOR">
+            <common:Value>S1</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="TRANSACTION">
+            <common:Value>P72</common:Value>
+            <common:Value>P71</common:Value>
+            <common:Value>P53</common:Value>
+            <common:Value>P7</common:Value>
+            <common:Value>P51G</common:Value>
+            <common:Value>B1GQ</common:Value>
+            <common:Value>P62</common:Value>
+            <common:Value>P3T5</common:Value>
+            <common:Value>P52</common:Value>
+            <common:Value>P3</common:Value>
+            <common:Value>P41</common:Value>
+            <common:Value>YA0</common:Value>
+            <common:Value>P61</common:Value>
+            <common:Value>P5M</common:Value>
+            <common:Value>B11</common:Value>
+            <common:Value>P32</common:Value>
+            <common:Value>P6</common:Value>
+            <common:Value>P31</common:Value>
+            <common:Value>P5</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="INSTR_ASSET">
+            <common:Value>N13G</common:Value>
+            <common:Value>N12G</common:Value>
+            <common:Value>_Z</common:Value>
+            <common:Value>N11G</common:Value>
+            <common:Value>N1MG</common:Value>
+            <common:Value>N1G</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="ACTIVITY">
+            <common:Value>_Z</common:Value>
+            <common:Value>_T</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="EXPENDITURE">
+            <common:Value>_T</common:Value>
+            <common:Value>_Z</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="UNIT_MEASURE">
+            <common:Value>XDC</common:Value>
+            <common:Value>PC</common:Value>
+            <common:Value>IX</common:Value>
+            <common:Value>USD_EXC</common:Value>
+            <common:Value>USD_PPP</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="PRICE_BASE">
+            <common:Value>Y</common:Value>
+            <common:Value>V</common:Value>
+            <common:Value>L</common:Value>
+            <common:Value>LR</common:Value>
+            <common:Value>VQ</common:Value>
+            <common:Value>DR</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="TRANSFORMATION">
+            <common:Value>N</common:Value>
+            <common:Value>G1</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="TABLE_IDENTIFIER">
+            <common:Value>T0102</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="TIME_PERIOD">
+            <common:TimeRange>
+              <common:StartPeriod isInclusive="true">1950-01-01T00:00:00</common:StartPeriod>
+              <common:EndPeriod isInclusive="true">2025-12-31T00:00:00</common:EndPeriod>
+            </common:TimeRange>
+          </common:KeyValue>
+        </structure:CubeRegion>
+      </structure:ContentConstraint>
+    </structure:Constraints>
+  </message:Structures>
+</message:Structure>

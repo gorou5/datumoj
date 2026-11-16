@@ -1,0 +1,101 @@
+{
+  "namain10_JPN-USA_2020-2024.csv": {
+    "url": "https://sdmx.oecd.org/public/rest/data/OECD.SDD.NAD,DSD_NAMAIN10@DF_TABLE1_EXPENDITURE,2.0/A.JPN+USA.S1.S1.B1GQ._Z._Z._Z.XDC+USD_EXC.V.N.T0102?startPeriod=2020&endPeriod=2024&format=csv",
+    "request_headers": {},
+    "status": 200,
+    "fetched_at": "2026-11-17T08:31:59+09:00",
+    "bytes": 2708,
+    "sha256": "a4bb81dc175aca0f572ed652bc0d04b24801583a1ef5cfe3e760483ef9845911",
+    "headers": {
+      "date": "Mon, 16 Nov 2026 23:31:59 GMT",
+      "content-type": "application/vnd.sdmx.data+csv; charset=utf-8",
+      "transfer-encoding": "chunked",
+      "connection": "keep-alive",
+      "cache-control": "public,max-age=7200",
+      "content-language": "en,en-US",
+      "last-modified": "2024-09-25",
+      "vary": "X-Range, Accept, Accept-Language, Accept-Encoding, Accept-Charset,Accept,Accept-Encoding,Accept-Encoding",
+      "strict-transport-security": "max-age=2592000",
+      "api-supported-versions": "1",
+      "cf-cache-status": "MISS",
+      "server": "cloudflare",
+      "alt-svc": "h3=\":443\"; ma=86400"
+    },
+    "sample_type": "captured",
+    "use": "#002 名义 GDP，本币和美元，UNIT_MULT"
+  },
+  "stes_revisions_JPN_201901-201902.csv": {
+    "url": "https://sdmx.oecd.org/public/rest/data/OECD.SDD.STES,DSD_STES_REVISIONS@DF_STES_REVISIONS,4.0/JPN.M.H_EARN.IX.C.201901+201902?startPeriod=2017-10&endPeriod=2018-03&format=csv",
+    "request_headers": {},
+    "status": 200,
+    "fetched_at": "2026-11-17T08:32:02+09:00",
+    "bytes": 1409,
+    "sha256": "f5f4745d9388e5092f3e8f7ac00cfea9687eeb69b9fe6cd64d2102727fea3be5",
+    "headers": {
+      "date": "Mon, 16 Nov 2026 23:32:01 GMT",
+      "content-type": "application/vnd.sdmx.data+csv; charset=utf-8",
+      "transfer-encoding": "chunked",
+      "connection": "keep-alive",
+      "cache-control": "public,max-age=7200",
+      "content-language": "en,en-US",
+      "last-modified": "2023-12-22",
+      "vary": "X-Range, Accept, Accept-Language, Accept-Encoding, Accept-Charset,Accept,Accept-Encoding,Accept-Encoding",
+      "strict-transport-security": "max-age=2592000",
+      "api-supported-versions": "1",
+      "cf-cache-status": "MISS",
+      "server": "cloudflare",
+      "alt-svc": "h3=\":443\"; ma=86400"
+    },
+    "sample_type": "captured",
+    "use": "V13 修订库：两个 EDITION"
+  },
+  "hou_ear_JPN_2018.csv": {
+    "url": "https://sdmx.oecd.org/public/rest/data/OECD.SDD.TPS,DSD_EAR@DF_HOU_EAR,1.0/JPN.EAR.IX.N.C.S1.M?startPeriod=2018-01&endPeriod=2018-12&format=csv",
+    "request_headers": {},
+    "status": 200,
+    "fetched_at": "2026-11-17T08:32:04+09:00",
+    "bytes": 1164,
+    "sha256": "91fcbb0e542da0d84486f09c8b1c21beb60b6281b8206c5638ce0079e9c014d2",
+    "headers": {
+      "date": "Mon, 16 Nov 2026 23:32:04 GMT",
+      "content-type": "application/vnd.sdmx.data+csv; charset=utf-8",
+      "transfer-encoding": "chunked",
+      "connection": "keep-alive",
+      "cache-control": "public,max-age=7200",
+      "content-language": "en,en-US",
+      "last-modified": "2023-11-14",
+      "cf-cache-status": "MISS",
+      "vary": "X-Range, Accept, Accept-Language, Accept-Encoding, Accept-Charset,Accept,Accept-Encoding,Accept-Encoding",
+      "strict-transport-security": "max-age=2592000",
+      "api-supported-versions": "1",
+      "server": "cloudflare",
+      "alt-svc": "h3=\":443\"; ma=86400"
+    },
+    "sample_type": "captured",
+    "use": "V13 当前值"
+  },
+  "contentconstraint_CR_A_DF_TABLE1_EXPENDITURE.xml": {
+    "url": "https://sdmx.oecd.org/public/rest/contentconstraint/OECD.SDD.NAD/CR_A_DSD_NAMAIN10@DF_TABLE1_EXPENDITURE/",
+    "request_headers": {},
+    "status": 200,
+    "fetched_at": "2026-11-17T08:32:06+09:00",
+    "bytes": 8828,
+    "sha256": "c32e31120f58525e764384c1e51073eb982244f4975f5921cce5623493e788c6",
+    "headers": {
+      "date": "Mon, 16 Nov 2026 23:32:06 GMT",
+      "content-type": "application/vnd.sdmx.structure+xml; charset=utf-8; version=2.1",
+      "transfer-encoding": "chunked",
+      "connection": "keep-alive",
+      "cache-control": "public,max-age=86400",
+      "last-modified": "0001-01-01",
+      "vary": "Accept, Accept-Language, Accept-Encoding, Accept-Charset,Accept,Accept-Encoding,Accept-Encoding",
+      "strict-transport-security": "max-age=2592000",
+      "api-supported-versions": "1",
+      "cf-cache-status": "MISS",
+      "server": "cloudflare",
+      "alt-svc": "h3=\":443\"; ma=86400"
+    },
+    "sample_type": "captured",
+    "use": "发布标识 validFrom"
+  }
+}

@@ -1,0 +1,29 @@
+{
+ "elapsedTime": "0.01 secs",
+ "count": 1,
+ "data": [
+  {
+   "datasetCode": 2084220230120219,
+   "typeCode": "C",
+   "freqCode": "A",
+   "period": 2023,
+   "reporterCode": 842,
+   "reporterISO": "USA",
+   "reporterDesc": "USA",
+   "classificationCode": "H6",
+   "classificationSearchCode": "HS",
+   "isOriginalClassification": true,
+   "isExtendedFlowCode": true,
+   "isExtendedPartnerCode": true,
+   "isExtendedPartner2Code": false,
+   "isExtendedCmdCode": true,
+   "isExtendedCustomsCode": false,
+   "isExtendedMotCode": false,
+   "totalRecords": 1001,
+   "datasetChecksum": 999999,
+   "firstReleased": "2024-02-11T05:48:29.3133333",
+   "lastReleased": "2024-06-01T00:00:00"
+  }
+ ],
+ "error": ""
+}

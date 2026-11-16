@@ -1,0 +1,153 @@
+{
+  "weo_GRC_GGXCNL_NGDP_2000-2015.csv": {
+    "url": "https://api.imf.org/external/sdmx/2.1/data/IMF.RES,WEO/GRC.GGXCNL_NGDP.A?startPeriod=2000&endPeriod=2015",
+    "request_headers": {
+      "Accept": "application/vnd.sdmx.data+csv;version=1.0.0"
+    },
+    "status": 200,
+    "fetched_at": "2026-11-17T08:31:25+09:00",
+    "bytes": 39231,
+    "sha256": "ad90472ce3e690eadff84da852dd912fa06f4425f4f515030a2768e42e9eb4fe",
+    "headers": {
+      "date": "Mon, 16 Nov 2026 23:31:24 GMT",
+      "content-type": "application/vnd.sdmx.data+csv;version=1.0.0",
+      "transfer-encoding": "chunked",
+      "connection": "keep-alive",
+      "x-content-type-options": "nosniff",
+      "x-xss-protection": "0",
+      "cache-control": "no-cache, no-store, max-age=0, must-revalidate",
+      "pragma": "no-cache",
+      "expires": "0",
+      "strict-transport-security": "max-age=31536000 ; includeSubDomains",
+      "x-frame-options": "DENY",
+      "server": "istio-envoy"
+    },
+    "sample_type": "captured",
+    "use": "V07 当前版"
+  },
+  "weo_2026_apr_GRC_GGXCNL_NGDP_2000-2015.csv": {
+    "url": "https://api.imf.org/external/sdmx/2.1/data/IMF.RES,WEO_2026_APR_VINTAGE/GRC.GGXCNL_NGDP.A?startPeriod=2000&endPeriod=2015",
+    "request_headers": {
+      "Accept": "application/vnd.sdmx.data+csv;version=1.0.0"
+    },
+    "status": 200,
+    "fetched_at": "2026-11-17T08:31:26+09:00",
+    "bytes": 39503,
+    "sha256": "d81c8c7f01092831e5371bcd76206085be6e1259bd87c1b5ce75f1b243691a4c",
+    "headers": {
+      "date": "Mon, 16 Nov 2026 23:31:26 GMT",
+      "content-type": "application/vnd.sdmx.data+csv;version=1.0.0",
+      "transfer-encoding": "chunked",
+      "connection": "keep-alive",
+      "cache-control": "no-cache, no-store, max-age=0, must-revalidate",
+      "expires": "0",
+      "x-content-type-options": "nosniff",
+      "x-xss-protection": "0",
+      "pragma": "no-cache",
+      "strict-transport-security": "max-age=31536000 ; includeSubDomains",
+      "x-frame-options": "DENY"
+    },
+    "sample_type": "captured",
+    "use": "V07 历史版 2026-04"
+  },
+  "weo_2025_oct_GRC_GGXCNL_NGDP_2000-2015.csv": {
+    "url": "https://api.imf.org/external/sdmx/2.1/data/IMF.RES,WEO_2025_OCT_VINTAGE/GRC.GGXCNL_NGDP.A?startPeriod=2000&endPeriod=2015",
+    "request_headers": {
+      "Accept": "application/vnd.sdmx.data+csv;version=1.0.0"
+    },
+    "status": 200,
+    "fetched_at": "2026-11-17T08:31:28+09:00",
+    "bytes": 38449,
+    "sha256": "bc1ca27ef6010ff0da7335172e0ab366cae6cb8346e40f64b9051e1b5c04fd50",
+    "headers": {
+      "date": "Mon, 16 Nov 2026 23:31:28 GMT",
+      "content-type": "application/vnd.sdmx.data+csv;version=1.0.0",
+      "transfer-encoding": "chunked",
+      "connection": "keep-alive",
+      "cache-control": "no-cache, no-store, max-age=0, must-revalidate",
+      "expires": "0",
+      "x-content-type-options": "nosniff",
+      "x-xss-protection": "0",
+      "pragma": "no-cache",
+      "strict-transport-security": "max-age=31536000 ; includeSubDomains",
+      "x-frame-options": "DENY"
+    },
+    "sample_type": "captured",
+    "use": "V07 历史版 2025-10"
+  },
+  "weo_JPN-USA_NGDPD_2020-2030.csv": {
+    "url": "https://api.imf.org/external/sdmx/2.1/data/IMF.RES,WEO/JPN+USA.NGDPD.A?startPeriod=2020&endPeriod=2030",
+    "request_headers": {
+      "Accept": "application/vnd.sdmx.data+csv;version=1.0.0"
+    },
+    "status": 200,
+    "fetched_at": "2026-11-17T08:31:30+09:00",
+    "bytes": 48020,
+    "sha256": "44e73c164015bcddc1da2979bb1fdd736df377cbc07d3ee82b9ed3bfd2c856e3",
+    "headers": {
+      "date": "Mon, 16 Nov 2026 23:31:30 GMT",
+      "content-type": "application/vnd.sdmx.data+csv;version=1.0.0",
+      "transfer-encoding": "chunked",
+      "connection": "keep-alive",
+      "cache-control": "no-cache, no-store, max-age=0, must-revalidate",
+      "expires": "0",
+      "x-content-type-options": "nosniff",
+      "x-xss-protection": "0",
+      "pragma": "no-cache",
+      "strict-transport-security": "max-age=31536000 ; includeSubDomains",
+      "x-frame-options": "DENY"
+    },
+    "sample_type": "captured",
+    "use": "#002 名义 GDP 美元；含预测年"
+  },
+  "weo_JPN_NGDP_2020-2024.csv": {
+    "url": "https://api.imf.org/external/sdmx/2.1/data/IMF.RES,WEO/JPN.NGDP.A?startPeriod=2020&endPeriod=2024",
+    "request_headers": {
+      "Accept": "application/vnd.sdmx.data+csv;version=1.0.0"
+    },
+    "status": 200,
+    "fetched_at": "2026-11-17T08:31:32+09:00",
+    "bytes": 11822,
+    "sha256": "ccad8cc680cace9d7d1de226b2c946faf2bd6b142f11b660df953f5fabc51841",
+    "headers": {
+      "date": "Mon, 16 Nov 2026 23:31:32 GMT",
+      "content-type": "application/vnd.sdmx.data+csv;version=1.0.0",
+      "transfer-encoding": "chunked",
+      "connection": "keep-alive",
+      "cache-control": "no-cache, no-store, max-age=0, must-revalidate",
+      "expires": "0",
+      "x-content-type-options": "nosniff",
+      "x-xss-protection": "0",
+      "pragma": "no-cache",
+      "strict-transport-security": "max-age=31536000 ; includeSubDomains",
+      "x-frame-options": "DENY"
+    },
+    "sample_type": "captured",
+    "use": "#002 名义 GDP 本币"
+  },
+  "weo_bad_key.csv": {
+    "url": "https://api.imf.org/external/sdmx/2.1/data/IMF.RES,WEO/GRC.NO_SUCH_INDICATOR.A?startPeriod=2000&endPeriod=2015",
+    "request_headers": {
+      "Accept": "application/vnd.sdmx.data+csv;version=1.0.0"
+    },
+    "status": 200,
+    "fetched_at": "2026-11-17T08:31:35+09:00",
+    "bytes": 2880,
+    "sha256": "5d9fecc6059401ceb089ff1801573d3de7d51926eb91b9676ba19d55e0fb951c",
+    "headers": {
+      "date": "Mon, 16 Nov 2026 23:31:34 GMT",
+      "content-type": "application/vnd.sdmx.data+csv;version=1.0.0",
+      "transfer-encoding": "chunked",
+      "connection": "keep-alive",
+      "cache-control": "no-cache, no-store, max-age=0, must-revalidate",
+      "expires": "0",
+      "x-content-type-options": "nosniff",
+      "x-xss-protection": "0",
+      "pragma": "no-cache",
+      "strict-transport-security": "max-age=31536000 ; includeSubDomains",
+      "x-frame-options": "DENY"
+    },
+    "sample_type": "captured",
+    "use": "key 写错：200 空数据集"
+  }
+}

@@ -1,0 +1,29 @@
+{
+ "elapsedTime": "0.01 secs",
+ "count": 1,
+ "data": [
+  {
+   "datasetCode": 204102023012021,
+   "typeCode": "C",
+   "freqCode": "A",
+   "period": 2023,
+   "reporterCode": 410,
+   "reporterISO": "KOR",
+   "reporterDesc": "KOR",
+   "classificationCode": "H6",
+   "classificationSearchCode": "HS",
+   "isOriginalClassification": true,
+   "isExtendedFlowCode": true,
+   "isExtendedPartnerCode": true,
+   "isExtendedPartner2Code": false,
+   "isExtendedCmdCode": true,
+   "isExtendedCustomsCode": false,
+   "isExtendedMotCode": false,
+   "totalRecords": 1410,
+   "datasetChecksum": 100410,
+   "firstReleased": "2024-02-01T00:00:00",
+   "lastReleased": "2024-03-01T00:00:00"
+  }
+ ],
+ "error": ""
+}
