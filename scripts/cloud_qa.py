@@ -62,9 +62,12 @@ def raw_meter():
         if RAW_KEY.search(params.get("Key", "")):
             context["datumoj_raw"] = True
 
-    def count(parsed, context, **kwargs):
-        size = parsed.get("ContentLength", 0)
-        if context.get("datumoj_raw") and type(size) is int and size >= 0:
+    def count(http_response, parsed, context, **kwargs):
+        # after-call also fires for error responses; count only successful reads.
+        if not context.get("datumoj_raw") or not 200 <= getattr(http_response, "status_code", 0) < 300:
+            return
+        size = parsed.get("ContentLength")
+        if type(size) is int and size >= 0:
             with lock:
                 meter["objects"] += 1
                 meter["bytes"] += size

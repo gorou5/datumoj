@@ -368,3 +368,20 @@ def test_catalog_first_hit_citation_and_five_hit_preview(tmp_path, citation_stat
     assert calls[1:] == ([] if citation_state == "missing" else [("cite", citation)])
     assert call["first_hit_cite"]["restored"] is (citation_state == "restored")
     assert (answer["error_code"] is not None) is (citation_state in {"missing", "error"})
+
+
+def test_raw_meter_counts_only_successful_raw_reads():
+    from moto import mock_aws
+
+    sha = hashlib.sha256(b"raw-body").hexdigest()
+    missing = hashlib.sha256(b"missing").hexdigest()
+    with mock_aws():
+        boto3.setup_default_session(region_name="us-east-1")
+        with qa.raw_meter() as meter:
+            client = boto3.client("s3", region_name="us-east-1")
+            client.create_bucket(Bucket="qa-meter")
+            client.put_object(Bucket="qa-meter", Key=f"p/raw/{sha[:2]}/{sha}", Body=b"raw-body")
+            client.get_object(Bucket="qa-meter", Key=f"p/raw/{sha[:2]}/{sha}")
+            with pytest.raises(client.exceptions.NoSuchKey):
+                client.get_object(Bucket="qa-meter", Key=f"p/raw/{missing[:2]}/{missing}")
+    assert meter == {"objects": 1, "bytes": len(b"raw-body")}
