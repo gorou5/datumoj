@@ -460,7 +460,7 @@ manifest 的 schema 初始化迁移、parsed 最后写入顺序也是检查过�
 
 `cloud-qa.yml` 用于 MAPLE H5 的日、中、英人工问答检查。仅仓库
 `gorou5/datumoj` 可手动运行，无定时触发；与 cloud-run 共用 concurrency 组，
-最长 60 分钟，GitHub token 只有 `contents: read`。
+最长 90 分钟，GitHub token 只有 `contents: read`。
 在 Actions 选择 **Cloud QA → Run workflow**，`questions` 默认填写
 `eval/acceptance/v0.3.0-maple-h5.yaml`，也可指定仓库内另一份问题清单。
 清单每题含 `id`、`lang`、`question` 和顺序执行的 `calls: [{tool, args}]`，
@@ -470,7 +470,14 @@ list_changes、coverage、version；参数按 tools 层签名原样传入，不�
 脚本入口为 `scripts/cloud_qa.py <数据目录> <问题清单> <产物目录>`。
 它复用 pull_check 的 S3 只读事件拦截，整个拉取、工具调用、引用还原期间只允许
 GetObject、HeadObject、ListObjects、ListObjectsV2，不获取写入租约，不发布代次，
-不写入或删除 R2 对象。拉取必须成功且代次已校验；构建 wiring 时直接启用下载的
+不写入或删除 R2 对象。恢复最新有效代次时**不下载 raw**：脚本直接用
+`StateManager.restore(raw="remote")`，只列一次 `raw/` 核对 manifest 引用的 raw 都在、
+大小一致（缺失则失败），其余存储副本照常下载校验；随后写入本机的 `state-pull.json`
+和观测保留记录，使 `version`、`query_sql` 与拉取副本一致（以往的 `pull_state` 会把
+几万个 raw、约 5 GB 全部下载，在 Actions 上跑满 60 分钟被取消）。`cite` 经 s3 raw
+存储（`DATUMOJ_RAW_BACKEND=s3`）读取，用到哪个 raw 才 GetObject 哪个；产物
+`metadata.raw_read` 记录本次读取的 raw 对象数和字节数（只有计数）。
+恢复必须成功且代次已校验；构建 wiring 时直接启用下载的
 向量索引（普通 CLI 在 pulled replica 上会禁用向量），模型缓存、固定版本和
 准备步骤与 cloud-run 相同，使用 bge-m3。索引未接入则失败，单题工具错误只保存
 固定错误码并继续后面的题目。每次 search 的首位命中自动 cite；无可用 citation
@@ -491,7 +498,12 @@ Head.ReportDateTime（解析器回退为 Control.DateTime），不拿抓取时�
 以各自时长（含小数小时）作分母；表中 overlaps_pause 仅表示整小时与窗口有重叠。
 这些是当前代次留存的已解析条目计数，不能单独证明历史 feed 完整或采集从未中断。
 
-公开日志只输出固定阶段和 JSON 计数（代次、题数、按清单顺序的每题命中数、
-出错题数、JMA 小时数）。Python / SDK / 原生库的输出、警告和异常文本被屏蔽。
+公开日志只输出固定阶段和 JSON 计数。每个阶段**开始时**立即写一行（不缓冲，
+被超时或取消时最后一行就是卡住的阶段）：`{"phase": ..., "elapsed_s": ...}`，
+阶段依次为 `restore`、`wiring`、`questions`（每题开始前一行，带 `done` 已完成题数）、
+`jma`、`artifacts`；`elapsed_s` 是脚本启动后的秒数。结束时再打一行汇总（代次、题数、
+按清单顺序的每题命中数、出错题数、JMA 小时数、结束阶段、`error_code`、`exit_status`）；
+失败时 `error_code` 只有固定词（如 `restore_failed`、`unverified_generation`、
+`vectors_unavailable`），成功时为 null。Python / SDK / 原生库的输出、警告和异常文本被屏蔽。
 答案只进入产物；**产物同样公开可下载**，清单和数据只能涉及公开来源，
 不得放入密钥、私有问题或私有资料。人工判断答案与出处，由主对话记录验收结论。
