@@ -239,7 +239,7 @@ def test_qa_is_manual_read_only_pinned_and_uploads_only_short_lived_answers():
     assert workflow["permissions"] == {"contents": "read"}
     assert set(workflow["jobs"]) == {"run"}
     job = workflow["jobs"]["run"]
-    assert job["if"] == "github.repository == 'gorou5/datumoj'" and job["timeout-minutes"] == 60
+    assert job["if"] == "github.repository == 'gorou5/datumoj'" and job["timeout-minutes"] == 90
     assert "env" not in job and "permissions" not in job
     steps = job["steps"]
     assert steps[:-2] == run["jobs"]["run"]["steps"][:-2]
