@@ -6,9 +6,11 @@ import argparse
 import json
 import logging
 import os
+import re
 from contextlib import ExitStack, contextmanager, redirect_stderr, redirect_stdout
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from threading import Lock
 from time import monotonic
 
 ALLOWED_TOOLS = {"search_docs", "search_catalog", "query_sql", "cite", "list_changes", "coverage", "version"}
@@ -16,11 +18,19 @@ START = datetime(2026, 11, 10, tzinfo=UTC)
 END = datetime(2026, 11, 15, tzinfo=UTC)
 PAUSE_START = datetime(2026, 11, 11, 14, tzinfo=UTC)
 PAUSE_END = datetime(2026, 11, 13, 19, 4, tzinfo=UTC)
+RAW_KEY = re.compile(r"(?:^|/)raw/[0-9a-f]{2}/[0-9a-f]{64}\Z")
+
+
+class Failure(Exception):
+    """A failure whose message is a fixed code that may appear in the public log."""
 
 
 @contextmanager
 def quiet():
-    """Hide Python and native SDK diagnostics, including import/close failures."""
+    """Hide Python and native SDK diagnostics, including import/close failures.
+
+    Yields a writer for the real stdout. It is unbuffered, so a cancelled run still shows its last phase.
+    """
     disabled = logging.root.manager.disable
     with open(os.devnull, "w") as sink, ExitStack() as stack:
         logging.disable(logging.CRITICAL)
@@ -28,13 +38,83 @@ def quiet():
             # LanceDB can emit native diagnostics directly to these descriptors.
             for fd in (1, 2):
                 saved = os.dup(fd)
+                if fd == 1:
+                    out_fd = saved
                 stack.callback(os.close, saved)
                 stack.callback(os.dup2, saved, fd)
                 os.dup2(sink.fileno(), fd)
             with redirect_stdout(sink), redirect_stderr(sink):
-                yield
+                yield lambda line: os.write(out_fd, line.encode() + b"\n")
         finally:
             logging.disable(disabled)
+
+
+@contextmanager
+def raw_meter():
+    """Count raw objects (and bytes) read by GetObject. Enter before any S3 client is built."""
+    import boto3
+
+    events = boto3.DEFAULT_SESSION.events
+    meter = {"objects": 0, "bytes": 0}
+    lock = Lock()
+
+    def tag(params, context, **kwargs):
+        if RAW_KEY.search(params.get("Key", "")):
+            context["datumoj_raw"] = True
+
+    def count(parsed, context, **kwargs):
+        size = parsed.get("ContentLength", 0)
+        if context.get("datumoj_raw") and type(size) is int and size >= 0:
+            with lock:
+                meter["objects"] += 1
+                meter["bytes"] += size
+
+    events.register("before-parameter-build.s3.GetObject", tag)
+    events.register("after-call.s3.GetObject", count)
+    try:
+        yield meter
+    finally:
+        events.unregister("before-parameter-build.s3.GetObject", tag)
+        events.unregister("after-call.s3.GetObject", count)
+
+
+def restore_latest(root):
+    """Restore the newest valid generation. Raw objects are only checked for existence, never downloaded."""
+    from pull_check import _count
+
+    from datumoj.rikolto import wiring
+    from datumoj.rikolto.core.pull import PULL_RECORD
+    from datumoj.rikolto.store.observations import retain_generation
+
+    manager = wiring.build_state(root)
+    try:
+        report = manager.restore(root, raw="remote")
+        generation = _count(report["generation"])
+        if generation == 0 or report["verified"] is not True:
+            raise Failure("unverified_generation")
+        # Same pointer recheck as pull(): the restored generation must still be the latest valid one.
+        history = manager.list()
+        if not history or history[0].generation != generation:
+            raise Failure("generation_changed")
+        selected = history[0]
+        record = {
+            "generation": generation, "created_at": selected.created_at.isoformat(),
+            "pulled_at": datetime.now(UTC).isoformat(), "writer": selected.writer.model_dump(mode="json"),
+            "last_successful_runs": {key: run.model_dump(mode="json")
+                                     for key, run in selected.last_successful_runs.items()},
+            "vector_coverage": (selected.vector_coverage.model_dump(mode="json")
+                                if selected.vector_coverage is not None else None),
+            "stores": [{"name": copy.name, "sha256": copy.sha256} for copy in selected.stores],
+        }
+        (Path(root) / PULL_RECORD).write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8")
+        found = manager.store.get(f"generations/{generation}.json")
+        if found is None:
+            raise Failure("manifest_unavailable")
+        # Observation queries need the retained generation; restore already checked the remote raw inventory.
+        retain_generation(Path(root), found[0], Path(root), verified=True, remote_raw=True)
+        return generation
+    finally:
+        manager.store._client.close()
 
 
 def load_questions(path):
@@ -197,28 +277,30 @@ def markdown(report):
 
 
 def run(root, question_path, output):
+    started = monotonic()
     summary = {"generation": None, "questions": 0, "question_hits": [], "error_questions": 0,
-               "jma_hours": 0, "phase": "questions", "exit_status": 1}
-    with quiet():
-        try:
-            from pull_check import _count, _read_meter
+               "jma_hours": 0, "phase": "questions", "error_code": None, "exit_status": 1}
+    with quiet() as out:
+        def mark(phase, **counts):
+            # Phase name and numbers only, written when the phase starts: an interrupted run shows where it stalled.
+            summary["phase"] = phase
+            out(json.dumps({"phase": phase, "elapsed_s": round(monotonic() - started, 1), **counts}, sort_keys=True))
 
-            from datumoj.rikolto import cli, wiring
+        try:
+            from pull_check import _read_meter
+
+            from datumoj.rikolto import wiring
             from datumoj.rikolto.core.pull import data_state
 
             questions = load_questions(question_path)
             summary["questions"] = len(questions)
-            summary["phase"] = "pull"
-            with _read_meter(), ExitStack() as stack:
-                pulled = cli.pull_state(root)
-                generation = _count(pulled["generation"])
-                if generation == 0 or pulled["verified"] is not True:
-                    raise ValueError("unverified_generation")
-                summary["generation"] = generation
+            mark("restore")
+            with _read_meter(), raw_meter() as raw_read, ExitStack() as stack:
+                summary["generation"] = generation = restore_latest(root)
                 state = data_state(root)
                 if state["data_generation"] != generation or not state["data_generated_at"]:
-                    raise ValueError("generation_mismatch")
-                summary["phase"] = "wiring"
+                    raise Failure("generation_mismatch")
+                mark("wiring")
                 # cli._build_wiring intentionally disables vectors on pulled replicas.
                 # Build directly to use the downloaded index and the cloud-run model.
                 deps = wiring.build(root)
@@ -226,26 +308,28 @@ def run(root, question_path, output):
                     stack.callback(getattr(deps, name).close)
                 deps.require("search")
                 if deps.vectors is None:
-                    raise ValueError("vectors_unavailable")
+                    raise Failure("vectors_unavailable")
                 report = {"metadata": {"generation": generation, "generated_at": state["data_generated_at"],
                                        "commit_sha": os.environ.get("GITHUB_SHA", "unknown"),
                                        "argument_adjustments": [], "scoring": "human review only"}, "questions": []}
-                summary["phase"] = "tools"
                 for question in questions:
+                    mark("questions", done=len(report["questions"]))
                     answer = run_question(question, deps, root)
                     report["questions"].append(answer)
                     summary["question_hits"].append(sum(len(hits(call["data"])) for call in answer["calls"]))
                     summary["error_questions"] += int(answer["error_code"] is not None)
-                summary["phase"] = "jma"
+                mark("jma")
                 report["jma_hourly"] = jma_hourly(deps.chunks)
                 summary["jma_hours"] = len(report["jma_hourly"]["hours"])
-                summary["phase"] = "artifacts"
+                mark("artifacts")
+                report["metadata"]["raw_read"] = {"objects": raw_read["objects"], "bytes": raw_read["bytes"]}
                 output.mkdir(parents=True, exist_ok=True)
                 (output / "answers.json").write_text(json_text(report) + "\n", encoding="utf-8")
                 (output / "answers.md").write_text(markdown(report), encoding="utf-8")
             summary.update(phase="complete", exit_status=0)
-        except Exception:  # noqa: BLE001 -- Only fixed phases and validated counts cross the public boundary.
+        except Exception as exc:  # noqa: BLE001 -- Only fixed phases, fixed codes and counts cross the public boundary.
             summary["exit_status"] = 1
+            summary["error_code"] = str(exc) if isinstance(exc, Failure) else f"{summary['phase']}_failed"
     return summary
 
 
@@ -257,7 +341,7 @@ def main(argv=None):
         parser.add_argument("output_dir", type=Path)
         args = parser.parse_args(argv)
     summary = run(args.data_dir, args.questions, args.output_dir)
-    print(json.dumps(summary, sort_keys=True))
+    print(json.dumps(summary, sort_keys=True), flush=True)
     return summary["exit_status"]
 
 
