@@ -1,6 +1,6 @@
 {
   "_说明": "plan/index.html 的“版本路线图”和“里程碑”两节由本文件渲染。由主对话在节点上更新，调度器派出的任务 agent 不改本文件。status 只有对应的 PR 已合并进 main 才能写 done（IVY 期间直接推送 main，pr 为 null）。规则见 CLAUDE.md 与 docs/PLAN.md 第 8.1 节。",
-  "updated": "2026-11-14",
+  "updated": "2026-11-16",
   "versions": [
     {
       "version": "0.1",
@@ -23,10 +23,10 @@
     {
       "version": "0.3",
       "codename": "MAPLE（楓）",
-      "status": "doing",
-      "label": "代码已进 main（PR #88、#110），一周试运行中（2026-11-06 起）",
-      "summary": "云端运行（GitHub Actions 定时抓取，raw 和索引上 R2、可重建、按来源设频率；一周试运行）、欧美来源、日本新来源（e-Stat API、命名文件）。",
-      "tag": null,
+      "status": "done",
+      "label": "已发布",
+      "summary": "云端运行（GitHub Actions 定时抓取，raw 和索引上 R2、可重建、按来源设频率；一周试运行）、欧美来源、日本新来源（e-Stat API、命名文件）。一周试运行跑满；Actions 上日中英问答验收通过（附已知局限），在 PR #192 的合并提交上打 tag。",
+      "tag": "v0.3.0-maple",
       "plan": "docs/plans/0.3-maple.md"
     },
     {
@@ -207,12 +207,23 @@
       "version": "0.3",
       "id": "H4",
       "title": "一周试运行",
-      "status": "doing",
-      "date": "2026-11-06",
+      "status": "done",
+      "date": "2026-11-15",
       "tag": null,
       "pr": 110,
-      "summary": "cloud-run 从 main 每 3 小时定时运行；来源修好一个算一个，看提醒、周报和 JMA 有没有缺口。",
-      "acceptance": null
+      "summary": "cloud-run 每 3 小时定时运行，自 11-08 起满 7 个自然日（11-11~13 因 R2 容量停定时，按 2026-11-14 用户决定不补时、不重新起算）；JMA 无空小时。11-15 第 17 轮失败后定时暂停，等 NAS 回执或新频率。",
+      "acceptance": "docs/acceptance/v0.3.0-maple.md"
+    },
+    {
+      "version": "0.3",
+      "id": "完成",
+      "title": "MAPLE 发布",
+      "status": "done",
+      "date": "2026-11-16",
+      "tag": "v0.3.0-maple",
+      "pr": 192,
+      "summary": "Actions 问答工作流（MAPLE-151、152，PR #190、#191）跑日中英 12 题：5 正确、5 部分、2 不通过；通过，附已知局限（目录检索无相关性门槛、跨语言靠调用方改写检索词、R2 容量待 NAS 回执）。",
+      "acceptance": "docs/acceptance/v0.3.0-maple.md"
     },
     {
       "version": "0.4",
