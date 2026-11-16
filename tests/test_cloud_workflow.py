@@ -226,3 +226,54 @@ def test_orphan_raw_cleanup_uses_repository_variable(name):
     environments = [step["env"] for step in steps if "R2_ORPHAN_RAW_CLEANUP" in step.get("env", {})]
     assert len(environments) == 1
     assert environments[0]["R2_ORPHAN_RAW_CLEANUP"] == "${{ vars['R2_ORPHAN_RAW_CLEANUP'] }}"
+
+
+def test_qa_is_manual_read_only_pinned_and_uploads_only_short_lived_answers():
+    workflow = load(WORKFLOWS / "cloud-qa.yml")
+    run = load(WORKFLOWS / "cloud-run.yml")
+    assert set(workflow["on"]) == {"workflow_dispatch"}
+    inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+    assert inputs["questions"]["default"] == "eval/acceptance/v0.3.0-maple-h5.yaml"
+    assert inputs["questions"]["type"] == "string" and inputs["questions"]["required"] is True
+    assert workflow["concurrency"] == run["concurrency"]
+    assert workflow["permissions"] == {"contents": "read"}
+    assert set(workflow["jobs"]) == {"run"}
+    job = workflow["jobs"]["run"]
+    assert job["if"] == "github.repository == 'gorou5/datumoj'" and job["timeout-minutes"] == 60
+    assert "env" not in job and "permissions" not in job
+    steps = job["steps"]
+    assert steps[:-2] == run["jobs"]["run"]["steps"][:-2]
+    for step in steps:
+        if "uses" in step:
+            assert re.fullmatch(r"[\w-]+/[\w-]+@[a-f0-9]{40}", step["uses"])
+    command, upload = steps[-2:]
+    assert command["shell"] == "bash" and "set -euo pipefail" in command["run"]
+    assert "${{" not in command["run"] and '"$QUESTION_LIST"' in command["run"]
+    assert command["env"]["QUESTION_LIST"] == "${{ inputs.questions }}"
+    assert command["env"]["DATUMOJ_VECTORS"] == "on" and command["env"]["DATUMOJ_RAW_BACKEND"] == "s3"
+    for key in SECRETS - {"ESTAT_APP_ID"}:
+        assert command["env"][key] == "${{ secrets." + key + " }}"
+    assert not any("secrets." in str(step) for step in steps if step is not command)
+    assert "scripts/cloud_qa.py" in command["run"] and "uv run --frozen" in command["run"]
+    assert upload["uses"] == "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
+    assert upload["with"]["retention-days"] == 7 and upload["with"]["if-no-files-found"] == "error"
+    assert upload["with"]["path"].splitlines() == [
+        "${{ runner.temp }}/cloud-qa-answers/answers.json", "${{ runner.temp }}/cloud-qa-answers/answers.md",
+    ]
+    assert "pull_request" not in (WORKFLOWS / "cloud-qa.yml").read_text()
+
+
+def test_qa_question_path_is_passed_literally_via_environment(tmp_path):
+    step = load(WORKFLOWS / "cloud-qa.yml")["jobs"]["run"]["steps"][-2]
+    uv = tmp_path / "uv"
+    uv.write_text(f"#!{sys.executable}\nimport json, sys\nprint(json.dumps(sys.argv[1:]))\n")
+    uv.chmod(0o755)
+    path = 'eval/acceptance/$(touch injected); "list".yaml'
+    env = {**os.environ, "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
+           "RUNNER_TEMP": str(tmp_path), "QUESTION_LIST": path}
+    response = subprocess.run(["bash", "--noprofile", "--norc", "-c", step["run"]], cwd=tmp_path,
+                              env=env, capture_output=True, text=True, check=False)
+    assert response.returncode == 0 and response.stderr == ""
+    assert json.loads(response.stdout) == ["run", "--frozen", "python", "scripts/cloud_qa.py",
+                                           str(tmp_path / "cloud-qa-data"), path, str(tmp_path / "cloud-qa-answers")]
+    assert not (tmp_path / "injected").exists()

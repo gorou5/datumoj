@@ -1,0 +1,49 @@
+questions:
+- id: h5-ja-1
+  lang: ja
+  question: 最近、気象庁が発表した大雨や洪水に関する警報・注意報は？
+  calls: [{tool: search_docs, args: {queries: 大雨 洪水 警報 注意報, sources: [jp-jma], k: 5}}]
+- id: h5-ja-2
+  lang: ja
+  question: 日本の総人口の月別推計（e-Stat）で最新の値は？
+  calls: [{tool: search_catalog, args: {query: 人口推計 月別 総人口, sources: [jp-estat-api], k: 5}}]
+- id: h5-ja-3
+  lang: ja
+  question: 佐賀市の公民館の一覧は？
+  calls: [{tool: search_docs, args: {queries: 佐賀市 公民館, sources: [jp-ksj], k: 5}}]
+- id: h5-ja-4
+  lang: ja
+  question: 月面基地の建設補助金は？
+  calls: [{tool: search_docs, args: {queries: 月面基地 建設 補助金, k: 5}}]
+- id: h5-zh-1
+  lang: zh
+  question: 日本个人信息保护法里关于向第三方提供个人数据的规定是什么？
+  calls: [{tool: search_docs, args: {queries: 个人信息 第三方 提供 限制, sources: [jp-egov-law], k: 5}}]
+- id: h5-zh-2
+  lang: zh
+  question: 欧盟统计局有哪些关于失业率的数据集？
+  calls: [{tool: search_catalog, args: {query: 失业率, sources: [eu-eurostat, eu-data-europa], k: 5}}]
+- id: h5-zh-3
+  lang: zh
+  question: 美国联邦公报最近有哪些关于临时安全区的规定？
+  calls: [{tool: search_docs, args: {queries: 临时安全区 规定, sources: [us-fedreg], k: 5}}]
+- id: h5-zh-4
+  lang: zh
+  question: 日本各地有哪些公共设施的开放数据？
+  calls: [{tool: search_catalog, args: {query: 公共设施 一览, sources: [jp-bodik, jp-egov-data], k: 5}}]
+- id: h5-en-1
+  lang: en
+  question: Which French open datasets describe nationality and immigrant status?
+  calls: [{tool: search_catalog, args: {query: nationality immigrant status, sources: [fr-data-gouv], k: 5}}]
+- id: h5-en-2
+  lang: en
+  question: What guidance does the Japanese government give on public procurement from startups?
+  calls: [{tool: search_docs, args: {queries: startup public procurement guideline, sources: [jp-gov-web], k: 5}}]
+- id: h5-en-3
+  lang: en
+  question: What changed in the data library since 2026-11-13 (UTC)?
+  calls: [{tool: list_changes, args: {since: "2026-11-13T00:00:00Z", limit: 20}}]
+- id: h5-en-4
+  lang: en
+  question: Which sources are covered and when were they last fetched?
+  calls: [{tool: coverage, args: {}}, {tool: version, args: {}}]
