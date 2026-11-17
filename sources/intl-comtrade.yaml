@@ -1,0 +1,31 @@
+id: intl-comtrade
+name: UN Comtrade API
+country: intl
+kind: un_comtrade
+base_url: https://comtradeapi.un.org/
+allowed_hosts: [comtradeapi.un.org]
+rate_per_sec: 0.5
+max_total_bytes: 1073741824
+max_files: 200
+schedule: manual
+needs_key: env:COMTRADE_API_KEY
+# 待补：key_header: Ocp-Apim-Subscription-Key
+# core/registry.py 的明文 key 检查要求名字含 "key" 的字段值以 env: 开头，会拒绝 key_header，
+# 一写上整个 sources/ 目录都加载失败；契约不在本任务范围，见 results/DATUMOJ-WISTERIA-305/summary.md。
+license:
+  name: UN Comtrade License Agreement
+  url: https://comtradeplus.un.org/en/license-agreement
+  attribution: 'Source: UN Comtrade.'
+  usage_scope: internal_only
+  redistribution: unverified
+  outflow: no_outflow
+  cloud_model_ok: false
+  verified_at: null
+scope:
+  raw_retention_days: 2
+  pairs: [[842, 156], [276, 251], [392, 410]]
+  start_year: 2015
+  end_year: 2024
+  flows: [X, M]
+  cmdCode: TOTAL
+retention_note: 只由人按需手动启动（schedule 为 manual，不进定时运行），用自己的 key 经官方 API 取；key 只走请求头。每对国家每年双方各一个数据请求，先查 getDA 的 datasetChecksum，没变不拉数据。国家代码是 Comtrade 自己的（美国 842、法国 251）。raw 最多 48 小时，NAS 存档确认后可提前删除（最新快照受保护）。

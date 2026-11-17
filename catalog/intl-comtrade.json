@@ -1,0 +1,18 @@
+{
+  "access_method": "other",
+  "auth_required": true,
+  "country_region": "INTL",
+  "id": "intl-comtrade",
+  "last_verified": "unknown",
+  "license": {
+    "allows_redistribution": "unknown",
+    "name": "UN Comtrade License Agreement",
+    "requires_attribution": true,
+    "url": "https://comtradeplus.un.org/en/license-agreement"
+  },
+  "name": "UN Comtrade API",
+  "official_url": "https://comtradeapi.un.org/",
+  "publisher": "Source: UN Comtrade.",
+  "rate_limit": "0.5 req/s",
+  "status": "experimental"
+}
