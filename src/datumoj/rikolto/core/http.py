@@ -9,6 +9,7 @@ from __future__ import annotations
 import ipaddress
 import logging
 import math
+import os
 import re
 import socket
 import string
@@ -27,7 +28,7 @@ from urllib.parse import quote
 
 import httpx
 
-from datumoj.rikolto.core.contracts import FetchResult, SourceSpec, UrlNotAllowed
+from datumoj.rikolto.core.contracts import FetchResult, SourceSpec, UrlNotAllowed, check_request_header
 from datumoj.rikolto.core.errors import safe_reason
 from datumoj.rikolto.core.models import FetchOutcome, redact_url
 from datumoj.rikolto.testing.fakes import UnregisteredUrl
@@ -42,11 +43,29 @@ ROBOTS_MAX_BYTES = 500 * 1024
 ROBOTS_MAX_REDIRECTS = 5
 _REDIRECTS = frozenset({301, 302, 303, 307, 308})
 _STEP = 64 * 1024
+SECRET_HEADERS_EXTENSION = "datumoj_secret_headers"
+"""``httpx.Request.extensions`` 里的键：值是这次请求里带凭据的请求头名；录制只写 REDACTED。"""
+REDACTED = "REDACTED"
+_SECRET_HEADER = re.compile(r"(?i)authorization|cookie|.*(?:key|token|secret)")
 _REQUEST_DEADLINE = "request total duration exceeded"
 
 
 class _RequestDeadline(httpx.TimeoutException):
     pass
+
+
+class _KeyProblem(Exception):
+    """key 环境变量没设、为空或值不合法；消息是固定模板，只写变量名，不含值。"""
+
+
+def _key_value(env: str) -> str:
+    value = os.environ.get(env, "")
+    if not value:
+        raise _KeyProblem(f"缺少 key（{env}）")
+    if not (value.isascii() and value.isprintable() and value == value.strip()):
+        # 换行、控制字符、首尾空白、非 ASCII 都发不出去；h11/httpx 的报错会带上整个值，所以在这里拦下
+        raise _KeyProblem(f"key 格式不合法（{env}）")
+    return value
 
 log = logging.getLogger(__name__)
 
@@ -370,22 +389,35 @@ class PoliteHttpFetcher:
     def fetch(
         self, url: str, etag: str | None = None, last_modified: str | None = None,
         *, size: int | None = None, head_probe: bool = False,
+        headers: Mapping[str, str] | None = None, key_header: str | None = None, key_env: str | None = None,
     ) -> FetchResult:
+        if (key_header is None) != (key_env is None):
+            raise ValueError("key_header 和 key_env 必须同时给出")
+        extra = dict(headers or {})
+        for name, value in extra.items():
+            check_request_header(name, value)
+        key = None
+        if key_header is not None:
+            check_request_header(key_header)
+            if key_header.lower() in {name.lower() for name in extra}:
+                raise ValueError(f"请求头与 key_header 同名：{key_header}")
+            key = (key_header, key_env)
         if head_probe and last_modified is not None and size is not None:
-            probe = self._fetch(url, last_modified=last_modified, size=size, method="HEAD")
+            probe = self._fetch(url, last_modified=last_modified, size=size, method="HEAD", extra=extra, key=key)
             if probe.outcome in (FetchOutcome.not_modified, FetchOutcome.blocked_by_robots):
                 return probe
-        return self._fetch(url, etag=etag, last_modified=last_modified)
+        return self._fetch(url, etag=etag, last_modified=last_modified, extra=extra, key=key)
 
     def _fetch(
         self, url: str, etag: str | None = None, last_modified: str | None = None,
         *, size: int | None = None, method: str = "GET",
+        extra: Mapping[str, str] | None = None, key: tuple[str, str] | None = None,
     ) -> FetchResult:
         red = redact_url(url)
         start = _parse_url(url)
         if (problem := self._url_problem(start)) is not None:
             raise UrlNotAllowed(f"{problem}：{red}")
-        headers = {}
+        headers = dict(extra or {})
         if etag and method == "GET":
             headers["If-None-Match"] = etag
         if last_modified and method == "GET":
@@ -396,6 +428,11 @@ class PoliteHttpFetcher:
             final = redact_url(str(current)) if redirected else None
             return FetchResult(url=red, final_url=final, outcome=outcome, fetched_at=self._now(), **kw)
 
+        if key is not None:
+            try:
+                _key_value(key[1])  # 提前失败，不白发 robots.txt；值不保留
+            except _KeyProblem as exc:
+                return result(FetchOutcome.network_error, error=str(exc))
         for _ in range(self.max_redirects + 1):
             here = redact_url(str(current))
             try:
@@ -404,7 +441,10 @@ class PoliteHttpFetcher:
                 return result(FetchOutcome.network_error, error=_REQUEST_DEADLINE)
             if reason is not None:
                 return result(FetchOutcome.blocked_by_robots, error=f"{reason}，未请求：{here}")
-            reply = self._request(current, headers, self.max_bytes, method=method)
+            try:
+                reply = self._request(current, headers, self.max_bytes, method=method, key=key)
+            except _KeyProblem as exc:
+                return result(FetchOutcome.network_error, error=str(exc))
             if reply.status is None:
                 return result(FetchOutcome.network_error,
                               error=reply.error if reply.error == _REQUEST_DEADLINE else f"{reply.error}：{here}")
@@ -443,6 +483,10 @@ class PoliteHttpFetcher:
 
     # ----- 地址与重定向 -----
 
+    def _host_allowed(self, host: str) -> bool:
+        host = host.lower().rstrip(".")
+        return any(host == p or (p.startswith("*.") and host.endswith(p[1:])) for p in self.allowed_hosts)
+
     def _url_problem(self, url: httpx.URL) -> str | None:
         """URL 不允许抓取时返回原因。"""
         if url.scheme not in ("http", "https"):
@@ -450,7 +494,7 @@ class PoliteHttpFetcher:
         host = url.host.lower().rstrip(".")
         if not host:
             return "URL 没有 host"
-        if not any(host == p or (p.startswith("*.") and host.endswith(p[1:])) for p in self.allowed_hosts):
+        if not self._host_allowed(host):
             return f"host {host} 不在 allowed_hosts 里"
         if host == "localhost" or host.endswith(".localhost") or _non_public(host):
             return f"{host} 是私网或回环地址"
@@ -530,14 +574,17 @@ class PoliteHttpFetcher:
 
     def _request(
         self, url: httpx.URL, headers: Mapping[str, str], limit: int | None,
-        *, truncate: bool = False, method: str = "GET",
+        *, truncate: bool = False, method: str = "GET", key: tuple[str, str] | None = None,
     ) -> _Reply:
-        """GET / HEAD（含重试）。只捕获 httpx 的网络错误；其他异常照常抛出。"""
+        """GET / HEAD（含重试）。只捕获 httpx 的网络错误；其他异常照常抛出。
+
+        key 是 (请求头名, 环境变量名)；每次尝试发请求时才取值，且只在 url 的 host 属于 allowed_hosts 时才放进头。
+        """
         for attempt in range(self.max_retries + 1):
             self._throttle(url.host)
             backoff = min(self.backoff * 2**attempt, self.max_wait)
             try:
-                reply = self._attempt(url, headers, limit, truncate, method)
+                reply = self._attempt(url, headers, limit, truncate, method, key)
             except _RequestDeadline:
                 return _Reply(None, error=_REQUEST_DEADLINE)
             except httpx.TransportError as exc:
@@ -560,9 +607,10 @@ class PoliteHttpFetcher:
 
     def _attempt(
         self, url: httpx.URL, headers: Mapping[str, str], limit: int | None, truncate: bool, method: str,
+        key: tuple[str, str] | None = None,
     ) -> _Reply:
         if self.max_request_seconds is None:
-            return self._download(url, headers, limit, truncate, method)
+            return self._download(url, headers, limit, truncate, method, key=key)
         # Bound the entire attempt, including a transport stalled before headers.
         seconds = self.max_request_seconds
         if seconds <= 0:
@@ -578,7 +626,7 @@ class PoliteHttpFetcher:
 
         def download():
             try:
-                completed.put(self._download(url, headers, limit, truncate, method, check, responses))
+                completed.put(self._download(url, headers, limit, truncate, method, check, responses, key))
             except BaseException as exc:  # noqa: BLE001 -- Deliver worker errors unchanged to the caller.
                 completed.put(exc)
 
@@ -605,10 +653,14 @@ class PoliteHttpFetcher:
         return reply
 
     def _download(
-        self, url, headers, limit, truncate, method, check=lambda: None, responses=None,
+        self, url, headers, limit, truncate, method, check=lambda: None, responses=None, key=None,
     ) -> _Reply:
         check()
+        if key is not None and self._host_allowed(url.host):
+            headers = {**headers, key[0]: _key_value(key[1])}  # 只在这里取值，只活在这次请求里
         request = self._client.build_request(method, url, headers=headers)
+        if key is not None:
+            request.extensions[SECRET_HEADERS_EXTENSION] = (key[0],)  # 告诉录制型 transport 把它写成 REDACTED
         if responses is not None:
             def trace(event, info):
                 if event in {"connection.connect_tcp.complete", "connection.start_tls.complete"}:
@@ -654,13 +706,28 @@ def _replay_key(url: httpx.URL) -> tuple[Any, ...]:
     return (url.scheme, url.host, url.port, path, tuple(params))
 
 
+def _mask_headers(headers: Iterable[tuple[str, str]], secret: Iterable[str] = ()) -> dict[str, str]:
+    """带凭据的头（按名字判断：authorization、cookie、*key、*token、*secret，或 secret 里点名的）值换成 REDACTED。"""
+    names = {name.lower() for name in secret}
+    return {
+        name: REDACTED if name.lower() in names or _SECRET_HEADER.fullmatch(name) else value
+        for name, value in headers
+    }
+
+
 @dataclass(frozen=True)
 class Recorded:
-    """一条录制：fixture 文件（None 表示空正文）、状态码、响应头。"""
+    """一条录制：fixture 文件（None 表示空正文）、状态码、响应头。
+
+    头里带凭据的（见 ``_mask_headers``）值一律写成 ``REDACTED``，录制样本不会留下 key。
+    """
 
     path: str | Path | None = None
     status: int = 200
     headers: Mapping[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "headers", _mask_headers(self.headers.items()))
 
 
 class ReplayTransport(httpx.BaseTransport):
@@ -668,7 +735,8 @@ class ReplayTransport(httpx.BaseTransport):
 
     mapping 的值可以是 ``Recorded``、fixture 路径，或 ``(路径, 状态码)``。URL 比较时忽略 Key 参数（按参数名判断）、
     参数顺序无关，路径按原始形式比较（``/a%2Fb`` 和 ``/a/b`` 不同）。未登记的 URL 抛 UnregisteredUrl。
-    fixture 在构造时就读入，文件不存在立即报错。``requests`` 记录每次请求（去 Key 后）。
+    fixture 在构造时就读入，文件不存在立即报错。``requests`` 记录每次请求（去 Key 后）；
+    ``request_headers`` 同序记录每次请求的头，带凭据的头（含执行器声明的 key_header）值写成 ``REDACTED``。
     """
 
     def __init__(self, mapping: Mapping[str, Recorded | str | Path | tuple[str | Path | None, int]]):
@@ -683,10 +751,14 @@ class ReplayTransport(httpx.BaseTransport):
                 raise ValueError(f"回放重复登记（去 Key 后相同）：{redact_url(url)}")
             self._routes[key] = (entry, b"" if entry.path is None else Path(entry.path).read_bytes())
         self.requests: list[str] = []
+        self.request_headers: list[dict[str, str]] = []
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
         red = redact_url(str(request.url))
         self.requests.append(red)
+        self.request_headers.append(
+            _mask_headers(request.headers.items(), request.extensions.get(SECRET_HEADERS_EXTENSION, ())),
+        )
         hit = self._routes.get(_replay_key(request.url))
         if hit is None:
             raise UnregisteredUrl(f"回放没有登记这个 URL：{red}")
