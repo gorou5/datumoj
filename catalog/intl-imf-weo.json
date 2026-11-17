@@ -1,0 +1,18 @@
+{
+  "access_method": "other",
+  "auth_required": false,
+  "country_region": "INTL",
+  "id": "intl-imf-weo",
+  "last_verified": "2026-11-10",
+  "license": {
+    "allows_redistribution": true,
+    "name": "IMF Copyright and Usage",
+    "requires_attribution": true,
+    "url": "https://www.imf.org/en/About/copyright-and-terms"
+  },
+  "name": "IMF World Economic Outlook（名义 GDP、希腊一般政府净借贷，当前版与历史版）",
+  "official_url": "https://api.imf.org/external/sdmx/2.1/",
+  "publisher": "International Monetary Fund. World Economic Outlook",
+  "rate_limit": "1 req/s",
+  "status": "experimental"
+}
