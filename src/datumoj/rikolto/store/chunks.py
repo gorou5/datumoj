@@ -150,6 +150,33 @@ class SqliteChunkStore:
                     key,
                 )
 
+    def delete_versions(self, versions: Sequence[tuple[str, str]], expired_keys: Sequence[str] = ()) -> list[str]:
+        """Remove ``(doc_key, snapshot_sha256)`` documents and chunks in one transaction.
+
+        ``expired_keys`` additionally lose their current_versions / published_orders rows
+        (callers list every version of those keys). Returns the removed chunk_ids that
+        no longer belong to any current chunk, so their vectors can go too.
+        """
+        self._require_writable()
+        with self._tx() as db:
+            ids: set[str] = set()
+            for key in versions:
+                ids.update(r[0] for r in db.execute(
+                    "SELECT chunk_id FROM chunks WHERE doc_key=? AND snapshot_sha256=?", key))
+                db.execute("DELETE FROM chunks WHERE doc_key=? AND snapshot_sha256=?", key)
+                db.execute("DELETE FROM documents WHERE doc_key=? AND snapshot_sha256=?", key)
+            for doc_key in expired_keys:
+                db.execute("DELETE FROM current_versions WHERE doc_key=?", (doc_key,))
+                db.execute("DELETE FROM published_orders WHERE doc_key=?", (doc_key,))
+            listed = sorted(ids)
+            for offset in range(0, len(listed), 500):
+                batch = listed[offset:offset + 500]
+                ids.difference_update(r[0] for r in db.execute(
+                    "SELECT c.chunk_id FROM chunks c JOIN current_versions v "
+                    "ON v.doc_key=c.doc_key AND v.snapshot_sha256=c.snapshot_sha256 "
+                    f"WHERE c.chunk_id IN ({','.join('?' * len(batch))})", batch))
+        return sorted(ids)
+
     def current_order(self, doc_key: str) -> SnapshotOrder | None:
         row = self._db.execute("SELECT order_json FROM published_orders WHERE doc_key=?", (doc_key,)).fetchone()
         return SnapshotOrder.model_validate_json(row[0]) if row else None

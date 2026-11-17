@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Lock
 
-from datumoj.rikolto import wiring
+from datumoj.rikolto import db_retention, wiring
 from datumoj.rikolto.analysis.reports import previous_week_period, weekly_report
 from datumoj.rikolto.capacity import (
     LIMITS,
@@ -938,6 +938,25 @@ def _cleanup_restored(manager, root, check, result, *, enabled, raw_enabled, orp
         )
 
 
+def _db_retention(manager, deps, root, capacity, uploads, pages):
+    """Retention while holding the lease: execute locally, report counts, gate only the one-off VACUUM."""
+    try:
+        raw_keys = set(manager.store.list("raw/"))
+    except Exception:  # noqa: BLE001 -- Unknown raw inventory keeps hash-bearing snapshot rows.
+        present = None
+    else:
+        def present(sha):
+            return f"raw/{sha[:2]}/{sha}" in raw_keys
+
+    def vacuum_gate(estimated):
+        current = capacity.get("current_bytes")
+        return gate(None if current is None else current + uploads.bytes, estimated, "optional")
+
+    with local_write(root):
+        return db_retention.run(root, utcnow(), deps.registry.all(), execute=True, raw_present=present,
+                                gate=vacuum_gate, incremental_pages=pages)
+
+
 def _mark_only_restored(manager, root, check, result):
     """Stop-tier recovery: mark due raw and publish only the changed manifest.
 
@@ -1304,6 +1323,13 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                                 and not (capacity.get("mid_round_freeze") or capacity.get("mid_round_stop"))):
                             phase = "backfill"
                             remaining = _backfill(deps, remaining, started, max_minutes, check, result, before_round)
+                    retention = db_retention.settings()
+                    if retention["enabled"] and not embed_only:
+                        phase = "db_retention"
+                        check()
+                        result["db_retention"] = _db_retention(
+                            manager, deps, root, capacity, uploads, retention["incremental_pages"],
+                        )
                     phase = "maintenance"
                     maintenance_operation = "local_write_enter"
                     with local_write(root):

@@ -87,6 +87,30 @@ def _lit(s: str) -> str:
     return "'" + s.replace("'", "''") + "'"
 
 
+def delete_vectors(path: str | Path, chunk_ids: Sequence[str]) -> int:
+    """按 chunk_id 删除当前代表里的向量行，不需要嵌入服务；返回实际删除的行数。"""
+    root = Path(path)
+    if not chunk_ids or not (root / _META).exists():
+        return 0
+    generation = json.loads((root / _META).read_text(encoding="utf-8")).get("generation", 0)
+    if isinstance(generation, bool) or not isinstance(generation, int) or generation < 0:
+        raise ValueError("向量索引元数据中的 generation 必须是非负整数")
+    db = lancedb.connect(str(root))
+    name = _TABLE if generation == 0 else f"{_TABLE}_g{generation}"
+    if name not in db.list_tables().tables:
+        raise ValueError("向量当前代表缺失")
+    table = db.open_table(name)
+    wanted = set(chunk_ids)
+    # Scan first: most ids (e.g. sources that never embed) have no vector, and every
+    # Lance delete commits a new table version.
+    ids = [i for batch in table.search().select(["chunk_id"]).to_batches(batch_size=1000)
+           for i in batch.column(0).to_pylist() if i in wanted]
+    before = table.count_rows()
+    for offset in range(0, len(ids), 500):
+        table.delete(f"chunk_id IN ({', '.join(_lit(i) for i in ids[offset:offset + 500])})")
+    return before - table.count_rows()
+
+
 def _chunk_hash(chunk: Chunk) -> str:
     metadata = [chunk.text, chunk.published_at.isoformat() if chunk.published_at else None,
                 chunk.effective_at.isoformat() if chunk.effective_at else None]

@@ -219,6 +219,9 @@ class SourceSpec(_Model):
         days = self.scope.get("raw_retention_days", 30)
         if type(days) is not int or days <= 0:
             raise ValueError("scope.raw_retention_days 必须是正整数")
+        hours = self.scope.get("index_retention_hours")
+        if hours is not None and (type(hours) is not int or hours <= 0):
+            raise ValueError("scope.index_retention_hours 必须是正整数")
         types = self.scope.get("raw_expire_latest_types", [])
         if not isinstance(types, list) or any(not isinstance(item, str) for item in types):
             raise ValueError("scope.raw_expire_latest_types 必须是字符串列表")

@@ -245,6 +245,21 @@ def cloud_cleanup(
     raise typer.Exit(result["exit_status"])
 
 
+@app.command("db-retention")
+def db_retention_command(
+    dry_run: bool = typer.Option(True, "--dry-run", help="只算不删，输出计数和字节（本命令只有这一种模式；执行只在云端轮次里）"),
+) -> None:
+    """按数据库保留规则计算本机数据目录的清理计划。"""
+    from datumoj.rikolto import db_retention
+    from datumoj.rikolto.core.registry import load_registry
+
+    root = Path(_data_dir())
+    specs = load_registry(Path(__file__).resolve().parents[3] / "sources").all()
+    # Only a directory that holds raw files can tell which raw is gone; otherwise stay conservative.
+    present = (lambda sha: (root / "raw" / sha[:2] / sha).is_file()) if (root / "raw").is_dir() else None
+    typer.echo(_json(db_retention.run(root, scheduling.utcnow(), specs, execute=False, raw_present=present)))
+
+
 @state_app.command("push")
 def state_push(data_dir: Path | None = typer.Option(None, "--data-dir")) -> None:
     root = data_dir if data_dir is not None else _data_dir()
