@@ -39,6 +39,19 @@ WEEKLY_REPORT_RESERVE = 1_000_000  # Conservative upper bound for one Markdown o
 
 LIMITS = CapacityLimits()  # Validate once at import; all write gates use these limits.
 
+# The only publication permitted in the stop tier (besides lease writes and deletes):
+# a mark-only generation. It uploads changed manifest.sqlite blocks, writes one
+# generation descriptor and switches the current pointer; never raw, databases or indexes.
+MARK_ONLY_WRITES = ("manifest_copy", "generation_descriptor", "current_pointer")
+MARK_ONLY_RESERVE = 1_000_000  # Conservative bound for the descriptor and pointer objects.
+
+
+def mark_only_estimate(manifest_bytes: int) -> int:
+    """Upper bound of bytes written: every manifest block is new, plus the reserve."""
+    if type(manifest_bytes) is not int or manifest_bytes < 0:
+        raise ValueError("invalid_capacity_size")
+    return manifest_bytes + MARK_ONLY_RESERVE
+
 
 def gate(current_bytes: int | None, estimated_new_bytes: int | None, category: str, *,
          reserve_bytes: int = 0) -> dict:
