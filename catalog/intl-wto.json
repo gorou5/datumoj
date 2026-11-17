@@ -1,0 +1,18 @@
+{
+  "access_method": "other",
+  "auth_required": false,
+  "country_region": "INTL",
+  "id": "intl-wto",
+  "last_verified": "2026-11-16",
+  "license": {
+    "allows_redistribution": true,
+    "name": "ODbL 1.0 + WTO 网站版权页（非商业复制并署名 WTO）",
+    "requires_attribution": true,
+    "url": "https://www.wto.org/english/info_e/copyrights_permissions_e.htm"
+  },
+  "name": "WTO 商品贸易年度总额（6 个报告方的出口、进口，SITC3）",
+  "official_url": "https://stats.wto.org/",
+  "publisher": "Source: World Trade Organization, WTO Stats",
+  "rate_limit": "1 req/s",
+  "status": "experimental"
+}

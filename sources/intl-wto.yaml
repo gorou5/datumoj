@@ -1,0 +1,30 @@
+id: intl-wto
+name: WTO 商品贸易年度总额（6 个报告方的出口、进口，SITC3）
+country: intl
+kind: wto_bulk
+base_url: https://stats.wto.org/
+allowed_hosts: [stats.wto.org]
+rate_per_sec: 1
+max_total_bytes: 10485760
+max_files: 10
+schedule: weekly
+license:
+  name: ODbL 1.0 + WTO 网站版权页（非商业复制并署名 WTO）
+  url: https://www.wto.org/english/info_e/copyrights_permissions_e.htm
+  attribution: 'Source: World Trade Organization, WTO Stats (merchandise_values_annual_dataset), made available under the ODbL 1.0.'
+  usage_scope: redistributable
+  redistribution: allowed
+  outflow: raw_ok
+  cloud_model_ok: false
+  verified_at: 2026-11-16
+  notes: 数据门户标 ODbL 1.0；网站版权页允许非商业复制并署名 WTO。本项目按非商业使用定为 raw_ok（2026-11-16 负责人定），输出须带署名和 ODbL 通知（数据来自 WTO，按 ODbL 提供）。
+scope:
+  raw_retention_days: 2
+  path: assets/UserGuide/merchandise_values_annual_dataset.zip
+  indicators: [ITS_MTV_AX, ITS_MTV_AM]
+  partner: "000"
+  product: TO
+  reporters: ["840", "156", "276", "250", "392", "410"]
+  start_year: 2015
+  end_year: 2024
+retention_note: 每周条件请求（ETag / If-Modified-Since）一个约 2.1 MB 的批量 ZIP，没变就跳过；只取 stats.wto.org，不用 data.wto.org 的 API。口径是 SITC3 汇总，不与 Comtrade（HS）按名称合并。raw 最多 48 小时，NAS 存档确认后可提前删除（最新快照受保护）；观测值历史随代次保留。
