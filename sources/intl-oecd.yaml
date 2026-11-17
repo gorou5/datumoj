@@ -1,0 +1,40 @@
+id: intl-oecd
+name: OECD SDMX API
+country: intl
+kind: oecd_sdmx
+base_url: https://sdmx.oecd.org/public/rest/
+allowed_hosts: [sdmx.oecd.org]
+rate_per_sec: 0.016666666666666666
+max_total_bytes: 1073741824
+max_files: 1000
+schedule: weekly
+license:
+  name: OECD Terms and Conditions
+  url: https://www.oecd.org/en/about/terms-conditions.html
+  attribution: 'OECD (年份), 数据集标识（agency:dataflow(version)）, 数据集 URL, accessed on 访问日期（按 OECD 格式逐数据集署名；日本工资数据的原始来源是厚生劳动省）'
+  usage_scope: internal_only
+  redistribution: unverified
+  outflow: no_outflow
+  cloud_model_ok: false
+  verified_at: null
+scope:
+  raw_retention_days: 2
+  dataflows:
+    - id: DSD_NAMAIN10@DF_TABLE1_EXPENDITURE
+      agency: OECD.SDD.NAD
+      version: '2.0'
+      query: A.JPN+USA+DEU+FRA+GBR.S1.S1.B1GQ._Z._Z._Z.XDC+USD_EXC.V.N.T0102
+      startPeriod: '2000'
+      endPeriod: '2024'
+    - id: DSD_EAR@DF_HOU_EAR
+      agency: OECD.SDD.TPS
+      version: '1.0'
+      query: JPN.EAR.IX.N.C.S1.M
+      startPeriod: '2000-01'
+    - id: DSD_STES_REVISIONS@DF_STES_REVISIONS
+      agency: OECD.SDD.STES
+      version: '4.0'
+      query: JPN.M.H_EARN.IX.C
+      startPeriod: '2015-01'
+      editions: ['201812', '201901', '201902', '201903']
+retention_note: 每个 dataflow 先查 contentconstraint 的 validFrom，没变不拉数据；修订库每个 EDITION 单独取一次，已入库的不再取。每小时最多 60 次请求（含 contentconstraint），按 manifest 的请求时间跨运行计数。raw 最多 48 小时，NAS 存档确认后可提前删除（最新快照受保护）。

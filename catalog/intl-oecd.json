@@ -1,0 +1,18 @@
+{
+  "access_method": "other",
+  "auth_required": false,
+  "country_region": "INTL",
+  "id": "intl-oecd",
+  "last_verified": "unknown",
+  "license": {
+    "allows_redistribution": "unknown",
+    "name": "OECD Terms and Conditions",
+    "requires_attribution": true,
+    "url": "https://www.oecd.org/en/about/terms-conditions.html"
+  },
+  "name": "OECD SDMX API",
+  "official_url": "https://sdmx.oecd.org/public/rest/",
+  "publisher": "OECD",
+  "rate_limit": "0.016666666666666666 req/s",
+  "status": "experimental"
+}
