@@ -1,0 +1,34 @@
+id: intl-imf-weo
+name: IMF World Economic Outlook（名义 GDP、希腊一般政府净借贷，当前版与历史版）
+country: intl
+kind: imf_sdmx
+base_url: https://api.imf.org/external/sdmx/2.1/
+allowed_hosts: [api.imf.org]
+rate_per_sec: 1
+max_total_bytes: 1073741824
+max_files: 10000
+schedule: weekly
+license:
+  name: IMF Copyright and Usage
+  url: https://www.imf.org/en/About/copyright-and-terms
+  attribution: 'International Monetary Fund. World Economic Outlook (WEO), https://data.imf.org/en/datasets/IMF.RES:WEO. Accessed on [current date].'
+  usage_scope: redistributable
+  redistribution: allowed
+  outflow: raw_ok
+  cloud_model_ok: false
+  verified_at: 2026-11-10
+  notes: 署名后可复制、派生、再分发，不得改动数值，实质变换须注明；[current date] 填抓取日期。商业再利用须先向 copyright@imf.org 申请许可；自动化批量下载须明确许可，只按试点范围取少量序列；未经许可不得用于训练大语言模型。输出包须附 IMF 使用条件。依据定稿 4.1（2026-11-16 负责人定，输出不算商业用途）。
+scope:
+  raw_retention_days: 2
+  dataflows: [WEO, WEO_2026_APR_VINTAGE, WEO_2025_OCT_VINTAGE]
+  series:
+    - query: JPN+USA+DEU+FRA+GBR.NGDPD.A
+      startPeriod: "2000"
+      endPeriod: "2024"
+    - query: JPN+USA+DEU+FRA+GBR.NGDP.A
+      startPeriod: "2000"
+      endPeriod: "2024"
+    - query: GRC.GGXCNL_NGDP.A
+      startPeriod: "2000"
+      endPeriod: "2015"
+retention_note: 每个 WEO 版本是一个来源发布（release_id 为 WEO-<YYYY>-<APR|OCT>），历次发布和观测值历史随代次保留，用于修订对比。raw 最多 48 小时，NAS 存档确认后可提前删除（最新快照受保护）。
