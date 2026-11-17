@@ -936,6 +936,58 @@ class StateManager:
                 manifest.mark_raw_optional(sha, now)
             return len(set(candidates) - before.keys())
 
+    def publish_marked_manifest(self, now: datetime) -> tuple[StateGeneration, int]:
+        """Publish the local manifest as a new generation, reusing every other store unchanged.
+
+        Only manifest.sqlite blocks that are not already present, the generation
+        descriptor and the current pointer are written; no raw, database or index
+        copy is rebuilt or uploaded. Returns the generation and uploaded copy bytes.
+        Callers hold the lease; an uploaded descriptor left by a failed pointer CAS is
+        an ordinary orphan for the existing continuation.
+        """
+        self._check_write()
+        number, etag = self._current()
+        if not number:
+            raise StateError("没有可沿用的当前代次")
+        current = self._generation(number)
+        if self._get(f"generations/{number + 1}.json") is not None:
+            raise StateError("存在未发布的代次，拒绝只标记发布")
+
+        def is_manifest(copy):
+            return copy.name == "manifest.sqlite" or copy.name.startswith("manifest.sqlite.blocks/")
+
+        index = next((i for i, copy in enumerate(current.stores) if is_manifest(copy)), None)
+        if index is None:
+            raise StateError("当前代次缺少 manifest 副本")
+        with self._temporary_stage(prefix="datumoj-mark-") as stage:
+            with _frozen(self.data_dir), _ro(self.data_dir / "manifest.sqlite") as db, closing(
+                sqlite3.connect(stage / "manifest.sqlite")
+            ) as destination:
+                db.backup(destination)
+            fresh = _sqlite_copies(stage / "manifest.sqlite")
+            for copy in fresh:
+                _validate_copy(copy)
+            copies = set(self.store.list("copies/sha256/"))
+            uploaded = 0
+            for copy in fresh:
+                if copy.format == _SQLITE_BLOCK and copy.key not in copies:
+                    self._upload(copy.key, _copy_data(stage, copy), copies)
+                    uploaded += copy.size_bytes
+            present = {obj.key: obj.size_bytes for obj in self.store.list_objects("copies/sha256/")}
+            if any(copy.format == _SQLITE_BLOCK and present.get(copy.key) != copy.size_bytes for copy in fresh):
+                raise StateError("上传后 manifest 副本缺失或大小不符")
+        stores = [*current.stores[:index], *fresh,
+                  *(copy for copy in current.stores[index:] if not is_manifest(copy))]
+        candidate = StateGeneration(
+            generation=number + 1, previous_generation=number, created_at=max(datetime.now(UTC), now),
+            writer=self.writer, stores=stores, raw_prefix=current.raw_prefix,
+            vector_coverage=current.vector_coverage, last_successful_runs=current.last_successful_runs,
+        )
+        self._check_write()
+        self.store.put_if_absent(f"generations/{number + 1}.json", candidate.model_dump_json().encode())
+        self._publish(candidate, etag)
+        return candidate, uploaded
+
     def cleanup(self, specs: list[SourceSpec], *, now: datetime, check: Callable[[], None],
                 enabled: bool = True, raw_enabled: bool = False, marked: int = 0,
                 orphan_raw_enabled: bool = False,
