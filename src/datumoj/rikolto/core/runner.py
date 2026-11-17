@@ -195,7 +195,7 @@ def run_crawl(
                 continue
             seen.add(url)
             if dry_run:
-                report.planned.append(FetchTask(url=url, meta=task.meta))
+                report.planned.append(FetchTask(url=url, meta=task.meta, headers=task.headers))
                 if len(report.planned) >= spec.max_files:
                     report.stop_reason = f"因上限停止：max_files={spec.max_files}"
                     break
@@ -214,11 +214,23 @@ def run_crawl(
                 report.stop_reason = "deadline"
                 break
             last_fetch = deps.clock()
+            # 只有任务带头或来源声明了 key_header 才传新参数；旧的 fetcher 实现不受影响。
+            extra: dict[str, object] = {}
+            if task.headers:
+                extra["headers"] = task.headers
+            if spec.key_header is not None:
+                extra.update(key_header=spec.key_header, key_env=spec.needs_key.removeprefix("env:"))
             try:
-                result = deps.fetcher.fetch(
-                    task.url, etag=prev and prev.etag, last_modified=prev and prev.last_modified,
-                    size=prev and prev.size, head_probe=head_probe,
-                )
+                if spec.key_header is not None and spec.key_header.lower() in {n.lower() for n in task.headers}:
+                    result = FetchResult(
+                        url=url, outcome=FetchOutcome.network_error, fetched_at=deps.now(),
+                        error=f"任务请求头与 key_header 同名：{spec.key_header}",
+                    )
+                else:
+                    result = deps.fetcher.fetch(
+                        task.url, etag=prev and prev.etag, last_modified=prev and prev.last_modified,
+                        size=prev and prev.size, head_probe=head_probe, **extra,
+                    )
             except UrlNotAllowed as exc:
                 result = FetchResult(
                     url=url, outcome=FetchOutcome.network_error, fetched_at=deps.now(), error=safe_reason(exc),

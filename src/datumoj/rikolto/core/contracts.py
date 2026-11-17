@@ -181,6 +181,23 @@ def _sha_hex(data: bytes) -> str:
     return _sha256(data).hexdigest()
 
 
+FORBIDDEN_REQUEST_HEADERS = frozenset({
+    "host", "user-agent", "if-none-match", "if-modified-since", "accept-encoding", "authorization", "cookie",
+})
+"""执行器自己管理或属于凭据的请求头（小写）；任务和 key_header 都不许用。"""
+_HEADER_NAME = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
+
+
+def check_request_header(name: str, value: str | None = None) -> None:
+    """请求头名（和值）不合法或不许设置时抛 ValueError；消息不含值。"""
+    if not _HEADER_NAME.fullmatch(name):
+        raise ValueError(f"请求头名不合法：{name!r}")
+    if name.lower() in FORBIDDEN_REQUEST_HEADERS:
+        raise ValueError(f"不许设置请求头：{name}")
+    if value is not None and any(ch in value for ch in "\r\n\0"):
+        raise ValueError(f"请求头 {name} 的值不能含换行")
+
+
 def normalize_media_type(content_type: str | None) -> str | None:
     """``"Application/JSON; charset=UTF-8"`` → ``"application/json"``；空值 → None。"""
     if content_type is None:
@@ -212,7 +229,17 @@ class SourceSpec(_Model):
     license: LicenseInfo = Field(default_factory=LicenseInfo)
     scope: Annotated[dict[str, JsonValue], Field(min_length=1)]
     needs_key: EnvRef | None = None
+    key_header: str | None = None
+    """key 放在哪个请求头里；值在发请求那一刻从 needs_key 指的环境变量取，不进 manifest 和日志。"""
     retention_note: str | None = None
+
+    @model_validator(mode="after")
+    def _key_header(self) -> SourceSpec:
+        if self.key_header is not None:
+            if self.needs_key is None:
+                raise ValueError("key_header 需要同时设置 needs_key")
+            check_request_header(self.key_header)
+        return self
 
     @model_validator(mode="after")
     def _raw_retention(self) -> SourceSpec:
@@ -544,8 +571,14 @@ class HttpFetcher(Protocol):
     def fetch(
         self, url: str, etag: str | None = None, last_modified: str | None = None,
         *, size: int | None = None, head_probe: bool = False,
+        headers: Mapping[str, str] | None = None, key_header: str | None = None, key_env: str | None = None,
     ) -> FetchResult:
         """抓一个 URL（url 可以带 Key；结果和错误信息里的 URL 一律去 Key）。
+
+        headers 是 ``FetchTask.headers``（非敏感，每次请求、重试、跳转都带）。key_header、key_env 同时给出时，
+        每次发请求那一刻从环境变量 key_env 取值放进 key_header 头（只发给 allowed_hosts 内的主机，不发 robots.txt）；
+        变量没设或为空时不发请求，返回 network_error，error 为“缺少 key（变量名）”。
+        runner 只在 task.headers 非空或来源有 key_header 时才传这几个参数，旧实现不受影响。
 
         - 200 → ok；带 etag/last_modified 做条件请求，304 → not_modified；
         - head_probe=True 且 last_modified、size 都非 None 时先发 HEAD；仅 2xx 且
@@ -573,11 +606,16 @@ class FetchTask(_Model):
     并随快照写进 manifest（``Manifest.record_snapshot(..., meta)``），解析器由此拿到。
     父快照用 models.META_PARENT_URL / META_PARENT_SHA256；URL 必须先去 Key，
     解析器把这两个键原样放入 Document.metadata（校验用 models.parent_ref）。"""
+    headers: dict[str, str] = Field(default_factory=dict)
+    """只放非敏感的请求头（如 SDMX 的 Accept）；不许覆盖 Host、User-Agent、条件请求头、Accept-Encoding、
+    Authorization、Cookie。key 不放这里：由来源的 key_header 声明，执行器发请求时才取值。"""
 
     @model_validator(mode="after")
     def _http_url(self) -> FetchTask:
         if not self.url.lower().startswith(("http://", "https://")):
             raise ValueError(f"只接受 http(s) URL：{redact_url(self.url)!r}")
+        for name, value in self.headers.items():
+            check_request_header(name, value)
         return self
 
     @property
