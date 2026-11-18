@@ -152,6 +152,10 @@ def test_old_versions_and_expired_bulletins_go_only_when_due(world):
 
 
 def test_index_and_vectors_never_return_deleted_documents(world):
+    # Before: the old version's own vector (row=2) and the shared one (row=1) are both findable.
+    first = LanceVectorIndex(world.root / "vectors", FakeEmbedder())
+    present = {item.chunk_id for item in first.search("bulletin", k=100).items}
+    assert {"jp-test:stale#row=1", "jp-test:stale#row=2"} <= present
     world.run(execute=True)
     with closing(SqliteKeywordIndex(world.root / "keyword.sqlite")) as keyword:
         hits = {item.doc_key for item in keyword.search("expired-only bulletin", k=100).items}
@@ -176,6 +180,20 @@ def test_planned_old_version_counts_match_db_usage_estimate(world):
                                       now=NOW)["estimates"]["A"]
     planned = db_retention.run(world.root, NOW, [SPECS[0]], observations=set())["superseded"]["sources"]["jp-test"]
     assert estimate == {"documents": planned["versions"], "chunks": planned["chunks"], "bytes": planned["bytes"]}
+
+
+def test_index_expiry_compares_whole_elapsed_hours_and_survives_huge_settings(tmp_path):
+    w = World(tmp_path / "edge")
+    w.version("jp-jma", "exact", "only", ago(48))  # fetched exactly 48 h ago: due
+    w.version("jp-jma", "short", "only", ago(48) + timedelta(seconds=1))  # one second short: not yet
+    w.close()
+    huge = [SPECS[0], make_spec("jp-jma", scope={"urls": ["https://example.go.jp/a.txt"],
+                                                 "index_retention_hours": 24_000_000_000})]
+    report = db_retention.run(w.root, NOW, huge, observations=set())  # no OverflowError
+    assert report["index_expired"] == {"sources": {}, "unknown_index_age": 0}
+    due = db_retention.run(w.root, NOW, SPECS, execute=True, observations=set())
+    assert due["index_expired"]["sources"]["jp-jma"]["documents"] == 1
+    assert w.rows("documents", "doc_key") == {"jp-jma:short"}
 
 
 def test_disabled_index_retention_deletes_no_bulletin(world):

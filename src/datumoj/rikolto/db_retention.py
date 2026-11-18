@@ -103,7 +103,7 @@ def _plan_versions(cdb, mdb, now: datetime, index_hours: Mapping[str, int], held
         if hours is not None and current is not None:
             if current_stamp is None or current_stamp > now:
                 counts["unknown_index_age"] += 1
-            elif now - current_stamp >= timedelta(hours=hours):
+            elif (now - current_stamp) // timedelta(hours=1) >= hours:  # whole hours: no timedelta from config
                 if any(row[1] in held for row in versions):
                     counts["held"] += 1
                 else:
@@ -184,14 +184,29 @@ def _plan_manifest(mdb, now: datetime, specs: Sequence[SourceSpec], keep_shas: s
             "kept": len(rows) - len(drop)}
 
 
-def _apply_manifest(path: Path, plan: dict) -> dict:
-    result = {"parsed_deleted": 0, "parse_writers_deleted": 0, "raw_markers_deleted": 0,
-              "publish_states_deleted": 0}
+def _trim_parse_records(path: Path, plan: dict) -> None:
+    """Parse records stop naming documents that are about to go. Needs no snapshot rows, so it can run first."""
+    if not plan["trims"]:
+        return
     with closing(_open(path, write=True)) as db:
         db.execute("BEGIN IMMEDIATE")
         try:
             db.executemany("UPDATE parsed SET doc_keys=? WHERE sha256=? AND parser=? AND version=? "
                            "AND context_fingerprint=?", plan["trims"])
+            db.execute("COMMIT")
+        except BaseException:
+            db.execute("ROLLBACK")
+            raise
+
+
+def _apply_manifest(path: Path, plan: dict) -> dict:
+    """Drop snapshot rows and what hangs off them. Run only after the documents are deleted: the
+    snapshot rows are the age basis that decides which versions go."""
+    result = {"parsed_deleted": 0, "parse_writers_deleted": 0, "raw_markers_deleted": 0,
+              "publish_states_deleted": 0}
+    with closing(_open(path, write=True)) as db:
+        db.execute("BEGIN IMMEDIATE")
+        try:
             for batch in _batches(plan["drop"]):
                 marks = ",".join("?" * len(batch))
                 result["publish_states_deleted"] += db.execute(
@@ -207,6 +222,33 @@ def _apply_manifest(path: Path, plan: dict) -> dict:
             db.execute("ROLLBACK")
             raise
     return result
+
+
+def _drain_pending(root: Path) -> int:
+    """Delete the keyword entries and vectors recorded by ``delete_versions``; returns vectors removed.
+
+    The record is cleared only after both deletions succeeded; a failure leaves it for the next round.
+    Nothing is opened for writing when no record exists.
+    """
+    path = root / "chunks.sqlite"
+    if not path.is_file():
+        return 0
+    with closing(_open(path, write=False)) as db:
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='retention_pending'").fetchone():
+            return 0
+    with closing(SqliteChunkStore(path)) as store:
+        keys, ids = store.pending_cleanup()
+        if keys and (root / "keyword.sqlite").is_file():
+            from datumoj.rikolto.index.fts import SqliteKeywordIndex
+
+            with closing(SqliteKeywordIndex(root / "keyword.sqlite")) as keyword:
+                for doc_key in keys:
+                    keyword.delete(doc_key)
+        deleted = delete_vectors(root / "vectors", ids)
+        store.clear_pending(keys, ids)
+    if deleted:
+        maintain_vectors(root / "vectors", timedelta(hours=1))
+    return deleted
 
 
 def _page_stats(db) -> tuple[int, int, int]:
@@ -296,20 +338,20 @@ def run(root: str | Path, now: datetime, specs: Sequence[SourceSpec], *, execute
                           "hashes_released": len(manifest["gone"]), "parse_records_trimmed": len(manifest["trims"])}
     report["vectors"] = {"deleted": 0}
     if execute:
-        # Manifest first: a failure after it leaves orphan documents (retried next round),
-        # never a snapshot whose parse record still claims documents that are gone.
-        report["manifest"].update(_apply_manifest(root / "manifest.sqlite", manifest))
+        # Each step commits on its own, so each is ordered to be safe to repeat after a failure:
+        # 1. keyword / vector leftovers of an earlier round (recorded by delete_versions);
+        # 2. parse records stop naming the documents to go (never a record claiming documents that are
+        #    gone); a failure after it leaves orphan documents, retried next round;
+        # 3. documents and chunks, with the keyword keys and vector ids recorded in the same transaction;
+        # 4. only then the snapshot rows, which are the age basis of step 3;
+        # 5. keyword index and vectors, clearing the record once both are done.
+        report["vectors"]["deleted"] += _drain_pending(root)
+        _trim_parse_records(root / "manifest.sqlite", manifest)
         if versions["delete"]:
             with closing(SqliteChunkStore(root / "chunks.sqlite")) as store:
-                ids = store.delete_versions(versions["delete"], versions["expired_keys"])
-            if (root / "keyword.sqlite").is_file():
-                from datumoj.rikolto.index.fts import SqliteKeywordIndex
-
-                with closing(SqliteKeywordIndex(root / "keyword.sqlite")) as keyword:
-                    for doc_key in versions["expired_keys"]:
-                        keyword.delete(doc_key)
-            report["vectors"]["deleted"] = delete_vectors(root / "vectors", ids)
-            if report["vectors"]["deleted"]:
-                maintain_vectors(root / "vectors", timedelta(hours=1))
+                store.delete_versions(versions["delete"], versions["expired_keys"])
+        report["manifest"].update(_apply_manifest(root / "manifest.sqlite", manifest))
+        if versions["delete"]:
+            report["vectors"]["deleted"] += _drain_pending(root)
     report["vacuum"] = _maintain_files(root, execute=execute, gate=gate, pages=pages)
     return report

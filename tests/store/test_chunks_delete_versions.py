@@ -1,9 +1,15 @@
+import sqlite3
 from contextlib import closing
 
 import pytest
 
 from datumoj.rikolto.store.chunks import SqliteChunkStore
 from datumoj.rikolto.testing.samples import make_chunk, make_document, sha
+
+
+def has_pending_table(path):
+    with closing(sqlite3.connect(path)) as db:
+        return db.execute("SELECT 1 FROM sqlite_master WHERE name='retention_pending'").fetchone() is not None
 
 
 def put(store, key, label, locators, *, publish):
@@ -29,6 +35,57 @@ def test_expired_keys_lose_current_and_order_rows(tmp_path):
         assert store.delete_versions([("jp-test:b", digest)], ["jp-test:b"]) == ["jp-test:b#row=1"]
         assert store.get_document("jp-test:b") is None and store.current_order("jp-test:b") is None
         assert list(store.iter_chunks()) == []
+
+
+def test_current_version_outside_expired_keys_is_refused_without_deleting_anything(tmp_path):
+    with closing(SqliteChunkStore(tmp_path / "c.sqlite")) as store:
+        old = put(store, "jp-test:d", "old", ("row=1", "row=2"), publish=False)
+        new = put(store, "jp-test:d", "new", ("row=3",), publish=True)
+        with pytest.raises(ValueError, match="current_version_not_expired"):
+            store.delete_versions([("jp-test:d", old), ("jp-test:d", new)])  # the old one first: still untouched
+        assert store.get_document("jp-test:d", old) is not None and store.get_document("jp-test:d") is not None
+        assert [c.chunk_id for c in store.chunks_for("jp-test:d", old)] == ["jp-test:d#row=1", "jp-test:d#row=2"]
+        assert store.pending_cleanup() == ([], [])
+        # Naming the key as expired makes deleting its current version legitimate.
+        assert store.delete_versions([("jp-test:d", old), ("jp-test:d", new)], ["jp-test:d"]) == [
+            "jp-test:d#row=1", "jp-test:d#row=2", "jp-test:d#row=3"]
+
+
+def test_pending_cleanup_survives_reopening_and_is_cleared_only_on_request(tmp_path):
+    path = tmp_path / "c.sqlite"
+    with closing(SqliteChunkStore(path)) as store:
+        old = put(store, "jp-test:e", "old", ("row=1", "row=2"), publish=False)
+        put(store, "jp-test:e", "new", ("row=1",), publish=True)
+        put(store, "jp-test:f", "only", ("row=1",), publish=True)
+        assert store.pending_cleanup() == ([], [])  # no table yet, and reading does not create one
+        assert store.delete_versions([("jp-test:e", old), ("jp-test:f", sha(b"only"))], ["jp-test:f"]) == [
+            "jp-test:e#row=2", "jp-test:f#row=1"]
+    with closing(SqliteChunkStore(path)) as store:  # a later round
+        assert store.pending_cleanup() == (["jp-test:f"], ["jp-test:e#row=2", "jp-test:f#row=1"])
+        store.clear_pending(["jp-test:f"], ["jp-test:e#row=2"])
+        assert store.pending_cleanup() == ([], ["jp-test:f#row=1"])
+        assert has_pending_table(path)
+        store.clear_pending(chunk_ids=["jp-test:f#row=1"])
+        assert not has_pending_table(path)  # empty again: the table goes, as db_usage knows no such table
+
+
+def test_pending_entries_that_are_current_again_are_dropped_not_returned(tmp_path):
+    path = tmp_path / "c.sqlite"
+    with closing(SqliteChunkStore(path)) as store:
+        digest = put(store, "jp-test:g", "only", ("row=1",), publish=True)
+        store.delete_versions([("jp-test:g", digest)], ["jp-test:g"])
+        assert has_pending_table(path)
+        put(store, "jp-test:g", "again", ("row=1",), publish=True)  # re-published under the same ids
+        assert store.pending_cleanup() == ([], [])
+        assert not has_pending_table(path)
+        store.clear_pending(["jp-test:g"], ["jp-test:g#row=1"])  # clearing what is gone is harmless
+
+
+def test_pending_table_is_created_by_deleting_not_by_opening(tmp_path):
+    path = tmp_path / "c.sqlite"
+    with closing(SqliteChunkStore(path)) as store:
+        put(store, "jp-test:h", "x", ("row=1",), publish=True)
+    assert not has_pending_table(path)
 
 
 def test_read_only_view_cannot_delete(tmp_path):

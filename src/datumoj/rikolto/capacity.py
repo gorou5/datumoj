@@ -197,7 +197,7 @@ def parse_capacity_rows(data: bytes) -> list[dict]:
     for line in data.split(b"\n"):
         try:
             row = json.loads(line.decode("utf-8"))
-        except ValueError:  # includes UnicodeDecodeError and JSONDecodeError
+        except (ValueError, RecursionError):  # includes UnicodeDecodeError, JSONDecodeError and too-deep nesting
             continue
         if _valid_row(row):
             rows.append(row)

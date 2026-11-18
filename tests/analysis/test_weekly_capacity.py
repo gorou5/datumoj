@@ -80,9 +80,9 @@ def test_zero_or_negative_growth_never_hits(tmp_path, last):
 
 def test_already_over_freeze_line(tmp_path):
     text = section(tmp_path, [row(0, 8 * GB), row(5, 8_600_000_000)])
-    assert "已超过冻结线" in text and "距 8.5 GB（冻结线）：已超出 0.10 GB" in text
+    assert "已达到或超过冻结线" in text and "距 8.5 GB（冻结线）：已超出 0.10 GB" in text
     # Over the line wins even when the trend is falling.
-    assert "已超过冻结线" in section(tmp_path, [row(0, 9 * GB), row(5, 8_700_000_000)])
+    assert "已达到或超过冻结线" in section(tmp_path, [row(0, 9 * GB), row(5, 8_700_000_000)])
 
 
 def test_fewer_than_two_rows_in_window(tmp_path):
@@ -127,6 +127,24 @@ def test_section_is_before_eltiro_and_free_of_identifiers(tmp_path):
     write(tmp_path, three_rows())
     deps = _deps(tmp_path)
     plain = weekly_report(deps, date(2026, 11, 9), date(2026, 11, 15), ())
-    with_eltiro = weekly_report(deps, date(2026, 11, 9), date(2026, 11, 15), (), None)
+    # An overview that really renders the Eltiro section (not the "no data directory" notice).
+    overview = {"schema": "eltiro.overview/v1", "errors": [],
+                "demands": [{"demand_id": "example-demand", "demand_version": 1, "consumer": "example-consumer"}]}
+    with_eltiro = weekly_report(deps, date(2026, 11, 9), date(2026, 11, 15), (), overview)
     assert with_eltiro.startswith(plain) and "## 容量" in plain
+    assert "## Eltiro" in with_eltiro and "## 容量" in with_eltiro
+    assert with_eltiro.index("## 容量") < with_eltiro.index("## Eltiro")
+    assert "### 在用需求（1）" in with_eltiro.split("## Eltiro", 1)[1]
     assert "bucket" not in plain.lower() and "endpoint" not in plain.lower()
+
+
+def test_headroom_wording_distinguishes_reached_short_and_over(tmp_path):
+    reached = section(tmp_path, [row(0, 8 * GB), row(5, 8_500_000_000)])
+    assert reached.split("距 8.5 GB（冻结线）：")[1].split("\n")[0] == "已达到"
+    assert "已达到或超过冻结线" in reached  # the prediction state includes equality
+
+
+def test_too_deeply_nested_line_is_skipped_and_later_rows_are_read():
+    deep = b"[" * 100_000 + b"]" * 100_000
+    data = b"\n".join([json.dumps(row(0, GB)).encode(), deep, json.dumps(row(5, 2 * GB)).encode()])
+    assert len(parse_capacity_rows(data)) == 2

@@ -93,7 +93,8 @@ def test_round_appends_one_row_under_the_lease_before_publication(world):
     assert result["status"] == "completed"
     held, content = world.seen["at_push"]
     assert held is True and content is not None  # Written inside the lease, before push.
-    [row] = rows(world)
+    # The file as it was when push ran, not the one left after the round.
+    [row] = [json.loads(line) for line in content.splitlines()]
     assert row == {"recorded_at": NOW.isoformat(), "total_bytes": 201, "raw_bytes_by_source": {},
                    "db_store_bytes": 0}
     assert not any(key.startswith("capacity") for key in (o.key for o in world.store.list_objects("")))
