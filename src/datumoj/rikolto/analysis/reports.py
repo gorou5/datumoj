@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+import math
 import re
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime, time, timedelta
+from fractions import Fraction
 from typing import Any
 
 from datumoj.eltiro.overview import ALERT_LABELS as _ELTIRO_ALERT_LABELS
 from datumoj.eltiro.overview import GAP_LABELS as _ELTIRO_GAP_LABELS
 from datumoj.eltiro.overview import PART_LABELS as _ELTIRO_PARTS
+from datumoj.rikolto.capacity import (
+    REASON_UNAVAILABLE,
+    read_capacity_rows,
+    summarize_capacity,
+)
 from datumoj.rikolto.core.citations import document_snapshot
 from datumoj.rikolto.core.contracts import AmbiguousCitation, citation_for_chunk
 from datumoj.rikolto.core.models import (
@@ -301,6 +308,53 @@ def _eltiro_lines(overview: Mapping[str, Any] | None, start: datetime, end: date
     return [*lines, ""]
 
 
+def _num(value: Fraction | int, places: int, *, signed: bool = False) -> str:
+    """Round half away from zero to ``places`` decimals; "+" only when ``signed`` and positive."""
+    scaled = Fraction(value) * 10**places
+    n = math.floor(abs(scaled) + Fraction(1, 2))
+    sign = "-" if scaled < 0 and n else "+" if signed and n else ""
+    return f"{sign}{n // 10**places}.{n % 10**places:0{places}d}"
+
+
+def _capacity_lines(deps: Any, start: datetime, end: datetime) -> list[str]:
+    """The "容量" section, from capacity.jsonl alone (no bucket names, keys or endpoints)."""
+    try:
+        summary = summarize_capacity(read_capacity_rows(deps.data_dir), start, end)
+    except OSError:
+        summary = {"status": "unavailable", "reason": REASON_UNAVAILABLE}
+    lines = ["## 容量", ""]
+    if summary["status"] == "unavailable":
+        return [*lines, f"容量数据取不到（原因码：{summary['reason']}）。"]
+    if summary["status"] == "insufficient":
+        return [*lines, (f"容量数据不足（原因码：{summary['reason']}）：统计区间内有 {summary['rows']} 行摘要，"
+                         "至少需要 2 行。")]
+    days = summary["covered_days"]
+    lines.append(f"摘要覆盖 {_num(days, 1)} 天（{summary['rows']} 行）"
+                 + ("，不足 7 天，增长与预测仅供参考。" if days < 7 else "。"))
+    total = _num(Fraction(summary["total_bytes"], 10**9), 2)
+    grown = _num(Fraction(summary["growth_bytes"], 10**9), 2, signed=True)
+    lines.extend(["", f"- 当前总量：{total} GB；区间增长 {grown} GB"])
+    for label, key in (("7 GB", "7"), ("8.5 GB（冻结线）", "8.5"), ("9 GB（停止线）", "9")):
+        room = summary["headroom_bytes"][key]
+        lines.append(f"- 距 {label}：" + (f"还差 {_num(Fraction(room, 10**9), 2)} GB" if room > 0
+                                         else f"已超出 {_num(Fraction(-room, 10**9), 2)} GB"))
+    prediction = summary["prediction"]
+    lines.append("- 碰线预测：" + {
+        "already_over": "已超过冻结线",
+        "never": "按当前增速不会碰线",
+    }.get(prediction["kind"], f"按区间内增速线性外推，约 {prediction.get('days')} 天后碰到 8.5 GB 冻结线"))
+    lines.append(f"- 数据库存储副本合计：{_num(Fraction(summary['db_bytes'], 10**6), 2)} MB；"
+                 f"区间增长 {_num(Fraction(summary['db_growth'], 10**6), 2, signed=True)} MB")
+    lines.extend(["", "| 来源（raw） | 字节数（MB） | 区间增长（MB） |", "| --- | ---: | ---: |"])
+    rows = [(_plain(item["source"]), item["bytes"], item["growth"]) for item in summary["sources"]]
+    if summary["other"]:
+        other = summary["other"]
+        rows.append((f"其他（{other['count']} 个来源）", other["bytes"], other["growth"]))
+    lines.extend(f"| {name} | {_num(Fraction(size, 10**6), 2)} | {_num(Fraction(growth, 10**6), 2, signed=True)} |"
+                 for name, size, growth in rows)
+    return lines
+
+
 def weekly_report(
     deps: Any,
     since: date | datetime | None = None,
@@ -384,6 +438,9 @@ def weekly_report(
             lines.append(f"- {_plain(source_name)}：retention_gap；{_plain(alert.message)}")
     else:
         lines.append("无 retention_gap 提醒。")
+    if getattr(deps, "data_dir", None) is not None:
+        lines.append("")
+        lines.extend(_capacity_lines(deps, start, end))
     if eltiro is not False:
         lines.append("")
         lines.extend(_eltiro_lines(eltiro, start, end))

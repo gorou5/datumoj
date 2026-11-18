@@ -73,7 +73,7 @@ _SQLITE = {
                            "catalog_fts": "title,description,tags"}),
     "changes.sqlite": (None, {"changes": "event_id,event_json,detected_at"}),
 }
-_SMALL = {"runs.jsonl", "control.json", "vectors-state.json"}
+_SMALL = {"runs.jsonl", "control.json", "vectors-state.json", "capacity.jsonl"}
 _EMPTY_DUCK = b'{"format":"duckdb-empty-v1"}\n'
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _RAW_KEY = re.compile(r"raw/([0-9a-f]{2})/\1[0-9a-f]{62}\Z")

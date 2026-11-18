@@ -25,6 +25,8 @@ from datumoj.rikolto.capacity import (
     LIMITS,
     MARK_ONLY_WRITES,
     WEEKLY_REPORT_RESERVE,
+    append_capacity_row,
+    capacity_row,
     gate,
     mark_only_estimate,
 )
@@ -474,6 +476,13 @@ def _weekly_report_bytes(content: str) -> bytes:
     if len(data) <= WEEKLY_REPORT_RESERVE:
         return data
     lines = content.splitlines(keepends=True)
+    # The small capacity section is always kept: set it aside, then put it before the notice.
+    start = next((i for i, line in enumerate(lines) if line == "## 容量\n"), None)
+    section = []
+    if start is not None:
+        stop = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
+        section, lines = lines[start:stop], lines[:start] + lines[stop:]
+    tail = ("\n" + "".join(section).rstrip("\n") + "\n").encode() if section else b""
     # weekly_report renders each event on one line, with an optional title.
     events = [line.startswith(("- 摘要：", "- 标题：")) for line in lines]
     omitted = sum(events)
@@ -481,7 +490,7 @@ def _weekly_report_bytes(content: str) -> bytes:
     def notice(count):
         return f"\n\n报告超过 1 MB，后续内容已省略；省略 {count} 条事件。\n".encode()
 
-    budget = WEEKLY_REPORT_RESERVE - len(notice(omitted))
+    budget = WEEKLY_REPORT_RESERVE - len(notice(omitted)) - len(tail)
     kept = bytearray()
     for line, event in zip(lines, events, strict=True):
         encoded = line.encode("utf-8")
@@ -489,7 +498,7 @@ def _weekly_report_bytes(content: str) -> bytes:
             break
         kept.extend(encoded)
         omitted -= event
-    return bytes(kept) + notice(omitted)
+    return bytes(kept) + tail + notice(omitted)
 
 
 def publish_previous_week_report(store, deps, now: datetime, generation=None) -> str:
@@ -566,12 +575,34 @@ def _empty_work_root(work_dir, stack):
     return root
 
 
+_last_listing = None  # The latest successful listing, reused for the capacity summary row.
+
+
 def _project_storage_bytes(store):
+    global _last_listing
     scoped, other = _usage_objects(store)
     sizes = [obj.size_bytes for obj in (*scoped, *other)]
     if any(type(size) is not int or size < 0 for size in sizes):
         raise ValueError("invalid_capacity_size")
+    _last_listing = (scoped, other)
     return sum(sizes)
+
+
+def _forget_listing():
+    global _last_listing
+    _last_listing = None
+
+
+def _capacity_row(history, root, now):
+    """The round's summary row from its one listing; None when the inventory is unusable."""
+    listing = _last_listing
+    if listing is None:
+        return None
+    try:
+        copies = history[0].stores if history else []
+        return capacity_row(listing, copies, Path(root) / "manifest.sqlite", now)
+    except Exception:  # noqa: BLE001 -- A failed inventory skips this row; the round continues.
+        return None
 
 
 def _round_capacity(manager, *, embed_only=False, weekly_report=False):
@@ -1164,8 +1195,10 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         result.update(reason="storage_conditional_unsupported", phase=phase)
                         return result
                 phase = "capacity"
+                _forget_listing()
                 capacity = result["capacity"] = _round_capacity(manager, embed_only=embed_only)
                 _report_capacity(capacity)
+                summary_row = _capacity_row(history, root, utcnow())
                 orphan = manager.store.get(f"generations/{number + 1}.json") is not None
                 stopped = capacity["reason"] == "capacity_stop"
                 # Finish only an immutable uploaded orphan before stop cleanup.
@@ -1346,6 +1379,10 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         marking_failed = 1
                     phase = "publish"
                     check()
+                    if summary_row is not None:
+                        # Under the lease, before publication; a failure never stops the round.
+                        with suppress(Exception):
+                            append_capacity_row(root, summary_row)
                     _progress("publish_start", started, result)
                     publish_started = time.monotonic()
                     try:
