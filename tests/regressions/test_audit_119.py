@@ -129,7 +129,7 @@ def test_discovery_factory_and_repository_paths(tmp_path, monkeypatch):
         for copy in generation.stores:
             assert copy.key == f"copies/sha256/{copy.sha256}"
             assert copy.format in {"sqlite-block-v1", "sqlite-blocks-v1", "duckdb-empty"}
-        assert state._SMALL == {"runs.jsonl", "control.json", "vectors-state.json"}
+        assert state._SMALL == {"runs.jsonl", "control.json", "vectors-state.json", "capacity.jsonl"}
         assert state._VECTOR_STATE == "vectors/vectors-state.json"
     finally:
         for name in ("manifest", "chunks", "keyword", "catalog", "change_log"):
