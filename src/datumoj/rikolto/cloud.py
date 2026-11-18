@@ -575,29 +575,24 @@ def _empty_work_root(work_dir, stack):
     return root
 
 
-_last_listing = None  # The latest successful listing, reused for the capacity summary row.
-
-
-def _project_storage_bytes(store):
-    global _last_listing
+def _measure_storage(store):
+    """``(total bytes, (scoped, other))`` from one listing, so the capacity summary row needs no second one."""
     scoped, other = _usage_objects(store)
     sizes = [obj.size_bytes for obj in (*scoped, *other)]
     if any(type(size) is not int or size < 0 for size in sizes):
         raise ValueError("invalid_capacity_size")
-    _last_listing = (scoped, other)
-    return sum(sizes)
+    return sum(sizes), (scoped, other)
 
 
-def _forget_listing():
-    global _last_listing
-    _last_listing = None
+def _project_storage_bytes(store):
+    return _measure_storage(store)[0]
 
 
-def _capacity_row(history, root, now):
-    """The round's summary row from its one listing; None when the inventory is unusable."""
-    listing = _last_listing
-    if listing is None:
+def _capacity_row(history, root, now, listing):
+    """The round's summary row from the listing that measured its capacity; None when unusable."""
+    if not listing:
         return None
+    listing = listing[0]
     try:
         copies = history[0].stores if history else []
         return capacity_row(listing, copies, Path(root) / "manifest.sqlite", now)
@@ -605,10 +600,14 @@ def _capacity_row(history, root, now):
         return None
 
 
-def _round_capacity(manager, *, embed_only=False, weekly_report=False):
+def _round_capacity(manager, *, embed_only=False, weekly_report=False, listing=None):
     current = estimate = None
     try:
-        current = _project_storage_bytes(manager.store)
+        if listing is None:
+            current = _project_storage_bytes(manager.store)
+        else:  # the caller wants the listing too: measure once and hand both back
+            current, found = _measure_storage(manager.store)
+            listing[:] = [found]
         # Embedding republishes local stores. Budget a complete replacement of
         # the current stores, without counting checksum-only SQLite descriptors.
         if weekly_report:
@@ -1195,10 +1194,10 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         result.update(reason="storage_conditional_unsupported", phase=phase)
                         return result
                 phase = "capacity"
-                _forget_listing()
-                capacity = result["capacity"] = _round_capacity(manager, embed_only=embed_only)
+                listing = []
+                capacity = result["capacity"] = _round_capacity(manager, embed_only=embed_only, listing=listing)
                 _report_capacity(capacity)
-                summary_row = _capacity_row(history, root, utcnow())
+                summary_row = _capacity_row(history, root, utcnow(), listing)
                 orphan = manager.store.get(f"generations/{number + 1}.json") is not None
                 stopped = capacity["reason"] == "capacity_stop"
                 # Finish only an immutable uploaded orphan before stop cleanup.

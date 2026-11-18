@@ -48,6 +48,13 @@ def assert_public(report, world):
                for v in scalars), scalars
 
 
+def assert_configured_sources(report, world):
+    """Every source key in the report is a source the registry actually configures."""
+    configured = {spec.id for spec in world.specs}
+    for section in ("superseded", "index_expired"):
+        assert set(report[section]["sources"]) <= configured, section
+
+
 def test_cloud_report_has_no_url_text_bucket_or_object_key(world, monkeypatch):
     expiring(world)
     invoke(world, "first")
@@ -55,10 +62,12 @@ def test_cloud_report_has_no_url_text_bucket_or_object_key(world, monkeypatch):
     result, root = invoke(world, "second")
     assert result["db_retention"]["index_expired"]["sources"]
     assert_public(result["db_retention"], world)
+    assert_configured_sources(result["db_retention"], world)
     # Local dry-run over the same directory prints the same kind of report.
     response = CliRunner().invoke(cli.app, ["--data-dir", str(root), "db-retention", "--dry-run"])
     assert response.exit_code == 0, response.output
     dry = json.loads(response.output)
     assert dry["mode"] == "dry_run"
     assert_public(dry, world)
+    assert_configured_sources(dry, world)
     assert remote(world).get("current.json") is not None

@@ -336,11 +336,11 @@ def _capacity_lines(deps: Any, start: datetime, end: datetime) -> list[str]:
     lines.extend(["", f"- 当前总量：{total} GB；区间增长 {grown} GB"])
     for label, key in (("7 GB", "7"), ("8.5 GB（冻结线）", "8.5"), ("9 GB（停止线）", "9")):
         room = summary["headroom_bytes"][key]
-        lines.append(f"- 距 {label}：" + (f"还差 {_num(Fraction(room, 10**9), 2)} GB" if room > 0
-                                         else f"已超出 {_num(Fraction(-room, 10**9), 2)} GB"))
+        lines.append(f"- 距 {label}：" + ("已达到" if room == 0 else f"还差 {_num(Fraction(room, 10**9), 2)} GB"
+                                         if room > 0 else f"已超出 {_num(Fraction(-room, 10**9), 2)} GB"))
     prediction = summary["prediction"]
     lines.append("- 碰线预测：" + {
-        "already_over": "已超过冻结线",
+        "already_over": "已达到或超过冻结线",
         "never": "按当前增速不会碰线",
     }.get(prediction["kind"], f"按区间内增速线性外推，约 {prediction.get('days')} 天后碰到 8.5 GB 冻结线"))
     lines.append(f"- 数据库存储副本合计：{_num(Fraction(summary['db_bytes'], 10**6), 2)} MB；"
