@@ -1,0 +1,58 @@
+[
+  {
+    "file": "weo_2009_apr_GRC_excerpt.tsv",
+    "bytes": 2656,
+    "sha256": "52126592dd3c188d983543079f1f95928d8c3b82b5f6968cac357dc4372f1ce1",
+    "original": {
+      "file": "WEOApr2009all.xls",
+      "bytes": 4234371,
+      "sha256": "af597650ad1e8055838090a61d9df484698dc651e9f2d7eb90ce8663293c2799",
+      "page": "https://www.imf.org/en/Publications/WEO/weo-database/2009/april",
+      "downloaded": "2026-11-19",
+      "downloaded_by": "human (browser)"
+    },
+    "suggested_release_id": "WEO-2009-APR"
+  },
+  {
+    "file": "weo_2009_oct_GRC_excerpt.tsv",
+    "bytes": 2610,
+    "sha256": "0cd0d86ebf579fb39109a28ff33e49849ddeb4cce60cf9179f0a98c63f49460c",
+    "original": {
+      "file": "WEOOct2009all.xls",
+      "bytes": 3893007,
+      "sha256": "d312c42014c166c2dcab10b3a9943be1142ba273478a7e4e3f2c8184da39d18d",
+      "page": "https://www.imf.org/en/Publications/WEO/weo-database/2009/october",
+      "downloaded": "2026-11-19",
+      "downloaded_by": "human (browser)"
+    },
+    "suggested_release_id": "WEO-2009-OCT"
+  },
+  {
+    "file": "weo_2010_apr_GRC_excerpt.tsv",
+    "bytes": 3456,
+    "sha256": "4417f7489632d032ee14dafa3167346018341cff4693f41612ad47689aa0ed8c",
+    "original": {
+      "file": "WEOApr2010all.xls",
+      "bytes": 4370618,
+      "sha256": "84ce2e53b575b874520700aaba4253e8feefbf21a674578c0ceaebada7c1a2db",
+      "page": "https://www.imf.org/en/Publications/WEO/weo-database/2010/april",
+      "downloaded": "2026-11-19",
+      "downloaded_by": "human (browser)"
+    },
+    "suggested_release_id": "WEO-2010-APR"
+  },
+  {
+    "file": "weo_2010_oct_GRC_excerpt.tsv",
+    "bytes": 4157,
+    "sha256": "56bfdfbc274b0f32ad2685f9a7f0f2b967256b85152d40899b09bbf26b51351d",
+    "original": {
+      "file": "WEOOct2010all.xls",
+      "bytes": 5763960,
+      "sha256": "678963ff3d80d6c5f8a8aecee33d597fffff572cfef6cf2d75e3ad273e3593eb",
+      "page": "https://www.imf.org/en/Publications/WEO/weo-database/2010/october",
+      "downloaded": "2026-11-19",
+      "downloaded_by": "human (browser)"
+    },
+    "suggested_release_id": "WEO-2010-OCT"
+  }
+]
