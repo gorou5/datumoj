@@ -1,0 +1,34 @@
+[
+  {
+    "source": "intl-imf-weo",
+    "release_id": "WEO-2009-APR",
+    "released_at": "2009-04-22",
+    "file": "WEOApr2009all.xls",
+    "sha256": "af597650ad1e8055838090a61d9df484698dc651e9f2d7eb90ce8663293c2799",
+    "bytes": 4234371
+  },
+  {
+    "source": "intl-imf-weo",
+    "release_id": "WEO-2009-OCT",
+    "released_at": "2009-10-01",
+    "file": "WEOOct2009all.xls",
+    "sha256": "d312c42014c166c2dcab10b3a9943be1142ba273478a7e4e3f2c8184da39d18d",
+    "bytes": 3893007
+  },
+  {
+    "source": "intl-imf-weo",
+    "release_id": "WEO-2010-APR",
+    "released_at": "2010-04-21",
+    "file": "WEOApr2010all.xls",
+    "sha256": "84ce2e53b575b874520700aaba4253e8feefbf21a674578c0ceaebada7c1a2db",
+    "bytes": 4370618
+  },
+  {
+    "source": "intl-imf-weo",
+    "release_id": "WEO-2010-OCT",
+    "released_at": "2010-10-06",
+    "file": "WEOOct2010all.xls",
+    "sha256": "678963ff3d80d6c5f8a8aecee33d597fffff572cfef6cf2d75e3ad273e3593eb",
+    "bytes": 5763960
+  }
+]

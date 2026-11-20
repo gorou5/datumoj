@@ -1,0 +1,65 @@
+name: Cloud import release
+
+'on':
+  workflow_dispatch:
+    inputs:
+      manifest:
+        description: 'Import manifest path in the repository'
+        type: string
+        default: imports/imf-weo-2009-2010.json
+      write:
+        description: 'Write a new generation after reviewing the dry run'
+        type: boolean
+        default: false
+
+concurrency:
+  group: rikolto-cloud-run
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    # A fork may retain this file, but must not run a writer for this namespace.
+    if: github.repository == 'gorou5/datumoj'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v6.0.1
+        with:
+          version: '0.7.12'
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --frozen --python 3.12
+      - name: Download archive files
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/import-files"
+          gh release download imports-imf-weo-2009-2010 --dir "$RUNNER_TEMP/import-files"
+      - name: Preview or write import
+        shell: bash
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          DATUMOJ_S3_BUCKET: ${{ secrets.DATUMOJ_S3_BUCKET }}
+          DATUMOJ_S3_PREFIX: ${{ secrets.DATUMOJ_S3_PREFIX }}
+          DATUMOJ_RAW_BACKEND: s3
+          DATUMOJ_VECTORS: 'off'
+          MANIFEST: ${{ inputs.manifest }}
+          WRITE: ${{ inputs.write }}
+        run: |
+          set -euo pipefail
+          mode=--dry-run
+          if [[ "$WRITE" == "true" ]]; then
+            mode=--write
+          fi
+          uv run --frozen rikolto cloud import-release --manifest "$MANIFEST" --files-dir "$RUNNER_TEMP/import-files" "$mode"

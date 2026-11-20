@@ -220,6 +220,20 @@ def cloud_project(
     raise typer.Exit(result.get("exit_status", 0))
 
 
+@cloud_app.command("import-release")
+def cloud_import_release(
+    manifest: Path = typer.Option(..., "--manifest", exists=True, dir_okay=False, help="导入清单 JSON"),
+    files_dir: Path = typer.Option(..., "--files-dir", exists=True, file_okay=False, help="清单里文件所在目录"),
+    work_dir: Path | None = typer.Option(None, "--work-dir", help="空的工作目录；默认使用临时目录"),
+    write: bool = typer.Option(False, "--write/--dry-run", help="确认预演后写入；默认只预演"),
+) -> None:
+    from datumoj.rikolto.cloud import import_release
+
+    result = import_release(manifest=manifest, files_dir=files_dir, work_dir=work_dir, write=write)
+    typer.echo(_json(result))
+    raise typer.Exit(result.get("exit_status", 0))
+
+
 @cloud_app.command("usage")
 def cloud_usage(
     work_dir: Path | None = typer.Option(None, "--work-dir", help="空的工作目录；默认使用临时目录"),
