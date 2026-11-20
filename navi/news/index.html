@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>全部动态 — datumoj.com/navi</title>
+<meta name="description" content="Datumoj 的全部动态：仓库进展、上线、调研、运维与安全简讯，每天核实后更新。">
+<style>
+  :root{--ink:#1c2430;--sub:#5a6a7a;--line:#dde4ea;--bg:#f7f9fb;--card:#fff;--acc:#205f9e}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Hiragino Sans","Noto Sans CJK SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.65}
+  .wrap{max-width:880px;margin:0 auto;padding:2.2rem 1.1rem 3.5rem}
+  h1{font-size:1.55rem;margin:.2rem 0 .3rem}
+  .lede{color:var(--sub)}
+  .feed{display:flex;flex-direction:column;gap:.55rem;margin-top:1rem}
+  .fi{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:8px;padding:.6rem .9rem}
+  .fi .m{font-size:.78rem;color:var(--sub)}
+  .fi .tx{font-size:.95rem}
+  .fi a{color:var(--acc);font-size:.82rem}
+  .ftag{display:inline-block;font-size:.72rem;font-weight:700;border:1px solid var(--line);border-radius:999px;padding:.02rem .5rem;margin-right:.4rem}
+  footer{margin-top:2.2rem;color:var(--sub);font-size:.82rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>全部动态</h1>
+  <p class="lede">Datumoj 每天的进展简讯——仓库、上线、调研、运维、安全，都在这里。首页只放最近 5 条，这里是完整版。</p>
+  <div class="feed" id="feed"><p class="lede">加载中…</p></div>
+  <footer>动态每天定时从仓库与运维记录核实后更新，没有变化就不写。</footer>
+</div>
+<script>
+function esc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+var TAGS = {'仓库':['#e3ecf7','#205f9e','#a9c4e2'],'上线':['#e2f2e4','#1e7a34','#a3d3ac'],'调研':['#ece5f7','#5b3ea8','#c4b2e8'],'运维':['#fdf0dc','#9a6206','#ecc887'],'安全':['#fdecea','#a02c2c','#e3a49f'],'同步':['#ddf2f0','#0f766e','#93d5cf']};
+fetch('/navi/feed.json').then(function(r){return r.json();}).then(function(items){
+  var box=document.getElementById('feed');
+  if(!items || !items.length){ box.innerHTML='<p class="lede">暂无动态。</p>'; return; }
+  box.innerHTML = items.map(function(it){
+    var okUrl = typeof it.url==='string' && (/^https:\/\//.test(it.url) || /^\/(?!\/)/.test(it.url));
+    var link = okUrl ? ' <a href="'+esc(it.url)+'">查看</a>' : '';
+    var c = TAGS[it.tag] || ['#eef1f4','#5a6a7a','#ccd4dc'];
+    var tag = it.tag ? '<span class="ftag" style="background:'+c[0]+';color:'+c[1]+';border-color:'+c[2]+'">'+esc(it.tag)+'</span>' : '';
+    return '<div class="fi"><div class="m">'+tag+esc(it.date)+'</div><div class="tx">'+esc(it.text)+link+'</div></div>';
+  }).join('');
+}).catch(function(){
+  document.getElementById('feed').innerHTML='<p class="lede">动态加载失败，请稍后再看。</p>';
+});
+</script>
+</body>
+</html>

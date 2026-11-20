@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>协作者与贡献历史 — datumoj.com/navi</title>
+<meta name="description" content="Datumoj 仓库协作者名单与各自已合并 PR 的贡献历史（数据来自 GitHub，每日更新）。">
+<style>
+  :root{--ink:#1c2430;--sub:#5a6a7a;--line:#dde4ea;--bg:#f7f9fb;--card:#fff;--acc:#205f9e}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Hiragino Sans","Noto Sans CJK SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.65}
+  .wrap{max-width:880px;margin:0 auto;padding:2.2rem 1.1rem 3.5rem}
+  h1{font-size:1.55rem;margin:.2rem 0 .3rem}
+  .lede{color:var(--sub)}
+  .person{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1rem 1.1rem;margin:1rem 0}
+  .person h2{font-size:1.12rem;margin:.1rem 0}
+  .role{color:var(--sub);font-size:.88rem}
+  .stats{font-size:.9rem;margin:.35rem 0 .5rem}
+  .stats b{color:var(--acc)}
+  ul.hist{margin:.4rem 0 .2rem;padding-left:1.1rem}
+  ul.hist li{margin:.22rem 0;font-size:.93rem}
+  ul.hist .d{color:var(--sub);font-size:.8rem;margin-right:.4rem}
+  ul.hist a{color:var(--acc);text-decoration:none}
+  ul.hist a:hover{text-decoration:underline}
+  footer{margin-top:2.2rem;color:var(--sub);font-size:.82rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>协作者与贡献历史</h1>
+  <p class="lede">gorou5/datumoj 仓库的协作者与各自已合并的 PR（数据来自 GitHub，每日更新；<span id="gen"></span>）。</p>
+  <div id="people"><p class="lede">加载中…</p></div>
+  <footer>口径：已合并 PR 按作者统计；「执行合并」为 GitHub 记录的合并操作者（含 CodeRabbit 自动合并的归属）。完整列表见 <a href="https://github.com/gorou5/datumoj/pulls?q=is%3Apr+is%3Amerged">GitHub</a>。</footer>
+</div>
+<script>
+function esc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+fetch('/navi/people.json').then(function(r){return r.json();}).then(function(d){
+  document.getElementById('gen').textContent = '生成于 ' + (d.generated||'');
+  var box = document.getElementById('people');
+  if(!d.people || !d.people.length){ box.innerHTML='<p class="lede">暂无数据。</p>'; return; }
+  box.innerHTML = d.people.map(function(p){
+    var hist = (p.history||[]).map(function(h){
+      return '<li><span class="d">'+esc(h.date)+'</span><a href="https://github.com/gorou5/datumoj/pull/'+h.n+'">#'+h.n+'</a> '+esc(h.title)+'</li>';
+    }).join('');
+    return '<div class="person"><h2>'+esc(p.login)+'</h2><div class="role">'+esc(p.role||'')+'</div>'
+      + '<div class="stats">已合并 PR（作者）<b>'+p.merged_count+'</b> 个 · 执行合并 <b>'+(p.merged_by||0)+'</b> 个</div>'
+      + (hist ? '<ul class="hist">'+hist+'</ul>' : '<p class="lede">暂无以作者身份合并的 PR（主要做评审与合并）。</p>')
+      + '</div>';
+  }).join('');
+}).catch(function(){
+  document.getElementById('people').innerHTML='<p class="lede">数据加载失败，请稍后再看。</p>';
+});
+</script>
+</body>
+</html>
