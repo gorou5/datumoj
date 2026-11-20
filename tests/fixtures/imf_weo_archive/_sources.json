@@ -54,5 +54,49 @@
       "downloaded_by": "human (browser)"
     },
     "suggested_release_id": "WEO-2010-OCT"
+  },
+  {
+    "file": "weo_2009_apr_mixed_excerpt.tsv",
+    "bytes": 4524,
+    "sha256": "98bc1e6d1dd185a9a1f0a36eea1b241a82fc0783a8e01c0733270b80c02f3a34",
+    "original": {
+      "file": "WEOApr2009all.xls",
+      "bytes": 4234371,
+      "sha256": "af597650ad1e8055838090a61d9df484698dc651e9f2d7eb90ce8663293c2799",
+      "page": "https://www.imf.org/en/Publications/WEO/weo-database/2009/april",
+      "downloaded": "2026-11-19",
+      "downloaded_by": "human (browser)"
+    },
+    "original_lines": [
+      102,
+      595,
+      2086,
+      2100,
+      2104,
+      2710
+    ],
+    "purpose": "完整文件里才有的情况：Scale=Units、n/a、--、Estimates Start After=0、非计划序列、全是制表符的空行"
+  },
+  {
+    "file": "weo_2010_oct_mixed_excerpt.tsv",
+    "bytes": 5179,
+    "sha256": "c90eb6eb90c12564e10eaff7a4bfe6c1a00b7b93c5761ef35ea748a45e5012f5",
+    "original": {
+      "file": "WEOOct2010all.xls",
+      "bytes": 5763960,
+      "sha256": "678963ff3d80d6c5f8a8aecee33d597fffff572cfef6cf2d75e3ad273e3593eb",
+      "page": "https://www.imf.org/en/Publications/WEO/weo-database/2010/october",
+      "downloaded": "2026-11-19",
+      "downloaded_by": "human (browser)"
+    },
+    "original_lines": [
+      59,
+      1046,
+      2527,
+      2529,
+      2549,
+      3284
+    ],
+    "purpose": "完整文件里才有的情况：Scale=Units、n/a、--、Estimates Start After=0、非计划序列、全是制表符的空行"
   }
 ]

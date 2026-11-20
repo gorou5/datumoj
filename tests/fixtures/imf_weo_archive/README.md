@@ -36,6 +36,16 @@
 | 2010-04 | `WEO-2010-APR` | 2010-04-21 |
 | 2010-10 | `WEO-2010-OCT` | 2010-10-06 |
 
+## 完整文件才有的情况（`*_mixed_excerpt.tsv`，供 WISTERIA-313）
+
+2026-11-20 云端预演发现，完整文件里有四个 GRC 节选覆盖不到的情况。从 2009-04 和 2010-10 两版各取 6 行原始字节（行号见 `_sources.json` 的 `original_lines`），连同原文件末尾的空行和出处行：
+
+- `Scale` 为 `Units`（如 `NGDPPC` 人均 GDP 本币，每版约 730 行），按 1 处理；
+- 数值 `n/a`（每版 1 万至 3.9 万个）和 `--`（约 400 个），都是空值；
+- `Estimates Start After` 为 `0`（每版 27—47 行），表示未知；
+- 计划外的序列（`JPN NGDPD`、`GRC LUR` 等）：导入只取计划内的希腊 `GGXCNL_NGDP` / `GGB_NGDP`（负责人 2026-11-20 定）；
+- 数据后有一行全是制表符的空行（2010-10）。
+
 ## 许可与署名
 
 - IMF Copyright and Usage（<https://www.imf.org/en/About/copyright-and-terms>）：署名后可复制、派生、再分发，不得改动数值；本项目按非商业使用（2026-11-16 负责人定）。
