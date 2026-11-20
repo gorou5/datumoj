@@ -107,6 +107,30 @@ def test_dry_run_reports_each_release_and_writes_nothing(world, monkeypatch):
     assert world.store._objects == before
 
 
+def progress_events(captured):
+    return [json.loads(line) for line in captured.err.splitlines() if line.startswith("{")]
+
+
+@pytest.mark.parametrize("write", [False, True])
+def test_progress_goes_to_stderr_and_stdout_stays_one_json(world, capfd, write):
+    args = ["cloud", "import-release", "--manifest", str(world.manifest), "--files-dir", str(world.files),
+            "--work-dir", str(world.tmp / f"progress-{write}")] + (["--write"] if write else [])
+    response = CliRunner().invoke(cli.app, args)
+    assert response.exit_code == 0, response.output
+    assert json.loads(response.output)["write"] is write  # stdout: only the final result
+    events = progress_events(capfd.readouterr())
+    names = [e["event"] for e in events]
+    ids = [r[1] for r in RELEASES]
+    assert names[:3] == ["manifest_checked", "restore_start", "restore_end"]
+    assert [(e["event"], e["release_id"]) for e in events if e["event"].startswith("import_")] == [
+        (kind, rid) for rid in ids for kind in ("import_start", "import_end")]
+    assert all(e["observations"] > 0 for e in events if e["event"] == "import_end")
+    assert names[-2:] == (["publish_start", "publish_end"] if write else ["import_start", "import_end"])
+    text = json.dumps(events)
+    assert "synthetic" not in text and "http" not in text  # stages, ids, counts and time only
+    assert all(isinstance(e["elapsed_s"], float) for e in events)
+
+
 def test_write_publishes_history_and_current_keeps_its_value(world):
     result = run(world, "write", write=True)
     assert "exit_status" not in result, result

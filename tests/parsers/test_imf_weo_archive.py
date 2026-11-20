@@ -1,4 +1,7 @@
-"""IMF WEO 2009-2010 archive files (tab-separated, cp1252) through ImfSdmxParser, against tests/fixtures/imf_weo_archive."""
+"""IMF WEO 2009-2010 archive files (tab-separated, cp1252) through ImfSdmxParser, against tests/fixtures/imf_weo_archive.
+
+Only the planned import is produced: Greece GGXCNL_NGDP and its old code GGB_NGDP (owner's decision 2026-11-20).
+"""
 
 from __future__ import annotations
 
@@ -14,15 +17,21 @@ from datumoj.rikolto.testing.samples import make_snapshot
 FIXTURES = Path(__file__).parents[2] / "tests/fixtures/imf_weo_archive"
 SOURCE = "intl-imf-weo"
 URL = "https://api.imf.org/external/sdmx/2.1/data/IMF.RES,WEO/GRC.GGXCNL_NGDP.A?startPeriod=2000&endPeriod=2015"
+META = {"dataflow": "WEO", "key": "GRC.GGXCNL_NGDP.A"}
 FILES = {v: FIXTURES / f"weo_{v.replace('-', '_').lower()}_GRC_excerpt.tsv"
          for v in ("2009-apr", "2009-oct", "2010-apr", "2010-oct")}
+MIXED = {v: FIXTURES / f"weo_{v.replace('-', '_')}_mixed_excerpt.tsv" for v in ("2009-apr", "2010-oct")}
 
 
 HEADER = (b"WEO Country Code\tISO\tWEO Subject Code\tCountry\tSubject Descriptor\tSubject Notes\tUnits\tScale\t"
-          b"Country/Series-specific Notes\t2009\tEstimates Start After\r\n")
+          b"Country/Series-specific Notes\t2008\t2009\tEstimates Start After\r\n")
 
 
-def parse(version="2010-apr", data=None, meta=None):
+def row(code=b"GGXCNL_NGDP", scale=b"", v08=b"1.0", v09=b"2.0", est=b"2008", iso=b"GRC"):
+    return b"\t".join([b"174", iso, code, b"G", b"S", b"N", b"Percent of GDP", scale, b"", v08, v09, est]) + b"\r\n"
+
+
+def parse(version="2010-apr", data=None, meta=META):
     data = FILES[version].read_bytes() if data is None else data
     return ImfSdmxParser().parse(make_snapshot(SOURCE, URL, data), data, meta)
 
@@ -48,80 +57,109 @@ def test_greece_2009_per_version(version, code, value, status):
     assert obs.release_id is None and obs.released_at is None  # only the import command sets them
 
 
-@pytest.mark.parametrize(("version", "code"), [("2009-apr", "GGB_NGDP"), ("2009-oct", "GGB")])
-def test_old_codes_are_kept_and_mapped_in_the_note(version, code):
-    obs = one(parse(version), "GRC", code, 2009)
-    assert obs.indicator_code == code and obs.table_key == f"WEO:GRC.{code}.A"
-    assert f"{code} → {code.replace('GGB', 'GGXCNL')}" in obs.note and "GFSM 2001" in obs.note
+@pytest.mark.parametrize("version", FILES)
+def test_only_the_planned_series_is_produced(version):
+    result = parse(version)
+    assert {(o.area_code, o.indicator_code) for o in result.observations} <= {
+        ("GRC", "GGXCNL_NGDP"), ("GRC", "GGB_NGDP")}
+    assert len(result.datasets) == 1
+    assert "April" in str(result.datasets[0].extras["attribution"]) or "October" in str(result.datasets[0].extras["attribution"])
+
+
+def test_old_codes_are_kept_and_mapped_in_the_note():
+    obs = one(parse("2009-oct"), "GRC", "GGB_NGDP", 2009)
+    assert obs.indicator_code == "GGB_NGDP" and obs.table_key == "WEO:GRC.GGB_NGDP.A"
+    assert "GGB_NGDP → GGXCNL_NGDP" in obs.note and "GFSM 2001" in obs.note
 
 
 def test_new_codes_carry_no_mapping():
     assert "代码对应" not in one(parse("2010-apr"), "GRC", "GGXCNL_NGDP", 2009).note
 
 
-def test_local_currency_is_scaled_to_the_full_value_like_sdmx():
-    gap = one(parse("2010-apr"), "GRC", "GGXCNL", 2009)
-    assert gap.value == Decimal(-30557000000) and gap.unit == "XDC" and "Scale=Billions" in gap.note
-    assert one(parse("2009-oct"), "GRC", "GGB", 2009).value == Decimal(-15757000000)
-    assert one(parse("2010-apr"), "CIV", "NGDPD", 2009).value == Decimal(22497000000)  # Billions of USD
+def test_local_currency_series_are_not_produced():
+    for version in FILES:
+        assert not [o for o in parse(version).observations if o.indicator_code in {"GGXCNL", "GGB", "NGDPD"}]
 
 
-def test_millions_are_scaled_and_unknown_scale_is_an_error():
-    data = FILES["2010-apr"].read_bytes()
-    assert one(parse(data=data.replace(b"\tBillions\t", b"\tMillions\t")), "GRC", "GGXCNL", 2009).value == Decimal(-30557000)
+def test_scale_is_applied_to_planned_rows():
+    # The scale logic stays: planned rows built here (the real planned series are percentages, scale empty).
+    for scale, factor in ((b"Millions", 10**6), (b"Billions", 10**9), (b"Units", 1), (b"", 1)):
+        result = parse(data=HEADER + row(scale=scale))
+        assert one(result, "GRC", "GGXCNL_NGDP", 2008).value == Decimal(1) * factor
     for scale in (b"Thousands", b"billions"):
         with pytest.raises(ParseError, match="Scale"):
-            parse(data=data.replace(b"\tBillions\t", b"\t" + scale + b"\t"))
+            parse(data=HEADER + row(scale=scale))
 
 
-def test_country_comes_from_iso_and_name_is_cp1252():
-    result = parse("2010-apr")
-    assert {o.area_code for o in result.observations} == {"CIV", "GRC"}  # not 662 / 174
-    assert one(result, "CIV", "NGDPD", 2009).value == Decimal(22497000000)
-    assert "Côte d'Ivoire" in FILES["2010-apr"].read_bytes().decode("cp1252")
+@pytest.mark.parametrize("version", MIXED)
+def test_mixed_samples_only_produce_the_planned_greek_row(version):
+    result = parse(data=MIXED[version].read_bytes())
+    assert {(o.area_code, o.table_key) for o in result.observations} == {
+        ("GRC", "WEO:GRC.GGB_NGDP.A" if version == "2009-apr" else "WEO:GRC.GGXCNL_NGDP.A")}
+    assert not {o.area_code for o in result.observations} & {"JPN", "AGO", "BTN", "ALB", "BDI"}
+    assert one(result, "GRC", "GGB_NGDP" if version == "2009-apr" else "GGXCNL_NGDP", 2009).value == Decimal(
+        "-4.509" if version == "2009-apr" else "-13.584")
 
 
-def test_forecast_actual_split_follows_estimates_start_after():
+def test_na_years_have_no_observation_and_nothing_is_zero():
+    result = parse(data=MIXED["2009-apr"].read_bytes())
+    assert not [o for o in result.observations if o.time_label in {"2011", "2012", "2013", "2014"}]
+    assert not [o for o in result.observations if o.value == 0]
+    dashes = parse(data=HEADER + row(v08=b"--", v09=b"3"))
+    assert [o.time_label for o in dashes.observations] == ["2009"]
+    with pytest.raises(ParseError):  # nothing but annotations: no data rows
+        parse(data=HEADER + row(v08=b"--", v09=b"n/a"))
+
+
+def test_footer_and_blank_lines_are_not_data():
+    result = parse(data=MIXED["2010-oct"].read_bytes())  # all-tab line and the quoted source line
+    assert len(result.datasets) == 1 and "October 2010" in str(result.datasets[0].extras["attribution"])
+
+
+def test_estimates_start_after_zero_or_empty_is_unknown():
     result = parse("2009-apr")  # Estimates Start After = 2007
     assert one(result, "GRC", "GGB_NGDP", 2007).note.startswith("实绩")
     assert one(result, "GRC", "GGB_NGDP", 2008).note.startswith("预测")
-    data = FILES["2009-apr"].read_bytes()
-    unknown = parse(data=data.replace(b"\t2007\r\n", b"\t\r\n"))
-    assert one(unknown, "GRC", "GGB_NGDP", 2008).note.startswith("实绩/预测未知")
+    for est in (b"0", b""):
+        unknown = parse(data=HEADER + row(est=est))
+        assert one(unknown, "GRC", "GGXCNL_NGDP", 2009).note.startswith("实绩/预测未知")
+    with pytest.raises(ParseError, match="Estimates Start After"):
+        parse(data=HEADER + row(est=b"abc"))
 
 
-def test_empty_cells_skipped_and_annotations_never_become_zero():
-    data = FILES["2010-apr"].read_bytes()
-    result = parse(data=data)
-    assert not [o for o in result.observations if o.value == 0]
-    na = one(result, "GRC", "GGXCNL", 2012)
-    assert na.value is None and "OBS_VALUE=n/a" in na.note
-    blank = data.replace(b"\t-30.557\t", b"\t\t")
-    assert not [o for o in parse(data=blank).observations if (o.indicator_code, o.time_label) == ("GGXCNL", "2009")]
-
-
-@pytest.mark.parametrize("version", FILES)
-def test_footer_and_blank_lines_are_not_data(version):
-    result = parse(version)
-    assert {o.area_code for o in result.observations} == {"CIV", "GRC"}
-    assert "April" in str(result.datasets[0].extras["attribution"]) or "October" in str(result.datasets[0].extras["attribution"])
+def test_unknown_value_and_year_in_planned_rows_are_errors_but_not_elsewhere():
+    with pytest.raises(ParseError, match="数值"):
+        parse(data=HEADER + row(v09=b"x"))
+    parse(data=HEADER + row(v09=b"1") + row(code=b"NGDP", scale=b"Weird", v09=b"x", iso=b"JPN"))  # unplanned: skipped
+    with pytest.raises(ParseError):  # planned row with an unknown scale, edited in the bytes
+        parse(data=MIXED["2010-oct"].read_bytes().replace(b"\tPercent of GDP\t\t", b"\tPercent of GDP\tWeird\t"))
 
 
 def test_same_observation_has_one_identity_across_versions():
     assert one(parse("2010-apr"), "GRC", "GGXCNL_NGDP", 2009).obs_id == one(parse("2010-oct"), "GRC", "GGXCNL_NGDP", 2009).obs_id
 
 
-def test_vintage_requests_do_not_claim_the_file():
-    parse(meta={"dataflow": "WEO"})
+@pytest.mark.parametrize("meta", [
+    {"dataflow": "WEO_2026_APR_VINTAGE", "key": "GRC.GGXCNL_NGDP.A"},
+    {"dataflow": "WEO_2025_OCT_VINTAGE", "key": "GRC.GGXCNL_NGDP.A"},
+    {"dataflow": "WEO", "key": "JPN+USA+DEU+FRA+GBR.NGDPD.A"},
+    {"dataflow": "WEO", "key": "JPN+USA+DEU+FRA+GBR.NGDP.A"},
+    {"dataflow": "WEO", "key": "GRC.GGXCNL.A"},
+    {"dataflow": "WEO"},
+    None,
+])
+def test_only_the_planned_request_claims_the_file(meta):
+    parse(meta=META)
     with pytest.raises(ParseError):
-        parse(meta={"dataflow": "WEO_2026_APR_VINTAGE"})
+        parse(meta=meta)
 
 
 @pytest.mark.parametrize("data", [
     b"Country\tISO\r\nx\ty\r\n",
     b"",
     HEADER,
-    HEADER + b"1\tGRC\tX\tG\tS\tN\tU\t\t\t1.0\r\n",
+    HEADER + b"1\tGRC\tX\tG\tS\tN\tU\t\t\t1.0\t2.0\t\r\n",
+    HEADER + row(iso=b"JPN"),  # nothing planned in the file
 ])
 def test_unrecognised_or_broken_files_are_errors(data):
     with pytest.raises(ParseError):
