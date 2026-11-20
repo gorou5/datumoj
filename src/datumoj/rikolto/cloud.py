@@ -15,7 +15,7 @@ import time
 import uuid
 from contextlib import ExitStack, contextmanager, redirect_stderr, redirect_stdout, suppress
 from dataclasses import replace
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from threading import Lock
 
@@ -890,6 +890,196 @@ def project(*, work_dir: Path | None = None, write: bool = False) -> dict:
 
 _PROJECT_REFUSALS = frozenset({"generation_changed", "orphan_generation", "storage_conditional_unsupported",
                                "workspace_not_empty"})
+_IMPORT_REFUSALS = _PROJECT_REFUSALS | {"manifest_invalid", "file_missing", "file_mismatch"}
+_SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+
+
+def _load_import_manifest(path, files_dir):
+    """Validate the manifest and every file's size and SHA-256 before any storage access."""
+    try:
+        entries = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raise ValueError("manifest_invalid") from None
+    keys = {"source", "release_id", "released_at", "file", "sha256", "bytes"}
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("manifest_invalid")
+    loaded = []
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) != keys:
+            raise ValueError("manifest_invalid")
+        try:
+            day = date.fromisoformat(entry["released_at"])
+            if day.isoformat() != entry["released_at"]:
+                raise ValueError
+        except (TypeError, ValueError):
+            raise ValueError("manifest_invalid") from None
+        if (not all(isinstance(entry[k], str) and entry[k].strip() for k in ("source", "release_id", "file"))
+                or Path(entry["file"]).name != entry["file"] or entry["file"] in {".", ".."}
+                or not isinstance(entry["sha256"], str) or not _SHA256.match(entry["sha256"])
+                or type(entry["bytes"]) is not int or entry["bytes"] < 0):
+            raise ValueError("manifest_invalid")
+        loaded.append({**entry, "day": day})
+    if (len({(e["source"], e["release_id"]) for e in loaded}) != len(loaded)
+            or len({e["file"] for e in loaded}) != len(loaded)):
+        raise ValueError("manifest_invalid")
+    for entry in loaded:
+        file = Path(files_dir) / entry["file"]
+        if file.is_symlink() or not file.is_file():
+            raise ValueError("file_missing")
+        digest, size = hashlib.sha256(), 0
+        with file.open("rb") as stream:
+            while block := stream.read(1 << 20):
+                digest.update(block)
+                size += len(block)
+        if size != entry["bytes"] or digest.hexdigest() != entry["sha256"]:
+            raise ValueError("file_mismatch")
+        entry["path"] = file
+    return loaded
+
+
+def _stored_release_ids(deps, source_id):
+    """Release ids already in the restored observation history of one source."""
+    import duckdb
+
+    from datumoj.rikolto.store.observations import _install_published_segments
+
+    store = deps.observations
+    files = sorted((store._parquet / source_id).glob("*.parquet"))
+    if not files:
+        return set()
+    # Same preparation as ObservationStore.import_release, so restored history is readable.
+    with store._describe_lock:
+        if store._needs_install:
+            _install_published_segments(store.root)
+            store._needs_install = False
+        if store._needs_migration:
+            store._migrate_history()
+    with duckdb.connect() as con:
+        scan = store._scan(files, store.root, history=True)
+        return {row[0] for row in con.sql(f"SELECT DISTINCT release_id FROM ({scan})").fetchall()
+                if row[0] is not None}
+
+
+def import_release(*, manifest: Path, files_dir: Path, work_dir: Path | None = None, write: bool = False) -> dict:
+    """Import manually downloaded historical releases; preview locally unless explicitly writing."""
+    from datumoj.rikolto.core.rawstore import FileRawStore
+
+    result = {"capacity": gate(None, None, "optional"), "write": write, "releases": []}
+    deps = leases = lease = None
+    phase = "manifest"
+    with ExitStack() as stack, _quiet():
+        try:
+            entries = _load_import_manifest(manifest, files_dir)
+            phase = "configuration"
+            root = _empty_work_root(work_dir, stack)
+            manager = wiring.build_state(root)
+            phase = "restore"
+            history = manager.list()
+            number = history[0].generation if history else 0
+            if history:
+                manager.restore(root, generation=number, raw="remote")
+            else:
+                root.mkdir(parents=True, exist_ok=True)
+            with workspace_lock(root):
+                phase = "initialization"
+                # A preview must not upload: its raw stays in the disposable work directory.
+                deps = wiring.build(root, {"vectors": None, **({} if write else {"raw": FileRawStore(root)})})
+                existing = {}
+                for entry in entries:
+                    if entry["source"] not in existing:
+                        existing[entry["source"]] = _stored_release_ids(deps, entry["source"])
+                todo = [e for e in entries if e["release_id"] not in existing[e["source"]]]
+                result["releases"] = [
+                    {"release_id": e["release_id"], "released_at": e["released_at"],
+                     "status": "pending" if e in todo else "skipped_existing"} for e in entries]
+                estimate = sum(e["bytes"] for e in todo)
+                phase = "estimate"
+                result["current_bytes"] = _project_storage_bytes(manager.store)
+                result["capacity"] = gate(result["current_bytes"], estimate, "optional")
+
+                def run_imports():
+                    for entry, report in zip(entries, result["releases"], strict=True):
+                        if entry not in todo:
+                            continue
+                        try:
+                            done = wiring.import_observation_release(
+                                deps, entry["source"], entry["path"], entry["release_id"], entry["day"])
+                        except Exception:
+                            result["failed_release"] = entry["release_id"]
+                            raise
+                        report.update(status="imported" if write else "previewed",
+                                      observations=done["observations"], warnings=done["warnings"])
+
+                if not write:
+                    phase = "import"
+                    with local_write(root):
+                        run_imports()
+                    return result
+                _report_capacity(result["capacity"])
+                if not result["capacity"]["allowed"]:
+                    result["capacity"]["skipped_steps"] = ["import"]
+                    result.update(exit_status=1, reason="storage_limit_exceeded")
+                    return result
+                if not todo:
+                    return {**result, "generation": number}
+                phase = "lease_acquire"
+                leases = LeaseManager(manager.store)
+                lease = leases.acquire(f"{manager.writer.kind}/{uuid.uuid4().hex}", force=True)
+                with leases.maintain(lease) as check:
+                    current = manager.list()
+                    if (current[0].generation if current else 0) != number:
+                        raise ValueError("generation_changed")
+                    if manager.store.get(f"generations/{number + 1}.json") is not None:
+                        raise ValueError("orphan_generation")
+                    phase = "storage_check"
+                    result["before_bytes"] = _project_storage_bytes(manager.store)
+                    result["capacity"] = gate(result["before_bytes"], estimate, "optional")
+                    _report_capacity(result["capacity"])
+                    if not result["capacity"]["allowed"]:
+                        result["capacity"]["skipped_steps"] = ["import"]
+                        result.update(exit_status=1, reason="storage_limit_exceeded")
+                        return result
+                    if not _probe_lease_writes(manager.store, check):
+                        raise ValueError("storage_conditional_unsupported")
+                    manager.before_write = _throttled_check(check)
+                    manager.before_metadata_write = manager.before_publish = check
+                    if isinstance(manager, StateManager) and manager.specs is None:
+                        manager.specs = deps.registry.all()
+                    phase = "import"
+                    deps.raw = _RawUploads(deps.raw)
+                    with local_write(root):
+                        run_imports()
+                    result["uploaded_raw_bytes"] = deps.raw.bytes
+                    phase = "publish"
+                    check()
+                    generation = (StateManager.push(manager, retain_local=True)
+                                  if isinstance(manager, StateManager) else manager.push())
+                    result["generation"] = generation.generation
+                    phase = "post_publish_check"
+                    result["after_bytes"] = _project_storage_bytes(manager.store)
+                    if result["after_bytes"] >= LIMITS.stop:
+                        result["capacity"]["next_round"] = "cleanup_only"
+        except Exception as error:  # noqa: BLE001 -- Hide source text and SDK configuration at the cloud boundary.
+            known = isinstance(error, ValueError) and str(error) in _IMPORT_REFUSALS
+            result.update(exit_status=1, reason=str(error) if known else f"{phase}_failed")
+            if write:
+                for report in result["releases"]:
+                    if report["status"] in {"imported", "pending"}:
+                        report["status"] = "not_published"
+        finally:
+            if deps is not None:
+                for name in ("manifest", "chunks", "keyword", "catalog", "change_log", "raw"):
+                    close = getattr(getattr(deps, name, None), "close", None)
+                    if callable(close):
+                        with suppress(Exception):
+                            close()
+            if lease is not None:
+                try:
+                    leases.release(lease.holder, lease.token)
+                except Exception:  # noqa: BLE001 -- Release failures must be visible.
+                    result["exit_status"] = 1
+                    result.setdefault("reason", "lease_release_failed")
+    return result
 
 
 def _probe_lease_writes(store, check):
