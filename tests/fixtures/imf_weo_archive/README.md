@@ -27,9 +27,9 @@
 - **代码变更**：2009 年两版用 `GGB_NGDP`（General government balance），2010-04 起改为 `GGXCNL_NGDP`（net lending/borrowing，GFSM 2001）。负责人 2026-11-20 定：**保留原代码，显式写明对应关系**，不在解析时改代码。
 - `Estimates Start After` 之后的年份是估计或预测：2009 年两版里的 2009 年值都是预测。
 
-## 导入参数（`release_id` 由人给出，不从文件名推断）
+## 导入参数（由人给出，不从文件名推断；已核对）
 
-| 版本 | 建议 `release_id` | `released_at`（待人核对） |
+| 版本 | `release_id` | `released_at`（负责人 2026-11-20 核对） |
 |---|---|---|
 | 2009-04 | `WEO-2009-APR` | 2009-04-22 |
 | 2009-10 | `WEO-2009-OCT` | 2009-10-01 |
