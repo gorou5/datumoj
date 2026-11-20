@@ -1062,7 +1062,7 @@ def import_release(*, manifest: Path, files_dir: Path, work_dir: Path | None = N
         except Exception as error:  # noqa: BLE001 -- Hide source text and SDK configuration at the cloud boundary.
             known = isinstance(error, ValueError) and str(error) in _IMPORT_REFUSALS
             result.update(exit_status=1, reason=str(error) if known else f"{phase}_failed")
-            if write:
+            if write and "generation" not in result:  # after publish, entries are already live
                 for report in result["releases"]:
                     if report["status"] in {"imported", "pending"}:
                         report["status"] = "not_published"
