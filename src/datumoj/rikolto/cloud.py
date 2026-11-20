@@ -800,6 +800,8 @@ def project(*, work_dir: Path | None = None, write: bool = False) -> dict:
         try:
             root = _empty_work_root(work_dir, stack)
             manager = wiring.build_state(root)
+            if isinstance(manager.store, S3StateObjectStore):
+                manager.transfer_workers = 8
             phase = "restore"
             history = manager.list()
             number = history[0].generation if history else 0
@@ -982,6 +984,8 @@ def import_release(*, manifest: Path, files_dir: Path, work_dir: Path | None = N
             phase = "configuration"
             root = _empty_work_root(work_dir, stack)
             manager = wiring.build_state(root)
+            if isinstance(manager.store, S3StateObjectStore):
+                manager.transfer_workers = 8  # one worker restores the ~3 GB generation past the 60-minute job limit
             phase = "restore"
             history = manager.list()
             number = history[0].generation if history else 0

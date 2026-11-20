@@ -131,6 +131,21 @@ def test_progress_goes_to_stderr_and_stdout_stays_one_json(world, capfd, write):
     assert all(isinstance(e["elapsed_s"], float) for e in events)
 
 
+def test_remote_restore_uses_parallel_transfers(world, monkeypatch):
+    seen = []
+    original = StateManager.restore
+
+    def restore(self, *args, **kwargs):
+        restored = original(self, *args, **kwargs)
+        seen.append(self.transfer_workers)  # recorded only after a successful restore
+        return restored
+
+    monkeypatch.setattr(cloud, "S3StateObjectStore", FakeStateObjectStore)
+    monkeypatch.setattr(StateManager, "restore", restore)
+    run(world, "parallel")  # the fake store lacks S3 usage listing, so only the restore is checked
+    assert seen == [8]
+
+
 def test_write_publishes_history_and_current_keeps_its_value(world):
     result = run(world, "write", write=True)
     assert "exit_status" not in result, result
