@@ -798,6 +798,37 @@ class StateManager:
         except Exception:  # noqa: BLE001 -- 状态推送边界统一隐藏任意 SDK 或存储错误。
             raise StateError("状态推送失败") from None
 
+    def _local_raw_refs(self, refs: set[str]) -> set[str]:
+        local_refs = set(refs)
+        for path in (self.data_dir / "raw").glob("*/*"):
+            if path.is_file() and _SHA.fullmatch(path.name) and path.parent.name == path.name[:2]:
+                local_refs.add(path.name)
+        return local_refs
+
+    def upload_estimate(self) -> int:
+        """Bytes the next push would upload: copies absent remotely (each key once) plus missing raw.
+
+        Writes nothing remotely. An uploaded orphan candidate needs no new bytes.
+        """
+        specs = self._source_specs()
+        number, _ = self._current()
+        if self._get(f"generations/{number + 1}.json") is not None:
+            return 0
+        copies = set(self.store.list("copies/sha256/"))
+        raw_keys = set(self.store.list("raw/"))
+        with self._temporary_stage(prefix="datumoj-state-") as stage:
+            stores, _, _ = _copy_boundary(self.data_dir, stage)
+            refs = _raw_refs(stage, specs=specs)
+        total = sum({copy.key: copy.size_bytes for copy in stores
+                     if copy.format != _SQLITE_BLOCKS and copy.key not in copies}.values())
+        for sha in self._local_raw_refs(refs):
+            if _raw_key("raw", sha) not in raw_keys:
+                path = self.data_dir / _raw_key("raw", sha)
+                if not path.is_file():
+                    raise StateError("manifest 引用的 raw 在本机和远端均缺失")
+                total += path.stat().st_size
+        return total
+
     def _push(self, *, retain_local: bool = False) -> StateGeneration:
         with self._timed("prepare"):
             self._check_write()
@@ -844,10 +875,7 @@ class StateManager:
             uploaded_raw = {}
             with self._timed("upload_raw"):
                 # raw is immutable. Read/hash only missing blobs, without copying a raw tree.
-                local_refs = set(refs)
-                for path in (self.data_dir / "raw").glob("*/*"):
-                    if path.is_file() and _SHA.fullmatch(path.name) and path.parent.name == path.name[:2]:
-                        local_refs.add(path.name)
+                local_refs = self._local_raw_refs(refs)
 
                 def upload_raw(sha):
                     key = _raw_key("raw", sha)
