@@ -28,6 +28,7 @@ from pydantic import JsonValue
 
 from datumoj.rikolto.core.contracts import ParseError, Parser, ParseResult
 from datumoj.rikolto.core.models import Dataset, Observation, Snapshot, TimeGranularity, format_locator
+from datumoj.rikolto.parsers.imf_weo_archive import is_archive, parse_archive
 
 AGENCY = "IMF.RES"
 DATAFLOW = re.compile(r"WEO(?:_([0-9]{4})_(APR|OCT)_VINTAGE)?")
@@ -74,6 +75,8 @@ class ImfSdmxParser(Parser):
     content_type = "*"
 
     def parse(self, snapshot: Snapshot, data: bytes, meta: Mapping[str, JsonValue] | None = None) -> ParseResult:
+        if is_archive(data):  # old WEO database file: recognised by its header, not by name
+            return parse_archive(snapshot, data, meta)
         meta = dict(meta or {})
         flow, key, start, end = (meta.get(n) for n in ("dataflow", "key", "startPeriod", "endPeriod"))
         try:
