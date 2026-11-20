@@ -68,7 +68,8 @@ def _quiet():
 def _import_progress(event, started, **fields):
     # Stage, release id, counts and elapsed time only: never source text or storage configuration.
     row = {"event": event, **fields, "elapsed_s": round(time.monotonic() - started, 3)}
-    print(json.dumps(row), file=sys.__stderr__, flush=True)
+    with suppress(OSError, ValueError):  # a closed progress channel must not fail the import itself
+        print(json.dumps(row), file=sys.__stderr__, flush=True)
 
 
 def _progress(event, started, record=None):
