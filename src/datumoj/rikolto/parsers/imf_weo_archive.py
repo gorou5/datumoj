@@ -33,12 +33,16 @@ LAST = "Estimates Start After"
 _YEAR = re.compile(r"[0-9]{4}")
 _ISO = re.compile(r"[A-Z]{3}")
 _CODE = re.compile(r"[A-Za-z0-9_]+")
-SCALES = {"": Decimal(1), "Billions": Decimal(10) ** 9, "Millions": Decimal(10) ** 6}
+SCALES = {"": Decimal(1), "Units": Decimal(1), "Billions": Decimal(10) ** 9, "Millions": Decimal(10) ** 6}
 # "Percent of GDP" is the SDMX "PT"; the currency units use the codes the SDMX path publishes.
 UNITS = {"Percent of GDP": "PT", "U.S. dollars": "USD", "National currency": "XDC"}
 # Old IMF codes kept as published; the successor is written into the note, never substituted.
 # 2010-04 起 IMF 改名，GFSM 2001 口径。Only these two: no other code is inferred by name.
 RENAMED = {"GGB_NGDP": "GGXCNL_NGDP", "GGB": "GGXCNL"}
+# 负责人 2026-11-20 定的导入范围：只导希腊一般政府赤字占 GDP（含旧代码 GGB_NGDP），其余行一律跳过。
+ARCHIVE_INDICATORS = {"GGXCNL_NGDP"}
+_ESTIMATES = re.compile(r"[0-9]{4}|0")
+_EMPTY_VALUES = {"n/a", "--"}
 
 
 def is_archive(data: bytes) -> bool:
@@ -46,11 +50,14 @@ def is_archive(data: bytes) -> bool:
 
 
 def parse_archive(snapshot: Snapshot, data: bytes, meta: Mapping[str, JsonValue] | None = None) -> ParseResult:
-    # The import command tries the file against each planned request; only the current-flow requests may
-    # claim it, so the three vintage requests of a series do not make the match ambiguous.
-    flow = (meta or {}).get("dataflow")
-    if flow not in (None, "WEO"):
-        raise ParseError(f"旧版 WEO 存档只对应 WEO 数据流，不是 {flow!r}")
+    # The import command tries the file against each planned request; exactly one request may claim it:
+    # the WEO flow with a planned indicator, so the other flows and series do not make the match ambiguous.
+    meta = meta or {}
+    flow, key = meta.get("dataflow"), meta.get("key")
+    parts = key.split(".") if isinstance(key, str) else []
+    if flow != "WEO" or len(parts) != 3 or parts[1] not in ARCHIVE_INDICATORS:
+        raise ParseError(f"旧版 WEO 存档只由 WEO 数据流的计划内指标请求认领，不是 {flow!r} {key!r}")
+    countries = set(parts[0].split("+"))
     try:
         text = data.removeprefix(b"\xef\xbb\xbf").decode("cp1252")
     except UnicodeDecodeError as exc:
@@ -74,20 +81,24 @@ def parse_archive(snapshot: Snapshot, data: bytes, meta: Mapping[str, JsonValue]
             *cells, estimates = cells
             if not _ISO.fullmatch(iso) or not _CODE.fullmatch(code):
                 raise ParseError(f"WEO 存档第 {line} 行的 ISO 或指标代码无效：{iso!r} {code!r}")
+            if iso not in countries or RENAMED.get(code, code) not in ARCHIVE_INDICATORS:
+                continue  # outside the planned import: skipped before Scale and values are checked
             if scale not in SCALES:
                 raise ParseError(f"WEO 存档第 {line} 行的 Scale 不认识：{scale!r}")
-            if estimates.strip() and not _YEAR.fullmatch(estimates.strip()):
+            estimates = estimates.strip()
+            if estimates and not _ESTIMATES.fullmatch(estimates):
                 raise ParseError(f"WEO 存档第 {line} 行的 Estimates Start After 无效：{estimates!r}")
+            known = estimates not in ("", "0")
             table_key = f"WEO:{iso}.{code}.A"
             dataset_key = f"{snapshot.source_id}:{table_key}"
             descriptions[dataset_key] = (f"{iso}.{code}.A", notes or None)
             for period, cell in zip(header[9:-1], cells, strict=True):
                 raw = cell.strip()
-                if not raw:
+                if not raw or raw in _EMPTY_VALUES:
                     continue
                 year = int(period)
-                status = (("预测" if year > int(estimates) else "实绩") if estimates.strip()
-                          else "实绩/预测未知（Estimates Start After 缺失）")
+                status = (("预测" if year > int(estimates) else "实绩") if known
+                          else "实绩/预测未知（Estimates Start After 缺失或为 0）")
                 note = [status, f"Scale={scale}" if scale else "Scale=（空）", f"Units={units}",
                         f"WEO Country Code={ifs}"]
                 try:
@@ -95,9 +106,8 @@ def parse_archive(snapshot: Snapshot, data: bytes, meta: Mapping[str, JsonValue]
                     if not value.is_finite():
                         raise InvalidOperation
                     value *= SCALES[scale]
-                except InvalidOperation:
-                    value = None
-                    note.append(f"OBS_VALUE={raw}")
+                except InvalidOperation as exc:
+                    raise ParseError(f"WEO 存档第 {line} 行的数值不认识：{raw!r}") from exc
                 if code in RENAMED:
                     note.append(f"代码对应：{code} → {RENAMED[code]}（2010-04 起 IMF 改名，GFSM 2001 口径；保留原代码）")
                 identity = json.dumps([iso, code, "A", period], separators=(",", ":"))

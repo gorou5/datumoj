@@ -65,6 +65,12 @@ def _quiet():
             logging.disable(previous)
 
 
+def _import_progress(event, started, **fields):
+    # Stage, release id, counts and elapsed time only: never source text or storage configuration.
+    row = {"event": event, **fields, "elapsed_s": round(time.monotonic() - started, 3)}
+    print(json.dumps(row), file=sys.__stderr__, flush=True)
+
+
 def _progress(event, started, record=None):
     record = record or {}
     if "embedded" in record:
@@ -967,19 +973,23 @@ def import_release(*, manifest: Path, files_dir: Path, work_dir: Path | None = N
     result = {"capacity": gate(None, None, "optional"), "write": write, "releases": []}
     deps = leases = lease = None
     phase = "manifest"
+    started = time.monotonic()
     with ExitStack() as stack, _quiet():
         try:
             entries = _load_import_manifest(manifest, files_dir)
+            _import_progress("manifest_checked", started, releases=len(entries))
             phase = "configuration"
             root = _empty_work_root(work_dir, stack)
             manager = wiring.build_state(root)
             phase = "restore"
             history = manager.list()
             number = history[0].generation if history else 0
+            _import_progress("restore_start", started, restoring=bool(history))
             if history:
                 manager.restore(root, generation=number, raw="remote")
             else:
                 root.mkdir(parents=True, exist_ok=True)
+            _import_progress("restore_end", started)
             with workspace_lock(root):
                 phase = "initialization"
                 # A preview must not upload: its raw stays in the disposable work directory.
@@ -1001,6 +1011,7 @@ def import_release(*, manifest: Path, files_dir: Path, work_dir: Path | None = N
                     for entry, report in zip(entries, result["releases"], strict=True):
                         if entry not in todo:
                             continue
+                        _import_progress("import_start", started, release_id=entry["release_id"])
                         try:
                             done = wiring.import_observation_release(
                                 deps, entry["source"], entry["path"], entry["release_id"], entry["day"])
@@ -1009,6 +1020,8 @@ def import_release(*, manifest: Path, files_dir: Path, work_dir: Path | None = N
                             raise
                         report.update(status="imported" if write else "previewed",
                                       observations=done["observations"], warnings=done["warnings"])
+                        _import_progress("import_end", started, release_id=entry["release_id"],
+                                         observations=done["observations"])
 
                 if not write:
                     phase = "import"
@@ -1052,9 +1065,11 @@ def import_release(*, manifest: Path, files_dir: Path, work_dir: Path | None = N
                     result["uploaded_raw_bytes"] = deps.raw.bytes
                     phase = "publish"
                     check()
+                    _import_progress("publish_start", started)
                     generation = (StateManager.push(manager, retain_local=True)
                                   if isinstance(manager, StateManager) else manager.push())
                     result["generation"] = generation.generation
+                    _import_progress("publish_end", started, generation=generation.generation)
                     phase = "post_publish_check"
                     result["after_bytes"] = _project_storage_bytes(manager.store)
                     if result["after_bytes"] >= LIMITS.stop:

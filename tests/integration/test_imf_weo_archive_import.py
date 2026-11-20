@@ -13,17 +13,21 @@ import pytest
 from typer.testing import CliRunner
 
 from datumoj.rikolto import cli, wiring
+from datumoj.rikolto.core.registry import load_registry
+from datumoj.rikolto.testing.fakes import FakeRegistry
 from tests.crawlers.test_imf_sdmx import GRC_SPEC
 from tests.integration.test_imf_weo_e2e import build, close, crawl_and_parse, routes_for
 
 SID = "intl-imf-weo"
 ARCHIVE = Path(__file__).parents[2] / "tests/fixtures/imf_weo_archive"
-SPEC = GRC_SPEC.model_copy(update={"scope": {**GRC_SPEC.scope, "dataflows": ["WEO"]}})  # one request matches the file
+SPEC = load_registry(Path(__file__).parents[2] / "sources").get(SID)  # the real registered source, unchanged
 RELEASES = [  # release_id and released_at are the ones the person gives (README suggestions)
     ("weo_2009_apr_GRC_excerpt.tsv", "WEO-2009-APR", "2009-04-22", "GGB_NGDP", "-4.509"),
     ("weo_2009_oct_GRC_excerpt.tsv", "WEO-2009-OCT", "2009-10-01", "GGB_NGDP", "-6.398"),
     ("weo_2010_apr_GRC_excerpt.tsv", "WEO-2010-APR", "2010-04-21", "GGXCNL_NGDP", "-12.866"),
     ("weo_2010_oct_GRC_excerpt.tsv", "WEO-2010-OCT", "2010-10-06", "GGXCNL_NGDP", "-13.584"),
+    ("weo_2009_apr_mixed_excerpt.tsv", "WEO-2009-APR-MIXED", "2009-04-22", "GGB_NGDP", "-4.509"),
+    ("weo_2010_oct_mixed_excerpt.tsv", "WEO-2010-OCT-MIXED", "2010-10-06", "GGXCNL_NGDP", "-13.584"),
 ]
 
 
@@ -46,9 +50,12 @@ def run_import(root, deps, monkeypatch, name, release_id, released_at):
 
 
 def test_four_archive_releases_import_as_history_and_current_stays_api(tmp_path, monkeypatch):
-    root, deps = build(tmp_path, SPEC)
+    root, seed = build(tmp_path, GRC_SPEC)  # the current API release is crawled with the one-request test spec
+    crawl_and_parse(seed, GRC_SPEC, routes_for(tmp_path))
+    close(seed)
+    deps = wiring.build(root, {"registry": FakeRegistry([SPEC])})  # imports use the real three-flow source
     try:
-        crawl_and_parse(deps, SPEC, routes_for(tmp_path))
+        assert len(SPEC.scope["dataflows"]) == 3 and len(SPEC.scope["series"]) == 3
         table = "WEO:GRC.GGXCNL_NGDP.A"
         watermark = deps.observations.table_order(SID, table)
         for name, release_id, released_at, _, _ in RELEASES:
@@ -73,16 +80,12 @@ def test_four_archive_releases_import_as_history_and_current_stays_api(tmp_path,
             assert (rid, released, got) == (release_id, date.fromisoformat(released_at), Decimal(value))
             assert ("代码对应" in note) == code.startswith("GGB")
             seen_sha.add(sha)
-        assert len(seen_sha) == 4
-        gap = deps.observations.query_readonly(
-            "SELECT value, unit FROM observations WHERE indicator_code='GGXCNL' AND time_label='2009'",
-            generation_token=token, as_of_release="WEO-2010-APR")
-        assert gap.rows == [(Decimal(-30557000000), "XDC")]
-        legacy = deps.observations.query_readonly(
-            "SELECT value FROM observations WHERE indicator_code='GGB' AND time_label='2009'",
-            generation_token=token, as_of_release="WEO-2009-OCT")
-        assert legacy.rows == [(Decimal(-15757000000),)]
-        assert all(p.release_id == "WEO-2009-OCT" for p in legacy.provenance)
+        assert len(seen_sha) == len(RELEASES)
+        for release_id in ("WEO-2010-APR", "WEO-2009-OCT"):  # local-currency series are no longer produced
+            none = deps.observations.query_readonly(
+                "SELECT value FROM observations WHERE indicator_code IN ('GGXCNL', 'GGB', 'NGDPD')",
+                generation_token=token, as_of_release=release_id)
+            assert none.rows == []
     finally:
         close(deps)
 
