@@ -30,6 +30,8 @@ from tests.parsers.test_oecd_sdmx import (
     edition_url,
     hou_bytes,
     namain_bytes,
+    structure_bytes,
+    structure_url,
 )
 
 ROOT = Path(__file__).parents[2]
@@ -47,7 +49,8 @@ FLOWS = [
 SPEC = REAL.model_copy(update={"scope": {"raw_retention_days": 2, "dataflows": FLOWS}})
 CONSTRAINTS = [constraint_url(NAMAIN), constraint_url(HOU)]
 EDITIONS = [edition_url("201901"), edition_url("201902")]
-ALL = [CONSTRAINTS[0], NAMAIN_URL, CONSTRAINTS[1], HOU_URL, *EDITIONS]
+STRUCTURES = [structure_url(NAMAIN), structure_url(HOU)]
+ALL = [CONSTRAINTS[0], STRUCTURES[0], NAMAIN_URL, CONSTRAINTS[1], STRUCTURES[1], HOU_URL, *EDITIONS]
 
 
 def routes(*, last_modified=True, valid_from=RECORDED_VALID_FROM, data_status=200):
@@ -59,6 +62,8 @@ def routes(*, last_modified=True, valid_from=RECORDED_VALID_FROM, data_status=20
     return {
         CONSTRAINTS[0]: reply(constraint_bytes(NAMAIN, valid_from), "0001-01-01"),
         CONSTRAINTS[1]: reply(constraint_bytes(HOU, "2026-11-01T00:00:00Z"), "0001-01-01"),
+        STRUCTURES[0]: reply(structure_bytes(), "2023-12-04"),
+        STRUCTURES[1]: reply(structure_bytes(), "2023-12-04"),  # synthetic: the NAMAIN10 codelists again
         NAMAIN_URL: reply(namain_bytes(), "2024-09-25", data_status),
         HOU_URL: reply(hou_bytes(), "2023-11-14"),
         EDITIONS[0]: reply(edition_bytes("201901"), "2023-12-22"),
@@ -99,14 +104,17 @@ class TestOecdCrawlerContract(CrawlerSuite):
 def test_requests_follow_the_scope_on_the_official_host():
     assert discover_crawlers()["oecd_sdmx"] is OecdSdmxCrawler
     fetcher, steps = run(FakeManifest(), FakeRawStore(), routes())
-    assert fetcher.requests == ALL  # constraint → its data, then the revision editions
-    assert [s.task.meta["request_type"] for s in steps] == ["constraint", "data", "constraint", "data", "edition", "edition"]
+    assert fetcher.requests == ALL  # constraint → codelists → its data, then the revision editions
+    assert [s.task.meta["request_type"] for s in steps] == [
+        "constraint", "structure", "data", "constraint", "structure", "data", "edition", "edition"]
     assert all(urlsplit(url).hostname == "sdmx.oecd.org" for url in fetcher.requests)
     assert all("format=csv" in url for url in fetcher.requests if "/data/" in url)
     assert not any("_CPC" in url or "PPP" in url for url in fetcher.requests)
-    data = steps[1].task
+    data = steps[2].task
+    assert data.url == NAMAIN_URL  # the data request itself is unchanged
     assert data.meta["valid_from"] == RECORDED_VALID_FROM and data.meta["id"] == NAMAIN and data.meta["version"] == "2.0"
-    assert steps[4].task.meta["edition"] == "201901" and not steps[4].task.headers
+    assert data.meta["code_labels"]["TRANSACTION"]["B1GQ"] == "Gross domestic product"
+    assert steps[6].task.meta["edition"] == "201901" and not steps[6].task.headers
 
 
 def test_unchanged_contentconstraint_sends_no_data_request():
@@ -135,8 +143,8 @@ def test_changed_valid_from_fetches_only_that_dataflow_again():
     run(manifest, raw, routes())
     later = T0 + timedelta(days=7)
     fetcher, steps = run(manifest, raw, routes(last_modified=False, valid_from=NEW_VALID_FROM), now=later)
-    assert fetcher.requests == [CONSTRAINTS[0], NAMAIN_URL, CONSTRAINTS[1]]
-    assert steps[1].task.meta["valid_from"] == NEW_VALID_FROM
+    assert fetcher.requests == [CONSTRAINTS[0], STRUCTURES[0], NAMAIN_URL, CONSTRAINTS[1]]
+    assert steps[2].task.meta["valid_from"] == NEW_VALID_FROM
     # The new marker is stored with the data snapshot, so the next run compares against it.
     fetcher, _ = run(manifest, raw, routes(last_modified=False, valid_from=NEW_VALID_FROM), now=later + timedelta(days=7))
     assert fetcher.requests == CONSTRAINTS
@@ -149,23 +157,29 @@ def test_304_on_the_data_does_not_count_as_fetched_for_the_new_valid_from():
     moved = routes() | {CONSTRAINTS[0]: FakeResponse(200, constraint_bytes(NAMAIN, NEW_VALID_FROM), {})}
     for week in (1, 2):
         fetcher, steps = run(manifest, raw, moved, now=T0 + timedelta(days=7 * week))
-        assert fetcher.requests == [CONSTRAINTS[0], NAMAIN_URL, CONSTRAINTS[1]]  # asked again, not marked done
-        assert steps[1].result.outcome is FetchOutcome.not_modified
-        assert steps[1].task.meta["valid_from"] == NEW_VALID_FROM
+        assert fetcher.requests == [CONSTRAINTS[0], STRUCTURES[0], NAMAIN_URL, CONSTRAINTS[1]]  # asked again, not marked done
+        assert steps[2].result.outcome is FetchOutcome.not_modified
+        assert steps[2].task.meta["valid_from"] == NEW_VALID_FROM
 
 
 def test_data_fetch_that_failed_is_retried_although_the_constraint_is_unchanged():
     manifest, raw = FakeManifest(), FakeRawStore()
     fetcher, steps = run(manifest, raw, routes(data_status=503))
-    assert steps[1].result.outcome is FetchOutcome.http_error
+    assert steps[2].result.outcome is FetchOutcome.http_error
     fetcher, _ = run(manifest, raw, routes(), now=T0 + timedelta(days=7))
-    assert fetcher.requests == [CONSTRAINTS[0], NAMAIN_URL, CONSTRAINTS[1]]  # editions and HOU_EAR already in
+    assert fetcher.requests == [CONSTRAINTS[0], STRUCTURES[0], NAMAIN_URL, CONSTRAINTS[1]]  # editions and HOU_EAR already in
 
 
 def test_failed_constraint_does_not_schedule_its_data():
     responses = routes() | {CONSTRAINTS[0]: FakeResponse(503)}
     fetcher, _ = run(FakeManifest(), FakeRawStore(), responses)
-    assert fetcher.requests == [CONSTRAINTS[0], CONSTRAINTS[1], HOU_URL, *EDITIONS]
+    assert fetcher.requests == [CONSTRAINTS[0], CONSTRAINTS[1], STRUCTURES[1], HOU_URL, *EDITIONS]
+
+
+def test_failed_structure_does_not_schedule_its_data():
+    responses = routes() | {STRUCTURES[0]: FakeResponse(503)}
+    fetcher, _ = run(FakeManifest(), FakeRawStore(), responses)
+    assert NAMAIN_URL not in fetcher.requests and HOU_URL in fetcher.requests
 
 
 def test_ingested_editions_are_not_requested_again_but_new_ones_are():
@@ -202,21 +216,22 @@ def test_no_request_once_60_were_made_in_the_last_hour():
 
 def test_budget_stops_the_run_exactly_at_60_without_failing():
     manifest, raw = FakeManifest(), FakeRawStore()
-    seed(manifest, 58)
+    seed(manifest, 57)
     fetcher, steps = run(manifest, raw, routes())
-    # 59th: constraint; 60th: its data. The rest waits for the next hour.
-    assert fetcher.requests == [CONSTRAINTS[0], NAMAIN_URL]
+    # 58th: constraint; 59th: codelists; 60th: its data. The rest waits for the next hour.
+    assert fetcher.requests == [CONSTRAINTS[0], STRUCTURES[0], NAMAIN_URL]
     assert all(s.result.outcome is FetchOutcome.ok for s in steps)
-    seed_59 = FakeManifest()
-    seed(seed_59, 59)
-    fetcher, _ = run(seed_59, FakeRawStore(), routes())
-    assert fetcher.requests == [CONSTRAINTS[0]]  # the data request would be the 61st
+    seed_58 = FakeManifest()
+    seed(seed_58, 58)
+    fetcher, _ = run(seed_58, FakeRawStore(), routes())
+    # Codelists + data would be the 60th and 61st: neither is fetched; the next constraint check is the 60th.
+    assert fetcher.requests == CONSTRAINTS
 
 
 def test_budget_carries_over_between_runs_through_the_manifest():
     manifest, raw = FakeManifest(), FakeRawStore()
-    run(manifest, raw, routes())  # 6 requests recorded at T0
-    seed(manifest, 52, age=timedelta(minutes=5))
+    run(manifest, raw, routes())  # 8 requests recorded at T0
+    seed(manifest, 50, age=timedelta(minutes=5))
     fetcher, _ = run(manifest, raw, routes(), now=T0 + timedelta(minutes=30))
     assert fetcher.requests == CONSTRAINTS  # 58 used; both constraint checks fit, nothing more is planned
     fetcher, _ = run(manifest, raw, routes(), now=T0 + timedelta(minutes=31))

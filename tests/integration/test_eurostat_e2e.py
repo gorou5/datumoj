@@ -17,7 +17,7 @@ from datumoj.rikolto.core.runner import CrawlDeps
 from datumoj.rikolto.testing.fakes import FakeRegistry, FakeStateObjectStore
 from datumoj.rikolto.testing.samples import T0
 from tests.crawlers.test_eurostat import SPEC
-from tests.parsers.test_eurostat import BASE, GOV, data_bytes, dsd_bytes
+from tests.parsers.test_eurostat import BASE, FIXTURES, GDP, GOV, data_bytes, dsd_bytes
 
 SQL = ("SELECT source_id, table_key, obs_id, snapshot_sha256, release_id, value FROM observations "
        "WHERE table_key='gov_10dd_edpt1' AND area_code='EL' AND time_label='2009' "
@@ -42,7 +42,8 @@ def test_query_citation_and_revised_snapshot_history(tmp_path, monkeypatch):
     for entry in SPEC.scope["datasets"]:
         code = entry["id"]
         dsd = tmp_path / f"{code}.dsd.xml"
-        dsd.write_bytes(dsd_bytes(code))
+        listed = FIXTURES / f"datastructure_{code.upper()}_codelists.xml"  # the recorded DSD with its codelists
+        dsd.write_bytes(listed.read_bytes() if listed.exists() else dsd_bytes(code))
         data = tmp_path / f"{code}.xml"
         data.write_bytes(data_bytes(code))
         urls[code] = f"{BASE}data/{code}/{entry['query']}?startPeriod={entry['startPeriod']}&endPeriod={entry['endPeriod']}"
@@ -90,6 +91,8 @@ def test_query_citation_and_revised_snapshot_history(tmp_path, monkeypatch):
         assert original.fetched_at == T0
         assert deps.observations.query_readonly("SELECT count(*) FROM observations").rows == [(80,)]
         assert len(deps.catalog.search("data structure")) == 2
+        labels = deps.catalog.get_dataset(f"{SPEC.id}:{GDP}").extras["code_labels"]
+        assert labels["na_item"]["B1GQ"]  # the name came from the DSD codelist; the observation keeps "B1GQ"
         # Change only the 2009 deficit rate in a temporary synthetic snapshot.
         revised = tmp_path / "gov_revised.synthetic.xml"
         body = data_bytes(GOV)

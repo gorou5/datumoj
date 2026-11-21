@@ -15,7 +15,7 @@ from urllib.parse import urlencode
 
 from datumoj.rikolto.core.contracts import CrawlContext, Crawler, FetchResult, FetchTask
 from datumoj.rikolto.core.models import FetchOutcome
-from datumoj.rikolto.parsers.oecd_sdmx import read_valid_from
+from datumoj.rikolto.parsers.oecd_sdmx import read_code_labels, read_valid_from
 
 MAX_REQUESTS_PER_HOUR = 60
 
@@ -108,18 +108,27 @@ class OecdSdmxCrawler(Crawler):
                 yield FetchTask(url=url, meta={**meta, **extra})
 
     def after_fetch(self, task: FetchTask, result: FetchResult, ctx: CrawlContext) -> Iterable[FetchTask]:
-        if task.meta.get("request_type") != "constraint":
+        kind = task.meta.get("request_type")
+        if kind not in ("constraint", "structure"):
             return
         if result.outcome is FetchOutcome.ok:
             data = result.content
         elif result.outcome is FetchOutcome.not_modified:
             previous = ctx.manifest.last_success(task.redacted_url)
             if previous is None or previous.sha256 is None:
-                raise ValueError("OECD contentconstraint 304 缺少可复用快照")
+                raise ValueError(f"OECD {kind} 304 缺少可复用快照")
             data = ctx.raw.get(previous.sha256)
         else:
             return
         flow = task.meta
+        if kind == "structure":
+            # The data request is unchanged; the codelists only travel along as task meta.
+            url = _data_url(ctx, flow, str(flow["query"]))
+            if _requests_used(ctx) < MAX_REQUESTS_PER_HOUR:
+                yield FetchTask(url=url, meta={
+                    **{k: v for k, v in flow.items() if k != "request_type"},
+                    "request_type": "data", "code_labels": read_code_labels(data)})
+            return
         valid_from = read_valid_from(data, str(flow["agency"]), str(flow["id"]))
         url = _data_url(ctx, flow, str(flow["query"]))
         # Compare with the last successful data fetch (outcome ok), not the last constraint: a failed or
@@ -129,6 +138,9 @@ class OecdSdmxCrawler(Crawler):
         fetched = ctx.manifest.last_success(url)
         if fetched is not None and ctx.manifest.snapshot_meta(fetched.snapshot_id).get("valid_from") == valid_from:
             return
-        if _requests_used(ctx) >= MAX_REQUESTS_PER_HOUR:
+        if _requests_used(ctx) + 1 >= MAX_REQUESTS_PER_HOUR:  # the structure and its data must both fit
             return
-        yield FetchTask(url=url, meta={**flow, "request_type": "data", "valid_from": valid_from})
+        # One more request for the codelists (structure only); the data request follows from its result.
+        base = ctx.spec.base_url.rstrip("/")
+        structure = f"{base}/dataflow/{flow['agency']}/{flow['id']}/{flow['version']}?references=all&detail=referencepartial"
+        yield FetchTask(url=structure, meta={**flow, "request_type": "structure", "valid_from": valid_from})

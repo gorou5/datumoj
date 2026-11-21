@@ -110,6 +110,23 @@ def test_existing_parser_concept_codes_and_indicator_translations(inputs):
     assert profile.time_start is None and profile.time_end is None
 
 
+@pytest.mark.parametrize("code_labels, names", [
+    ({"na_item": {"B1GQ": "Gross domestic product at market prices"}}, {"en": "Gross domestic product at market prices", "und": "B1GQ"}),
+    ({"na_item": {"GD": "Government consolidated gross debt"}}, {"und": "B1GQ"}),  # no name for this code: as before
+    ({}, {"und": "B1GQ"}),
+])
+def test_indicator_name_from_source_code_labels_keeps_series_identity(inputs, code_labels, names):
+    row = make_observation("e1", "1", source_id="eu-eurostat", dataset_key="eu-eurostat:nama_10_gdp",
+                           table_key="nama_10_gdp", indicator="B1GQ", indicator_code="B1GQ", unit="CP_MEUR")
+    inputs["registry"] = FakeRegistry([make_spec("eu-eurostat")])
+    inputs["catalog"].upsert([make_dataset("eu-eurostat:nama_10_gdp", "NAMA_10_GDP data structure",
+                                           extras={"code_labels": code_labels})])
+    inputs["observations"].write_table("eu-eurostat", "nama_10_gdp", [row])
+    profile, = generate_profiles(1, **inputs)
+    assert profile.names == names
+    assert (profile.series.indicator, profile.series.indicator_code) == ("B1GQ", "B1GQ")
+
+
 def test_own_time_period_is_not_part_of_series_identity(inputs):
     rows = [make_observation(f"y{year}", "1", indicator_code="POP", time_label=str(year),
                              time_start=date(year, 1, 1), time_end=date(year, 12, 31),

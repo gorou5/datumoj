@@ -15,7 +15,7 @@ import pytest
 
 from datumoj.rikolto.core.contracts import ParseError, discover_parsers
 from datumoj.rikolto.core.models import TimeGranularity
-from datumoj.rikolto.parsers.oecd_sdmx import OecdSdmxParser, _period, read_valid_from
+from datumoj.rikolto.parsers.oecd_sdmx import OecdSdmxParser, _period, read_code_labels, read_valid_from
 from datumoj.rikolto.testing.contract_suites import ParserSuite
 from datumoj.rikolto.testing.samples import ParseSample, make_snapshot
 
@@ -38,6 +38,18 @@ def edition_url(edition):
 
 def constraint_url(flow):
     return BASE + f"contentconstraint/{AGENCY[flow]}/CR_A_{flow}/"
+
+
+def structure_url(flow):
+    return BASE + f"dataflow/{AGENCY[flow]}/{flow}/{VERSION[flow]}?references=all&detail=referencepartial"
+
+
+def structure_bytes():
+    """The recorded NAMAIN10 structure with codelists (derived: only codes of the data sample are kept).
+
+    Crawler/e2e tests serve it for the other dataflows too; it is only a codelist source there.
+    """
+    return (FIXTURES / "dataflow_DF_TABLE1_EXPENDITURE_codelists.xml").read_bytes()
 
 
 def namain_bytes():
@@ -222,3 +234,21 @@ def test_contentconstraint_valid_from_and_its_snapshot_parses_to_nothing():
         read_valid_from(data.replace(b'validFrom="2026-11-16T07:54:30Z"', b'validFrom="soon"'), AGENCY[NAMAIN], NAMAIN)
     with pytest.raises(ParseError):
         read_valid_from(data.replace(b' validFrom="2026-11-16T07:54:30Z"', b""), AGENCY[NAMAIN], NAMAIN)
+
+
+def test_code_labels_come_from_the_structure_codelists_for_used_codes_only():
+    labels = read_code_labels(structure_bytes())
+    assert labels["TRANSACTION"]["B1GQ"] == "Gross domestic product"
+    plain = parse(sample(NAMAIN, namain_bytes(), NAMAIN_URL))
+    extra = dict(labels, TRANSACTION=dict(labels["TRANSACTION"], XXX="unused"))
+    with_labels = parse(sample(NAMAIN, namain_bytes(), NAMAIN_URL, code_labels=extra))
+    assert plain.datasets[0].extras["code_labels"] == {}  # no structure: nothing invented
+    assert with_labels.datasets[0].extras["code_labels"] == {"TRANSACTION": {"B1GQ": "Gross domestic product"}}
+    # Observation fields, and with them the series identity, do not depend on the codelists.
+    assert [o.model_dump() for o in plain.observations] == [o.model_dump() for o in with_labels.observations]
+    assert {(o.indicator, o.indicator_code) for o in with_labels.observations} == {("B1GQ", "B1GQ")}
+
+
+def test_structure_snapshot_parses_to_nothing():
+    parsed = parse(sample(NAMAIN, structure_bytes(), structure_url(NAMAIN)))
+    assert not (parsed.observations or parsed.datasets or parsed.documents)

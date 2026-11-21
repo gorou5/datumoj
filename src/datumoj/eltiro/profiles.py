@@ -113,6 +113,13 @@ def _observation_profiles(generation, rows: list[Observation], datasets):
                     if lang in names and names[lang] != text:
                         raise ValueError("conflicting source names")
                     names[lang] = text
+        # Source codelist names (parsers' code_labels) name the indicator code; never overrides another name.
+        for dataset in metadata:
+            labels = dataset.extras.get("code_labels")
+            for codes in (labels.values() if isinstance(labels, dict) else ()):
+                label = codes.get(row.indicator_code) if isinstance(codes, dict) and row.indicator_code else None
+                if isinstance(label, str) and label:
+                    names.setdefault(dataset.extras.get("language") or dataset.extras.get("lang") or "en", label)
         names.setdefault(language, row.indicator)
         unit = _one([item.unit for item in items if item.unit is not None], "units")
         if unit is None:
