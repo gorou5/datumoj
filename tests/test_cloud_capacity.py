@@ -1,5 +1,6 @@
 """Cloud gates against synthetic inventories; no large objects or real R2 access."""
 
+import hashlib
 import json
 from datetime import timedelta
 
@@ -10,7 +11,7 @@ from datumoj.rikolto.core.contracts import PreconditionFailed, StateObject
 from datumoj.rikolto.core.lease import LEASE_KEY
 from datumoj.rikolto.core.state import StateManager
 from datumoj.rikolto.core.state_s3 import S3StateObjectStore
-from tests import test_cloud_project
+from tests import test_cloud_project, test_cloud_run
 from tests.regressions.test_audit_131 import archive as archive  # noqa: PLC0414 -- Fixture dependency.
 from tests.test_cloud_cleanup_only import cleanup_world as cleanup_world  # noqa: PLC0414 -- Offline fixture.
 from tests.test_cloud_cleanup_only import invoke_cleanup
@@ -221,6 +222,104 @@ def test_embedding_estimate_failure_skips_before_lease(world, monkeypatch):
     result = invoke_embed(world)
     assert result["reason"] == "capacity_unknown" and not world.tokens
     assert result["capacity"]["estimated_new_bytes"] is None
+
+
+CURRENT_78 = 6_587_319_431  # Generation 78: 6.59 GB stored, ~130 chunks to embed, 3.38 GB of blocks.
+
+
+def vector_state_world(world, monkeypatch, payload, *, drop=False, wrong_sha=False, inflate=3_377_297_841):
+    """Seed, then make generation N look huge and carry the given vectors-state payload."""
+    seed(world)
+    manager = world.managers[-1]
+    generation = manager.list()[0]
+    stores = []
+    for copy in generation.stores:
+        if copy.name.endswith("vectors-state.json"):
+            if drop:
+                continue
+            if payload is not None:
+                sha = hashlib.sha256(payload).hexdigest()
+                manager.store.put_if_absent(f"copies/sha256/{sha}", payload)
+                copy = copy.model_copy(update={"key": f"copies/sha256/{sha}", "sha256": sha,
+                                               "size_bytes": len(payload)})
+            if wrong_sha:
+                copy = copy.model_copy(update={"sha256": "0" * 64})
+        elif copy.name not in {"runs.jsonl", "control.json"}:  # Small files stay small, as in production.
+            copy = copy.model_copy(update={"size_bytes": copy.size_bytes + inflate})
+        stores.append(copy)
+    huge = generation.model_copy(update={"stores": stores})
+    monkeypatch.setattr(StateManager, "list", lambda self: [huge])
+    capacity_inventory(monkeypatch, CURRENT_78)
+    return manager
+
+
+def state_payload(chunks):
+    return json.dumps({"missing": {"doc": {"chunks": chunks}}, "last_error": None}).encode()
+
+
+def test_preflight_uses_missing_chunks_not_generation_size(world, monkeypatch):
+    manager = vector_state_world(world, monkeypatch, state_payload(130))
+    result = cloud._round_capacity(manager, embed_only=True)
+    expected = 130 * cloud._EMBED_CHUNK_BYTES + cloud._EMBED_METADATA_MARGIN
+    # The small files add only a few hundred bytes to the arithmetic above.
+    assert expected <= result["estimated_new_bytes"] < expected + 1_000_000
+    assert result["current_bytes"] == CURRENT_78 and result["allowed"] and result["tier"] == "normal"
+
+
+def test_preflight_refuses_when_many_chunks_are_missing(world, monkeypatch):
+    manager = vector_state_world(world, monkeypatch, state_payload(150_000))
+    result = cloud._round_capacity(manager, embed_only=True)
+    assert result["reason"] == "capacity_stop" and not result["allowed"]
+
+
+@pytest.mark.parametrize("mode", ["absent", "corrupt", "invalid_count", "wrong_sha"])
+def test_preflight_unreadable_vector_state_is_unknown(world, monkeypatch, mode):
+    payload = {"corrupt": b"{not json", "invalid_count": state_payload(-1)}.get(mode)
+    manager = vector_state_world(world, monkeypatch, payload, drop=mode == "absent", wrong_sha=mode == "wrong_sha")
+    result = cloud._round_capacity(manager, embed_only=True)
+    assert result["reason"] == "capacity_unknown" and not result["allowed"]
+    assert result["estimated_new_bytes"] is None
+
+
+def test_embed_publishes_when_upload_estimate_matches_new_blocks(world, monkeypatch):
+    seed(world)
+    capacity_inventory(monkeypatch, 6_600_000_000)
+    store = remote(world)
+    before = {obj.key: obj.size_bytes for obj in store.list_objects("copies/sha256/")}
+    result = invoke_embed(world)
+    after = {obj.key: obj.size_bytes for obj in store.list_objects("copies/sha256/")}
+    uploaded = sum(size for key, size in after.items() if key not in before)
+    assert result["generation"] == 2 and result["embedded"] == 6
+    assert result["capacity"]["upload_estimate_bytes"] == uploaded > 0
+    assert uploaded < sum(after.values())  # Unchanged blocks were not counted.
+    released(world)
+
+
+@pytest.mark.parametrize("total,reason", [(8_400_000_000, "capacity_stop"), (7_900_000_000, "capacity_freeze")])
+def test_embed_over_line_uploads_nothing_and_does_not_publish(world, monkeypatch, total, reason):
+    seed(world)
+    capacity_inventory(monkeypatch, total)
+    real = StateManager.upload_estimate
+    monkeypatch.setattr(StateManager, "upload_estimate",
+                        lambda self: real(self) + 700_000_000)
+    store = remote(world)
+    pointer = store.get("current.json")
+    copies = {obj.key for obj in store.list_objects("copies/sha256/")}
+    result = invoke_embed(world)
+    assert result["status"] == "skipped" and result["reason"] == reason
+    assert result["generation"] is None and result["embedded"] == 6
+    assert "publish" in result["capacity"]["skipped_steps"]
+    assert result["capacity"]["upload_estimate_bytes"] >= 700_000_000
+    assert store.get("current.json") == pointer
+    assert {obj.key for obj in store.list_objects("copies/sha256/")} == copies
+    released(world)
+
+
+def test_embed_output_has_no_storage_identifiers(world, monkeypatch):
+    seed(world)
+    capacity_inventory(monkeypatch, 6_600_000_000)
+    text = json.dumps(invoke_embed(world))
+    assert all(value not in text for value in (*test_cloud_run.ENV.values(), *world.tokens))
 
 
 def test_stop_after_slow_restore_has_full_cleanup_window(world, monkeypatch):

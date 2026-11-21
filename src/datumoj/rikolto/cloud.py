@@ -575,18 +575,39 @@ def _project_storage_bytes(store):
     return sum(sizes)
 
 
+# Upper bound per embedded chunk: 4096 dimensions (4x the 1024 in use) x 4-byte floats, plus 8 KiB row overhead.
+_EMBED_CHUNK_BYTES = 4096 * 4 + 8192
+# Margin for rewritten SQLite blocks (256 KiB each) and Lance manifest/version files.
+_EMBED_METADATA_MARGIN = 64_000_000
+_EMBED_SMALL_FILES = frozenset({"runs.jsonl", "control.json", "vectors/vectors-state.json", "vectors-state.json"})
+
+
+def _embed_upper_bound(manager, history):
+    """Upper bound of an embedding round's upload from the remote vector state, without restoring."""
+    if not history:
+        return 0
+    stores = {copy.name: copy for copy in history[0].stores}
+    # Before the first vector is written the list is published under its bare name.
+    state_copy = stores.get("vectors/vectors-state.json") or stores["vectors-state.json"]
+    found = manager.store.get(state_copy.key)
+    if found is None or hashlib.sha256(found[0]).hexdigest() != state_copy.sha256:
+        raise ValueError("vector_state_unreadable")
+    missing = json.loads(found[0])["missing"]
+    chunks = [item["chunks"] for item in missing.values()]
+    if any(type(count) is not int or count < 0 for count in chunks):
+        raise ValueError("vector_state_invalid")
+    small = sum(copy.size_bytes for name, copy in stores.items() if name in _EMBED_SMALL_FILES)
+    return sum(chunks) * _EMBED_CHUNK_BYTES + small + _EMBED_METADATA_MARGIN
+
+
 def _round_capacity(manager, *, embed_only=False, weekly_report=False):
     current = estimate = None
     try:
         current = _project_storage_bytes(manager.store)
-        # Embedding republishes local stores. Budget a complete replacement of
-        # the current stores, without counting checksum-only SQLite descriptors.
         if weekly_report:
             estimate = WEEKLY_REPORT_RESERVE
         else:
-            history = manager.list() if embed_only else []
-            estimate = sum(copy.size_bytes for copy in history[0].stores
-                           if copy.format != "sqlite-blocks-v1") if history else 0
+            estimate = _embed_upper_bound(manager, manager.list()) if embed_only else 0
     except Exception:  # noqa: BLE001 -- An unavailable inventory/estimate must fail closed.
         estimate = None
     return gate(current, estimate, "optional" if embed_only or weekly_report else "essential",
@@ -1489,6 +1510,19 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                             marked = manager.mark_raw(deps.registry.all(), utcnow())
                     except Exception:  # noqa: BLE001 -- Retention maintenance cannot fail the round.
                         marking_failed = 1
+                    if isinstance(manager, StateManager) and (embed_only or result["backfill_embedded"]):
+                        # Recheck with the bytes the push would really upload, before any upload.
+                        phase = "publish_capacity"
+                        upload = manager.upload_estimate()
+                        gated = gate(capacity["current_bytes"], upload, "optional" if embed_only else "essential")
+                        capacity["upload_estimate_bytes"] = upload
+                        if not gated["allowed"]:
+                            capacity.update(tier=gated["tier"], projected_bytes=gated["projected_bytes"],
+                                            reason=gated["reason"], allowed=False,
+                                            skipped_steps=[*capacity["skipped_steps"], "publish"])
+                            result.update(status="skipped", exit_status=0, reason=gated["reason"])
+                            _report_capacity(capacity)
+                            return result
                     phase = "publish"
                     check()
                     _progress("publish_start", started, result)
