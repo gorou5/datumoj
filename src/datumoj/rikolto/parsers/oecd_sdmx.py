@@ -73,11 +73,11 @@ def read_code_labels(data: bytes) -> dict[str, dict[str, str]]:
             text = next((n.text for n in item.findall(f"{{{_COMMON}}}Name") if n.get(_XML_LANG) == "en" and n.text and n.text.strip()), None)
             if text:
                 names[item.get("id")] = text
-        lists[node.get("agencyID"), node.get("id"), node.get("version")] = names  # SDMX identifies a codelist by all three
+        lists[node.get("agencyID"), node.get("id"), node.get("version", "1.0")] = names  # SDMX identifies a codelist by all three
     labels = {}
     for dim in root.iter(f"{{{_STRUCTURE}}}Dimension"):
         ref = dim.find(f"{{{_STRUCTURE}}}LocalRepresentation/{{{_STRUCTURE}}}Enumeration/Ref")
-        key = None if ref is None else (ref.get("agencyID"), ref.get("id"), ref.get("version"))
+        key = None if ref is None else (ref.get("agencyID"), ref.get("id"), ref.get("version", "1.0"))  # SDMX 2.1 default version
         if dim.get("id") in _INDICATOR_DIMS and lists.get(key):
             labels[dim.get("id")] = lists[key]
     return labels
