@@ -22,9 +22,12 @@
 | `datastructure_GOV_10DD_EDPT1.xml` | captured | `https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/datastructure/ESTAT/GOV_10DD_EDPT1` | 2026-10-26T18:08:00+09:00 | 6537 | 302 用 DSD 解释维度顺序（freq, unit, sector, na_item, geo）；不含 codelist |
 | `nama_10_gdp_DE-FR-NL_2020-2024.xml` | captured | `https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/nama_10_gdp/A.CP_MEUR.B1GQ.DE+FR+NL?startPeriod=2020&endPeriod=2024` | 2026-10-26T18:08:01+09:00 | 2813 | 302 GDP 现价百万欧元：key `A.CP_MEUR.B1GQ.DE+FR+NL`，3 国×5 年＝15 个观测；有 3 个观测带 `OBS_FLAG`，要原样保留 |
 | `datastructure_NAMA_10_GDP.xml` | captured | `https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/datastructure/ESTAT/NAMA_10_GDP` | 2026-10-26T18:08:02+09:00 | 5996 | 302 DSD：维度顺序 freq, unit, na_item, geo |
+| `datastructure_GOV_10DD_EDPT1_codelists.xml` | derived | `https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/datastructure/ESTAT/GOV_10DD_EDPT1?references=children` | 2026-11-21T21:43:14+09:00 | 30062（原 3652968） | WISTERIA-315：带代码表的 DSD，取 `na_item`（B9、GD）、`unit`、`sector`、`geo` 的英文名称；只保留本目录数据样本里出现的代码，其余字节原样 |
+| `datastructure_NAMA_10_GDP_codelists.xml` | derived | `https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/datastructure/ESTAT/NAMA_10_GDP?references=children` | 2026-11-21T21:43:23+09:00 | 27079（原 3600602） | WISTERIA-315：同上，`na_item` B1GQ |
 
 ## 观察
 
 - 这些是 2026-10-26 当时的“当前值”，不是历史发布版本。历次发布的值只能靠之后的定期快照积累。
 - `format=JSON` 返回 JSON-stat 2.0，不是 SDMX-JSON；首版统一用 SDMX-ML。
 - 带 `?references=datastructure` 查 dataflow 返回 400（错误码 140），所以直接查 `/datastructure/ESTAT/<ID>`。
+- 2026-11-21 补录：`?references=children` 返回带代码表的 DSD（每个约 3.6 MB，主要是 GEO、UNIT、NA_ITEM 全量代码）；仓库里只放删去未用代码后的版本，原始大小和 SHA-256 在 `_responses.json` 的 `derived_from`。

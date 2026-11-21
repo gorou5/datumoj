@@ -76,5 +76,51 @@
       "connection": "close"
     },
     "sample_type": "captured"
+  },
+  "datastructure_GOV_10DD_EDPT1_codelists.xml": {
+    "derived_from": {
+      "url": "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/datastructure/ESTAT/GOV_10DD_EDPT1?references=children",
+      "status": 200,
+      "fetched_at": "2026-11-21T21:43:14+09:00",
+      "bytes": 3652968,
+      "sha256": "831cf2225be048dd3ed409ff4b8778ed92943763fdfd12576aa2c9057e83848a",
+      "headers": {
+        "date": "Sat, 21 Nov 2026 12:43:05 GMT",
+        "transfer-encoding": "chunked",
+        "content-type": "application/vnd.sdmx.structure+xml;version=2.1",
+        "content-disposition": "attachment; filename=\"ESTAT_GOV_10DD_EDPT1_55.0.xml\"",
+        "access-control-allow-headers": "Content-Type, Accept, X-Requested-With",
+        "access-control-allow-methods": "GET",
+        "access-control-allow-origin": "*",
+        "connection": "keep-alive"
+      }
+    },
+    "derivation": "删去本目录数据样本里没有出现的代码（<Code> 元素），其余字节原样保留；只为解析代码名称",
+    "bytes": 30062,
+    "sha256": "2683254fab90c69712e516b4d0d4cdf5984d67945d4f90df0cdcef2f3286ee66",
+    "sample_type": "derived"
+  },
+  "datastructure_NAMA_10_GDP_codelists.xml": {
+    "derived_from": {
+      "url": "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/datastructure/ESTAT/NAMA_10_GDP?references=children",
+      "status": 200,
+      "fetched_at": "2026-11-21T21:43:23+09:00",
+      "bytes": 3600602,
+      "sha256": "e58e16dfbd9c486fe943d21f6361ae64774c0f26e408fc59c0172b91e5f338f4",
+      "headers": {
+        "date": "Sat, 21 Nov 2026 12:43:15 GMT",
+        "transfer-encoding": "chunked",
+        "content-type": "application/vnd.sdmx.structure+xml;version=2.1",
+        "content-disposition": "attachment; filename=\"ESTAT_NAMA_10_GDP_141.0.xml\"",
+        "access-control-allow-headers": "Content-Type, Accept, X-Requested-With",
+        "access-control-allow-methods": "GET",
+        "access-control-allow-origin": "*",
+        "connection": "keep-alive"
+      }
+    },
+    "derivation": "删去本目录数据样本里没有出现的代码（<Code> 元素），其余字节原样保留；只为解析代码名称",
+    "bytes": 27079,
+    "sha256": "57dcaa02e93704a9f778f8514614e0a59c7c8dfa2d1c85c8c87419e71d6c37ed",
+    "sample_type": "derived"
   }
 }

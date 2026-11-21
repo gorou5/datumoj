@@ -1,0 +1,1333 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--NSI Web Service v10.11.8.0-->
+<message:Structure xmlns:message="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/message" xmlns:structure="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/structure" xmlns:common="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/common">
+  <message:Header>
+    <message:ID>IDREF7471</message:ID>
+    <message:Test>false</message:Test>
+    <message:Prepared>2026-11-21T13:43:27.0688667+01:00</message:Prepared>
+    <message:Sender id="Unknown" />
+    <message:Receiver id="Unknown" />
+  </message:Header>
+  <message:Structures>
+    <structure:Dataflows>
+      <structure:Dataflow id="DSD_NAMAIN10@DF_TABLE1_EXPENDITURE" agencyID="OECD.SDD.NAD" version="2.0" isFinal="true">
+        <common:Annotations>
+          <common:Annotation>
+            <common:AnnotationType>NonProductionDataflow</common:AnnotationType>
+            <common:AnnotationText xml:lang="en">true</common:AnnotationText>
+          </common:Annotation>
+          <common:Annotation id="@SDMX">
+            <common:AnnotationTitle>TRANSACTION,SECTOR,INSTR_ASSET,ACTIVITY,EXPENDITURE</common:AnnotationTitle>
+            <common:AnnotationType>LAYOUT_ROW</common:AnnotationType>
+          </common:Annotation>
+          <common:Annotation id="@SDMX">
+            <common:AnnotationTitle>TIME_PERIOD</common:AnnotationTitle>
+            <common:AnnotationType>LAYOUT_COLUMN</common:AnnotationType>
+          </common:Annotation>
+          <common:Annotation id="@SDMX">
+            <common:AnnotationTitle>REF_AREA</common:AnnotationTitle>
+            <common:AnnotationType>LAYOUT_ROW_SECTION</common:AnnotationType>
+          </common:Annotation>
+          <common:Annotation id="@SDMX">
+            <common:AnnotationTitle>FREQ,OBS_STATUS=A,CONF_STATUS=F,TABLE_IDENTIFIER,ACTIVITY=(_T+_Z),EXPENDITURE=(_T+_Z),SECTOR=S1,COUNTERPART_SECTOR,TRANSFORMATION=N,TRANSACTION=P3T6</common:AnnotationTitle>
+            <common:AnnotationType>NOT_DISPLAYED</common:AnnotationType>
+          </common:Annotation>
+          <common:Annotation id="@SDMX">
+            <common:AnnotationTitle>PRICE_BASE=V,REF_AREA=AUS,UNIT_MEASURE=XDC</common:AnnotationTitle>
+            <common:AnnotationType>DEFAULT</common:AnnotationType>
+          </common:Annotation>
+          <common:Annotation>
+            <common:AnnotationTitle>PRICE_BASE,REF_YEAR_PRICE,UNIT_MULT,CURRENCY,TRANSFORMATION</common:AnnotationTitle>
+            <common:AnnotationType>UNIT_MEASURE_CONCEPTS</common:AnnotationType>
+          </common:Annotation>
+          <common:Annotation id="@SDMX">
+            <common:AnnotationTitle>SECTOR:OECD.SDD.NAD:HCL_SECTOR(1.0).H</common:AnnotationTitle>
+            <common:AnnotationType>HIER_CONTEXT</common:AnnotationType>
+          </common:Annotation>
+          <common:Annotation>
+            <common:AnnotationTitle>COMBINED_TRANSACTION:TRANSACTION,SECTOR,INSTR_ASSET;COMBINED_UNIT_MEASURE:UNIT_MEASURE,PRICE_BASE,REF_YEAR_PRICE,UNIT_MULT,CURRENCY,TRANSFORMATION</common:AnnotationTitle>
+            <common:AnnotationType>COMBINED_CONCEPTS</common:AnnotationType>
+            <common:AnnotationText xml:lang="en">COMBINED_TRANSACTION:Combined transaction;COMBINED_UNIT_MEASURE:Combined unit of measure</common:AnnotationText>
+            <common:AnnotationText xml:lang="fr">COMBINED_TRANSACTION:Transaction combinée;COMBINED_UNIT_MEASURE:Unité de mesure combinée</common:AnnotationText>
+          </common:Annotation>
+          <common:Annotation>
+            <common:AnnotationTitle>1.0001</common:AnnotationTitle>
+            <common:AnnotationType>SEARCH_WEIGHT</common:AnnotationType>
+          </common:Annotation>
+          <common:Annotation>
+            <common:AnnotationTitle>V2/structure/dataflow/OECD.SDD.NAD/DSD_NAMAIN10@DF_TABLE1,DSD_NAMAIN10@DF_TABLE1_EXPENDITURE,DSD_NAMAIN10@DF_TABLE1_EXPENDITURE_HVPVOB,DSD_NAMAIN10@DF_TABLE1_EXPENDITURE_HCPC,DSD_NAMAIN10@DF_TABLE1_EXPENDITURE_VPVOB,DSD_NAMAIN10@DF_TABLE1_EXPENDITURE_CPC,DSD_NAMAIN10@DF_TABLE1_EXPENDITURE_GROWTH,DSD_NAMAIN10@DF_TABLE1_EXPENDITURE_GFCF_ASSET,DSD_NAMAIN10@DF_TABLE1_OUTPUT,DSD_NAMAIN10@DF_TABLE1_INCOME,DSD_NAMAIN10@DF_TABLE1_MULT_INDICES,DSD_NAMAIN10@DF_TABLE4/latest</common:AnnotationTitle>
+            <common:AnnotationType>RELATED_DATA</common:AnnotationType>
+          </common:Annotation>
+          <common:Annotation>
+            <common:AnnotationTitle>21000</common:AnnotationTitle>
+            <common:AnnotationType>MAX_TABLE_DATA</common:AnnotationType>
+          </common:Annotation>
+        </common:Annotations>
+        <common:Name xml:lang="en">Annual GDP and components - expenditure approach</common:Name>
+        <common:Name xml:lang="fr">PIB annuel et ses composantes selon l'approche par les dépenses</common:Name>
+        <common:Description xml:lang="en">This table presents Gross Domestic Product (GDP) and its components according to the expenditure approach. In the expenditure approach, the main components of GDP are: final consumption expenditure of households and non-profit institutions serving households (NPISH) plus final consumption expenditure of General Government plus gross fixed capital formation (or investment) plus net trade (exports minus imports). Data is presented for each country in national currency as well as in euros for the European Union and the euro area. Data is also presented converted to US dollars using both purchasing power parities and exchange rates.&lt;br&gt;&lt;br&gt;In this table, the presentation of GDP and its components is on a country-by-country basis. Users are recommended to select one country (or area) at a time in the ‘Reference area’ filter. The default view shows all transactions (GDP and components) for the selected area, but it is possible to select specific components and sub-components of GDP using the ‘Transaction’ filter. The sector to which the selected transactions relate will be shown in the 'Institutional sector' filter, and further options (if applicable) will be shown under the ‘Financial instruments and non-financial assets’ filter. It is also possible to select current prices, chain linked volumes etc using the ‘Price base’ filter (the default view is current prices).  &lt;br&gt;&lt;br&gt; The table shows OECD countries and selected economies, as well as the OECD total, OECD Europe, European Union and euro area. These can be selected using the ‘Reference area’ filter.
+&lt;br&gt;&lt;br&gt;We are working on an issue with rows that appear empty but are in fact not applicable.&lt;br&gt;&lt;br&gt; These indicators were presented in the previous dissemination system in the SNA_TABLE1 dataset. 
+&lt;br&gt; See ANA Changes for information on changes in methodology:  &lt;a href="https://webfs-sdd.oecd.org/files/.Stat/NAMAIN10/ANA_Changes.xls"&gt;ANA Changes&lt;/a&gt; &lt;br&gt;
+Explore also the GDP and non-financial accounts webpage: &lt;a href="https://www.oecd.org/en/data/datasets/gdp-and-non-financial-accounts.html"&gt;GDP and non-financial accounts webpage&lt;/a&gt;&lt;br&gt;OECD statistics contact: &lt;a href="mailto:STAT.Contact@oecd.org"&gt;STAT.Contact@oecd.org&lt;/a&gt;</common:Description>
+        <common:Description xml:lang="fr">Ce tableau présente le produit intérieur brut (PIB) et ses composantes principales selon l'approche par les dépenses. 
+Dans l'approche par les dépenses, les principales composantes du PIB sont : les dépenses de consommation finale des ménages et des institutions sans but lucratif au service des ménages (ISBLSM) plus les dépenses de consommation finale des administrations publiques plus la formation brute de capital fixe (ou investissement) plus le commerce net (exportations moins importations).  Les données sont présentées pour chaque pays en monnaie nationale ainsi qu'en euros pour l'Union européenne et la zone euro. Les données sont également présentées converties en dollars américains en utilisant à la fois les parités de pouvoir d'achat et les taux de change.&lt;br&gt;&lt;br&gt;Dans ce tableau, la présentation du PIB et de ses composantes se fait pays par pays. Il est recommandé aux utilisateurs de sélectionner un pays (ou une zone) à la fois dans le filtre « Zone de référence ». La vue par défaut affiche toutes les transactions (PIB et composantes) pour la zone sélectionnée, mais il est possible de sélectionner des composantes et sous-composantes spécifiques du PIB à l'aide du filtre « Transaction ». Le secteur auquel se rapportent les transactions sélectionnées sera affiché dans le filtre « Secteur institutionnel », et d'autres options (le cas échéant) seront affichées sous le filtre « Instruments financiers et actifs non financiers ». Il est également possible de sélectionner les prix courants, les volumes chaînés, etc. en utilisant le filtre « Type de prix » (la vue par défaut est celle des prix courants). &lt;br&gt;&lt;br&gt; Le tableau présente les pays de l'OCDE et certaines économies, ainsi que le total de l'OCDE, les pays européens de l'OCDE, l'Union européenne et la zone euro. Ceux-ci peuvent être sélectionnés à l’aide du filtre « Zone de référence ». &lt;br&gt;&lt;br&gt;Nous travaillons sur un problème concernant les lignes qui apparaissent vides mais qui ne sont en fait pas applicables.&lt;br&gt;&lt;br&gt; Ces indicateurs étaient présentés dans le système de diffusion précédent dans l'ensemble de données SNA_TABLE1.&lt;br&gt; Pour plus d'informations sur les changements de méthodologie, consultez le document "ANA Changes" (en anglais uniquement):  &lt;a href="https://webfs-sdd.oecd.org/files/.Stat/NAMAIN10/ANA_Changes.xls"&gt;ANA Changes&lt;/a&gt; &lt;br&gt;
+
+Explorez également la page Web du PIB et comptes non financiers: &lt;a href="https://www.oecd.org/fr/donnees/datasets/gdp-and-non-financial-accounts.html"&gt;Page Web du PIB et comptes non financiers&lt;/a&gt;&lt;br&gt;Contact pour les statistiques de l'OCDE : &lt;a href="mailto : STAT.Contact@oecd.org"&gt;STAT.Contact@oecd.org&lt;/a&gt;</common:Description>
+        <structure:Structure>
+          <Ref id="DSD_NAMAIN10" version="2.0" agencyID="OECD.SDD.NAD" package="datastructure" class="DataStructure" />
+        </structure:Structure>
+      </structure:Dataflow>
+    </structure:Dataflows>
+    <structure:CategorySchemes>
+      <structure:CategoryScheme id="OECDCS1" agencyID="OECD" version="5.4" isFinal="true" isPartial="true">
+        <common:Name xml:lang="en">Topic</common:Name>
+        <common:Name xml:lang="fr">Thème</common:Name>
+        <common:Description xml:lang="en">The main OECD category scheme</common:Description>
+        <structure:Category id="ECO">
+          <common:Annotations>
+            <common:Annotation>
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">314</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">315</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">Economy</common:Name>
+          <common:Name xml:lang="fr">Économie</common:Name>
+          <structure:Category id="ECO_NAD">
+            <common:Annotations>
+              <common:Annotation>
+                <common:AnnotationType>ORDER</common:AnnotationType>
+                <common:AnnotationText xml:lang="en">485</common:AnnotationText>
+                <common:AnnotationText xml:lang="fr">486</common:AnnotationText>
+              </common:Annotation>
+            </common:Annotations>
+            <common:Name xml:lang="en">National accounts</common:Name>
+            <common:Name xml:lang="fr">Comptes nationaux</common:Name>
+            <structure:Category id="ECO_NAD_GNF">
+              <common:Annotations>
+                <common:Annotation>
+                  <common:AnnotationType>ORDER</common:AnnotationType>
+                  <common:AnnotationText xml:lang="en">497</common:AnnotationText>
+                  <common:AnnotationText xml:lang="fr">498</common:AnnotationText>
+                </common:Annotation>
+              </common:Annotations>
+              <common:Name xml:lang="en">GDP and non-financial accounts</common:Name>
+              <common:Name xml:lang="fr">PIB et comptes non financiers</common:Name>
+              <structure:Category id="ECO_NAD_GNF_GDP">
+                <common:Annotations>
+                  <common:Annotation>
+                    <common:AnnotationType>ORDER</common:AnnotationType>
+                    <common:AnnotationText xml:lang="en">509</common:AnnotationText>
+                    <common:AnnotationText xml:lang="fr">510</common:AnnotationText>
+                  </common:Annotation>
+                </common:Annotations>
+                <common:Name xml:lang="en">GDP and components</common:Name>
+                <common:Name xml:lang="fr">PIB et composantes</common:Name>
+              </structure:Category>
+            </structure:Category>
+          </structure:Category>
+        </structure:Category>
+      </structure:CategoryScheme>
+    </structure:CategorySchemes>
+    <structure:Categorisations>
+      <structure:Categorisation id="CAT_OECD_SDD_NAD__DSD_NAMAIN10@DF_TABLE1_EXPENDITURE__2_0@OECD__OECDCS1__5_1__ECO_ECO_NAD_ECO_NAD_GNF_ECO_NAD_GNF_GDP" agencyID="OECD.SDD.NAD" version="2.0" isFinal="false">
+        <common:Name xml:lang="en">Annual GDP and components - expenditure approach</common:Name>
+        <structure:Source>
+          <Ref id="DSD_NAMAIN10@DF_TABLE1_EXPENDITURE" version="2.0" agencyID="OECD.SDD.NAD" package="datastructure" class="Dataflow" />
+        </structure:Source>
+        <structure:Target>
+          <Ref id="ECO.ECO_NAD.ECO_NAD_GNF.ECO_NAD_GNF_GDP" maintainableParentID="OECDCS1" maintainableParentVersion="5.4" agencyID="OECD" package="categoryscheme" class="Category" />
+        </structure:Target>
+      </structure:Categorisation>
+    </structure:Categorisations>
+    <structure:Codelists>
+      <structure:Codelist isPartial="true" id="CL_ACTIVITY_ISIC4" agencyID="OECD" version="1.0" isFinal="true">
+        <common:Name xml:lang="en">Codelist for economic activity, ISIC rev.4</common:Name>
+        <common:Name xml:lang="fr">Liste des codes pour les activités economiques, ISIC rev.4</common:Name>
+        <common:Description xml:lang="en">International Standard Industrial Classification, revision 4</common:Description>
+        <common:Description xml:lang="fr">Classification industrielle internationale de toutes les branches d'activité économique, revision 4</common:Description>
+        <structure:Code id="_Z">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">9580</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">9580</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">Not applicable</common:Name>
+          <common:Name xml:lang="fr">Non applicable</common:Name>
+        </structure:Code>
+      </structure:Codelist>
+      <structure:Codelist id="CL_AREA" agencyID="OECD" version="1.1" isFinal="true">
+        <common:Name xml:lang="en">Codelist for reference areas and geocoding</common:Name>
+        <common:Name xml:lang="fr">Codelist pour les zones de référence</common:Name>
+        <structure:Code id="JPN">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">200</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">220</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="ar">اليابان</common:Name>
+          <common:Name xml:lang="en">Japan</common:Name>
+          <common:Name xml:lang="fr">Japon</common:Name>
+          <common:Name xml:lang="he">יפן</common:Name>
+        </structure:Code>
+        <structure:Code id="USA">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">380</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">130</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="ar">الولايات المتحدة الأميركية</common:Name>
+          <common:Name xml:lang="en">United States</common:Name>
+          <common:Name xml:lang="fr">États-Unis</common:Name>
+          <common:Name xml:lang="he">ארצות הברית</common:Name>
+        </structure:Code>
+        <structure:Code id="A">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationTitle>A2+A3+A4+A7+A_X+A_O</common:AnnotationTitle>
+              <common:AnnotationType>COMP_RULE</common:AnnotationType>
+            </common:Annotation>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">4090</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">4090</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">America</common:Name>
+          <common:Name xml:lang="fr">Amérique</common:Name>
+        </structure:Code>
+        <structure:Code id="F">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationTitle>F3+F4+F5+F7+F8+F_X+F_O</common:AnnotationTitle>
+              <common:AnnotationType>COMP_RULE</common:AnnotationType>
+            </common:Annotation>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">4300</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">4300</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">Africa</common:Name>
+          <common:Name xml:lang="fr">Afrique</common:Name>
+        </structure:Code>
+        <structure:Code id="_Z">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">4690</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">4690</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="ar">غير قابل للتطبيق</common:Name>
+          <common:Name xml:lang="en">Not applicable</common:Name>
+          <common:Name xml:lang="fr">Non applicable</common:Name>
+          <common:Name xml:lang="he">לא ישים</common:Name>
+        </structure:Code>
+      </structure:Codelist>
+      <structure:Codelist isPartial="true" id="CL_COICOP_18" agencyID="OECD" version="1.1" isFinal="true">
+        <common:Name xml:lang="en">COICOP 2018 codelist</common:Name>
+        <structure:Code id="_Z">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">7890</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">7890</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">Not applicable</common:Name>
+          <common:Name xml:lang="fr">Non-applicable</common:Name>
+        </structure:Code>
+      </structure:Codelist>
+      <structure:Codelist id="CL_CURRENCY" agencyID="OECD" version="1.1" isFinal="true">
+        <common:Name xml:lang="en">Codelist for Currency</common:Name>
+        <structure:Code id="JPY">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">740</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">740</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">Yen</common:Name>
+          <common:Name xml:lang="fr">Yen</common:Name>
+        </structure:Code>
+        <structure:Code id="USD">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">1510</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">1510</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">US dollar</common:Name>
+          <common:Name xml:lang="fr">Dollars des États-Unis</common:Name>
+        </structure:Code>
+        <structure:Code id="XDC">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">1650</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">1650</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">National currency</common:Name>
+          <common:Name xml:lang="fr">Monnaie nationale</common:Name>
+        </structure:Code>
+        <structure:Code id="_Z">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">2370</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">2370</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">Not applicable</common:Name>
+          <common:Name xml:lang="fr">N'est pas applicable</common:Name>
+        </structure:Code>
+        </structure:Codelist>
+      <structure:Codelist id="CL_PRICES" agencyID="OECD" version="1.0" isFinal="true">
+        <common:Name xml:lang="en">Codelist for Prices</common:Name>
+        <common:Name xml:lang="fr">Codelist pour des prix</common:Name>
+        <structure:Code id="V">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">50</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">50</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">Current prices</common:Name>
+          <common:Name xml:lang="fr">Prix courants</common:Name>
+        </structure:Code>
+        <structure:Code id="_Z">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">140</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">140</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">Not applicable</common:Name>
+          <common:Name xml:lang="fr">N'est pas applicable</common:Name>
+        </structure:Code>
+      </structure:Codelist>
+      <structure:Codelist isPartial="true" id="CL_SECTOR" agencyID="OECD" version="1.1" isFinal="true">
+        <common:Name xml:lang="en">Codelist for institutional sectors</common:Name>
+        <common:Name xml:lang="fr">Liste de codes pour les secteurs institutionnels</common:Name>
+        <structure:Code id="_Z">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">3000</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">3000</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">Not applicable</common:Name>
+          <common:Name xml:lang="fr">Non applicable</common:Name>
+        </structure:Code>
+        <structure:Code id="S1">
+          <common:Annotations>
+            <common:Annotation id="SDMX">
+              <common:AnnotationTitle>S1=S11+S12+S13+S14+S15+S1N</common:AnnotationTitle>
+              <common:AnnotationType>COMP_RULE</common:AnnotationType>
+            </common:Annotation>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">10</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">10</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">Total economy</common:Name>
+          <common:Name xml:lang="fr">Economie totale</common:Name>
+        </structure:Code>
+        </structure:Codelist>
+      <structure:Codelist isPartial="true" id="CL_TRANSFORMATION" agencyID="OECD" version="1.1" isFinal="true">
+        <common:Name xml:lang="en">Codelist for Transformation</common:Name>
+        <common:Name xml:lang="fr">Codelist pour la transformation</common:Name>
+        <structure:Code id="N">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">510</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">510</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">Non transformed data</common:Name>
+          <common:Name xml:lang="fr">Données non transformées</common:Name>
+        </structure:Code>
+        </structure:Codelist>
+      <structure:Codelist id="CL_UNIT_MEASURE" agencyID="OECD" version="1.5" isFinal="true">
+        <common:Name xml:lang="en">Codelist for Unit of measure</common:Name>
+        <common:Description xml:lang="en">Unit in which the data values are expressed.</common:Description>
+        <structure:Code id="JPY">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">1670</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">1670</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">Yen</common:Name>
+          <common:Name xml:lang="fr">Yen</common:Name>
+        </structure:Code>
+        <structure:Code id="USD">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">2440</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">2440</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">US dollar</common:Name>
+          <common:Name xml:lang="fr">Dollars des É-U</common:Name>
+        </structure:Code>
+        <structure:Code id="XDC">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">2580</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">2580</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">National currency</common:Name>
+          <common:Name xml:lang="fr">Monnaie nationale</common:Name>
+        </structure:Code>
+        <structure:Code id="USD_EXC">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">2900</common:AnnotationText>
+              <common:AnnotationText xml:lang="fr">2900</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">US dollars, exchange rate converted</common:Name>
+          <common:Name xml:lang="fr">Dollars des É-U, taux de change converti</common:Name>
+        </structure:Code>
+        </structure:Codelist>
+      <structure:Codelist isPartial="true" id="CL_INSTR_ASSET" agencyID="OECD.SDD.NAD" version="1.0" isFinal="true">
+        <common:Name xml:lang="en">Instrument and Assets Classification</common:Name>
+        <structure:Code id="_Z">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">10000</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">Not applicable</common:Name>
+          <common:Name xml:lang="fr">Non applicable</common:Name>
+        </structure:Code>
+        </structure:Codelist>
+      <structure:Codelist isPartial="true" id="CL_TABLEID" agencyID="OECD.SDD.NAD" version="1.1" isFinal="true">
+        <common:Name xml:lang="en">NA Table IDs</common:Name>
+        <structure:Code id="T0102">
+          <common:Name xml:lang="en">Table 0102 - GDP identity from the expenditure side</common:Name>
+          <common:Name xml:lang="fr">Tableau 0102 - PIB selon l'approche de la dépense</common:Name>
+        </structure:Code>
+      </structure:Codelist>
+      <structure:Codelist isPartial="true" id="CL_TRANSACTION" agencyID="OECD.SDD.NAD" version="1.0" isFinal="true">
+        <common:Name xml:lang="en">Stocks, transactions, other flows</common:Name>
+        <structure:Code id="B1GQ">
+          <common:Annotations>
+            <common:Annotation id="@SDMX">
+              <common:AnnotationType>ORDER</common:AnnotationType>
+              <common:AnnotationText xml:lang="en">10</common:AnnotationText>
+            </common:Annotation>
+          </common:Annotations>
+          <common:Name xml:lang="en">Gross domestic product</common:Name>
+          <common:Name xml:lang="fr">Produit intérieur brut</common:Name>
+        </structure:Code>
+        </structure:Codelist>
+      <structure:Codelist id="CL_CONF_STATUS" agencyID="SDMX" version="1.2" isFinal="true">
+        <common:Name xml:lang="en">Confidentiality Status</common:Name>
+        <common:Name xml:lang="fr">Statut de confidentialité</common:Name>
+        <structure:Code id="F">
+          <common:Name xml:lang="en">Free (free for publication)</common:Name>
+          <common:Name xml:lang="fr">Libre (libre pour publication)</common:Name>
+          <common:Description xml:lang="en">Used for observations without any special sensitivity considerations and which can thus be freely shared. Usually, source organisations provide information and guidance on general requirements for re-dissemination  (like mentioning the source) either on their websites or in their paper publications. In some institutional environments the term "unclassified" is used in a sense that still denotes implied restrictions in the circulation of information. If this is the case, the organisations concerned may probably consider that "free" (value F) is not the appropriate tag for this kind of "unclassified" category and that "Not for publication, restricted for internal use only" (value N) may be more appropriate.</common:Description>
+        </structure:Code>
+        <structure:Code id="N">
+          <common:Name xml:lang="en">Not for publication, restricted for internal use only</common:Name>
+          <common:Name xml:lang="fr">Non destiné à la publication, réservé à un usage interne uniquement</common:Name>
+          <common:Description xml:lang="en">Used to denote observations that are restricted for internal use only within organisations. This code may be accompanied with an additional observation-level attribute: CONF_REDIST which defines the secondary recipient(s) to whom the sender allows the primary recipient to forward confidential data.</common:Description>
+        </structure:Code>
+        <structure:Code id="A">
+          <common:Name xml:lang="en">Primary confidentiality due to small counts</common:Name>
+          <common:Name xml:lang="fr">Confidentialité primaire en raison des petits comptes</common:Name>
+          <common:Description xml:lang="en">A cell is flagged as confidential if less than m units ("too few units") contribute to the total of that cell. The limits of what constitutes "small counts" can vary across statistical domains, countries, etc.</common:Description>
+        </structure:Code>
+        </structure:Codelist>
+      <structure:Codelist id="CL_DECIMALS" agencyID="SDMX" version="1.0" isFinal="true">
+        <common:Name xml:lang="en">Decimals</common:Name>
+        <common:Description xml:lang="en">This code list provides a list of values showing the number of decimal digits used in the data. This code list was released in 2009. More information about this code list and SDMX code lists in general (e.g. list of generic codes for expressing general concepts like "Total", "Unknown", etc.; syntaxes for the creation of further codes; general guidelines for the creation of SDMX code lists) can be found at this address: https://sdmx.org/?page_id=4345.</common:Description>
+        <structure:Code id="1">
+          <common:Name xml:lang="en">One</common:Name>
+        </structure:Code>
+        <structure:Code id="6">
+          <common:Name xml:lang="en">Six</common:Name>
+        </structure:Code>
+        </structure:Codelist>
+      <structure:Codelist isPartial="true" id="CL_FREQ" agencyID="SDMX" version="2.1" isFinal="true">
+        <common:Name xml:lang="en">Code list for concept "Frequency"</common:Name>
+        <common:Name xml:lang="fr">Codelist pour le concept "Fréquence"</common:Name>
+        <common:Description xml:lang="en">This code list provides a set of values indicating
+					the "frequency" of the data (e.g. weekly, monthly, quarterly). The concept
+					"frequency" may refer to various stages in the production process, e.g. data
+					collection or data dissemination. For example, a time series could be
+					disseminated at annual frequency but the underlying data are compiled monthly.
+					The code list is applicable for all different uses of
+					"frequency".</common:Description>
+        <common:Description xml:lang="fr">Cette liste de codes fournit un ensemble de valeurs
+					indiquant la "fréquence" des données (par exemple, hebdomadaire, mensuelle,
+					trimestrielle). Le concept de "fréquence" peut faire référence à différentes
+					étapes du processus de production, par ex. collecte ou diffusion de données. Par
+					exemple, une série chronologique pourrait être diffusée à une fréquence
+					annuelle, mais les données sous-jacentes sont compilées mensuellement. La liste
+					de codes est applicable pour toutes les différentes utilisations de
+					"fréquence".</common:Description>
+        <structure:Code id="A">
+          <common:Name xml:lang="en">Annual</common:Name>
+          <common:Name xml:lang="fr">Annuelle</common:Name>
+          <common:Description xml:lang="en">To be used for data collected or disseminated
+						every year</common:Description>
+        </structure:Code>
+      </structure:Codelist>
+      <structure:Codelist id="CL_OBS_STATUS" agencyID="SDMX" version="2.2" isFinal="true">
+        <common:Name xml:lang="en">Code list for Observation Status</common:Name>
+        <common:Name xml:lang="fr">Code list pour le statut d'observation</common:Name>
+        <common:Description xml:lang="en">Information on the quality of a value or an unusual or missing value.</common:Description>
+        <structure:Code id="A">
+          <common:Name xml:lang="en">Normal value</common:Name>
+          <common:Name xml:lang="fr">Valeur normale</common:Name>
+          <common:Description xml:lang="en">To be used as default value if no value is provided or when no special coded qualification is assumed. Usually, it can be assumed that the source agency assigns sufficient confidence to the provided observation and/or the value is not expected to be
+						drama</common:Description>
+        </structure:Code>
+        <structure:Code id="F">
+          <common:Name xml:lang="en">Forecast value</common:Name>
+          <common:Name xml:lang="fr">Valeur projetée</common:Name>
+          <common:Description xml:lang="en">Value deemed to assess the magnitude which a quantity will assume at some future point of time (as distinct from "estimated value" which attempts to assess the magnitude of an already existent quantity).</common:Description>
+        </structure:Code>
+        <structure:Code id="N">
+          <common:Name xml:lang="en">Not significant</common:Name>
+          <common:Name xml:lang="fr">Non significatif</common:Name>
+          <common:Description xml:lang="en">Used to indicate a value which is not a "real" zero (e.g. a result of 0.0004 rounded to zero).</common:Description>
+        </structure:Code>
+        <structure:Code id="V">
+          <common:Name xml:lang="en">Unvalidated value</common:Name>
+          <common:Name xml:lang="fr">Valeur non validée</common:Name>
+          <common:Description xml:lang="en">Observation as received from the respondent without further evaluation of data quality.</common:Description>
+        </structure:Code>
+      </structure:Codelist>
+      <structure:Codelist id="CL_UNIT_MULT" agencyID="SDMX" version="1.1" isFinal="true">
+        <common:Name xml:lang="en">Code list for the Unit Multiplier</common:Name>
+        <common:Description xml:lang="en">This code list provides code values for indicating the magnitude in the units of measurement. More information about this code list and SDMX code lists in general (e.g. list of generic codes for expressing general concepts like "Total", "Unknown", etc.;
+					syntaxes for the creation of further codes; general guidelines for the creation of SDMX code lists) can be found at this address: https://sdmx.org/?page_id=4345.</common:Description>
+        <structure:Code id="1">
+          <common:Name xml:lang="en">Tens</common:Name>
+          <common:Description xml:lang="en">In scientific notation, expressed as ten raised to the power of one (101)</common:Description>
+        </structure:Code>
+        <structure:Code id="6">
+          <common:Name xml:lang="en">Millions</common:Name>
+          <common:Description xml:lang="en">In scientific notation, expressed as ten raised to the power of six (106)</common:Description>
+        </structure:Code>
+        </structure:Codelist>
+    </structure:Codelists>
+    <structure:Concepts>
+      <structure:ConceptScheme isPartial="true" id="CS_NA" agencyID="OECD.SDD.NAD" version="1.0" isFinal="true">
+        <common:Name xml:lang="en">List of concepts for NA DSDs</common:Name>
+        <common:Description xml:lang="en">Description of concepts for NA DSDs</common:Description>
+        <structure:Concept id="FREQ">
+          <common:Name xml:lang="en">Frequency of observation</common:Name>
+          <common:Name xml:lang="fr">Fréquence d'observation</common:Name>
+          <structure:CoreRepresentation>
+            <structure:Enumeration>
+              <Ref id="CL_FREQ" version="2.1" agencyID="SDMX" package="codelist" class="Codelist" />
+            </structure:Enumeration>
+          </structure:CoreRepresentation>
+        </structure:Concept>
+        <structure:Concept id="REF_AREA">
+          <common:Name xml:lang="en">Reference area</common:Name>
+          <common:Name xml:lang="fr">Zone de référence</common:Name>
+          <structure:CoreRepresentation>
+            <structure:Enumeration>
+              <Ref id="CL_AREA" version="1.1" agencyID="OECD" package="codelist" class="Codelist" />
+            </structure:Enumeration>
+          </structure:CoreRepresentation>
+        </structure:Concept>
+        <structure:Concept id="SECTOR">
+          <common:Name xml:lang="en">Institutional sector</common:Name>
+          <common:Name xml:lang="fr">Secteur institutionnel</common:Name>
+          <structure:CoreRepresentation>
+            <structure:Enumeration>
+              <Ref id="CL_SECTOR" version="1.1" agencyID="OECD" package="codelist" class="Codelist" />
+            </structure:Enumeration>
+          </structure:CoreRepresentation>
+        </structure:Concept>
+        <structure:Concept id="COUNTERPART_SECTOR">
+          <common:Name xml:lang="en">Counterpart institutional sector</common:Name>
+          <common:Name xml:lang="fr">Secteur institutionnel de contrepartie</common:Name>
+          <structure:CoreRepresentation>
+            <structure:Enumeration>
+              <Ref id="CL_SECTOR" version="1.1" agencyID="OECD" package="codelist" class="Codelist" />
+            </structure:Enumeration>
+          </structure:CoreRepresentation>
+        </structure:Concept>
+        <structure:Concept id="TRANSACTION">
+          <common:Name xml:lang="en">Transaction</common:Name>
+          <common:Name xml:lang="fr">Transaction</common:Name>
+          <structure:CoreRepresentation>
+            <structure:Enumeration>
+              <Ref id="CL_TRANSACTION" version="1.0" agencyID="OECD.SDD.NAD" package="codelist" class="Codelist" />
+            </structure:Enumeration>
+          </structure:CoreRepresentation>
+        </structure:Concept>
+        <structure:Concept id="INSTR_ASSET">
+          <common:Name xml:lang="en">Financial instruments and non-financial assets</common:Name>
+          <common:Name xml:lang="fr">Instruments financiers et actifs non financiers</common:Name>
+        </structure:Concept>
+        <structure:Concept id="ACTIVITY">
+          <common:Name xml:lang="en">Economic activity</common:Name>
+          <common:Name xml:lang="fr">Activité économique</common:Name>
+          <structure:CoreRepresentation>
+            <structure:Enumeration>
+              <Ref id="CL_ACTIVITY_ISIC4" version="1.0" agencyID="OECD" package="codelist" class="Codelist" />
+            </structure:Enumeration>
+          </structure:CoreRepresentation>
+        </structure:Concept>
+        <structure:Concept id="EXPENDITURE">
+          <common:Name xml:lang="en">Expenditure</common:Name>
+          <common:Name xml:lang="fr">Dépense</common:Name>
+          <structure:CoreRepresentation>
+            <structure:Enumeration>
+              <Ref id="CL_COICOP_99" version="1.0" agencyID="OECD" package="codelist" class="Codelist" />
+            </structure:Enumeration>
+          </structure:CoreRepresentation>
+        </structure:Concept>
+        <structure:Concept id="UNIT_MEASURE">
+          <common:Name xml:lang="en">Unit of measure</common:Name>
+          <common:Name xml:lang="fr">Unité de mesure</common:Name>
+          <structure:CoreRepresentation>
+            <structure:Enumeration>
+              <Ref id="CL_UNIT_MEASURE" version="1.1" agencyID="OECD" package="codelist" class="Codelist" />
+            </structure:Enumeration>
+          </structure:CoreRepresentation>
+        </structure:Concept>
+        <structure:Concept id="PRICE_BASE">
+          <common:Name xml:lang="en">Price base</common:Name>
+          <common:Name xml:lang="fr">Type de prix</common:Name>
+          <structure:CoreRepresentation>
+            <structure:Enumeration>
+              <Ref id="CL_PRICES" version="1.0" agencyID="OECD" package="codelist" class="Codelist" />
+            </structure:Enumeration>
+          </structure:CoreRepresentation>
+        </structure:Concept>
+        <structure:Concept id="TRANSFORMATION">
+          <common:Name xml:lang="en">Transformation</common:Name>
+          <common:Name xml:lang="fr">Transformation</common:Name>
+          <structure:CoreRepresentation>
+            <structure:Enumeration>
+              <Ref id="CL_TRANSFORMATION" version="1.1" agencyID="OECD" package="codelist" class="Codelist" />
+            </structure:Enumeration>
+          </structure:CoreRepresentation>
+        </structure:Concept>
+        <structure:Concept id="TABLE_IDENTIFIER">
+          <common:Name xml:lang="en">Table identifier</common:Name>
+          <common:Name xml:lang="fr">Identifiant de tableau</common:Name>
+          <structure:CoreRepresentation>
+            <structure:Enumeration>
+              <Ref id="CL_TABLEID" version="1.0" agencyID="OECD.SDD.NAD" package="codelist" class="Codelist" />
+            </structure:Enumeration>
+          </structure:CoreRepresentation>
+        </structure:Concept>
+        <structure:Concept id="TIME_PERIOD">
+          <common:Name xml:lang="en">Time period</common:Name>
+          <common:Name xml:lang="fr">Période temporelle</common:Name>
+          <structure:CoreRepresentation>
+            <structure:TextFormat textType="ObservationalTimePeriod" />
+          </structure:CoreRepresentation>
+        </structure:Concept>
+        <structure:Concept id="OBS_VALUE">
+          <common:Name xml:lang="en">Observation value</common:Name>
+          <common:Name xml:lang="fr">Valeur d'observation</common:Name>
+        </structure:Concept>
+        <structure:Concept id="REF_YEAR_PRICE">
+          <common:Name xml:lang="en">Price reference year</common:Name>
+          <common:Name xml:lang="fr">Prix ​​année de référence</common:Name>
+          <structure:CoreRepresentation>
+            <structure:TextFormat textType="ObservationalTimePeriod" />
+          </structure:CoreRepresentation>
+        </structure:Concept>
+        <structure:Concept id="CONF_STATUS">
+          <common:Name xml:lang="en">Confidentiality status</common:Name>
+          <common:Name xml:lang="fr">Statut de confidentialité</common:Name>
+          <structure:CoreRepresentation>
+            <structure:Enumeration>
+              <Ref id="CL_CONF_STATUS" version="1.2" agencyID="SDMX" package="codelist" class="Codelist" />
+            </structure:Enumeration>
+          </structure:CoreRepresentation>
+        </structure:Concept>
+        <structure:Concept id="DECIMALS">
+          <common:Name xml:lang="en">Decimals</common:Name>
+          <common:Name xml:lang="fr">Décimales</common:Name>
+          <structure:CoreRepresentation>
+            <structure:Enumeration>
+              <Ref id="CL_DECIMALS" version="1.0" agencyID="SDMX" package="codelist" class="Codelist" />
+            </structure:Enumeration>
+          </structure:CoreRepresentation>
+        </structure:Concept>
+        <structure:Concept id="OBS_STATUS">
+          <common:Name xml:lang="en">Observation status</common:Name>
+          <common:Name xml:lang="fr">Statut d'observation</common:Name>
+          <structure:CoreRepresentation>
+            <structure:Enumeration>
+              <Ref id="CL_OBS_STATUS" version="2.2" agencyID="SDMX" package="codelist" class="Codelist" />
+            </structure:Enumeration>
+          </structure:CoreRepresentation>
+        </structure:Concept>
+        <structure:Concept id="UNIT_MULT">
+          <common:Name xml:lang="en">Unit multiplier</common:Name>
+          <common:Name xml:lang="fr">Multiplicateur d'unité</common:Name>
+          <structure:CoreRepresentation>
+            <structure:Enumeration>
+              <Ref id="CL_UNIT_MULT" version="1.1" agencyID="SDMX" package="codelist" class="Codelist" />
+            </structure:Enumeration>
+          </structure:CoreRepresentation>
+        </structure:Concept>
+        <structure:Concept id="CURRENCY">
+          <common:Name xml:lang="en">Currency</common:Name>
+          <common:Name xml:lang="fr">Monnaie</common:Name>
+          <structure:CoreRepresentation>
+            <structure:Enumeration>
+              <Ref id="CL_CURRENCY" version="1.1" agencyID="OECD" package="codelist" class="Codelist" />
+            </structure:Enumeration>
+          </structure:CoreRepresentation>
+        </structure:Concept>
+      </structure:ConceptScheme>
+    </structure:Concepts>
+    <structure:DataStructures>
+      <structure:DataStructure id="DSD_NAMAIN10" agencyID="OECD.SDD.NAD" version="2.0" isFinal="true">
+        <common:Annotations>
+          <common:Annotation>
+            <common:AnnotationTitle>urn:sdmx:org.sdmx.infomodel.metadatastructure.MetadataStructure=OECD:MSD_REF_METADATA(1.0)</common:AnnotationTitle>
+            <common:AnnotationType>METADATA</common:AnnotationType>
+          </common:Annotation>
+        </common:Annotations>
+        <common:Name xml:lang="en">National Accounts Main Aggregates10</common:Name>
+        <structure:DataStructureComponents>
+          <structure:DimensionList id="DimensionDescriptor">
+            <structure:Dimension id="FREQ" position="1">
+              <structure:ConceptIdentity>
+                <Ref id="FREQ" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:Enumeration>
+                  <Ref id="CL_FREQ" version="2.1" agencyID="SDMX" package="codelist" class="Codelist" />
+                </structure:Enumeration>
+              </structure:LocalRepresentation>
+            </structure:Dimension>
+            <structure:Dimension id="REF_AREA" position="2">
+              <structure:ConceptIdentity>
+                <Ref id="REF_AREA" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:Enumeration>
+                  <Ref id="CL_AREA" version="1.1" agencyID="OECD" package="codelist" class="Codelist" />
+                </structure:Enumeration>
+              </structure:LocalRepresentation>
+            </structure:Dimension>
+            <structure:Dimension id="SECTOR" position="3">
+              <structure:ConceptIdentity>
+                <Ref id="SECTOR" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:Enumeration>
+                  <Ref id="CL_SECTOR" version="1.1" agencyID="OECD" package="codelist" class="Codelist" />
+                </structure:Enumeration>
+              </structure:LocalRepresentation>
+            </structure:Dimension>
+            <structure:Dimension id="COUNTERPART_SECTOR" position="4">
+              <structure:ConceptIdentity>
+                <Ref id="COUNTERPART_SECTOR" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:Enumeration>
+                  <Ref id="CL_SECTOR" version="1.1" agencyID="OECD" package="codelist" class="Codelist" />
+                </structure:Enumeration>
+              </structure:LocalRepresentation>
+            </structure:Dimension>
+            <structure:Dimension id="TRANSACTION" position="5">
+              <structure:ConceptIdentity>
+                <Ref id="TRANSACTION" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:Enumeration>
+                  <Ref id="CL_TRANSACTION" version="1.0" agencyID="OECD.SDD.NAD" package="codelist" class="Codelist" />
+                </structure:Enumeration>
+              </structure:LocalRepresentation>
+            </structure:Dimension>
+            <structure:Dimension id="INSTR_ASSET" position="6">
+              <structure:ConceptIdentity>
+                <Ref id="INSTR_ASSET" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:Enumeration>
+                  <Ref id="CL_INSTR_ASSET" version="1.0" agencyID="OECD.SDD.NAD" package="codelist" class="Codelist" />
+                </structure:Enumeration>
+              </structure:LocalRepresentation>
+            </structure:Dimension>
+            <structure:Dimension id="ACTIVITY" position="7">
+              <structure:ConceptIdentity>
+                <Ref id="ACTIVITY" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:Enumeration>
+                  <Ref id="CL_ACTIVITY_ISIC4" version="1.0" agencyID="OECD" package="codelist" class="Codelist" />
+                </structure:Enumeration>
+              </structure:LocalRepresentation>
+            </structure:Dimension>
+            <structure:Dimension id="EXPENDITURE" position="8">
+              <structure:ConceptIdentity>
+                <Ref id="EXPENDITURE" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:Enumeration>
+                  <Ref id="CL_COICOP_18" version="1.1" agencyID="OECD" package="codelist" class="Codelist" />
+                </structure:Enumeration>
+              </structure:LocalRepresentation>
+            </structure:Dimension>
+            <structure:Dimension id="UNIT_MEASURE" position="9">
+              <structure:ConceptIdentity>
+                <Ref id="UNIT_MEASURE" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:Enumeration>
+                  <Ref id="CL_UNIT_MEASURE" version="1.5" agencyID="OECD" package="codelist" class="Codelist" />
+                </structure:Enumeration>
+              </structure:LocalRepresentation>
+            </structure:Dimension>
+            <structure:Dimension id="PRICE_BASE" position="10">
+              <structure:ConceptIdentity>
+                <Ref id="PRICE_BASE" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:Enumeration>
+                  <Ref id="CL_PRICES" version="1.0" agencyID="OECD" package="codelist" class="Codelist" />
+                </structure:Enumeration>
+              </structure:LocalRepresentation>
+            </structure:Dimension>
+            <structure:Dimension id="TRANSFORMATION" position="11">
+              <structure:ConceptIdentity>
+                <Ref id="TRANSFORMATION" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:Enumeration>
+                  <Ref id="CL_TRANSFORMATION" version="1.1" agencyID="OECD" package="codelist" class="Codelist" />
+                </structure:Enumeration>
+              </structure:LocalRepresentation>
+            </structure:Dimension>
+            <structure:Dimension id="TABLE_IDENTIFIER" position="12">
+              <structure:ConceptIdentity>
+                <Ref id="TABLE_IDENTIFIER" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:Enumeration>
+                  <Ref id="CL_TABLEID" version="1.1" agencyID="OECD.SDD.NAD" package="codelist" class="Codelist" />
+                </structure:Enumeration>
+              </structure:LocalRepresentation>
+            </structure:Dimension>
+            <structure:TimeDimension id="TIME_PERIOD" position="13">
+              <structure:ConceptIdentity>
+                <Ref id="TIME_PERIOD" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:TextFormat textType="ObservationalTimePeriod" />
+              </structure:LocalRepresentation>
+            </structure:TimeDimension>
+          </structure:DimensionList>
+          <structure:AttributeList id="AttributeDescriptor">
+            <structure:Attribute id="REF_YEAR_PRICE" assignmentStatus="Conditional">
+              <structure:ConceptIdentity>
+                <Ref id="REF_YEAR_PRICE" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:TextFormat textType="ObservationalTimePeriod" />
+              </structure:LocalRepresentation>
+              <structure:AttributeRelationship>
+                <structure:Dimension>
+                  <Ref id="FREQ" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="REF_AREA" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="SECTOR" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="COUNTERPART_SECTOR" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="TRANSACTION" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="INSTR_ASSET" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="ACTIVITY" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="EXPENDITURE" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="UNIT_MEASURE" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="PRICE_BASE" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="TRANSFORMATION" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="TABLE_IDENTIFIER" />
+                </structure:Dimension>
+              </structure:AttributeRelationship>
+            </structure:Attribute>
+            <structure:Attribute id="CONF_STATUS" assignmentStatus="Mandatory">
+              <structure:ConceptIdentity>
+                <Ref id="CONF_STATUS" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:Enumeration>
+                  <Ref id="CL_CONF_STATUS" version="1.2" agencyID="SDMX" package="codelist" class="Codelist" />
+                </structure:Enumeration>
+              </structure:LocalRepresentation>
+              <structure:AttributeRelationship>
+                <structure:PrimaryMeasure>
+                  <Ref id="OBS_VALUE" />
+                </structure:PrimaryMeasure>
+              </structure:AttributeRelationship>
+            </structure:Attribute>
+            <structure:Attribute id="DECIMALS" assignmentStatus="Mandatory">
+              <structure:ConceptIdentity>
+                <Ref id="DECIMALS" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:Enumeration>
+                  <Ref id="CL_DECIMALS" version="1.0" agencyID="SDMX" package="codelist" class="Codelist" />
+                </structure:Enumeration>
+              </structure:LocalRepresentation>
+              <structure:AttributeRelationship>
+                <structure:Dimension>
+                  <Ref id="TABLE_IDENTIFIER" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="TRANSFORMATION" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="PRICE_BASE" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="UNIT_MEASURE" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="EXPENDITURE" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="ACTIVITY" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="INSTR_ASSET" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="TRANSACTION" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="COUNTERPART_SECTOR" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="SECTOR" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="REF_AREA" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="FREQ" />
+                </structure:Dimension>
+              </structure:AttributeRelationship>
+            </structure:Attribute>
+            <structure:Attribute id="OBS_STATUS" assignmentStatus="Mandatory">
+              <structure:ConceptIdentity>
+                <Ref id="OBS_STATUS" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:Enumeration>
+                  <Ref id="CL_OBS_STATUS" version="2.2" agencyID="SDMX" package="codelist" class="Codelist" />
+                </structure:Enumeration>
+              </structure:LocalRepresentation>
+              <structure:AttributeRelationship>
+                <structure:PrimaryMeasure>
+                  <Ref id="OBS_VALUE" />
+                </structure:PrimaryMeasure>
+              </structure:AttributeRelationship>
+            </structure:Attribute>
+            <structure:Attribute id="UNIT_MULT" assignmentStatus="Mandatory">
+              <structure:ConceptIdentity>
+                <Ref id="UNIT_MULT" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:Enumeration>
+                  <Ref id="CL_UNIT_MULT" version="1.1" agencyID="SDMX" package="codelist" class="Codelist" />
+                </structure:Enumeration>
+              </structure:LocalRepresentation>
+              <structure:AttributeRelationship>
+                <structure:Dimension>
+                  <Ref id="FREQ" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="REF_AREA" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="SECTOR" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="COUNTERPART_SECTOR" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="TRANSACTION" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="INSTR_ASSET" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="ACTIVITY" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="EXPENDITURE" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="UNIT_MEASURE" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="PRICE_BASE" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="TRANSFORMATION" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="TABLE_IDENTIFIER" />
+                </structure:Dimension>
+              </structure:AttributeRelationship>
+            </structure:Attribute>
+            <structure:Attribute id="CURRENCY" assignmentStatus="Conditional">
+              <structure:ConceptIdentity>
+                <Ref id="CURRENCY" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:Enumeration>
+                  <Ref id="CL_CURRENCY" version="1.1" agencyID="OECD" package="codelist" class="Codelist" />
+                </structure:Enumeration>
+              </structure:LocalRepresentation>
+              <structure:AttributeRelationship>
+                <structure:Dimension>
+                  <Ref id="TABLE_IDENTIFIER" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="TRANSFORMATION" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="PRICE_BASE" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="UNIT_MEASURE" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="EXPENDITURE" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="ACTIVITY" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="INSTR_ASSET" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="TRANSACTION" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="COUNTERPART_SECTOR" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="SECTOR" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="REF_AREA" />
+                </structure:Dimension>
+                <structure:Dimension>
+                  <Ref id="FREQ" />
+                </structure:Dimension>
+              </structure:AttributeRelationship>
+            </structure:Attribute>
+          </structure:AttributeList>
+          <structure:MeasureList id="MeasureDescriptor">
+            <structure:PrimaryMeasure id="OBS_VALUE">
+              <structure:ConceptIdentity>
+                <Ref id="OBS_VALUE" maintainableParentID="CS_NA" maintainableParentVersion="1.0" agencyID="OECD.SDD.NAD" package="conceptscheme" class="Concept" />
+              </structure:ConceptIdentity>
+              <structure:LocalRepresentation>
+                <structure:TextFormat textType="Double" />
+              </structure:LocalRepresentation>
+            </structure:PrimaryMeasure>
+          </structure:MeasureList>
+        </structure:DataStructureComponents>
+      </structure:DataStructure>
+    </structure:DataStructures>
+    <structure:Constraints>
+      <structure:ContentConstraint id="CR_A_DSD_NAMAIN10@DF_TABLE1_EXPENDITURE" agencyID="OECD.SDD.NAD" version="2.0" validFrom="2026-11-20T03:31:56Z" isExternalReference="false" isFinal="false" type="Actual">
+        <common:Annotations>
+          <common:Annotation>
+            <common:AnnotationTitle>A</common:AnnotationTitle>
+            <common:AnnotationType>ReleaseVersion</common:AnnotationType>
+          </common:Annotation>
+          <common:Annotation id="obs_count">
+            <common:AnnotationTitle>781029</common:AnnotationTitle>
+            <common:AnnotationType>sdmx_metrics</common:AnnotationType>
+          </common:Annotation>
+        </common:Annotations>
+        <common:Name xml:lang="en">Availability (A) for DSD_NAMAIN10@DF_TABLE1_EXPENDITURE</common:Name>
+        <structure:ConstraintAttachment>
+          <structure:Dataflow>
+            <Ref id="DSD_NAMAIN10@DF_TABLE1_EXPENDITURE" version="2.0" agencyID="OECD.SDD.NAD" package="datastructure" class="Dataflow" />
+          </structure:Dataflow>
+        </structure:ConstraintAttachment>
+        <structure:CubeRegion include="true">
+          <common:KeyValue id="FREQ">
+            <common:Value>A</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="REF_AREA">
+            <common:Value>AUS</common:Value>
+            <common:Value>AUT</common:Value>
+            <common:Value>BEL</common:Value>
+            <common:Value>CAN</common:Value>
+            <common:Value>CHL</common:Value>
+            <common:Value>COL</common:Value>
+            <common:Value>CRI</common:Value>
+            <common:Value>CZE</common:Value>
+            <common:Value>DNK</common:Value>
+            <common:Value>EST</common:Value>
+            <common:Value>FIN</common:Value>
+            <common:Value>FRA</common:Value>
+            <common:Value>DEU</common:Value>
+            <common:Value>GRC</common:Value>
+            <common:Value>HUN</common:Value>
+            <common:Value>ISL</common:Value>
+            <common:Value>IRL</common:Value>
+            <common:Value>ISR</common:Value>
+            <common:Value>ITA</common:Value>
+            <common:Value>JPN</common:Value>
+            <common:Value>KOR</common:Value>
+            <common:Value>LVA</common:Value>
+            <common:Value>LTU</common:Value>
+            <common:Value>LUX</common:Value>
+            <common:Value>MEX</common:Value>
+            <common:Value>NLD</common:Value>
+            <common:Value>NZL</common:Value>
+            <common:Value>NOR</common:Value>
+            <common:Value>POL</common:Value>
+            <common:Value>PRT</common:Value>
+            <common:Value>SVK</common:Value>
+            <common:Value>SVN</common:Value>
+            <common:Value>ESP</common:Value>
+            <common:Value>SWE</common:Value>
+            <common:Value>CHE</common:Value>
+            <common:Value>TUR</common:Value>
+            <common:Value>GBR</common:Value>
+            <common:Value>USA</common:Value>
+            <common:Value>EA20</common:Value>
+            <common:Value>EU</common:Value>
+            <common:Value>EU15</common:Value>
+            <common:Value>EU27_2020</common:Value>
+            <common:Value>OECD</common:Value>
+            <common:Value>OECD26</common:Value>
+            <common:Value>OECDE</common:Value>
+            <common:Value>ALB</common:Value>
+            <common:Value>ARG</common:Value>
+            <common:Value>BRA</common:Value>
+            <common:Value>BGR</common:Value>
+            <common:Value>CPV</common:Value>
+            <common:Value>CMR</common:Value>
+            <common:Value>CHN</common:Value>
+            <common:Value>HRV</common:Value>
+            <common:Value>CYP</common:Value>
+            <common:Value>GEO</common:Value>
+            <common:Value>HKG</common:Value>
+            <common:Value>IND</common:Value>
+            <common:Value>IDN</common:Value>
+            <common:Value>KAZ</common:Value>
+            <common:Value>MDG</common:Value>
+            <common:Value>MLT</common:Value>
+            <common:Value>MAR</common:Value>
+            <common:Value>MKD</common:Value>
+            <common:Value>ROU</common:Value>
+            <common:Value>RUS</common:Value>
+            <common:Value>SAU</common:Value>
+            <common:Value>SEN</common:Value>
+            <common:Value>SRB</common:Value>
+            <common:Value>SGP</common:Value>
+            <common:Value>ZAF</common:Value>
+            <common:Value>ZMB</common:Value>
+            <common:Value>DEU_F</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="SECTOR">
+            <common:Value>_Z</common:Value>
+            <common:Value>S1</common:Value>
+            <common:Value>S13</common:Value>
+            <common:Value>S1M</common:Value>
+            <common:Value>S14</common:Value>
+            <common:Value>S15</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="COUNTERPART_SECTOR">
+            <common:Value>S1</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="TRANSACTION">
+            <common:Value>B1GQ</common:Value>
+            <common:Value>P3T5</common:Value>
+            <common:Value>P3</common:Value>
+            <common:Value>P31</common:Value>
+            <common:Value>P32</common:Value>
+            <common:Value>P41</common:Value>
+            <common:Value>P5</common:Value>
+            <common:Value>P51G</common:Value>
+            <common:Value>P5M</common:Value>
+            <common:Value>P52</common:Value>
+            <common:Value>P53</common:Value>
+            <common:Value>B11</common:Value>
+            <common:Value>P6</common:Value>
+            <common:Value>P61</common:Value>
+            <common:Value>P62</common:Value>
+            <common:Value>P7</common:Value>
+            <common:Value>P71</common:Value>
+            <common:Value>P72</common:Value>
+            <common:Value>YA0</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="INSTR_ASSET">
+            <common:Value>_Z</common:Value>
+            <common:Value>N11G</common:Value>
+            <common:Value>N12G</common:Value>
+            <common:Value>N13G</common:Value>
+            <common:Value>N1G</common:Value>
+            <common:Value>N1MG</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="ACTIVITY">
+            <common:Value>_T</common:Value>
+            <common:Value>_Z</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="EXPENDITURE">
+            <common:Value>_T</common:Value>
+            <common:Value>_Z</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="UNIT_MEASURE">
+            <common:Value>XDC</common:Value>
+            <common:Value>USD_PPP</common:Value>
+            <common:Value>USD_EXC</common:Value>
+            <common:Value>PC</common:Value>
+            <common:Value>IX</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="PRICE_BASE">
+            <common:Value>DR</common:Value>
+            <common:Value>L</common:Value>
+            <common:Value>LR</common:Value>
+            <common:Value>V</common:Value>
+            <common:Value>VQ</common:Value>
+            <common:Value>Y</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="TRANSFORMATION">
+            <common:Value>G1</common:Value>
+            <common:Value>N</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="TABLE_IDENTIFIER">
+            <common:Value>T0102</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="TIME_PERIOD">
+            <common:TimeRange>
+              <common:StartPeriod isInclusive="true">1950-01-01T00:00:00</common:StartPeriod>
+              <common:EndPeriod isInclusive="true">2025-12-31T00:00:00</common:EndPeriod>
+            </common:TimeRange>
+          </common:KeyValue>
+        </structure:CubeRegion>
+      </structure:ContentConstraint>
+      <structure:ContentConstraint id="CR_DSD_NAMAIN10@DF_TABLE1_EXPENDITURE" agencyID="OECD.SDD.NAD" version="2.0" isFinal="true" type="Allowed">
+        <common:Name xml:lang="en">OECD.SDD.NAD:CR_DSD_NAMAIN10@DF_TABLE1_EXPENDITURE(2.0)</common:Name>
+        <structure:ConstraintAttachment>
+          <structure:Dataflow>
+            <Ref id="DSD_NAMAIN10@DF_TABLE1_EXPENDITURE" version="2.0" agencyID="OECD.SDD.NAD" package="datastructure" class="Dataflow" />
+          </structure:Dataflow>
+        </structure:ConstraintAttachment>
+        <structure:CubeRegion include="true">
+          <common:KeyValue id="FREQ">
+            <common:Value>A</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="SECTOR">
+            <common:Value>_Z</common:Value>
+            <common:Value>S1</common:Value>
+            <common:Value>S13</common:Value>
+            <common:Value>S14</common:Value>
+            <common:Value>S15</common:Value>
+            <common:Value>S1M</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="COUNTERPART_SECTOR">
+            <common:Value>S1</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="TRANSACTION">
+            <common:Value>B11</common:Value>
+            <common:Value>B1GQ</common:Value>
+            <common:Value>P3</common:Value>
+            <common:Value>P31</common:Value>
+            <common:Value>P32</common:Value>
+            <common:Value>P3T5</common:Value>
+            <common:Value>P41</common:Value>
+            <common:Value>P5</common:Value>
+            <common:Value>P51G</common:Value>
+            <common:Value>P52</common:Value>
+            <common:Value>P53</common:Value>
+            <common:Value>P5M</common:Value>
+            <common:Value>P6</common:Value>
+            <common:Value>P61</common:Value>
+            <common:Value>P62</common:Value>
+            <common:Value>P7</common:Value>
+            <common:Value>P71</common:Value>
+            <common:Value>P72</common:Value>
+            <common:Value>YA0</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="INSTR_ASSET">
+            <common:Value>_Z</common:Value>
+            <common:Value>N11G</common:Value>
+            <common:Value>N12G</common:Value>
+            <common:Value>N13G</common:Value>
+            <common:Value>N1G</common:Value>
+            <common:Value>N1MG</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="ACTIVITY">
+            <common:Value>_T</common:Value>
+            <common:Value>_Z</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="EXPENDITURE">
+            <common:Value>_T</common:Value>
+            <common:Value>_Z</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="TRANSFORMATION">
+            <common:Value>G1</common:Value>
+            <common:Value>MIX_100</common:Value>
+            <common:Value>N</common:Value>
+          </common:KeyValue>
+          <common:KeyValue id="TABLE_IDENTIFIER">
+            <common:Value>T0102</common:Value>
+          </common:KeyValue>
+        </structure:CubeRegion>
+      </structure:ContentConstraint>
+    </structure:Constraints>
+  </message:Structures>
+</message:Structure>

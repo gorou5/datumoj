@@ -23,3 +23,4 @@
 | `stes_revisions_JPN_201901-201902.csv` | `data/OECD.SDD.STES,DSD_STES_REVISIONS@DF_STES_REVISIONS,4.0/JPN.M.H_EARN.IX.C.201901+201902?startPeriod=2017-10&endPeriod=2018-03&format=csv` | V13 修订库：2018-01 在 EDITION 201901 为 81.41、201902 为 81.51 |
 | `hou_ear_JPN_2018.csv` | `data/OECD.SDD.TPS,DSD_EAR@DF_HOU_EAR,1.0/JPN.EAR.IX.N.C.S1.M?startPeriod=2018-01&endPeriod=2018-12&format=csv` | V13 当前值 |
 | `contentconstraint_CR_A_DF_TABLE1_EXPENDITURE.xml` | `contentconstraint/OECD.SDD.NAD/CR_A_DSD_NAMAIN10@DF_TABLE1_EXPENDITURE/` | 发布标识：`validFrom="2026-11-16T07:54:30Z"` |
+| `dataflow_DF_TABLE1_EXPENDITURE_codelists.xml` | `dataflow/OECD.SDD.NAD/DSD_NAMAIN10@DF_TABLE1_EXPENDITURE/2.0?references=all&detail=referencepartial`（2026-11-21 录，derived：原 1058723 字节，只保留 `namain10_JPN-USA_2020-2024.csv` 里出现的代码） | WISTERIA-315：代码名称，如 `B1GQ` = Gross domestic product、`XDC` = National currency、`USD_EXC` = US dollars, exchange rate converted |

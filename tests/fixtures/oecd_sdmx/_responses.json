@@ -97,5 +97,34 @@
     },
     "sample_type": "captured",
     "use": "发布标识 validFrom"
+  },
+  "dataflow_DF_TABLE1_EXPENDITURE_codelists.xml": {
+    "derived_from": {
+      "url": "https://sdmx.oecd.org/public/rest/dataflow/OECD.SDD.NAD/DSD_NAMAIN10@DF_TABLE1_EXPENDITURE/2.0?references=all&detail=referencepartial",
+      "status": 200,
+      "fetched_at": "2026-11-21T21:43:28+09:00",
+      "bytes": 1058723,
+      "sha256": "a741bfdf16a13c9621380b412bc4142b6cfd7602ee8906dcaca33b9d444f4ff5",
+      "headers": {
+        "date": "Sat, 21 Nov 2026 12:43:27 GMT",
+        "content-type": "application/vnd.sdmx.structure+xml; charset=utf-8; version=2.1",
+        "transfer-encoding": "chunked",
+        "connection": "keep-alive",
+        "cache-control": "public,max-age=7200",
+        "last-modified": "2023-12-04",
+        "vary": "Accept, Accept-Language, Accept-Encoding, Accept-Charset,Accept,Accept-Encoding,Accept-Encoding",
+        "strict-transport-security": "max-age=2592000",
+        "api-supported-versions": "1",
+        "x-server-node": "Server 1",
+        "cf-cache-status": "MISS",
+        "server": "cloudflare",
+        "cf-ray": "a5dfc7afbff8dd72-KIX",
+        "alt-svc": "h3=\":443\"; ma=86400"
+      }
+    },
+    "derivation": "删去本目录数据样本里没有出现的代码（<Code> 元素），其余字节原样保留；只为解析代码名称",
+    "bytes": 79519,
+    "sha256": "4cf9f7d30e4db4d9c80af5bdc17f0738ba4e7949a367ef3a221257361a99897d",
+    "sample_type": "derived"
   }
 }
