@@ -90,6 +90,38 @@ def test_four_archive_releases_import_as_history_and_current_stays_api(tmp_path,
         close(deps)
 
 
+def test_2010_archive_rows_are_the_same_series_as_the_api_rows(tmp_path, monkeypatch):
+    from datumoj.eltiro.models import series_dimensions
+
+    root, seed = build(tmp_path, GRC_SPEC)
+    crawl_and_parse(seed, GRC_SPEC, routes_for(tmp_path))
+    close(seed)
+    deps = wiring.build(root, {"registry": FakeRegistry([SPEC])})
+    try:
+        for name, release_id, released_at in (("weo_2010_apr_GRC_excerpt.tsv", "WEO-2010-APR", "2010-04-21"),
+                                              ("weo_2010_oct_GRC_excerpt.tsv", "WEO-2010-OCT", "2010-10-06")):
+            assert run_import(root, deps, monkeypatch, name, release_id, released_at).exit_code == 0
+        manager = wiring._ReleaseStateManager(wiring_store(), root)
+        manager.push()
+        token = deps.observations.pin_generation()
+        ident = ("SELECT source_id, table_key, indicator, indicator_code, dims, time_label FROM observations "
+                 "WHERE area_code='GRC' AND indicator_code='GGXCNL_NGDP' AND time_label='2009' AND unit='PT'")
+        identities = set()
+        for release_id in ("WEO-2026-OCT", "WEO-2010-APR", "WEO-2010-OCT"):
+            (r,) = deps.observations.query_readonly(ident, generation_token=token, as_of_release=release_id).rows
+            dims = json.loads(r[4]) if isinstance(r[4], str) else r[4]
+            identities.add((r[0], r[1], r[2], r[3], json.dumps(series_dimensions(dims, r[5]), sort_keys=True)))
+        assert len(identities) == 1, identities
+        sql = ("SELECT value FROM observations WHERE area_code='GRC' AND indicator_code='GGXCNL_NGDP' "
+               "AND time_label='2009' AND unit='PT'")
+        for release_id, value in (("WEO-2010-APR", "-12.866"), ("WEO-2010-OCT", "-13.584")):
+            assert deps.observations.query_readonly(sql, generation_token=token, as_of_release=release_id).rows == [
+                (Decimal(value),)]
+        assert deps.observations.query_readonly(sql).rows == [(Decimal("-15.423608"),)]
+    finally:
+        close(deps)
+
+
 def wiring_store():
     from datumoj.rikolto.testing.fakes import FakeStateObjectStore
 
