@@ -1,6 +1,6 @@
 {
   "_说明": "plan/index.html 的“版本路线图”和“里程碑”两节由本文件渲染。由主对话在节点上更新，调度器派出的任务 agent 不改本文件。status 只有对应的 PR 已合并进 main 才能写 done（IVY 期间直接推送 main，pr 为 null）。规则见 CLAUDE.md 与 docs/PLAN.md 第 8.1 节。",
-  "updated": "2026-11-18",
+  "updated": "2026-11-21",
   "versions": [
     {
       "version": "0.1",
@@ -283,12 +283,12 @@
     {
       "version": "KATABAMI",
       "id": "C1",
-      "title": "检查点 901 第一步进 main（105/108/601）",
-      "status": "doing",
-      "date": null,
+      "title": "检查点 901 第一步进 main（105/108/114/601）",
+      "status": "done",
+      "date": "2026-11-21",
       "tag": null,
       "pr": 194,
-      "summary": "离线验收通过（合进最新 main 后全量 6262 项通过）：9 GB 下只标记发布、数据库上限（默认关闭）、周报容量一节。11-17 真实清理已把 R2 从 8.36 GB 降到 6.56 GB；合并后由人打开 R2_DB_RETENTION 做第二步真实验收。",
+      "summary": "随 #194 于 2026-11-21 合并。离线验收通过：9 GB 下只标记发布、数据库上限（默认关闭）、周报容量一节，114 补上删除中途失败后的续删。11-17 真实清理已把 R2 从 8.36 GB 降到 6.56 GB；第二步（打开 R2_DB_RETENTION 真实验收）要等 KATABAMI-115 合并后由人做。",
       "acceptance": "docs/acceptance/katabami.md"
     }
   ]
