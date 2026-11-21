@@ -315,6 +315,23 @@ def test_embed_over_line_uploads_nothing_and_does_not_publish(world, monkeypatch
     released(world)
 
 
+def test_publish_gate_remeasures_usage_after_preflight(world, monkeypatch):
+    seed(world)
+    capacity_inventory(monkeypatch, 6_600_000_000)
+    real = StateManager.upload_estimate
+
+    def grown(self):  # usage grows during the round (e.g. raw uploaded) after the preflight measured it
+        capacity_inventory(monkeypatch, 8_990_000_000)
+        return real(self)
+
+    monkeypatch.setattr(StateManager, "upload_estimate", grown)
+    pointer = remote(world).get("current.json")
+    result = invoke_embed(world)
+    assert result["status"] == "skipped" and result["reason"] == "capacity_freeze"  # optional work freezes at 8.5 GB
+    assert remote(world).get("current.json") == pointer
+    released(world)
+
+
 def test_embed_output_has_no_storage_identifiers(world, monkeypatch):
     seed(world)
     capacity_inventory(monkeypatch, 6_600_000_000)

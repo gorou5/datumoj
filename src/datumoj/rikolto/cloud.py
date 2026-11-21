@@ -1514,13 +1514,19 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         # Recheck with the bytes the push would really upload, before any upload.
                         phase = "publish_capacity"
                         upload = manager.upload_estimate()
-                        gated = gate(capacity["current_bytes"], upload, "optional" if embed_only else "essential")
+                        # Re-measure: this round may already have uploaded raw that the estimate no longer counts.
+                        gated = gate(_project_storage_bytes(manager.store), upload,
+                                     "optional" if embed_only else "essential")
                         capacity["upload_estimate_bytes"] = upload
                         if not gated["allowed"]:
                             capacity.update(tier=gated["tier"], projected_bytes=gated["projected_bytes"],
                                             reason=gated["reason"], allowed=False,
                                             skipped_steps=[*capacity["skipped_steps"], "publish"])
-                            result.update(status="skipped", exit_status=0, reason=gated["reason"])
+                            # A failure already seen this round keeps its non-zero exit.
+                            failed = bool(result["embedding_failed"] if embed_only else result["failed_sources"])
+                            result.update(status="failed" if failed else "skipped", exit_status=int(failed),
+                                          reason=("embedding_failed" if embed_only else "source_failed")
+                                          if failed else gated["reason"])
                             _report_capacity(capacity)
                             return result
                     phase = "publish"
