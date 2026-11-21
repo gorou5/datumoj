@@ -9,10 +9,14 @@ Logical stores sharing an object each reference its bytes, so store rows need no
 sum to the bucket total. Raw source rows, in contrast, are mutually exclusive.
 """
 
+import json
+import math
+import os
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
+from fractions import Fraction
 from pathlib import Path
 
 from datumoj.rikolto.core.contracts import SourceSpec, StateObject
@@ -38,6 +42,19 @@ class CapacityLimits:
 WEEKLY_REPORT_RESERVE = 1_000_000  # Conservative upper bound for one Markdown object.
 
 LIMITS = CapacityLimits()  # Validate once at import; all write gates use these limits.
+
+# The only publication permitted in the stop tier (besides lease writes and deletes):
+# a mark-only generation. It uploads changed manifest.sqlite blocks, writes one
+# generation descriptor and switches the current pointer; never raw, databases or indexes.
+MARK_ONLY_WRITES = ("manifest_copy", "generation_descriptor", "current_pointer")
+MARK_ONLY_RESERVE = 1_000_000  # Conservative bound for the descriptor and pointer objects.
+
+
+def mark_only_estimate(manifest_bytes: int) -> int:
+    """Upper bound of bytes written: every manifest block is new, plus the reserve."""
+    if type(manifest_bytes) is not int or manifest_bytes < 0:
+        raise ValueError("invalid_capacity_size")
+    return manifest_bytes + MARK_ONLY_RESERVE
 
 
 def gate(current_bytes: int | None, estimated_new_bytes: int | None, category: str, *,
@@ -131,3 +148,106 @@ def inventory(objects: list[StateObject], generations: list[StateGeneration], cu
         "reclaimable": {**{kind: _counts(plan[kind]) for kind in ("generations", "copies", "raw")},
                         "raw_enabled": raw_enabled},
     }
+
+
+# ---- 容量摘要（capacity.jsonl）：每轮一行，随代次发布；周报“容量”一节只从它计算 ----
+CAPACITY_LOG = "capacity.jsonl"
+CAPACITY_KEEP = timedelta(days=16)  # 覆盖上一完整周
+REASON_INSUFFICIENT = "capacity_rows_insufficient"
+REASON_UNAVAILABLE = "capacity_log_unavailable"
+TOP_SOURCES = 10
+_DB_STORES = {"manifest.sqlite", "chunks.sqlite", "keyword.sqlite", "catalog.sqlite", "changes.sqlite",
+              "observations.duckdb"}
+
+
+def capacity_row(listing, copies, manifest: Path, now: datetime) -> dict:
+    """Build one summary row from the round's single listing; no extra listing or data GET."""
+    scoped, other = listing
+    raw = [obj for obj in scoped if obj.key.split("/", 1)[0] == "raw" and "/" in obj.key]
+    by_source = ({name: row["bytes"] for name, row in raw_source_counts(raw, manifest).items() if row["bytes"]}
+                 if raw else {})
+    db = {copy.key: copy.size_bytes for copy in copies
+          if copy.format != "sqlite-blocks-v1" and _store_name(copy.name) in _DB_STORES}
+    return {"recorded_at": now.astimezone(UTC).isoformat(),
+            "total_bytes": sum(obj.size_bytes for obj in (*scoped, *other)),
+            "raw_bytes_by_source": by_source, "db_store_bytes": sum(db.values())}
+
+
+def _count(value) -> bool:
+    return type(value) is int and value >= 0
+
+
+def _at(row: dict) -> datetime:
+    return datetime.fromisoformat(row["recorded_at"])
+
+
+def _valid_row(row) -> bool:
+    try:
+        raw = row["raw_bytes_by_source"]
+        return (_at(row).utcoffset() is not None
+                and _count(row["total_bytes"]) and _count(row["db_store_bytes"])
+                and isinstance(raw, dict) and all(isinstance(k, str) and _count(v) for k, v in raw.items()))
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def parse_capacity_rows(data: bytes) -> list[dict]:
+    """Skip blank, undecodable, malformed or invalid lines instead of failing."""
+    rows = []
+    for line in data.split(b"\n"):
+        try:
+            row = json.loads(line.decode("utf-8"))
+        except (ValueError, RecursionError):  # includes UnicodeDecodeError, JSONDecodeError and too-deep nesting
+            continue
+        if _valid_row(row):
+            rows.append(row)
+    return rows
+
+
+def read_capacity_rows(root: Path) -> list[dict]:
+    """Raises OSError when the file is missing or unreadable."""
+    return parse_capacity_rows((Path(root) / CAPACITY_LOG).read_bytes())
+
+
+def append_capacity_row(root: Path, row: dict) -> None:
+    """Append one row, keep the last 16 days, and replace the file atomically."""
+    path = Path(root) / CAPACITY_LOG
+    try:
+        old = read_capacity_rows(root)
+    except FileNotFoundError:
+        old = []
+    cutoff = _at(row) - CAPACITY_KEEP
+    kept = [r for r in old if _at(r) >= cutoff] + [row]
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text("".join(json.dumps(r, sort_keys=True, separators=(",", ":")) + "\n" for r in kept),
+                   encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def summarize_capacity(rows: list[dict], start: datetime, end: datetime) -> dict:
+    """Pure: rows inside [start, end] -> exact numbers (Fractions, no floats)."""
+    window = sorted((r for r in rows if start <= _at(r) <= end), key=_at)
+    if len(window) < 2 or _at(window[-1]) == _at(window[0]):
+        return {"status": "insufficient", "rows": len(window), "reason": REASON_INSUFFICIENT}
+    first, last = window[0], window[-1]
+    days = Fraction((_at(last) - _at(first)) // timedelta(microseconds=1), 86_400_000_000)
+    old, new = first["raw_bytes_by_source"], last["raw_bytes_by_source"]
+    sources = sorted(({"source": n, "bytes": new.get(n, 0), "growth": new.get(n, 0) - old.get(n, 0)}
+                      for n in set(old) | set(new)), key=lambda s: (-s["growth"], s["source"]))
+    rest = sources[TOP_SOURCES:]
+    total = last["total_bytes"]
+    growth = total - first["total_bytes"]
+    if total >= LIMITS.freeze:
+        prediction = {"kind": "already_over"}
+    elif growth <= 0:
+        prediction = {"kind": "never"}
+    else:
+        prediction = {"kind": "days", "days": math.ceil((LIMITS.freeze - total) / (Fraction(growth) / days))}
+    return {"status": "ok", "rows": len(window), "covered_days": days, "total_bytes": total,
+            "headroom_bytes": {"7": LIMITS.report - total, "8.5": LIMITS.freeze - total,
+                               "9": LIMITS.stop - total},
+            "sources": sources[:TOP_SOURCES],
+            "other": {"count": len(rest), "bytes": sum(s["bytes"] for s in rest),
+                      "growth": sum(s["growth"] for s in rest)} if rest else None,
+            "db_bytes": last["db_store_bytes"], "db_growth": last["db_store_bytes"] - first["db_store_bytes"],
+            "growth_bytes": growth, "prediction": prediction}

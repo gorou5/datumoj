@@ -40,6 +40,10 @@ CREATE TABLE IF NOT EXISTS chunks (
 CREATE INDEX IF NOT EXISTS chunks_chunk_id ON chunks(chunk_id);
 """
 
+# Not part of _SCHEMA: created by the first delete_versions, so stores that never run retention never have it.
+_PENDING = ("CREATE TABLE IF NOT EXISTS retention_pending ("
+            "kind TEXT NOT NULL, key TEXT NOT NULL, PRIMARY KEY (kind, key))")
+
 
 class SqliteChunkStore:
     """``path`` 是 SQLite 文件路径，或 ``:memory:``。"""
@@ -149,6 +153,88 @@ class SqliteChunkStore:
                     "WHERE current_versions.snapshot_sha256 != excluded.snapshot_sha256",
                     key,
                 )
+
+    def delete_versions(self, versions: Sequence[tuple[str, str]], expired_keys: Sequence[str] = ()) -> list[str]:
+        """Remove ``(doc_key, snapshot_sha256)`` documents and chunks in one transaction.
+
+        ``expired_keys`` additionally lose their current_versions / published_orders rows
+        (callers list every version of those keys). Returns the removed chunk_ids that
+        no longer belong to any current chunk, so their vectors can go too.
+
+        The keyword document keys and those chunk_ids are also written to ``retention_pending``
+        in the same transaction, so a later failure in the indexes is resumed by
+        ``pending_cleanup``. The table is created here, never by opening the store, and dropped
+        again once it is empty.
+        A current version that is not in ``expired_keys`` is refused before anything is deleted.
+        """
+        self._require_writable()
+        with self._tx() as db:
+            expiring = set(expired_keys)
+            for doc_key, sha in versions:
+                if doc_key not in expiring and db.execute(
+                        "SELECT 1 FROM current_versions WHERE doc_key=? AND snapshot_sha256=?",
+                        (doc_key, sha)).fetchone():
+                    raise ValueError("current_version_not_expired")
+            ids: set[str] = set()
+            for key in versions:
+                ids.update(r[0] for r in db.execute(
+                    "SELECT chunk_id FROM chunks WHERE doc_key=? AND snapshot_sha256=?", key))
+                db.execute("DELETE FROM chunks WHERE doc_key=? AND snapshot_sha256=?", key)
+                db.execute("DELETE FROM documents WHERE doc_key=? AND snapshot_sha256=?", key)
+            for doc_key in expired_keys:
+                db.execute("DELETE FROM current_versions WHERE doc_key=?", (doc_key,))
+                db.execute("DELETE FROM published_orders WHERE doc_key=?", (doc_key,))
+            listed = sorted(ids)
+            for offset in range(0, len(listed), 500):
+                batch = listed[offset:offset + 500]
+                ids.difference_update(r[0] for r in db.execute(
+                    "SELECT c.chunk_id FROM chunks c JOIN current_versions v "
+                    "ON v.doc_key=c.doc_key AND v.snapshot_sha256=c.snapshot_sha256 "
+                    f"WHERE c.chunk_id IN ({','.join('?' * len(batch))})", batch))
+            pending = [("keyword", key) for key in dict.fromkeys(expired_keys)] + [("vector", i) for i in ids]
+            if pending:
+                db.execute(_PENDING)
+                db.executemany("INSERT OR IGNORE INTO retention_pending(kind, key) VALUES(?,?)", pending)
+        return sorted(ids)
+
+    def _has_pending_table(self) -> bool:
+        return self._db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='retention_pending'"
+                                ).fetchone() is not None
+
+    def pending_cleanup(self) -> tuple[list[str], list[str]]:
+        """Leftover ``(keyword doc_keys, vector chunk_ids)`` from ``delete_versions``.
+
+        Entries that a current version references again (re-published since) are dropped
+        from the table instead of returned, so they are never deleted from the indexes.
+        """
+        self._require_writable()
+        if not self._has_pending_table():
+            return [], []
+        with self._tx() as db:
+            db.execute("DELETE FROM retention_pending WHERE kind='keyword' "
+                       "AND key IN (SELECT doc_key FROM current_versions)")
+            db.execute("DELETE FROM retention_pending WHERE kind='vector' AND key IN ("
+                       "SELECT c.chunk_id FROM chunks c JOIN current_versions v "
+                       "ON v.doc_key=c.doc_key AND v.snapshot_sha256=c.snapshot_sha256)")
+            rows = db.execute("SELECT kind, key FROM retention_pending ORDER BY kind, key").fetchall()
+            self._drop_pending_if_empty(db)
+        return ([key for kind, key in rows if kind == "keyword"], [key for kind, key in rows if kind == "vector"])
+
+    @staticmethod
+    def _drop_pending_if_empty(db: sqlite3.Connection) -> None:
+        # An empty table would make db_usage refuse the file (it accepts only its known tables).
+        if not db.execute("SELECT 1 FROM retention_pending LIMIT 1").fetchone():
+            db.execute("DROP TABLE retention_pending")
+
+    def clear_pending(self, keyword_keys: Sequence[str] = (), chunk_ids: Sequence[str] = ()) -> None:
+        """Forget entries once both the keyword index and the vectors are clean."""
+        self._require_writable()
+        if not self._has_pending_table():
+            return
+        with self._tx() as db:
+            db.executemany("DELETE FROM retention_pending WHERE kind=? AND key=?",
+                           [("keyword", key) for key in keyword_keys] + [("vector", i) for i in chunk_ids])
+            self._drop_pending_if_empty(db)
 
     def current_order(self, doc_key: str) -> SnapshotOrder | None:
         row = self._db.execute("SELECT order_json FROM published_orders WHERE doc_key=?", (doc_key,)).fetchone()

@@ -19,9 +19,17 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Lock
 
-from datumoj.rikolto import wiring
+from datumoj.rikolto import db_retention, wiring
 from datumoj.rikolto.analysis.reports import previous_week_period, weekly_report
-from datumoj.rikolto.capacity import LIMITS, WEEKLY_REPORT_RESERVE, gate
+from datumoj.rikolto.capacity import (
+    LIMITS,
+    MARK_ONLY_WRITES,
+    WEEKLY_REPORT_RESERVE,
+    append_capacity_row,
+    capacity_row,
+    gate,
+    mark_only_estimate,
+)
 from datumoj.rikolto.core.budget import ParseBudget
 from datumoj.rikolto.core.contracts import PreconditionFailed, StateObject
 from datumoj.rikolto.core.http import PoliteHttpFetcher
@@ -468,6 +476,13 @@ def _weekly_report_bytes(content: str) -> bytes:
     if len(data) <= WEEKLY_REPORT_RESERVE:
         return data
     lines = content.splitlines(keepends=True)
+    # The small capacity section is always kept: set it aside, then put it before the notice.
+    start = next((i for i, line in enumerate(lines) if line == "## 容量\n"), None)
+    section = []
+    if start is not None:
+        stop = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
+        section, lines = lines[start:stop], lines[:start] + lines[stop:]
+    tail = ("\n" + "".join(section).rstrip("\n") + "\n").encode() if section else b""
     # weekly_report renders each event on one line, with an optional title.
     events = [line.startswith(("- 摘要：", "- 标题：")) for line in lines]
     omitted = sum(events)
@@ -475,7 +490,7 @@ def _weekly_report_bytes(content: str) -> bytes:
     def notice(count):
         return f"\n\n报告超过 1 MB，后续内容已省略；省略 {count} 条事件。\n".encode()
 
-    budget = WEEKLY_REPORT_RESERVE - len(notice(omitted))
+    budget = WEEKLY_REPORT_RESERVE - len(notice(omitted)) - len(tail)
     kept = bytearray()
     for line, event in zip(lines, events, strict=True):
         encoded = line.encode("utf-8")
@@ -483,7 +498,7 @@ def _weekly_report_bytes(content: str) -> bytes:
             break
         kept.extend(encoded)
         omitted -= event
-    return bytes(kept) + notice(omitted)
+    return bytes(kept) + tail + notice(omitted)
 
 
 def publish_previous_week_report(store, deps, now: datetime, generation=None) -> str:
@@ -560,18 +575,39 @@ def _empty_work_root(work_dir, stack):
     return root
 
 
-def _project_storage_bytes(store):
+def _measure_storage(store):
+    """``(total bytes, (scoped, other))`` from one listing, so the capacity summary row needs no second one."""
     scoped, other = _usage_objects(store)
     sizes = [obj.size_bytes for obj in (*scoped, *other)]
     if any(type(size) is not int or size < 0 for size in sizes):
         raise ValueError("invalid_capacity_size")
-    return sum(sizes)
+    return sum(sizes), (scoped, other)
 
 
-def _round_capacity(manager, *, embed_only=False, weekly_report=False):
+def _project_storage_bytes(store):
+    return _measure_storage(store)[0]
+
+
+def _capacity_row(history, root, now, listing):
+    """The round's summary row from the listing that measured its capacity; None when unusable."""
+    if not listing:
+        return None
+    listing = listing[0]
+    try:
+        copies = history[0].stores if history else []
+        return capacity_row(listing, copies, Path(root) / "manifest.sqlite", now)
+    except Exception:  # noqa: BLE001 -- A failed inventory skips this row; the round continues.
+        return None
+
+
+def _round_capacity(manager, *, embed_only=False, weekly_report=False, listing=None):
     current = estimate = None
     try:
-        current = _project_storage_bytes(manager.store)
+        if listing is None:
+            current = _project_storage_bytes(manager.store)
+        else:  # the caller wants the listing too: measure once and hand both back
+            current, found = _measure_storage(manager.store)
+            listing[:] = [found]
         # Embedding republishes local stores. Budget a complete replacement of
         # the current stores, without counting checksum-only SQLite descriptors.
         if weekly_report:
@@ -932,6 +968,52 @@ def _cleanup_restored(manager, root, check, result, *, enabled, raw_enabled, orp
         )
 
 
+def _db_retention(manager, deps, root, capacity, uploads, pages):
+    """Retention while holding the lease: execute locally, report counts, gate only the one-off VACUUM."""
+    try:
+        raw_keys = set(manager.store.list("raw/"))
+    except Exception:  # noqa: BLE001 -- Unknown raw inventory keeps hash-bearing snapshot rows.
+        present = None
+    else:
+        def present(sha):
+            return f"raw/{sha[:2]}/{sha}" in raw_keys
+
+    def vacuum_gate(estimated):
+        current = capacity.get("current_bytes")
+        return gate(None if current is None else current + uploads.bytes, estimated, "optional")
+
+    with local_write(root):
+        return db_retention.run(root, utcnow(), deps.registry.all(), execute=True, raw_present=present,
+                                gate=vacuum_gate, incremental_pages=pages)
+
+
+def _mark_only_restored(manager, root, check, result):
+    """Stop-tier recovery: mark due raw and publish only the changed manifest.
+
+    Runs after cleanup on the restored state. It never crawls, embeds, changes any
+    database other than the manifest's raw markers, or uploads raw; with nothing
+    newly marked it writes nothing. Output holds only numbers and fixed codes.
+    """
+    capacity = result["capacity"]
+    report = capacity["mark_only"] = {"marked": 0, "published_generation": None}
+    # Controlled write exception: what may be written and its byte bound, set before writing.
+    writes = capacity["mark_only_writes"] = {"writes": [], "estimated_bytes": 0, "uploaded_bytes": 0}
+    if not manager.list():
+        return  # No published manifest exists to mark.
+    with workspace_lock(root):
+        check()
+        specs = load_registry(Path(__file__).resolve().parents[3] / "sources").all()
+        with local_write(root):
+            report["marked"] = manager.mark_raw(specs, utcnow())
+        if not report["marked"]:
+            return
+        writes.update(writes=list(MARK_ONLY_WRITES),
+                      estimated_bytes=mark_only_estimate((root / "manifest.sqlite").stat().st_size))
+        check()
+        generation, writes["uploaded_bytes"] = manager.publish_marked_manifest(utcnow())
+        report["published_generation"] = generation.generation
+
+
 def cleanup_only(*, work_dir: Path | None = None, max_minutes: float, delete: bool = False) -> dict:
     """Clean already published state; default to inventory only, never publish or mark raw.
 
@@ -1112,8 +1194,10 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         result.update(reason="storage_conditional_unsupported", phase=phase)
                         return result
                 phase = "capacity"
-                capacity = result["capacity"] = _round_capacity(manager, embed_only=embed_only)
+                listing = []
+                capacity = result["capacity"] = _round_capacity(manager, embed_only=embed_only, listing=listing)
                 _report_capacity(capacity)
+                summary_row = _capacity_row(history, root, utcnow(), listing)
                 orphan = manager.store.get(f"generations/{number + 1}.json") is not None
                 stopped = capacity["reason"] == "capacity_stop"
                 # Finish only an immutable uploaded orphan before stop cleanup.
@@ -1151,6 +1235,12 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         _next_round(result)
                         if result["cleanup"].get("failures") or result["cleanup"].get("timed_out"):
                             result.update(status="failed", exit_status=1, reason="capacity_stop_cleanup_failed")
+                        elif not embed_only and cleanup_enabled:
+                            phase = "mark_only"
+                            try:
+                                _mark_only_restored(manager, root, check, result)
+                            except Exception:  # noqa: BLE001 -- Recovery publication failure is a fixed code.
+                                result.update(status="failed", exit_status=1, reason="capacity_stop_mark_only_failed")
                     return result
                 if capacity["tier"] == "freeze":
                     capacity["skipped_steps"] = ["backfill", "weekly_report"]
@@ -1265,6 +1355,13 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                                 and not (capacity.get("mid_round_freeze") or capacity.get("mid_round_stop"))):
                             phase = "backfill"
                             remaining = _backfill(deps, remaining, started, max_minutes, check, result, before_round)
+                    retention = db_retention.settings()
+                    if retention["enabled"] and not embed_only:
+                        phase = "db_retention"
+                        check()
+                        result["db_retention"] = _db_retention(
+                            manager, deps, root, capacity, uploads, retention["incremental_pages"],
+                        )
                     phase = "maintenance"
                     maintenance_operation = "local_write_enter"
                     with local_write(root):
@@ -1281,6 +1378,10 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         marking_failed = 1
                     phase = "publish"
                     check()
+                    if summary_row is not None:
+                        # Under the lease, before publication; a failure never stops the round.
+                        with suppress(Exception):
+                            append_capacity_row(root, summary_row)
                     _progress("publish_start", started, result)
                     publish_started = time.monotonic()
                     try:

@@ -22,6 +22,7 @@ license:
 scope:
   raw_retention_days: 2
   feed_lookback_days: 7
+  index_retention_hours: 48
   raw_expire_latest_types: ["entry"]
   embed: false
   short_retention: true

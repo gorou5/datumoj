@@ -16,6 +16,7 @@
 | `scope` | 非空对象，列出该采集器允许请求的数据范围或端点。 |
 | `scope.raw_retention_days` | 必填，现有来源为 2 天；保留期取 min(来源天数, 48 小时)，有效 NAS 回执可提前到期，最新快照受保护。 |
 | `scope.raw_expire_latest_types` | 可选，资源类型字符串列表，缺省为空；列出的类型即使是最新快照也允许过期。 |
+| `scope.index_retention_hours` | 可选，正整数小时，缺省不限期。设了以后，该来源的**当前版本**文档按抓取时间超过这个期限就从检索库（文档、块、向量）删除；只管索引里的文档，不管 raw（`raw_retention_days`）和抓取回看（`feed_lookback_days`）。`jp-jma` 填 48。 |
 | `needs_key` | 无需凭据时留空；需要时只写 `env:UPPERCASE_NAME`，不写 Key 值。 |
 | `retention_note` | 必填，写明 raw 最多 48 小时、NAS 存档确认后可提前删除、最新快照受保护，并保留来源特有说明。 |
 | `license` | `LicenseInfo` 对象，含许可 `name` / `url`、`attribution`、`usage_scope`、`redistribution`、`outflow`、`cloud_model_ok`、`verified_at` 和 `notes`。 |
@@ -27,6 +28,8 @@
 所有来源的 `scope.raw_retention_days` 统一为 2。raw 最多 48 小时，NAS 存档确认后可提前删除，最新快照受保护。到期时间 = min(抓取时间 + `scope.raw_retention_days`, 抓取时间 + 48 小时, 有效回执确认时间)；48 小时是上限，配置 1 天即 24 小时到期。同一 raw 被多份快照引用时，须等所有引用的年龄期限到期。每个资源的最新成功快照默认受保护，`scope.raw_expire_latest_types` 中列出的资源类型例外（`jp-jma` 为 `["entry"]`）。待发布、发布失败、当前 manifest 必需引用和保留代次的回滚保护优先。观测值历史随代次保留，raw 不压缩。
 
 NAS 回执固定写到 `receipts/nas-raw.json`，有效期 48 小时，只携带版本、UTC 存档时间及经过内容校验的 SHA-256。缺失、损坏、不可读、过期时按 min(来源天数, 48 小时) 清理。空目录或没有合格文件时命令不上传，非零退出并返回 `no_qualified_raw_files`；成功的标准输出只含条数和时间。JMA 的 `scope.feed_lookback_days` 显式设为 7，缺省也是 7，以 feed 的 `updated` 为基准，与 raw 保留期独立。
+
+三个期限互相独立：`raw_retention_days` 管对象存储里的原始文件（最多 48 小时）；`feed_lookback_days` 管抓取时回看 feed 里多久以内的条目（只影响要不要去抓，不删任何东西）；`index_retention_hours` 管检索库里当前版本文档留多久。过期文档从检索库删掉后，抓取记录（manifest 的快照）和解析记录仍在，所以回看窗口里的同一条报文不会被重新抓取、重新解析。被新版本取代满 48 小时的旧版本不看这个字段，所有来源一律删除（整个清理由环境变量 `R2_DB_RETENTION=on` 打开，默认关闭）。
 
 ## 许可核对方法
 

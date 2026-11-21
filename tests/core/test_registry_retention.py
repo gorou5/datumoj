@@ -37,6 +37,23 @@ def test_sources_keep_agreed_retention_policy():
         assert spec.scope.get("raw_expire_latest_types", []) == (["entry"] if spec.id == "jp-jma" else [])
 
 
+def test_index_retention_is_optional_and_only_jma_sets_it():
+    for spec in load_registry(SOURCES).all():
+        assert spec.scope.get("index_retention_hours") == (48 if spec.id == "jp-jma" else None), spec.id
+    # Independent of the raw and feed-lookback windows.
+    jma = load_registry(SOURCES).get("jp-jma")
+    assert (jma.scope["raw_retention_days"], jma.scope["feed_lookback_days"]) == (2, 7)
+
+
+@pytest.mark.parametrize("value", [0, -1, 1.5, "48", True, [48]])
+def test_index_retention_hours_must_be_a_positive_integer(value):
+    from datumoj.rikolto.testing.samples import make_spec
+
+    with pytest.raises(ValueError, match="index_retention_hours"):
+        make_spec(scope={"urls": ["https://example.go.jp/a.txt"], "index_retention_hours": value})
+    assert make_spec(scope={"urls": ["https://example.go.jp/a.txt"], "index_retention_hours": 1})
+
+
 def test_missing_retention_in_temporary_yaml_fails_check(tmp_path):
     source = yaml.safe_load((SOURCES / "jp-egov-law.yaml").read_text(encoding="utf-8"))
     del source["scope"]["raw_retention_days"]
