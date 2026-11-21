@@ -116,8 +116,10 @@ def _observation_profiles(generation, rows: list[Observation], datasets):
         # Source codelist names (parsers' code_labels) name the indicator code; never overrides another name.
         for dataset in metadata:
             labels = dataset.extras.get("code_labels")
-            for codes in (labels.values() if isinstance(labels, dict) else ()):
-                label = codes.get(row.indicator_code) if isinstance(codes, dict) and row.indicator_code else None
+            for dim, codes in (labels.items() if isinstance(labels, dict) else ()):
+                # Only the dimension this row's code actually sits in; the same code may mean different things elsewhere.
+                hit = row.indicator_code and any(k.lower() == dim.lower() and v == row.indicator_code for k, v in row.dims.items())
+                label = codes.get(row.indicator_code) if isinstance(codes, dict) and hit else None
                 if isinstance(label, str) and label:
                     names.setdefault(dataset.extras.get("language") or dataset.extras.get("lang") or "en", label)
         names.setdefault(language, row.indicator)

@@ -114,10 +114,12 @@ def test_existing_parser_concept_codes_and_indicator_translations(inputs):
     ({"na_item": {"B1GQ": "Gross domestic product at market prices"}}, {"en": "Gross domestic product at market prices", "und": "B1GQ"}),
     ({"na_item": {"GD": "Government consolidated gross debt"}}, {"und": "B1GQ"}),  # no name for this code: as before
     ({}, {"und": "B1GQ"}),
+    ({"MEASURE": {"B1GQ": "Another dimension's B1GQ"}}, {"und": "B1GQ"}),  # the code sits in na_item, not MEASURE
 ])
 def test_indicator_name_from_source_code_labels_keeps_series_identity(inputs, code_labels, names):
     row = make_observation("e1", "1", source_id="eu-eurostat", dataset_key="eu-eurostat:nama_10_gdp",
-                           table_key="nama_10_gdp", indicator="B1GQ", indicator_code="B1GQ", unit="CP_MEUR")
+                           table_key="nama_10_gdp", indicator="B1GQ", indicator_code="B1GQ", unit="CP_MEUR",
+                           dims={"na_item": "B1GQ", "geo": "EL"})
     inputs["registry"] = FakeRegistry([make_spec("eu-eurostat")])
     inputs["catalog"].upsert([make_dataset("eu-eurostat:nama_10_gdp", "NAMA_10_GDP data structure",
                                            extras={"code_labels": code_labels})])
