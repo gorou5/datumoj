@@ -109,6 +109,29 @@ def test_recorded_greece_units_dates_and_dsd_labels():
     assert not parsed.warnings
 
 
+def codelist_sample(code):
+    data = data_bytes(code)
+    dsd = (FIXTURES / f"datastructure_{code.upper()}_codelists.xml").read_bytes()
+    return ParseSample(make_snapshot("eu-eurostat", BASE + "data/" + code, data), data,
+                       {"id": code, "structure": read_structure(dsd, code)})
+
+
+def test_code_labels_come_from_the_dsd_codelists_and_identity_is_unchanged():
+    for code, wanted in ((GOV, {"B9", "GD"}), (GDP, {"B1GQ"})):
+        parsed = parse(codelist_sample(code))
+        plain = parse(sample(code))
+        labels = parsed.datasets[0].extras["code_labels"]["na_item"]
+        assert wanted <= set(labels) and all(labels.values())
+        assert {o.indicator_code for o in parsed.observations} == set(labels)  # only the codes in use
+        assert all(o.area_label for o in parsed.observations)
+        # indicator, indicator_code, table_key, dims and obs_id are exactly what the DSD without codelists gives.
+        for new, old in zip(parsed.observations, plain.observations, strict=True):
+            assert (new.indicator, new.indicator_code, new.table_key, new.dims, new.obs_id) == (
+                old.indicator, old.indicator_code, old.table_key, old.dims, old.obs_id)
+    assert "Gross domestic product" in parse(codelist_sample(GDP)).datasets[0].extras["code_labels"]["na_item"]["B1GQ"]
+    assert parse(sample(GDP)).datasets[0].extras["code_labels"] == {}
+
+
 def test_recorded_flags_and_absent_codelists_are_not_invented():
     parsed = parse(sample(GDP))
     assert len(parsed.observations) == 15

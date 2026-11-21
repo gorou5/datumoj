@@ -17,7 +17,7 @@ from datumoj.rikolto.core.models import Citation, SourceText, TimeBasis
 from datumoj.rikolto.core.runner import CrawlDeps
 from datumoj.rikolto.testing.fakes import FakeRegistry, FakeStateObjectStore
 from datumoj.rikolto.testing.samples import T0
-from tests.crawlers.test_oecd_sdmx import CONSTRAINTS, EDITIONS, SPEC
+from tests.crawlers.test_oecd_sdmx import CONSTRAINTS, EDITIONS, SPEC, STRUCTURES
 from tests.parsers.test_oecd_sdmx import (
     HOU,
     HOU_URL,
@@ -28,6 +28,7 @@ from tests.parsers.test_oecd_sdmx import (
     edition_bytes,
     hou_bytes,
     namain_bytes,
+    structure_bytes,
 )
 
 ROBOTS = "https://sdmx.oecd.org/robots.txt"
@@ -50,6 +51,7 @@ def test_query_citation_and_per_edition_releases(tmp_path, monkeypatch):
     manager = wiring._ReleaseStateManager(FakeStateObjectStore(), root)
     files = {
         CONSTRAINTS[0]: constraint_bytes(NAMAIN), CONSTRAINTS[1]: constraint_bytes(HOU, "2026-11-01T00:00:00Z"),
+        STRUCTURES[0]: structure_bytes(), STRUCTURES[1]: structure_bytes(),
         NAMAIN_URL: namain_bytes(), HOU_URL: hou_bytes(),
         EDITIONS[0]: edition_bytes("201901"), EDITIONS[1]: edition_bytes("201902"),
     }
@@ -93,7 +95,11 @@ def test_query_citation_and_per_edition_releases(tmp_path, monkeypatch):
 
     try:
         requests = crawl_and_parse()
-        assert requests == [ROBOTS, CONSTRAINTS[0], NAMAIN_URL, CONSTRAINTS[1], HOU_URL, *EDITIONS]
+        assert requests == [ROBOTS, CONSTRAINTS[0], STRUCTURES[0], NAMAIN_URL, CONSTRAINTS[1], STRUCTURES[1],
+                            HOU_URL, *EDITIONS]
+        # The codelist name reaches the dataset metadata; observations keep the bare code.
+        extras = deps.catalog.get_dataset("intl-oecd:df_table1_expenditure").extras
+        assert extras["code_labels"] == {"TRANSACTION": {"B1GQ": "Gross domestic product"}}
         # Current rows: NAMAIN10 (20) + HOU_EAR (12) + the last EDITION written (201902: 6); 201901 stays in the history.
         assert deps.observations.query_readonly("SELECT count(*) FROM observations").rows == [(20 + 12 + 6,)]
         # A week later nothing changed: only the two contentconstraint checks go out, no data request.

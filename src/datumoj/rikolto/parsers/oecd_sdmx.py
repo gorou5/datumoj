@@ -58,6 +58,30 @@ def read_valid_from(data: bytes, agency: str, dataflow: str) -> str:
     raise ParseError(f"OECD contentconstraint 缺少 CR_A_{dataflow} 的 validFrom")
 
 
+_COMMON = "http://www.sdmx.org/resources/sdmxml/schemas/v2_1/common"
+_XML_LANG = "{http://www.w3.org/XML/1998/namespace}lang"
+_INDICATOR_DIMS = ("MEASURE", "TRANSACTION")  # same precedence as the observation's indicator
+
+
+def read_code_labels(data: bytes) -> dict[str, dict[str, str]]:
+    """English code names of the indicator dimensions, from the codelists of a structure message."""
+    root = _xml(data)
+    lists = {}
+    for node in root.iter(f"{{{_STRUCTURE}}}Codelist"):
+        names = {}
+        for item in node.findall(f"{{{_STRUCTURE}}}Code"):
+            text = next((n.text for n in item.findall(f"{{{_COMMON}}}Name") if n.get(_XML_LANG) == "en" and n.text and n.text.strip()), None)
+            if text:
+                names[item.get("id")] = text
+        lists[node.get("id")] = names
+    labels = {}
+    for dim in root.iter(f"{{{_STRUCTURE}}}Dimension"):
+        ref = dim.find(f"{{{_STRUCTURE}}}LocalRepresentation/{{{_STRUCTURE}}}Enumeration/Ref")
+        if dim.get("id") in _INDICATOR_DIMS and ref is not None and lists.get(ref.get("id")):
+            labels[dim.get("id")] = lists[ref.get("id")]
+    return labels
+
+
 def _period(label: str) -> tuple[date | None, date | None, TimeGranularity]:
     try:
         if re.fullmatch(r"[0-9]{4}", label):
@@ -112,6 +136,8 @@ class OecdSdmxParser(Parser):
         meta = dict(meta or {})
         if data.lstrip()[:1] == b"<":
             root = _xml(data)
+            if next(root.iter(f"{{{_STRUCTURE}}}DataStructure"), None) is not None:
+                return ParseResult(warnings=["结构响应只提供代码名称，没有观测值"])
             if next(root.iter(f"{{{_STRUCTURE}}}ContentConstraint"), None) is None:
                 raise ParseError("OECD XML 不是 contentconstraint")
             return ParseResult(warnings=["contentconstraint 只提供发布标识，没有观测值"])
@@ -143,6 +169,7 @@ class OecdSdmxParser(Parser):
         valid_date = _utc(valid_from).astimezone(UTC).date() if isinstance(valid_from, str) else None
 
         observations: dict[tuple[str, str | None], Observation] = {}
+        used: dict[str, set[str]] = {}
         for number, row in enumerate(rows[1:], 1):
             if not row:
                 continue
@@ -177,6 +204,10 @@ class OecdSdmxParser(Parser):
             series = [agency, flow_id, sorted((k, v) for k, v in dims.items() if k != "EDITION"), label]
             obs_id = "oecd:" + sha256(json.dumps(series, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
             indicator = dims.get("MEASURE") or dims.get("TRANSACTION") or table
+            for dim in _INDICATOR_DIMS:
+                if dims.get(dim) == indicator:
+                    used.setdefault(dim, set()).add(indicator)
+                    break
             obs = Observation(
                 obs_id=obs_id, source_id=snapshot.source_id, dataset_key=f"{snapshot.source_id}:{table}",
                 table_key=table, survey=flow, indicator=indicator, indicator_code=indicator,
@@ -191,11 +222,19 @@ class OecdSdmxParser(Parser):
                     raise ParseError("OECD 响应包含同一观测键的冲突值")
                 continue
             observations[obs_id, release_id] = obs
+        given = meta.get("code_labels")
+        given = given if isinstance(given, dict) else {}
+        code_labels = {}
+        for dim, codes in sorted(used.items()):
+            names = given.get(dim)
+            found = {c: names[c] for c in sorted(codes) if isinstance(names, dict) and isinstance(names.get(c), str) and names[c]}
+            if found:
+                code_labels[dim] = found
         dataset = Dataset(
             dataset_key=f"{snapshot.source_id}:{table}", source_id=snapshot.source_id, title=flow,
             kind="stat_dataset", publisher="OECD", url=snapshot.resource_url,
             extras={"agency": agency, "dataflow": flow_id, "version": version,
-                    "dimensions": dim_names, "attributes": attr_names},
+                    "dimensions": dim_names, "attributes": attr_names, "code_labels": code_labels},
             snapshot_sha256=snapshot.sha256,
         )
         return ParseResult(datasets=[dataset], observations=list(observations.values()))

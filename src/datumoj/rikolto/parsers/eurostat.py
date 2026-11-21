@@ -103,13 +103,17 @@ def _values(node: etree._Element, path: str) -> dict[str, str]:
     return values
 
 
-def _dataset(snapshot: Snapshot, structure: dict) -> Dataset:
+def _dataset(snapshot: Snapshot, structure: dict, used: set[str] = frozenset()) -> Dataset:
     code = structure["id"]
+    names = structure["labels"].get("na_item", {})
+    # Only codes this dataset uses, named by the source codelist; an unnamed code is left out.
+    code_labels = {item: names[item] for item in sorted(used) if names.get(item)}
     return Dataset(
         dataset_key=f"{snapshot.source_id}:{code}", source_id=snapshot.source_id,
         title=structure["title"], description=structure.get("description"), kind="stat_dataset",
         publisher="Eurostat", url=snapshot.resource_url,
-        extras={"dimensions": structure["dimensions"], "codelists": structure["labels"]},
+        extras={"dimensions": structure["dimensions"], "codelists": structure["labels"],
+                "code_labels": {"na_item": code_labels} if code_labels else {}},
         snapshot_sha256=snapshot.sha256,
     )
 
@@ -190,4 +194,5 @@ class EurostatParser(Parser):
         warnings = []
         if any(not labels.get(dim) for dim in ("geo", "unit")):
             warnings.append("DSD 未含 geo / unit codelist 标签；代码保留，名称未知")
-        return ParseResult(datasets=[_dataset(snapshot, structure)], observations=list(observations.values()), warnings=warnings)
+        used = {obs.indicator_code for obs in observations.values() if obs.indicator_code}
+        return ParseResult(datasets=[_dataset(snapshot, structure, used)], observations=list(observations.values()), warnings=warnings)
