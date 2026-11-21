@@ -41,6 +41,10 @@ UNITS = {"Percent of GDP": "PT", "U.S. dollars": "USD", "National currency": "XD
 RENAMED = {"GGB_NGDP": "GGXCNL_NGDP", "GGB": "GGXCNL"}
 # 负责人 2026-11-20 定的导入范围：只导希腊一般政府赤字占 GDP（含旧代码 GGB_NGDP），其余行一律跳过。
 ARCHIVE_INDICATORS = {"GGXCNL_NGDP"}
+# 与 API 行同一序列：指标名取自 API 样本 tests/fixtures/imf_weo/weo_GRC_GGXCNL_NGDP_2000-2015.csv 的 SERIES_NAME；
+# 存档原 Subject Descriptor 写进注记。GGB_NGDP 不在此表，保持原代码和原名称。
+API_INDICATOR_NAMES = {
+    "GGXCNL_NGDP": "Net lending (+) / net borrowing (-), General government, Percent of GDP"}
 _ESTIMATES = re.compile(r"[0-9]{4}|0")
 _EMPTY_VALUES = {"n/a", "--"}
 
@@ -108,6 +112,8 @@ def parse_archive(snapshot: Snapshot, data: bytes, meta: Mapping[str, JsonValue]
                     value *= SCALES[scale]
                 except InvalidOperation as exc:
                     raise ParseError(f"WEO 存档第 {line} 行的数值不认识：{raw!r}") from exc
+                if code in API_INDICATOR_NAMES:
+                    note.append(f"Subject Descriptor={subject}")
                 if code in RENAMED:
                     note.append(f"代码对应：{code} → {RENAMED[code]}（2010-04 起 IMF 改名，GFSM 2001 口径；保留原代码）")
                 identity = json.dumps([iso, code, "A", period], separators=(",", ":"))
@@ -117,7 +123,7 @@ def parse_archive(snapshot: Snapshot, data: bytes, meta: Mapping[str, JsonValue]
                 try:
                     observations[obs_id] = Observation(
                         obs_id=obs_id, source_id=snapshot.source_id, dataset_key=dataset_key, table_key=table_key,
-                        survey="World Economic Outlook (WEO)", indicator=subject or code, indicator_code=code,
+                        survey="World Economic Outlook (WEO)", indicator=API_INDICATOR_NAMES.get(code) or subject or code, indicator_code=code,
                         area_code=iso, time_label=period, time_start=date(year, 1, 1), time_end=date(year, 12, 31),
                         granularity=TimeGranularity.year,
                         dims={"COUNTRY": iso, "INDICATOR": code, "FREQUENCY": "A", "TIME_PERIOD": period},

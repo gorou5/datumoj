@@ -72,6 +72,32 @@ def test_old_codes_are_kept_and_mapped_in_the_note():
     assert "GGB_NGDP → GGXCNL_NGDP" in obs.note and "GFSM 2001" in obs.note
 
 
+API_NAME = "Net lending (+) / net borrowing (-), General government, Percent of GDP"  # SERIES_NAME in the API sample
+
+
+@pytest.mark.parametrize("version", ["2010-apr", "2010-oct"])
+def test_new_code_uses_api_indicator_name_and_keeps_subject_descriptor(version):
+    for result in (parse(version), parse(data=MIXED[version].read_bytes()) if version in MIXED else parse(version)):
+        obs = one(result, "GRC", "GGXCNL_NGDP", 2009)
+        assert obs.indicator == API_NAME
+        assert "Subject Descriptor=General government net lending/borrowing" in obs.note
+        assert obs.table_key == "WEO:GRC.GGXCNL_NGDP.A"
+        assert obs.dims == {"COUNTRY": "GRC", "INDICATOR": "GGXCNL_NGDP", "FREQUENCY": "A", "TIME_PERIOD": "2009"}
+
+
+def test_api_sample_series_name_matches_the_constant():
+    api = Path(__file__).parents[2] / "tests/fixtures/imf_weo/weo_GRC_GGXCNL_NGDP_2000-2015.csv"
+    assert API_NAME in api.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("version", ["2009-apr", "2009-oct"])
+def test_old_code_keeps_original_name_and_is_not_merged(version):
+    obs = one(parse(version), "GRC", "GGB_NGDP", 2009)
+    assert obs.indicator == "General government balance"
+    assert obs.indicator_code == "GGB_NGDP" and obs.dims["INDICATOR"] == "GGB_NGDP"
+    assert "Subject Descriptor=" not in obs.note
+
+
 def test_new_codes_carry_no_mapping():
     assert "代码对应" not in one(parse("2010-apr"), "GRC", "GGXCNL_NGDP", 2009).note
 
