@@ -226,10 +226,12 @@ def cloud_import_release(
     files_dir: Path = typer.Option(..., "--files-dir", exists=True, file_okay=False, help="清单里文件所在目录"),
     work_dir: Path | None = typer.Option(None, "--work-dir", help="空的工作目录；默认使用临时目录"),
     write: bool = typer.Option(False, "--write/--dry-run", help="确认预演后写入；默认只预演"),
+    replace: list[str] = typer.Option([], "--replace", help="替换已有的该发布（只删历史行）；可重复"),
 ) -> None:
     from datumoj.rikolto.cloud import import_release
 
-    result = import_release(manifest=manifest, files_dir=files_dir, work_dir=work_dir, write=write)
+    result = import_release(manifest=manifest, files_dir=files_dir, work_dir=work_dir, write=write,
+                            **({"replace_releases": replace} if replace else {}))
     typer.echo(_json(result))
     raise typer.Exit(result.get("exit_status", 0))
 

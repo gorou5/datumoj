@@ -11,6 +11,10 @@ name: Cloud import release
         description: 'Write a new generation after reviewing the dry run'
         type: boolean
         default: false
+      replace:
+        description: 'Comma-separated release ids to replace (history rows only); empty replaces nothing'
+        type: string
+        default: ''
 
 concurrency:
   group: rikolto-cloud-run
@@ -56,10 +60,24 @@ jobs:
           DATUMOJ_VECTORS: 'off'
           MANIFEST: ${{ inputs.manifest }}
           WRITE: ${{ inputs.write }}
+          REPLACE: ${{ inputs.replace }}
         run: |
           set -euo pipefail
           mode=--dry-run
           if [[ "$WRITE" == "true" ]]; then
             mode=--write
           fi
-          uv run --frozen rikolto cloud import-release --manifest "$MANIFEST" --files-dir "$RUNNER_TEMP/import-files" "$mode"
+          replace_args=()
+          if [[ -n "${REPLACE:-}" ]]; then
+            if [[ ! "$REPLACE" =~ ^[A-Za-z0-9_,-]+$ ]]; then
+              exit 1
+            fi
+            IFS=, read -r -a ids <<< "$REPLACE"
+            for id in "${ids[@]}"; do
+              if [[ ! "$id" =~ ^[A-Za-z0-9_-]+$ ]]; then
+                exit 1
+              fi
+              replace_args+=(--replace "$id")
+            done
+          fi
+          uv run --frozen rikolto cloud import-release --manifest "$MANIFEST" --files-dir "$RUNNER_TEMP/import-files" "$mode" ${replace_args[@]+"${replace_args[@]}"}
