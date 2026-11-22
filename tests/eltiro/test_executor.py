@@ -303,6 +303,76 @@ def test_model_suggested_scale_is_not_source_confirmation(tmp_path):
     assert "unconfirmed_scale" in {g["reason"] for g in gaps}
 
 
+IMF_USD = ("5189197544000", "USD")  # full value, unit as the IMF SDMX UNIT column writes it
+WDI_USD = ("5189197000000", "current US$")  # full value, unit as configured for NY.GDP.MKTP.CD
+OECD_USD = ("5189197.544", "USD_EXC ×10^6")  # UNIT_MULT=6: the value is in millions, unit text carries the suffix
+FULL = {"multiplier": 1.0, "evidence": "Synthetic: values are full values"}
+MILLIONS = {"multiplier": 1000000.0, "evidence": "Synthetic: UNIT_MULT=6"}
+RESCALE_SPREAD = [{"id": "units", "op": "rescale", "input": "gdp", "target_scale": 1},
+                  {"id": "spread", "op": "source_spread", "input": "units"}]
+
+
+def reconcile(tmp_path, rows, scales, operations=RESCALE_SPREAD):
+    """Confirmed bindings for one GDP series per source; rows/scales are keyed by source id."""
+    store, registry = seed(tmp_path, [[observation(value, source=source, unit=unit)] for source, (value, unit) in rows.items()])
+    catalog = SqliteCatalogStore(tmp_path / "catalog.sqlite")
+    catalog.upsert([make_dataset(f"{source}:gdp", "Nominal GDP", extras={
+        "area_code_scheme": "ISO3166-1-alpha3", "language": "en", "scale": scales.get(source)}) for source in rows])
+    catalog.close()
+    publish(store)
+    with SQLiteMatchStore(tmp_path) as matches:
+        for source in rows:
+            matches.put(make_match(series=make_series(source_id=source), confirmation="confirmed",
+                                   evidence=[{"profile_field": "series", "source_id": source,
+                                              "snapshot_sha256": "ab" * 32, "locator": "row=1"}]))
+    demand = make_demand(indicators=[{"key": "gdp", "concept": "NY.GDP.MKTP.CD"}], operations=operations)
+    return outputs(tmp_path, run(tmp_path, registry, demand))
+
+
+def test_rescale_then_source_spread_across_imf_wdi_and_oecd_units(tmp_path):
+    # Three sources, three unit spellings: IMF "USD", WDI "current US$", OECD "USD_EXC ×10^6" (in millions).
+    rows, citations, gaps = reconcile(tmp_path, {"intl-imf-weo": IMF_USD, "intl-wdi": WDI_USD, "intl-oecd": OECD_USD},
+                                      {"intl-imf-weo": FULL, "intl-wdi": FULL, "intl-oecd": MILLIONS})
+    assert not gaps
+    units = {r["source"]: r["value"] for r in rows if r["symbol"] == "units"}
+    assert units == {"intl-imf-weo": Decimal(5189197544000), "intl-wdi": Decimal(5189197000000),
+                     "intl-oecd": Decimal(5189197544000)}  # 5189197.544 x 10^6, by hand
+    # Sorted full values: 5189197000000, 5189197544000, 5189197544000 -> median 5189197544000, range 544000.
+    spreads = {r["source"]: r for r in rows if r["symbol"] == "spread"}
+    assert {s: r["value"] for s, r in spreads.items()} == {
+        "intl-imf-weo": Decimal(0), "intl-wdi": Decimal(-544000), "intl-oecd": Decimal(0)}
+    assert {r["spread_range"] for r in spreads.values()} == {Decimal(544000)}
+    assert {r["source"]: r["value"] for r in rows if r["symbol"] == "gdp"} == {  # the inputs themselves are untouched
+        "intl-imf-weo": Decimal(IMF_USD[0]), "intl-wdi": Decimal(WDI_USD[0]), "intl-oecd": Decimal(OECD_USD[0])}
+    assert len(citations[-1]["citation"]["inputs"]) == 3
+
+
+def test_unit_missing_from_the_table_is_still_a_unit_mismatch(tmp_path):
+    # "US dollars" is not a listed WDI spelling: it is compared as written, so it differs from IMF "USD".
+    rows, _, gaps = reconcile(tmp_path, {"intl-imf-weo": IMF_USD, "intl-wdi": ("5189197000000", "US dollars")},
+                              {"intl-imf-weo": FULL, "intl-wdi": FULL})
+    assert "unit_mismatch" in {g["reason"] for g in gaps}
+    assert all(r["value"] is None for r in rows if r["symbol"] == "spread")
+
+
+def test_oecd_suffix_is_only_ignored_when_its_scale_is_declared(tmp_path):
+    # No declared scale: the OECD value cannot be rescaled and "USD_EXC ×10^6" is not "USD" for the spread.
+    rows, _, gaps = reconcile(tmp_path, {"intl-imf-weo": IMF_USD, "intl-oecd": OECD_USD}, {"intl-imf-weo": FULL})
+    assert "unconfirmed_scale" in {g["reason"] for g in gaps}
+    assert next(r["value"] for r in rows if r["symbol"] == "units" and r["source"] == "intl-oecd") is None
+    assert all(r["value"] is None for r in rows if r["symbol"] == "spread")
+
+
+def test_different_declared_scales_without_rescale_are_a_scale_mismatch(tmp_path):
+    # The units agree once the OECD suffix is dropped; the magnitudes do not, so only rescale may bridge them.
+    rows, _, gaps = reconcile(tmp_path, {"intl-imf-weo": IMF_USD, "intl-oecd": OECD_USD},
+                              {"intl-imf-weo": FULL, "intl-oecd": MILLIONS},
+                              [{"id": "spread", "op": "source_spread", "input": "gdp"}])
+    reasons = {g["reason"] for g in gaps}
+    assert "scale_mismatch" in reasons and "unit_mismatch" not in reasons
+    assert all(r["value"] is None for r in rows if r["symbol"] == "spread")
+
+
 def test_large_window_fails_without_dropping_required_citations(tmp_path):
     # Contract conflict: MovingAverage.window <= 1200 but CitationEntry.inputs <= 256.
     # Preserve fail-closed behavior while the task owner resolves the contract.

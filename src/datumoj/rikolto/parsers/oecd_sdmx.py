@@ -127,6 +127,20 @@ def _unit(attrs: dict[str, str], dims: dict[str, str]) -> str | None:
     return unit
 
 
+def _scale(mults: set[str]) -> dict:
+    """``extras["scale"]`` when every row carries the same UNIT_MULT (10^n); otherwise nothing is declared."""
+    if len(mults) != 1 or not re.fullmatch(r"-?[0-9]+", next(iter(mults))):  # mixed, empty or no column
+        return {}
+    try:
+        exponent = int(next(iter(mults)))
+        multiplier = 10.0 ** exponent
+    except (ValueError, OverflowError):
+        return {}
+    if not 0 < multiplier < float("inf"):
+        return {}
+    return {"scale": {"multiplier": multiplier, "evidence": f"OECD SDMX 列 UNIT_MULT={exponent}（数据集内全部观测值一致），值未换算"}}
+
+
 class OecdSdmxParser(Parser):
     name = "oecd_sdmx"
     version = "1"
@@ -171,6 +185,7 @@ class OecdSdmxParser(Parser):
 
         observations: dict[tuple[str, str | None], Observation] = {}
         used: dict[str, set[str]] = {}
+        mults: set[str] = set()
         for number, row in enumerate(rows[1:], 1):
             if not row:
                 continue
@@ -217,6 +232,7 @@ class OecdSdmxParser(Parser):
                 note="; ".join(notes) or None, snapshot_sha256=snapshot.sha256, fetched_at=snapshot.fetched_at,
                 locator=format_locator({"row": number}), release_id=release_id, released_at=released_at,
             )
+            mults.add(attrs.get("UNIT_MULT", ""))
             previous = observations.get((obs_id, release_id))
             if previous is not None:
                 if previous.model_copy(update={"locator": obs.locator}) != obs:
@@ -235,7 +251,7 @@ class OecdSdmxParser(Parser):
             dataset_key=f"{snapshot.source_id}:{table}", source_id=snapshot.source_id, title=flow,
             kind="stat_dataset", publisher="OECD", url=snapshot.resource_url,
             extras={"agency": agency, "dataflow": flow_id, "version": version,
-                    "dimensions": dim_names, "attributes": attr_names, "code_labels": code_labels},
+                    "dimensions": dim_names, "attributes": attr_names, "code_labels": code_labels, **_scale(mults)},
             snapshot_sha256=snapshot.sha256,
         )
         return ParseResult(datasets=[dataset], observations=list(observations.values()))

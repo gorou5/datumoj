@@ -252,3 +252,26 @@ def test_code_labels_come_from_the_structure_codelists_for_used_codes_only():
 def test_structure_snapshot_parses_to_nothing():
     parsed = parse(sample(NAMAIN, structure_bytes(), structure_url(NAMAIN)))
     assert not (parsed.observations or parsed.datasets or parsed.documents)
+
+
+def _scale_of(text):
+    parsed = parse(sample(NAMAIN, text.encode(), NAMAIN_URL, valid_from=RECORDED_VALID_FROM))
+    return parsed.datasets[0].extras.get("scale")
+
+
+def test_scale_is_declared_only_when_unit_mult_is_the_same_on_every_row():
+    # 317: UNIT_MULT=6 on all 20 rows gives 10^6; the values stay unscaled.
+    declared = _scale_of(namain_bytes().decode())
+    assert declared["multiplier"] == 1e6 and "UNIT_MULT=6" in declared["evidence"]
+    assert parse(sample(NAMAIN, namain_bytes(), NAMAIN_URL)).observations[0].value == Decimal(554074400)
+    # UNIT_MULT=0 on every row is a confirmed multiplier of one.
+    hou = parse(sample(HOU, hou_bytes(), HOU_URL)).datasets[0].extras["scale"]
+    assert hou["multiplier"] == 1.0 and "UNIT_MULT=0" in hou["evidence"]
+
+
+def test_mixed_empty_missing_or_unrepresentable_unit_mult_declares_nothing():
+    text = namain_bytes().decode()
+    assert _scale_of(text.replace(",F,1,A,6,JPY", ",F,1,A,3,JPY")) is None  # JPY rows 3, the others 6
+    assert _scale_of(text.replace(",F,1,A,6,JPY", ",F,1,A,,JPY", 1)) is None  # one empty cell
+    assert _scale_of(text.replace("UNIT_MULT", "OTHER", 1)) is None  # no UNIT_MULT column
+    assert _scale_of(text.replace(",A,6,", ",A,400,")) is None  # 10^400 does not fit a multiplier

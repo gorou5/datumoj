@@ -276,3 +276,16 @@ def test_release_of_only_names_april_and_october():
     assert release_of("2026-10-01T00:30:00+09:00") is None  # UTC date is 2026-09-30
     for text in ("", "not a date", "2026-07-13T02:00:00Z"):
         assert release_of(text) is None
+
+
+@pytest.mark.parametrize("name", FILES)
+def test_dataset_declares_full_values_as_scale_one_with_its_evidence(name):
+    # 317: OBS_VALUE is a full value whatever the SCALE display column says; the numbers are not touched.
+    declared = parse(name).datasets[0].extras["scale"]
+    assert declared["multiplier"] == 1.0
+    assert "OBS_VALUE" in declared["evidence"] and "SCALE" in declared["evidence"]
+
+
+def test_scale_evidence_names_the_display_scale_column_value():
+    assert "SCALE=9" in parse("usd").datasets[0].extras["scale"]["evidence"]
+    assert "SCALE=0" in parse("current").datasets[0].extras["scale"]["evidence"]

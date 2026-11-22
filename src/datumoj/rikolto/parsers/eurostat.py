@@ -103,7 +103,25 @@ def _values(node: etree._Element, path: str) -> dict[str, str]:
     return values
 
 
-def _dataset(snapshot: Snapshot, structure: dict, used: set[str] = frozenset()) -> Dataset:
+# Unit codes whose magnitude is part of the code itself (Eurostat unit codelist). Only these are declared;
+# any other code, or a dataset mixing codes, leaves the scale unconfirmed.
+_UNIT_SCALES = {
+    "PC_GDP": (1.0, "百分数，无倍率"),  # percentage of GDP
+    "MIO_EUR": (1e6, "百万欧元，10^6"),  # million euro
+    "CP_MEUR": (1e6, "现价百万欧元，10^6"),  # current prices, million euro
+}
+
+
+def _scale(units: set[str | None]) -> dict:
+    if len(units) != 1 or (code := next(iter(units))) not in _UNIT_SCALES:
+        return {}
+    multiplier, meaning = _UNIT_SCALES[code]
+    evidence = f"Eurostat 维度 unit={code}（单位代码含量级：{meaning}）；数据集内仅此一种单位代码"
+    return {"scale": {"multiplier": multiplier, "evidence": evidence}}
+
+
+def _dataset(snapshot: Snapshot, structure: dict, used: set[str] = frozenset(),
+             units: set[str | None] = frozenset()) -> Dataset:
     code = structure["id"]
     names = structure["labels"].get("na_item", {})
     # Only codes this dataset uses, named by the source codelist; an unnamed code is left out.
@@ -113,7 +131,7 @@ def _dataset(snapshot: Snapshot, structure: dict, used: set[str] = frozenset()) 
         title=structure["title"], description=structure.get("description"), kind="stat_dataset",
         publisher="Eurostat", url=snapshot.resource_url,
         extras={"dimensions": structure["dimensions"], "codelists": structure["labels"],
-                "code_labels": {"na_item": code_labels} if code_labels else {}},
+                "code_labels": {"na_item": code_labels} if code_labels else {}, **_scale(units)},
         snapshot_sha256=snapshot.sha256,
     )
 
@@ -195,4 +213,5 @@ class EurostatParser(Parser):
         if any(not labels.get(dim) for dim in ("geo", "unit")):
             warnings.append("DSD 未含 geo / unit codelist 标签；代码保留，名称未知")
         used = {obs.indicator_code for obs in observations.values() if obs.indicator_code}
-        return ParseResult(datasets=[_dataset(snapshot, structure, used)], observations=list(observations.values()), warnings=warnings)
+        units = {obs.unit for obs in observations.values()}  # a missing unit is None, which declares nothing
+        return ParseResult(datasets=[_dataset(snapshot, structure, used, units)], observations=list(observations.values()), warnings=warnings)

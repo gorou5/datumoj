@@ -8,8 +8,10 @@ import pytest
 
 from datumoj.eltiro.profile_store import SQLiteProfileStore
 from datumoj.eltiro.profiles import generate_profiles
+from datumoj.rikolto.parsers.eurostat import EurostatParser, read_structure
+from datumoj.rikolto.parsers.oecd_sdmx import OecdSdmxParser
 from datumoj.rikolto.testing.fakes import FakeCatalogStore, FakeChunkStore, FakeObservationStore, FakeRegistry
-from datumoj.rikolto.testing.samples import make_dataset, make_observation, make_spec
+from datumoj.rikolto.testing.samples import make_dataset, make_observation, make_snapshot, make_spec
 
 
 @pytest.fixture
@@ -43,6 +45,30 @@ def test_series_dimensions_coverage_and_source_scale(inputs):
     assert profile.methodology == "出典の方法"
     assert all(p.model_generated_fields == [] for p in profiles)
     assert inputs["observations"].query_readonly("SELECT * FROM observations").provenance == rows
+
+
+def test_parser_declared_scales_reach_profiles_and_mixed_datasets_stay_unconfirmed(inputs):
+    # 317: recorded samples through the real parsers; the scale is whatever the parser declared (or nothing).
+    fixtures = Path("tests/fixtures")
+    oecd = fixtures / "oecd_sdmx/namain10_JPN-USA_2020-2024.csv"
+    snapshot = make_snapshot("intl-oecd", "https://sdmx.oecd.org/public/rest/data/test", oecd.read_bytes())
+    parsed = [("intl-oecd", OecdSdmxParser().parse(snapshot, oecd.read_bytes(), {}))]
+    for code, name in (("gov_10dd_edpt1", "gov_10dd_edpt1_EL_2000-2015.xml"),
+                       ("nama_10_gdp", "nama_10_gdp_DE-FR-NL_2020-2024.xml")):
+        data = (fixtures / "eurostat" / name).read_bytes()
+        structure = read_structure((fixtures / "eurostat" / f"datastructure_{code.upper()}.xml").read_bytes(), code)
+        parsed.append(("eu-eurostat", EurostatParser().parse(
+            make_snapshot("eu-eurostat", "https://ec.europa.eu/eurostat/test", data), data, {"structure": structure})))
+    for source_id, result in parsed:
+        inputs["catalog"].upsert(result.datasets)
+        for table_key in sorted({o.table_key for o in result.observations}):
+            inputs["observations"].write_table(source_id, table_key, [o for o in result.observations if o.table_key == table_key])
+    inputs["registry"] = FakeRegistry([make_spec("intl-oecd"), make_spec("eu-eurostat")])
+    scales = {(p.series.source_id, p.series.table_key): p.scale for p in generate_profiles(1, **inputs)}
+    assert scales["intl-oecd", "df_table1_expenditure"].multiplier == 1e6
+    assert "UNIT_MULT=6" in scales["intl-oecd", "df_table1_expenditure"].evidence
+    assert scales["eu-eurostat", "nama_10_gdp"].multiplier == 1e6
+    assert scales["eu-eurostat", "gov_10dd_edpt1"].multiplier is None  # PC_GDP and MIO_EUR mixed: unconfirmed
 
 
 def test_multilingual_catalog_and_recorded_source_text(inputs):
