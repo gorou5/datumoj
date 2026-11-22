@@ -90,6 +90,27 @@ def test_delete_release_drops_only_that_historical_release(tmp_path):
         type(store)(tmp_path, readonly=True).delete_release(source, "R2")
 
 
+def test_delete_release_refuses_inline_pre_301_history(tmp_path):
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    import pytest
+
+    store, source, table = _release_store(tmp_path)
+    path = store.path_for(source, table)
+    rows = store._stored_rows(path)  # R1, R2 history and R3 current, all in one inline file as before 301
+    assert {(r["release_id"], r["_current"]) for r in rows} == {("R1", False), ("R2", False), ("R3", True)}
+    legacy = pa.Table.from_pylist(rows)
+    meta = {k: v for k, v in (pq.read_schema(path).metadata or {}).items() if k != b"datumoj.history_segments"}
+    pq.write_table(legacy.replace_schema_metadata(meta), path)
+    assert b"datumoj.history_segments" not in (pq.read_schema(path).metadata or {})
+    fresh = type(store)(tmp_path)
+    with pytest.raises(ValueError, match="replace_legacy_table"):
+        fresh.delete_release(source, "R1")  # history, but inline: refused instead of skipped
+    with pytest.raises(ValueError, match="replace_current_release"):
+        fresh.delete_release(source, "R3")
+    assert fresh.delete_release(source, "R9") == 0
+
+
 def _order(seq):
     from datetime import UTC, datetime
 

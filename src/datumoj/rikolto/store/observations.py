@@ -907,12 +907,16 @@ class DuckDBObservationStore:
                 if _HISTORY_ONLY in metadata:
                     continue
                 with duckdb.connect() as con:
+                    # Pre-301 files may keep history inline, so only rows still flagged current count here.
                     if con.sql(f"SELECT 1 FROM ({self._scan([path], self.root)}) "
-                               f"WHERE release_id = {_quote(release_id)} LIMIT 1").fetchone():
+                               f"WHERE release_id = {_quote(release_id)} AND _current IS NOT FALSE LIMIT 1").fetchone():
                         raise ValueError("replace_current_release")
-                if _SEGMENTS not in metadata:
-                    continue
                 rows = self._stored_rows(path)
+                if _SEGMENTS not in metadata:
+                    # Inline (pre-301) history cannot be rewritten here; refuse rather than skip and duplicate on re-import.
+                    if any(r['release_id'] == release_id for r in rows):
+                        raise ValueError("replace_legacy_table")
+                    continue
                 kept = [r for r in rows if r['release_id'] != release_id]
                 if len(kept) != len(rows):
                     pending.append((path, metadata, kept, len(rows) - len(kept)))

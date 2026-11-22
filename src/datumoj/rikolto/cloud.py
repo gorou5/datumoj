@@ -921,7 +921,7 @@ def project(*, work_dir: Path | None = None, write: bool = False) -> dict:
 _PROJECT_REFUSALS = frozenset({"generation_changed", "orphan_generation", "storage_conditional_unsupported",
                                "workspace_not_empty"})
 _IMPORT_REFUSALS = _PROJECT_REFUSALS | {"manifest_invalid", "file_missing", "file_mismatch",
-                                        "replace_current_release"}
+                                        "replace_current_release", "replace_legacy_table"}
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
 
