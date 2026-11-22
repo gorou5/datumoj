@@ -43,7 +43,11 @@ class WDIParser(Parser):
                     datasets.append(Dataset(dataset_key=f"{snapshot.source_id}:{code}", source_id=snapshot.source_id,
                         title=row["name"], kind="wdi_indicator", description=row.get("sourceNote"),
                         publisher=row.get("sourceOrganization"), license=_LICENSE,
-                        extras={"attribution": f"The World Bank: World Development Indicators: {row.get('sourceOrganization') or ''}"},
+                        extras={"attribution": f"The World Bank: World Development Indicators: {row.get('sourceOrganization') or ''}",
+                                # The data API returns each value as the full number (never pre-scaled); the
+                                # indicator record has no scale field, so there is no multiplier to apply.
+                                "scale": {"multiplier": 1.0, "evidence":
+                                          f"World Bank API v2：观测值 value 为完整数值，指标 {code} 的元数据无倍率字段"}},
                         snapshot_sha256=snapshot.sha256, locator=format_locator({"row": index + 1})))
                 if len(datasets) != 1:
                     raise ValueError("指标元数据缺失")

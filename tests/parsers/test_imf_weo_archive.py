@@ -190,3 +190,16 @@ def test_only_the_planned_request_claims_the_file(meta):
 def test_unrecognised_or_broken_files_are_errors(data):
     with pytest.raises(ParseError):
         parse(data=data)
+
+
+@pytest.mark.parametrize("scale", [b"Millions", b"Billions", b"Units", b""])
+def test_dataset_declares_scale_one_because_values_were_converted(scale):
+    # 317: the Scale column was applied to the values, so the dataset's values are full values.
+    declared = parse(data=HEADER + row(scale=scale)).datasets[0].extras["scale"]
+    assert declared["multiplier"] == 1.0
+    assert f"Scale={scale.decode() or '（空）'}" in declared["evidence"]
+
+
+@pytest.mark.parametrize("version", FILES)
+def test_recorded_archive_datasets_carry_the_scale_declaration(version):
+    assert all(d.extras["scale"]["multiplier"] == 1.0 for d in parse(version).datasets)

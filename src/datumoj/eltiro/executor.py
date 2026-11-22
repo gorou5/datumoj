@@ -30,6 +30,7 @@ from datumoj.eltiro.operations import calculate
 from datumoj.eltiro.profile_store import SQLiteProfileStore
 from datumoj.eltiro.profiles import generate_profiles
 from datumoj.eltiro.runs import RunStore
+from datumoj.eltiro.units import canonical_unit
 from datumoj.rikolto.core.contracts import OBSERVATION_RELEASE_COLUMNS, ObservationCatalog, TableSummary
 from datumoj.rikolto.core.models import GenerationToken
 from datumoj.rikolto.wiring import open_generation_views
@@ -274,8 +275,10 @@ def _derived(operation, anchor, inputs, demand, gaps, *, absent=False):
     reason = None
     if absent:
         reason = "incomplete_window"
-    if (demand.align.require_same_unit and len(inputs) > 1
-            and (any(c.unit is None for c in inputs) or len({c.unit for c in inputs}) > 1)):
+    # Units are compared through the explicit table (units.py); unlisted units compare by original text.
+    units = {canonical_unit(c.source, c.unit, scale_confirmed=c.scale is not None and c.scale.multiplier is not None)
+             for c in inputs}
+    if demand.align.require_same_unit and len(inputs) > 1 and (any(c.unit is None for c in inputs) or len(units) > 1):
         reason = "unit_mismatch"
     scales = {str(c.scale.multiplier) for c in inputs if c.scale is not None and c.scale.multiplier is not None}
     if operation.op != "rescale" and len(scales) > 1:

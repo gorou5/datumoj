@@ -100,6 +100,7 @@ class ImfSdmxParser(Parser):
         seen: set[tuple[str, str]] = set()
         releases: set[tuple[str, date] | None] = set()
         first: dict[str, str] = {}
+        scales: set[str] = set()
         warnings: list[str] = []
         for number, row in enumerate(rows, 1):
             if None in row or None in row.values():
@@ -117,6 +118,8 @@ class ImfSdmxParser(Parser):
             year = int(period)
             seen.add((country, indicator))
             first = first or row
+            if row.get("SCALE"):
+                scales.add(row["SCALE"])
             release = release_of(row["PUBLICATION_DATE"])
             vintage = DATAFLOW.fullmatch(flow)
             if vintage[1] and release is not None and release[0] != f"WEO-{vintage[1]}-{vintage[2]}":
@@ -169,7 +172,10 @@ class ImfSdmxParser(Parser):
             dataset_key=dataset_key, source_id=snapshot.source_id, title=f"World Economic Outlook (WEO): {key}",
             kind="stat_dataset", description=first.get("FULL_DESCRIPTION") or None, publisher="International Monetary Fund",
             url=snapshot.resource_url, license=first.get("LICENSE") or None,
-            extras={"attribution": first.get("SUGGESTED_CITATION") or None, "dataflow": flow},
+            extras={"attribution": first.get("SUGGESTED_CITATION") or None, "dataflow": flow,
+                    # OBS_VALUE is kept as published and is a full value; SCALE is display-only (see module doc).
+                    "scale": {"multiplier": 1.0, "evidence": "IMF SDMX-CSV 列 OBS_VALUE 为完整值，列 SCALE 只是显示量级、未应用"
+                              + (f"（SCALE={','.join(sorted(scales))}）" if scales else "")}},
             snapshot_sha256=snapshot.sha256,
         )
         return ParseResult(datasets=[dataset], observations=list(observations.values()), warnings=warnings)

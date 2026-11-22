@@ -50,6 +50,16 @@ def test_values_and_null():
     assert not any(o.area_code == 'JPN' and o.time_label == '2024' and o.table_key.endswith('.CD') for o in result.observations)
 
 
+def test_indicator_metadata_declares_full_values_as_scale_one():
+    # 317: the data API gives full numbers; only the metadata response yields a dataset to carry the scale.
+    data = (FIX / 'indicator_NY.GDP.MKTP.CN.json').read_bytes()
+    s = sample(data, {'request_type': 'metadata', 'indicator': 'NY.GDP.MKTP.CN'})
+    declared = WDIParser().parse(s.snapshot, data, s.meta).datasets[0].extras['scale']
+    assert declared['multiplier'] == 1.0 and 'NY.GDP.MKTP.CN' in declared['evidence']
+    d = sample(single_page())
+    assert not WDIParser().parse(d.snapshot, d.data, d.meta).datasets
+
+
 @pytest.mark.parametrize('path', sorted(FIX.glob('gdp*_p*.json')))
 def test_reject_partial(path):
     data = path.read_bytes()

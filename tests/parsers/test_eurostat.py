@@ -217,3 +217,32 @@ def test_invalid_dates_fail(label):
 
 def test_unknown_period_keeps_label_without_fetch_date_substitution():
     assert _period("unknown") == (None, None, TimeGranularity.other)
+
+
+def only_unit(unit):
+    """The recorded gov_10dd_edpt1 response without the series of the other unit."""
+    root = etree.fromstring(data_bytes(GOV))
+    for series in root.findall(".//g:Series", NS):
+        if series.find("g:SeriesKey/g:Value[@id='unit']", NS).get("value") != unit:
+            series.getparent().remove(series)
+    return etree.tostring(root)
+
+
+def test_scale_is_declared_only_for_a_single_known_unit_code():
+    # 317: CP_MEUR (million euro) is 10^6, PC_GDP is a percentage (1); values are untouched.
+    gdp = parse(sample(GDP)).datasets[0].extras["scale"]
+    assert gdp["multiplier"] == 1e6 and "CP_MEUR" in gdp["evidence"]
+    for unit, multiplier in (("PC_GDP", 1.0), ("MIO_EUR", 1e6)):
+        parsed = parse(sample(GOV, only_unit(unit)))
+        declared = parsed.datasets[0].extras["scale"]
+        assert {o.unit for o in parsed.observations} == {unit} and len(parsed.observations) == 32
+        assert declared["multiplier"] == multiplier and f"unit={unit}" in declared["evidence"]
+    assert any(o.value == Decimal("-15.4") for o in parse(sample(GOV, only_unit("PC_GDP"))).observations)
+
+
+def test_mixed_unlisted_or_structure_only_declares_nothing():
+    assert "scale" not in parse(sample(GOV)).datasets[0].extras  # PC_GDP and MIO_EUR in one dataset
+    assert "scale" not in parse(sample(POP)).datasets[0].extras  # unit NR is not a listed code
+    dsd = dsd_bytes(GOV)
+    structure = ParseSample(make_snapshot("eu-eurostat", BASE + "datastructure/ESTAT/GOV_10DD_EDPT1", dsd), dsd, {"id": GOV})
+    assert "scale" not in parse(structure).datasets[0].extras

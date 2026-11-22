@@ -200,8 +200,14 @@ def test_profiles_cover_the_published_generation(pilot):
     assert set(wdi) == {"NY.GDP.MKTP.CD", "NY.GDP.MKTP.CN"}
     assert all(p.availability == "observations" and p.frequency == "annual" for p in wdi.values())
     assert wdi["NY.GDP.MKTP.CD"].areas == ["JPN", "USA"]
-    # Scale is not invented: H2 must supply the publication multiplier.
-    assert all(p.scale.multiplier is None for p in pilot["profiles"])
+    # 317 (was "every scale is unconfirmed"): scales now come only from what a parser declares with evidence.
+    # The recorded WDI indicator metadata (CN) says nothing else is applied -> 1; CD has no metadata dataset
+    # in this store, so it stays unconfirmed. Eurostat: CP_MEUR only -> 10^6; PC_GDP + MIO_EUR mixed -> unconfirmed.
+    assert wdi["NY.GDP.MKTP.CN"].scale.multiplier == 1.0 and "NY.GDP.MKTP.CN" in wdi["NY.GDP.MKTP.CN"].scale.evidence
+    assert wdi["NY.GDP.MKTP.CD"].scale.multiplier is None and wdi["NY.GDP.MKTP.CD"].scale.evidence is None
+    eurostat = {p.series.table_key: p.scale for p in pilot["profiles"] if p.series.source_id == "eu-eurostat"}
+    assert eurostat["nama_10_gdp"].multiplier == 1e6 and "CP_MEUR" in eurostat["nama_10_gdp"].evidence
+    assert eurostat["gov_10dd_edpt1"].multiplier is None
 
 
 def test_deterministic_matching_queues_candidates_and_never_auto_binds(pilot):
@@ -292,9 +298,11 @@ def test_fixed_generation_run_matches_recorded_values_with_citations(pilot, gdp_
             assert [i["source_id"] for i in inputs] == ["intl-wdi"]
             assert all(len(i["snapshot_sha256"]) == 64 for i in inputs)
     reasons = {(g["symbol"], g["reason"]) for g in gaps}
-    # Countries absent from the recording and unconfirmed publication scale are explicit gaps.
+    # Countries absent from the recording are explicit gaps. 317: gdp_lcu's scale is now confirmed (WDI
+    # metadata of NY.GDP.MKTP.CN), so only gdp_usd_units keeps unconfirmed_scale (no CD metadata recorded).
     assert {("gdp_usd", "entity_unavailable"), ("gdp_lcu", "entity_unavailable"),
-            ("gdp_usd_units", "unconfirmed_scale"), ("gdp_lcu_units", "unconfirmed_scale")} <= reasons
+            ("gdp_usd_units", "unconfirmed_scale")} <= reasons
+    assert ("gdp_lcu_units", "unconfirmed_scale") not in reasons
     assert {g["entity"] for g in gaps if g["reason"] == "entity_unavailable"} == {"DEU", "FRA", "GBR"}
 
 

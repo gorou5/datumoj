@@ -72,7 +72,7 @@ def parse_archive(snapshot: Snapshot, data: bytes, meta: Mapping[str, JsonValue]
         if tuple(header[:9]) != HEAD or header[-1] != LAST or not all(_YEAR.fullmatch(y) for y in header[9:-1]) or len(header) < 11:
             raise ParseError("不是旧版 WEO 数据库文件的表头")
         observations: dict[str, Observation] = {}
-        descriptions: dict[str, tuple[str, str | None]] = {}
+        descriptions: dict[str, tuple[str, str | None, str]] = {}
         citation = None  # the source line comes after the data, so datasets are built at the end
         for row in reader:
             line = reader.line_num
@@ -95,7 +95,7 @@ def parse_archive(snapshot: Snapshot, data: bytes, meta: Mapping[str, JsonValue]
             known = estimates not in ("", "0")
             table_key = f"WEO:{iso}.{code}.A"
             dataset_key = f"{snapshot.source_id}:{table_key}"
-            descriptions[dataset_key] = (f"{iso}.{code}.A", notes or None)
+            descriptions[dataset_key] = (f"{iso}.{code}.A", notes or None, scale)
             for period, cell in zip(header[9:-1], cells, strict=True):
                 raw = cell.strip()
                 if not raw or raw in _EMPTY_VALUES:
@@ -142,7 +142,12 @@ def parse_archive(snapshot: Snapshot, data: bytes, meta: Mapping[str, JsonValue]
         Dataset(dataset_key=key, source_id=snapshot.source_id, title=f"World Economic Outlook (WEO): {name}",
                 kind="stat_dataset", description=notes, publisher="International Monetary Fund",
                 url=snapshot.resource_url, license=None,
-                extras={"attribution": citation, "dataflow": "WEO archive"}, snapshot_sha256=snapshot.sha256)
-        for key, (name, notes) in descriptions.items()]
+                # Values were multiplied by the row's Scale column above (an empty Scale multiplies by 1).
+                extras={"attribution": citation, "dataflow": "WEO archive",
+                        "scale": {"multiplier": 1.0, "evidence":
+                                  f"WEO 存档列 Scale={scale}，解析时已按该列换算，观测值为完整值" if scale
+                                  else "WEO 存档列 Scale=（空），解析时未换算（空值按 1 处理）"}},
+                snapshot_sha256=snapshot.sha256)
+        for key, (name, notes, scale) in descriptions.items()]
     return ParseResult(datasets=datasets, observations=list(observations.values()),
                        warnings=["旧版 WEO 存档：release_id、released_at 由导入命令给出"])
