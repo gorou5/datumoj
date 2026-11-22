@@ -920,7 +920,8 @@ def project(*, work_dir: Path | None = None, write: bool = False) -> dict:
 
 _PROJECT_REFUSALS = frozenset({"generation_changed", "orphan_generation", "storage_conditional_unsupported",
                                "workspace_not_empty"})
-_IMPORT_REFUSALS = _PROJECT_REFUSALS | {"manifest_invalid", "file_missing", "file_mismatch"}
+_IMPORT_REFUSALS = _PROJECT_REFUSALS | {"manifest_invalid", "file_missing", "file_mismatch",
+                                        "replace_current_release"}
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -990,8 +991,13 @@ def _stored_release_ids(deps, source_id):
                 if row[0] is not None}
 
 
-def import_release(*, manifest: Path, files_dir: Path, work_dir: Path | None = None, write: bool = False) -> dict:
-    """Import manually downloaded historical releases; preview locally unless explicitly writing."""
+def import_release(*, manifest: Path, files_dir: Path, work_dir: Path | None = None, write: bool = False,
+                   replace_releases: tuple[str, ...] | list[str] = ()) -> dict:
+    """Import manually downloaded historical releases; preview locally unless explicitly writing.
+
+    Only the release ids named in ``replace_releases`` are replaced when they already exist
+    (their archived history rows are dropped first); everything else already stored is skipped.
+    """
     from datumoj.rikolto.core.rawstore import FileRawStore
 
     result = {"capacity": gate(None, None, "optional"), "write": write, "releases": []}
@@ -1001,6 +1007,9 @@ def import_release(*, manifest: Path, files_dir: Path, work_dir: Path | None = N
     with ExitStack() as stack, _quiet():
         try:
             entries = _load_import_manifest(manifest, files_dir)
+            named = set(replace_releases)
+            if not named <= {e["release_id"] for e in entries}:
+                raise ValueError("manifest_invalid")
             _import_progress("manifest_checked", started, releases=len(entries))
             phase = "configuration"
             root = _empty_work_root(work_dir, stack)
@@ -1024,10 +1033,15 @@ def import_release(*, manifest: Path, files_dir: Path, work_dir: Path | None = N
                 for entry in entries:
                     if entry["source"] not in existing:
                         existing[entry["source"]] = _stored_release_ids(deps, entry["source"])
-                todo = [e for e in entries if e["release_id"] not in existing[e["source"]]]
+                replacing = [e for e in entries
+                             if e["release_id"] in named and e["release_id"] in existing[e["source"]]]
+                todo = [e for e in entries if e["release_id"] not in existing[e["source"]] or e in replacing]
                 result["releases"] = [
                     {"release_id": e["release_id"], "released_at": e["released_at"],
-                     "status": "pending" if e in todo else "skipped_existing"} for e in entries]
+                     "status": "pending" if e in todo and e not in replacing
+                     else "would_replace" if e in replacing else "skipped_existing"} for e in entries]
+                for e in replacing:  # refuse before any lease or write when a named release is still current
+                    deps.observations.delete_release(e["source"], e["release_id"], dry_run=True)
                 estimate = sum(e["bytes"] for e in todo)
                 phase = "estimate"
                 result["current_bytes"] = _project_storage_bytes(manager.store)
@@ -1039,13 +1053,17 @@ def import_release(*, manifest: Path, files_dir: Path, work_dir: Path | None = N
                             continue
                         _import_progress("import_start", started, release_id=entry["release_id"])
                         try:
+                            if entry in replacing:
+                                report["deleted_rows"] = deps.observations.delete_release(
+                                    entry["source"], entry["release_id"])
                             done = wiring.import_observation_release(
                                 deps, entry["source"], entry["path"], entry["release_id"], entry["day"])
                         except Exception:
                             result["failed_release"] = entry["release_id"]
                             raise
-                        report.update(status="imported" if write else "previewed",
-                                      observations=done["observations"], warnings=done["warnings"])
+                        status = ("replaced" if write else "would_replace") if entry in replacing else (
+                            "imported" if write else "previewed")
+                        report.update(status=status, observations=done["observations"], warnings=done["warnings"])
                         _import_progress("import_end", started, release_id=entry["release_id"],
                                          observations=done["observations"])
 
@@ -1105,7 +1123,7 @@ def import_release(*, manifest: Path, files_dir: Path, work_dir: Path | None = N
             result.update(exit_status=1, reason=str(error) if known else f"{phase}_failed")
             if write and "generation" not in result:  # after publish, entries are already live
                 for report in result["releases"]:
-                    if report["status"] in {"imported", "pending"}:
+                    if report["status"] in {"imported", "pending", "replaced", "would_replace"}:
                         report["status"] = "not_published"
         finally:
             if deps is not None:

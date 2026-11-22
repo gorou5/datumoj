@@ -886,6 +886,55 @@ class DuckDBObservationStore:
             self._invalidate_describe()
             return True
 
+    def delete_release(self, source_id: str, release_id: str, *, dry_run: bool = False) -> int:
+        """Drop one release's archived history rows from every table of a source; return the row count.
+
+        A release that is still part of any table's current rows is refused with
+        ``replace_current_release`` before anything changes. Current rows and other releases stay as they are.
+        """
+        if self._readonly:
+            raise PermissionError("只读视图禁止写入")
+        _source_id.validate_python(source_id)
+        with self._describe_lock:
+            if self._needs_install:
+                _install_published_segments(self.root)
+                self._needs_install = False
+            if self._needs_migration:
+                self._migrate_history()
+            pending = []
+            for path in sorted((self._parquet / source_id).glob('*.parquet')):
+                metadata = pq.read_schema(path).metadata or {}
+                if _HISTORY_ONLY in metadata:
+                    continue
+                with duckdb.connect() as con:
+                    if con.sql(f"SELECT 1 FROM ({self._scan([path], self.root)}) "
+                               f"WHERE release_id = {_quote(release_id)} LIMIT 1").fetchone():
+                        raise ValueError("replace_current_release")
+                if _SEGMENTS not in metadata:
+                    continue
+                rows = self._stored_rows(path)
+                kept = [r for r in rows if r['release_id'] != release_id]
+                if len(kept) != len(rows):
+                    pending.append((path, metadata, kept, len(rows) - len(kept)))
+            if not dry_run:
+                for path, metadata, kept, _ in pending:
+                    old = _segment_paths(self.root, path, metadata)
+                    created = [self._new_segment(path, kept)] if kept else []
+                    try:
+                        table = pq.read_table(path)
+                        meta = dict(table.schema.metadata or {})
+                        meta[_SEGMENTS] = json.dumps([p.name for p in created]).encode()
+                        _atomic_parquet(table.replace_schema_metadata(meta), path)
+                    except BaseException:
+                        for segment in created:
+                            self._discard_segment(segment)
+                        raise
+                    for segment in old:
+                        self._discard_segment(segment)
+                if pending:
+                    self._invalidate_describe()
+            return sum(n for *_, n in pending)
+
 
     def _provenance(
         self, con: duckdb.DuckDBPyConnection, columns: list[str], rows: list[tuple[Any, ...]]

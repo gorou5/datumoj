@@ -256,3 +256,105 @@ def test_output_has_no_endpoint_bucket_or_secret(world, monkeypatch):
     for text in outputs:
         for forbidden in ("synthetic-endpoint", "synthetic-bucket", "synthetic-secret-value"):
             assert forbidden not in text
+
+
+OLD_NAME = "Old subject descriptor"
+
+
+def seed_with_old_names(world, monkeypatch):
+    """Publish all four archive releases with the pre-316 indicator text, as R2 holds them."""
+    from datumoj.rikolto.store.observations import DuckDBObservationStore
+
+    original = DuckDBObservationStore.import_release
+
+    def renamed(self, source, table, observations, order):
+        return original(self, source, table, [o.model_copy(update={"indicator": OLD_NAME}) for o in observations], order)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(DuckDBObservationStore, "import_release", renamed)
+        seeded = run(world, "old-names", write=True)
+        assert seeded.get("generation") == 2, seeded.get("reason")
+
+
+def stored_rows(world, name):
+    root = world.tmp / name
+    wiring._ReleaseStateManager(world.store, root).restore(root)
+    deps = world.original(root, {"registry": world.registry, "vectors": None})
+    try:
+        deps.observations.delete_release(SID, "none", dry_run=True)  # installs the restored history segments
+        return [row for path in sorted((deps.observations._parquet / SID).glob("*.parquet"))
+                for row in deps.observations._stored_rows(path)]
+    finally:
+        close(deps)
+
+
+def test_replace_swaps_only_the_named_release(world, monkeypatch):
+    seed_with_old_names(world, monkeypatch)
+    before = stored_rows(world, "before")
+    apr = [r for r in before if r["release_id"] == "WEO-2010-APR"]
+    assert apr and {r["indicator"] for r in apr} == {OLD_NAME}
+    assert {r["release_id"] for r in before} >= {"WEO-2009-APR", "WEO-2010-OCT", "WEO-2026-OCT"}
+
+    plain = run(world, "plain", write=True)  # no --replace: exactly the old behaviour
+    assert {r["status"] for r in plain["releases"]} == {"skipped_existing"} and plain["generation"] == 2
+
+    result = run(world, "replace", write=True, replace_releases=["WEO-2010-APR"])
+    assert "exit_status" not in result, result
+    assert result["generation"] == 3 and current_generation(world.store) == 3
+    assert {r["release_id"]: r["status"] for r in result["releases"]} == {
+        "WEO-2009-APR": "skipped_existing", "WEO-2009-OCT": "skipped_existing",
+        "WEO-2010-APR": "replaced", "WEO-2010-OCT": "skipped_existing"}
+    report = next(r for r in result["releases"] if r["release_id"] == "WEO-2010-APR")
+    assert report["deleted_rows"] == len(apr) and report["observations"] > 0
+
+    after = stored_rows(world, "after")
+    keys = [(r["obs_id"], r["release_id"]) for r in after]
+    assert len(keys) == len(set(keys))  # one row per (obs_id, release_id)
+    assert OLD_NAME not in {r["indicator"] for r in after if r["release_id"] == "WEO-2010-APR"}
+    untouched = lambda rows: sorted((r["obs_id"], r["release_id"], r["indicator"]) for r in rows
+                                    if r["release_id"] != "WEO-2010-APR")
+    assert untouched(after) == untouched(before)  # other releases and the current rows did not change
+
+
+def test_replace_preview_reports_counts_and_uploads_nothing(world, monkeypatch):
+    seed_with_old_names(world, monkeypatch)
+    count = sum(r["release_id"] == "WEO-2010-APR" for r in stored_rows(world, "before"))
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("preview tried to acquire a lease or probe writes")
+
+    monkeypatch.setattr(cloud.LeaseManager, "acquire", forbidden)
+    objects = dict(world.store._objects)
+    result = run(world, "preview", replace_releases=["WEO-2010-APR"])
+    assert "exit_status" not in result and "generation" not in result
+    statuses = {r["release_id"]: r["status"] for r in result["releases"]}
+    assert statuses["WEO-2010-APR"] == "would_replace" and statuses["WEO-2010-OCT"] == "skipped_existing"
+    report = next(r for r in result["releases"] if r["release_id"] == "WEO-2010-APR")
+    assert report["deleted_rows"] == count and report["observations"] > 0
+    assert world.store._objects == objects and current_generation(world.store) == 2
+    text = json.dumps(result)
+    assert all(word not in text for word in ("synthetic-endpoint", "synthetic-bucket"))
+
+
+def test_replace_unknown_release_is_refused_without_touching_storage(world, monkeypatch):
+    monkeypatch.setattr(wiring, "build_state", lambda root: pytest.fail("storage was opened"))
+    result = run(world, "unknown", write=True, replace_releases=["WEO-1999-APR"])
+    assert result["exit_status"] == 1 and result["reason"] == "manifest_invalid"
+
+
+def test_replace_of_current_release_is_refused_and_writes_nothing(world):
+    shutil.copy(world.files / RELEASES_FILE, world.files / "current.tsv")
+    data = (world.files / "current.tsv").read_bytes()
+    entries = [*world.entries, {"source": SID, "release_id": "WEO-2026-OCT", "released_at": "2026-10-01",
+                                "file": "current.tsv", "sha256": hashlib.sha256(data).hexdigest(),
+                                "bytes": len(data)}]
+    world.manifest.write_text(json.dumps(entries))
+    objects = dict(world.store._objects)
+    for write in (False, True):
+        result = run(world, f"current-{write}", write=write, replace_releases=["WEO-2026-OCT"])
+        assert result["exit_status"] == 1 and result["reason"] == "replace_current_release"
+        assert world.store._objects == objects
+    assert current_generation(world.store) == 1
+
+
+RELEASES_FILE = "weo_2010_apr_GRC_excerpt.tsv"

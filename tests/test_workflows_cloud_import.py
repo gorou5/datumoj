@@ -25,6 +25,8 @@ def test_manual_import_workflow_structure():
                      "default": "imports/imf-weo-2009-2010.json"},
         "write": {"description": "Write a new generation after reviewing the dry run", "type": "boolean",
                   "default": False},
+        "replace": {"description": "Comma-separated release ids to replace (history rows only); "
+                                   "empty replaces nothing", "type": "string", "default": ""},
     }}}
     assert workflow["permissions"] == {"contents": "read"}
     assert workflow["concurrency"] == project["concurrency"] == {"group": "rikolto-cloud-run",
@@ -44,6 +46,7 @@ def test_manual_import_workflow_structure():
             "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_ENDPOINT", "DATUMOJ_S3_BUCKET", "DATUMOJ_S3_PREFIX",
         )}, "DATUMOJ_RAW_BACKEND": "s3", "DATUMOJ_VECTORS": "off",
         "MANIFEST": "${{ inputs.manifest }}", "WRITE": "${{ inputs.write }}",
+        "REPLACE": "${{ inputs.replace }}",
     }
     assert "${{" not in run["run"] and "${{" not in download["run"]
     assert "echo" not in run["run"] and "ENDPOINT" not in run["run"]
@@ -63,3 +66,28 @@ def test_import_shell_selects_mode_without_interpolating_input(tmp_path, write, 
     assert response.returncode == 0 and response.stderr == ""
     assert json.loads(response.stdout) == ["run", "--frozen", "rikolto", "cloud", "import-release", "--manifest",
                                            "imports/x y.json", "--files-dir", "/tmp/runner/import-files", mode]
+
+
+def run_shell(tmp_path, replace):
+    uv = tmp_path / "uv"
+    uv.write_text(f"#!{sys.executable}\nimport json, sys\nprint(json.dumps(sys.argv[1:]))\n")
+    uv.chmod(0o755)
+    return subprocess.run(
+        ["bash", "--noprofile", "--norc", "-c", load()["jobs"]["run"]["steps"][-1]["run"]],
+        cwd=tmp_path, env={**os.environ, "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"], "WRITE": "false",
+                           "MANIFEST": "m.json", "RUNNER_TEMP": "/tmp/runner", "REPLACE": replace},
+        capture_output=True, text=True, check=False,
+    )
+
+
+def test_replace_ids_become_one_flag_each(tmp_path):
+    response = run_shell(tmp_path, "WEO-2010-APR,WEO-2010-OCT")
+    assert response.returncode == 0 and response.stderr == ""
+    assert json.loads(response.stdout)[-5:] == ["--dry-run", "--replace", "WEO-2010-APR", "--replace", "WEO-2010-OCT"]
+    assert "--replace" not in json.loads(run_shell(tmp_path, "").stdout)
+
+
+@pytest.mark.parametrize("bad", ["WEO 2010", "WEO-2010-APR;rm", "A,,B", "A\nB", "$(x)"])
+def test_replace_rejects_other_characters(tmp_path, bad):
+    response = run_shell(tmp_path, bad)
+    assert response.returncode != 0 and response.stdout == ""
