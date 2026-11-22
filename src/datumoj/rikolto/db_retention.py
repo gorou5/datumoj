@@ -142,29 +142,73 @@ def _add(target: dict, **values: int) -> None:
         target[field] += value
 
 
+def _lookback(spec: SourceSpec) -> timedelta | None:
+    """The JMA crawler's lookback window; None = it sets no cutoff (anything else than a positive int)."""
+    days = spec.scope.get("feed_lookback_days", 7)
+    return timedelta(days=days) if type(days) is int and days > 0 else None
+
+
+def _entry_id(meta: str | None) -> str | None:
+    """``entry_id`` of a JMA entry snapshot, read as the crawler reads it for its ``saved_ids``."""
+    try:
+        data = json.loads(meta or "{}")
+    except ValueError:
+        return None
+    entry = data.get("entry_id") if isinstance(data, dict) and data.get("resource_type") == "entry" else None
+    return entry if isinstance(entry, str) else None
+
+
+def _keep_run_boundaries(rows: Sequence, keeps: list[bool]) -> None:
+    """Revive the row that separates two runs of the same hash, so dropping rows never merges them.
+
+    ``_fetch_times`` dates a hash by where its runs start (a successful row whose predecessor on the same
+    URL has another hash). Dropping the middle of A, B, A would leave A, A: the later run disappears and
+    the newest A would be dated by the oldest one. ``keeps`` is changed in place.
+    """
+    state: dict = {}  # (source, url) -> [hash of the last kept row, dropped rows since then]
+    for index, (_, _, source, url, _, outcome, sha, _) in enumerate(rows):
+        if outcome != "ok" or sha is None:
+            continue
+        last, dropped = state.setdefault((source, url), [None, []])
+        if not keeps[index]:
+            dropped.append(index)
+            continue
+        if sha == last:
+            separator = next((i for i in dropped if rows[i][6] != sha), None)
+            if separator is not None:
+                keeps[separator] = True
+        state[source, url] = [sha, []]
+
+
 def _plan_manifest(mdb, now: datetime, specs: Sequence[SourceSpec], keep_shas: set[str],
                    raw_present: Callable[[str], bool] | None, manifest_path: Path, deleted: set) -> dict:
     """Snapshot rows to drop; everything else in the manifest follows from which hashes lose all rows."""
     protected = _raw_policy(manifest_path, specs)[1]
     held_states = {r[0] for r in mdb.execute(
         "SELECT snapshot_id FROM publish_states WHERE state IN ('staged','failed')")}
-    rows = mdb.execute("SELECT seq,snapshot_id,source_id,resource_url,fetched_at,outcome,sha256 "
+    rows = mdb.execute("SELECT seq,snapshot_id,source_id,resource_url,fetched_at,outcome,sha256,meta "
                        "FROM snapshots ORDER BY fetched_at,seq").fetchall()
+    windows = {spec.id: _lookback(spec) for spec in specs if spec.kind == "jma_feed"}
     newest: dict = {}
-    for seq, _, source, url, _, outcome, _ in rows:
+    for seq, _, source, url, fetched_at, outcome, _, meta in rows:
         key = (source, url)
         newest[key, "any"] = seq
         if outcome in ("ok", "not_modified"):
             newest[key, "success"] = seq
+            if source in windows and (entry := _entry_id(meta)) is not None:
+                stamp = _time(fetched_at)  # the feed's own window is on entry time; fetch time is its closest local proxy
+                if stamp is None or windows[source] is None or now - stamp < windows[source]:
+                    newest[source, entry] = seq  # the crawler's "already saved" test reads this record
         if outcome == "ok":
             newest[key, "ok"] = seq
     latest = set(newest.values())
+    keeps = [seq in latest or stamp is None or now - stamp < RECENT or snapshot_id in held_states
+             or (sha is not None and (sha in protected or sha in keep_shas
+                                      or raw_present is None or raw_present(sha)))
+             for seq, snapshot_id, _, _, fetched_at, _, sha, _ in rows for stamp in [_time(fetched_at)]]
+    _keep_run_boundaries(rows, keeps)
     drop, kept = [], set()
-    for seq, snapshot_id, _, _, fetched_at, outcome, sha in rows:
-        stamp = _time(fetched_at)
-        keep = (seq in latest or stamp is None or now - stamp < RECENT or snapshot_id in held_states
-                or (sha is not None and (sha in protected or sha in keep_shas
-                                         or raw_present is None or raw_present(sha))))
+    for keep, (_, snapshot_id, _, _, _, _, sha, _) in zip(keeps, rows, strict=True):
         (kept.add(sha) if keep else drop.append((snapshot_id, sha)))
     kept.discard(None)
     gone = {sha for _, sha in drop if sha is not None} - kept
@@ -225,9 +269,12 @@ def _apply_manifest(path: Path, plan: dict) -> dict:
 
 
 def _drain_pending(root: Path) -> int:
-    """Delete the keyword entries and vectors recorded by ``delete_versions``; returns vectors removed.
+    """Clean the keyword entries and vectors recorded by ``delete_versions``; returns vectors removed.
 
-    The record is cleared only after both deletions succeeded; a failure leaves it for the next round.
+    A recorded document that is current again gets its keyword entries rewritten from the chunk store
+    (publication commits the version first and replaces the keyword entries afterwards, which may have
+    failed); any other recorded key just loses its entries. The record is cleared only after the keyword
+    index, the vectors and the vector maintenance all succeeded; a failure leaves it for the next round.
     Nothing is opened for writing when no record exists.
     """
     path = root / "chunks.sqlite"
@@ -244,10 +291,12 @@ def _drain_pending(root: Path) -> int:
             with closing(SqliteKeywordIndex(root / "keyword.sqlite")) as keyword:
                 for doc_key in keys:
                     keyword.delete(doc_key)
+                    if chunks := store.chunks_for(doc_key):  # empty unless the document is current
+                        keyword.add(chunks)
         deleted = delete_vectors(root / "vectors", ids)
+        if ids:  # also when nothing was left to delete: an earlier round may have failed right here
+            maintain_vectors(root / "vectors", timedelta(hours=1))
         store.clear_pending(keys, ids)
-    if deleted:
-        maintain_vectors(root / "vectors", timedelta(hours=1))
     return deleted
 
 
@@ -339,12 +388,13 @@ def run(root: str | Path, now: datetime, specs: Sequence[SourceSpec], *, execute
     report["vectors"] = {"deleted": 0}
     if execute:
         # Each step commits on its own, so each is ordered to be safe to repeat after a failure:
-        # 1. keyword / vector leftovers of an earlier round (recorded by delete_versions);
+        # 1. keyword / vector leftovers of an earlier round (recorded by delete_versions): keyword entries
+        #    removed or, for a document that is current again, rewritten from the chunk store;
         # 2. parse records stop naming the documents to go (never a record claiming documents that are
         #    gone); a failure after it leaves orphan documents, retried next round;
         # 3. documents and chunks, with the keyword keys and vector ids recorded in the same transaction;
         # 4. only then the snapshot rows, which are the age basis of step 3;
-        # 5. keyword index and vectors, clearing the record once both are done.
+        # 5. keyword index, vectors and vector maintenance, clearing the record once all are done.
         report["vectors"]["deleted"] += _drain_pending(root)
         _trim_parse_records(root / "manifest.sqlite", manifest)
         if versions["delete"]:

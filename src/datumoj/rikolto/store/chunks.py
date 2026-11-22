@@ -204,15 +204,16 @@ class SqliteChunkStore:
     def pending_cleanup(self) -> tuple[list[str], list[str]]:
         """Leftover ``(keyword doc_keys, vector chunk_ids)`` from ``delete_versions``.
 
-        Entries that a current version references again (re-published since) are dropped
-        from the table instead of returned, so they are never deleted from the indexes.
+        Vector ids that a current version references again (re-published since) are dropped
+        from the table instead of returned, so they are never deleted from the vectors.
+        Keyword keys are always returned, also for a document that is current again: the
+        publisher replaces its keyword entries only after committing the version, so only the
+        caller can tell, after rewriting them, that the record is done (``clear_pending``).
         """
         self._require_writable()
         if not self._has_pending_table():
             return [], []
         with self._tx() as db:
-            db.execute("DELETE FROM retention_pending WHERE kind='keyword' "
-                       "AND key IN (SELECT doc_key FROM current_versions)")
             db.execute("DELETE FROM retention_pending WHERE kind='vector' AND key IN ("
                        "SELECT c.chunk_id FROM chunks c JOIN current_versions v "
                        "ON v.doc_key=c.doc_key AND v.snapshot_sha256=c.snapshot_sha256)")
@@ -227,7 +228,7 @@ class SqliteChunkStore:
             db.execute("DROP TABLE retention_pending")
 
     def clear_pending(self, keyword_keys: Sequence[str] = (), chunk_ids: Sequence[str] = ()) -> None:
-        """Forget entries once both the keyword index and the vectors are clean."""
+        """Forget entries once the keyword index, the vectors and the vector maintenance are all done."""
         self._require_writable()
         if not self._has_pending_table():
             return

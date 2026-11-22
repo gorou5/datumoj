@@ -968,7 +968,7 @@ def _cleanup_restored(manager, root, check, result, *, enabled, raw_enabled, orp
         )
 
 
-def _db_retention(manager, deps, root, capacity, uploads, pages):
+def _db_retention(manager, deps, root, pages):
     """Retention while holding the lease: execute locally, report counts, gate only the one-off VACUUM."""
     try:
         raw_keys = set(manager.store.list("raw/"))
@@ -979,8 +979,13 @@ def _db_retention(manager, deps, root, capacity, uploads, pages):
             return f"raw/{sha[:2]}/{sha}" in raw_keys
 
     def vacuum_gate(estimated):
-        current = capacity.get("current_bytes")
-        return gate(None if current is None else current + uploads.bytes, estimated, "optional")
+        # The lease does not stop other prefixes being written during the crawl, so the total taken at the
+        # start of the round is stale; list the whole bucket now. The listing already holds this round's raw.
+        try:
+            current = _project_storage_bytes(manager.store)
+        except Exception:  # noqa: BLE001 -- Unknown size fails closed: this VACUUM is skipped, nothing else.
+            current = None
+        return gate(current, estimated, "optional")
 
     with local_write(root):
         return db_retention.run(root, utcnow(), deps.registry.all(), execute=True, raw_present=present,
@@ -1360,7 +1365,7 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         phase = "db_retention"
                         check()
                         result["db_retention"] = _db_retention(
-                            manager, deps, root, capacity, uploads, retention["incremental_pages"],
+                            manager, deps, root, retention["incremental_pages"],
                         )
                     phase = "maintenance"
                     maintenance_operation = "local_write_enter"

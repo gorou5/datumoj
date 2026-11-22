@@ -69,14 +69,18 @@ def test_pending_cleanup_survives_reopening_and_is_cleared_only_on_request(tmp_p
         assert not has_pending_table(path)  # empty again: the table goes, as db_usage knows no such table
 
 
-def test_pending_entries_that_are_current_again_are_dropped_not_returned(tmp_path):
+def test_vector_entries_that_are_current_again_are_dropped_but_keyword_entries_wait_for_the_caller(tmp_path):
     path = tmp_path / "c.sqlite"
     with closing(SqliteChunkStore(path)) as store:
         digest = put(store, "jp-test:g", "only", ("row=1",), publish=True)
         store.delete_versions([("jp-test:g", digest)], ["jp-test:g"])
         assert has_pending_table(path)
         put(store, "jp-test:g", "again", ("row=1",), publish=True)  # re-published under the same ids
-        assert store.pending_cleanup() == ([], [])
+        # The vector is current again and never returned; the keyword record stays until the caller has
+        # rewritten the keyword entries (publication replaces them after committing the version).
+        assert store.pending_cleanup() == (["jp-test:g"], [])
+        assert store.pending_cleanup() == (["jp-test:g"], []) and has_pending_table(path)
+        store.clear_pending(["jp-test:g"], ["jp-test:g#row=1"])
         assert not has_pending_table(path)
         store.clear_pending(["jp-test:g"], ["jp-test:g#row=1"])  # clearing what is gone is harmless
 
