@@ -810,7 +810,6 @@ def test_license_gate_refuses_the_whole_gdp_package_naming_the_no_outflow_source
     assert (error.value.code, error.value.sources) == ("no_outflow", ("intl-oecd",))
     # Nothing was written: no data file and no partial bundle (receipts of intake are the only outbox files).
     assert sorted((root / "consumer" / "outbox").rglob("*")) == before
-    assert not list((root / "consumer" / "outbox").glob("three-gdp-reconciliation*"))
 
 
 def test_license_gate_names_each_no_outflow_source_of_the_gdp_lineage(pilot, gdp_run):
