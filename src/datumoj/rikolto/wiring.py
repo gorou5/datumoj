@@ -550,13 +550,17 @@ def retain_pulled_generation(root, generation):
     return build_state(root).retain(root, generation)
 
 
-def import_observation_release(deps, source_id, file, release_id, released_at):
-    """Match local bytes against registered source plans, without fetching URLs."""
+def _parse_release_file(deps, source_id, file, release_id, released_at):
+    """Match local bytes against registered source plans, without fetching URLs or writing anything.
+
+    Returns ``(data, snapshot, plan meta, parsed, observations labelled with the release)``.
+    """
+    import hashlib
     from datetime import UTC, date, datetime
     from itertools import islice
 
     from datumoj.rikolto.core.contracts import CrawlContext, ParseError, select_parser
-    from datumoj.rikolto.core.models import FetchOutcome, PublishState, Snapshot
+    from datumoj.rikolto.core.models import FetchOutcome, Snapshot
 
     if not isinstance(release_id, str) or not release_id.strip() or type(released_at) is not date:
         raise ValueError("必须显式给出发布标识和来源发布日期")
@@ -567,7 +571,7 @@ def import_observation_release(deps, source_id, file, release_id, released_at):
         data = stream.read(spec.max_total_bytes + 1)
     if len(data) > spec.max_total_bytes:
         raise ValueError("文件超过来源 max_total_bytes 上限")
-    sha = deps.raw.put(data)
+    sha = hashlib.sha256(data).hexdigest()
     now = datetime.now(UTC)
     crawler = deps.crawler_classes.get(spec.kind)
     if crawler is None:
@@ -597,18 +601,42 @@ def import_observation_release(deps, source_id, file, release_id, released_at):
     if len(matches) != 1:
         raise ValueError("文件必须唯一匹配来源现有解析计划；无法确认出处或存在歧义")
     snapshot, meta, parsed = matches[0]
+    labelled = [obs.model_copy(update={'release_id': release_id, 'released_at': released_at})
+                for obs in parsed.observations]
+    return data, snapshot, meta, parsed, labelled
+
+
+def check_release_replacement(deps, source_id, file, release_id, released_at):
+    """Dry run of ``import_observation_release(..., replace=True)``: parse only, change nothing.
+
+    Raises ``replace_identity_mismatch`` (or ``replace_legacy_table``) exactly as the real replacement would.
+    """
+    *_, labelled = _parse_release_file(deps, source_id, file, release_id, released_at)
+    return deps.observations.replace_release(source_id, release_id, labelled, dry_run=True)
+
+
+def import_observation_release(deps, source_id, file, release_id, released_at, replace=False):
+    """Import a local file as one source release; ``replace`` swaps the stored rows of that release in place."""
+    from datumoj.rikolto.core.models import PublishState
+
+    data, snapshot, meta, parsed, labelled = _parse_release_file(deps, source_id, file, release_id, released_at)
+    sha = deps.raw.put(data)
     deps.manifest.record_snapshot(snapshot, meta)
     order = deps.manifest.snapshot_order(snapshot.snapshot_id)
     if order is None:
         raise ValueError("导入快照缺少持久化 SnapshotOrder")
-    tables = {}
-    for obs in parsed.observations:
-        labelled = obs.model_copy(update={'release_id': release_id, 'released_at': released_at})
-        tables.setdefault(obs.table_key, []).append(labelled)
     deps.manifest.record_publish_state(snapshot.snapshot_id, PublishState.staged)
-    for table_key, observations in tables.items():
-        deps.observations.import_release(source_id, table_key, observations, order)
+    result = {'snapshot_id': snapshot.snapshot_id, 'snapshot_sha256': sha, 'release_id': release_id,
+              'released_at': released_at.isoformat(), 'observations': len(parsed.observations),
+              'warnings': parsed.warnings}
+    if replace:
+        counts = deps.observations.replace_release(source_id, release_id, labelled)
+        result.update(replaced_current_rows=counts['current'], replaced_history_rows=counts['history'])
+    else:
+        tables = {}
+        for obs in labelled:
+            tables.setdefault(obs.table_key, []).append(obs)
+        for table_key, observations in tables.items():
+            deps.observations.import_release(source_id, table_key, observations, order)
     deps.manifest.record_publish_state(snapshot.snapshot_id, PublishState.published)
-    return {'snapshot_id': snapshot.snapshot_id, 'snapshot_sha256': sha, 'release_id': release_id,
-            'released_at': released_at.isoformat(), 'observations': len(parsed.observations),
-            'warnings': parsed.warnings}
+    return result

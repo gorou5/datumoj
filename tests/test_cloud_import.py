@@ -281,7 +281,7 @@ def stored_rows(world, name):
     wiring._ReleaseStateManager(world.store, root).restore(root)
     deps = world.original(root, {"registry": world.registry, "vectors": None})
     try:
-        deps.observations.delete_release(SID, "none", dry_run=True)  # installs the restored history segments
+        cloud._stored_release_ids(deps, SID)  # installs the restored history segments
         return [row for path in sorted((deps.observations._parquet / SID).glob("*.parquet"))
                 for row in deps.observations._stored_rows(path)]
     finally:
@@ -305,11 +305,12 @@ def test_replace_swaps_only_the_named_release(world, monkeypatch):
         "WEO-2009-APR": "skipped_existing", "WEO-2009-OCT": "skipped_existing",
         "WEO-2010-APR": "replaced", "WEO-2010-OCT": "skipped_existing"}
     report = next(r for r in result["releases"] if r["release_id"] == "WEO-2010-APR")
-    assert report["deleted_rows"] == len(apr) and report["observations"] > 0
+    assert (report["replaced_current_rows"], report["replaced_history_rows"]) == (0, len(apr))  # GRC only: history
+    assert report["observations"] > 0
 
     after = stored_rows(world, "after")
     keys = [(r["obs_id"], r["release_id"]) for r in after]
-    assert len(keys) == len(set(keys))  # one row per (obs_id, release_id)
+    assert len(keys) == len(set(keys)) == len(before)  # one row per (obs_id, release_id), none added or lost
     assert OLD_NAME not in {r["indicator"] for r in after if r["release_id"] == "WEO-2010-APR"}
     untouched = lambda rows: sorted((r["obs_id"], r["release_id"], r["indicator"]) for r in rows
                                     if r["release_id"] != "WEO-2010-APR")
@@ -330,7 +331,8 @@ def test_replace_preview_reports_counts_and_uploads_nothing(world, monkeypatch):
     statuses = {r["release_id"]: r["status"] for r in result["releases"]}
     assert statuses["WEO-2010-APR"] == "would_replace" and statuses["WEO-2010-OCT"] == "skipped_existing"
     report = next(r for r in result["releases"] if r["release_id"] == "WEO-2010-APR")
-    assert report["deleted_rows"] == count and report["observations"] > 0
+    assert (report["replaced_current_rows"], report["replaced_history_rows"]) == (0, count)
+    assert report["observations"] > 0
     assert world.store._objects == objects and current_generation(world.store) == 2
     text = json.dumps(result)
     assert all(word not in text for word in ("synthetic-endpoint", "synthetic-bucket"))
@@ -342,7 +344,8 @@ def test_replace_unknown_release_is_refused_without_touching_storage(world, monk
     assert result["exit_status"] == 1 and result["reason"] == "manifest_invalid"
 
 
-def test_replace_of_current_release_is_refused_and_writes_nothing(world):
+def test_replace_with_other_identities_is_refused_and_writes_nothing(world):
+    """The archive file is not the API release's observation set: refused before any lease or write."""
     shutil.copy(world.files / RELEASES_FILE, world.files / "current.tsv")
     data = (world.files / "current.tsv").read_bytes()
     entries = [*world.entries, {"source": SID, "release_id": "WEO-2026-OCT", "released_at": "2026-10-01",
@@ -352,9 +355,123 @@ def test_replace_of_current_release_is_refused_and_writes_nothing(world):
     objects = dict(world.store._objects)
     for write in (False, True):
         result = run(world, f"current-{write}", write=write, replace_releases=["WEO-2026-OCT"])
-        assert result["exit_status"] == 1 and result["reason"] == "replace_current_release"
+        assert result["exit_status"] == 1 and result["reason"] == "replace_identity_mismatch"
         assert world.store._objects == objects
     assert current_generation(world.store) == 1
 
 
 RELEASES_FILE = "weo_2010_apr_GRC_excerpt.tsv"
+API_NAME = "Net lending (+) / net borrowing (-), General government, Percent of GDP"
+
+
+def widen_to_japan(world):
+    """Make the 2010 files full-file-like: a second country with the same series, in tables the API never fetched.
+
+    Synthetic: the real mixed excerpts hold no other country's GGXCNL_NGDP, so a Japan row is cloned from the
+    Greek one (raw cp1252 bytes, only code, ISO and country name changed) and the plan covers both countries.
+    """
+    series = [{**GRC_SPEC.scope["series"][0], "query": "GRC+JPN.GGXCNL_NGDP.A"}]
+    world.registry._specs[SID] = GRC_SPEC.model_copy(update={"scope": {**GRC_SPEC.scope, "series": series}})
+    for entry in world.entries:
+        if not entry["release_id"].startswith("WEO-2010"):
+            continue
+        path = world.files / entry["file"]
+        lines = path.read_bytes().split(b"\r\n")
+        at = next(i for i, line in enumerate(lines) if line.startswith(b"174\tGRC\tGGXCNL_NGDP\t"))
+        japan = lines[at].replace(b"174\tGRC", b"158\tJPN", 1).replace(b"Greece", b"Japan", 1)
+        data = b"\r\n".join([*lines[:at + 1], japan, *lines[at + 1:]])
+        path.write_bytes(data)
+        entry.update(sha256=hashlib.sha256(data).hexdigest(), bytes=len(data))
+    world.manifest.write_text(json.dumps(world.entries))
+
+
+def stored_tables(world, name):
+    """Per table: every stored row (history scan), which of them are in the current file, and the watermark."""
+    import pyarrow.parquet as pq
+
+    root = world.tmp / name
+    wiring._ReleaseStateManager(world.store, root).restore(root)
+    deps = world.original(root, {"registry": world.registry, "vectors": None})
+    try:
+        cloud._stored_release_ids(deps, SID)  # installs the restored history segments
+        tables = {}
+        store = deps.observations
+        for path in sorted((store._parquet / SID).glob("*.parquet")):
+            rows = sorted(store._stored_rows(path), key=lambda r: (r["release_id"], r["obs_id"]))
+            current = {(r["obs_id"], r["release_id"]) for r in pq.read_table(path).to_pylist()}
+            tables[rows[0]["table_key"]] = {
+                "rows": [{**r, "in_current_file": (r["obs_id"], r["release_id"]) in current} for r in rows],
+                "order": store.table_order(SID, rows[0]["table_key"])}
+        return tables
+    finally:
+        close(deps)
+
+
+def test_replace_swaps_current_and_history_rows_across_country_tables(world, monkeypatch):
+    widen_to_japan(world)
+    seed_with_old_names(world, monkeypatch)
+    before = stored_tables(world, "before")
+    grc, jpn = before["WEO:GRC.GGXCNL_NGDP.A"], before["WEO:JPN.GGXCNL_NGDP.A"]
+    flags = lambda table, release: {r["in_current_file"] for r in table["rows"] if r["release_id"] == release}
+    assert flags(grc, "WEO-2010-APR") == flags(grc, "WEO-2010-OCT") == {False}  # the API row is current in GRC
+    assert flags(jpn, "WEO-2010-OCT") == {True} and flags(jpn, "WEO-2010-APR") == {False}  # Japan: no API row
+    counts = {release: {"current": sum(r["in_current_file"] for t in (grc, jpn) for r in t["rows"]
+                                       if r["release_id"] == release),
+                        "history": sum(not r["in_current_file"] for t in (grc, jpn) for r in t["rows"]
+                                       if r["release_id"] == release)}
+              for release in ("WEO-2010-APR", "WEO-2010-OCT")}
+    assert counts["WEO-2010-OCT"]["current"] > 0 and counts["WEO-2010-APR"]["current"] == 0
+    assert {r["indicator"] for t in (grc, jpn) for r in t["rows"] if r["release_id"].startswith("WEO-2010")} == {OLD_NAME}
+
+    named = ["WEO-2010-APR", "WEO-2010-OCT"]
+    objects = dict(world.store._objects)
+    preview = run(world, "preview", replace_releases=named)  # the rehearsal that failed on 2026-11-23
+    assert "exit_status" not in preview and "generation" not in preview, preview
+    assert world.store._objects == objects and current_generation(world.store) == 2
+    result = run(world, "replace", write=True, replace_releases=named)
+    assert "exit_status" not in result, result
+    assert result["generation"] == 3 and current_generation(world.store) == 3
+    for run_result, status in ((preview, "would_replace"), (result, "replaced")):
+        assert {r["release_id"]: r["status"] for r in run_result["releases"]} == {
+            "WEO-2009-APR": "skipped_existing", "WEO-2009-OCT": "skipped_existing",
+            "WEO-2010-APR": status, "WEO-2010-OCT": status}
+        for report in run_result["releases"]:
+            if report["status"] == status:
+                expected = counts[report["release_id"]]
+                assert (report["replaced_current_rows"], report["replaced_history_rows"]) == (
+                    expected["current"], expected["history"])
+
+    after = stored_tables(world, "after")
+    assert after.keys() == before.keys()
+    keep = ("obs_id", "release_id", "_current", "_order_at", "_order_seq", "in_current_file")
+    for key, table in before.items():
+        assert after[key]["order"] == table["order"]  # watermark
+        assert len(after[key]["rows"]) == len(table["rows"])  # no duplicate, no leftover
+        for old, now in zip(table["rows"], after[key]["rows"], strict=True):
+            assert {k: now[k] for k in keep} == {k: old[k] for k in keep}  # same membership and sort key
+            if old["release_id"].startswith("WEO-2010"):
+                assert old["indicator"] == OLD_NAME and now["indicator"] == API_NAME
+            else:
+                assert now == old
+    for release in ("WEO-2010-APR", "WEO-2010-OCT"):
+        assert {r["indicator"] for t in after.values() for r in t["rows"] if r["release_id"] == release} == {API_NAME}
+
+    root = world.tmp / "answers"
+    wiring._ReleaseStateManager(world.store, root).restore(root)
+    deps = world.original(root, {"registry": world.registry, "vectors": None})
+    try:
+        token = deps.observations.pin_generation()
+        sql = ("SELECT release_id, indicator, value FROM observations WHERE area_code='GRC' "
+               "AND indicator_code='GGXCNL_NGDP' AND time_label='2009' AND unit='PT'")
+        for release, value in (("WEO-2010-APR", "-12.866"), ("WEO-2010-OCT", "-13.584")):
+            answer = deps.observations.query_readonly(sql, generation_token=token, as_of_release=release)
+            assert answer.rows == [(release, API_NAME, Decimal(value))]
+        current = deps.observations.query_readonly(  # the current file itself, not only the history segments
+            "SELECT release_id, indicator FROM observations WHERE table_key='WEO:JPN.GGXCNL_NGDP.A' "
+            "AND time_label='2009'").rows
+        assert current == [("WEO-2010-OCT", API_NAME)]
+    finally:
+        close(deps)
+
+    plain = run(world, "plain", write=True)  # without --replace nothing is touched
+    assert {r["status"] for r in plain["releases"]} == {"skipped_existing"} and plain["generation"] == 3
