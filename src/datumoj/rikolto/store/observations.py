@@ -886,58 +886,79 @@ class DuckDBObservationStore:
             self._invalidate_describe()
             return True
 
-    def delete_release(self, source_id: str, release_id: str, *, dry_run: bool = False) -> int:
-        """Drop one release's archived history rows from every table of a source; return the row count.
+    def replace_release(self, source_id: str, release_id: str, observations: Sequence[Observation],
+                        *, dry_run: bool = False) -> dict[str, int]:
+        """Swap every stored row of one release for the re-parsed ``observations``, in place.
 
-        A release that is still part of any table's current rows is refused with
-        ``replace_current_release`` before anything changes. Current rows and other releases stay as they are.
+        The new rows must cover exactly the stored ``(table_key, obs_id)`` set of that release, else
+        ``replace_identity_mismatch`` and nothing changes. Each row keeps the old row's ``_current``,
+        ``_order_at`` and ``_order_seq`` (current file and history segments alike) and the table watermark;
+        only the observation fields change. Returns the row counts replaced as ``current`` and ``history``.
         """
         if self._readonly:
             raise PermissionError("只读视图禁止写入")
         _source_id.validate_python(source_id)
+        incoming: dict[tuple[str, str], Observation] = {}
+        for o in observations:
+            if o.source_id != source_id or o.release_id != release_id or (o.value is not None and not _fits(o.value)):
+                raise ValueError(f"观测值 {o.obs_id} 不属于该来源发布，或数值无法无损保存")
+            if (o.table_key, o.obs_id) in incoming:
+                raise ValueError(f"ObservationIdentity 重复：{o.table_key} {o.obs_id}")
+            incoming[o.table_key, o.obs_id] = o
         with self._describe_lock:
             if self._needs_install:
                 _install_published_segments(self.root)
                 self._needs_install = False
             if self._needs_migration:
                 self._migrate_history()
-            pending = []
+            plans, stored = [], set()
             for path in sorted((self._parquet / source_id).glob('*.parquet')):
                 metadata = pq.read_schema(path).metadata or {}
                 if _HISTORY_ONLY in metadata:
                     continue
-                with duckdb.connect() as con:
-                    # Pre-301 files may keep history inline, so only rows still flagged current count here.
-                    if con.sql(f"SELECT 1 FROM ({self._scan([path], self.root)}) "
-                               f"WHERE release_id = {_quote(release_id)} AND _current IS NOT FALSE LIMIT 1").fetchone():
-                        raise ValueError("replace_current_release")
                 rows = self._stored_rows(path)
-                if _SEGMENTS not in metadata:
-                    # Inline (pre-301) history cannot be rewritten here; refuse rather than skip and duplicate on re-import.
-                    if any(r['release_id'] == release_id for r in rows):
-                        raise ValueError("replace_legacy_table")
+                with duckdb.connect() as con:
+                    main = con.sql(self._scan([path], self.root)).to_arrow_table().to_pylist()
+                if not any(r['release_id'] == release_id for r in rows + main):
                     continue
-                kept = [r for r in rows if r['release_id'] != release_id]
-                if len(kept) != len(rows):
-                    pending.append((path, metadata, kept, len(rows) - len(kept)))
-            if not dry_run:
-                for path, metadata, kept, _ in pending:
-                    old = _segment_paths(self.root, path, metadata)
-                    created = [self._new_segment(path, kept)] if kept else []
-                    try:
-                        table = pq.read_table(path)
-                        meta = dict(table.schema.metadata or {})
-                        meta[_SEGMENTS] = json.dumps([p.name for p in created]).encode()
-                        _atomic_parquet(table.replace_schema_metadata(meta), path)
-                    except BaseException:
-                        for segment in created:
-                            self._discard_segment(segment)
-                        raise
-                    for segment in old:
-                        self._discard_segment(segment)
-                if pending:
-                    self._invalidate_describe()
-            return sum(n for *_, n in pending)
+                if _SEGMENTS not in metadata:
+                    # Inline (pre-301) history cannot be rewritten here; refuse rather than leave stale rows.
+                    raise ValueError("replace_legacy_table")
+                stored.update((r['table_key'], r['obs_id']) for r in rows + main if r['release_id'] == release_id)
+                plans.append((path, metadata, rows, main))
+            if stored != set(incoming):
+                raise ValueError("replace_identity_mismatch")
+            def swap(row):
+                if row['release_id'] != release_id:
+                    return row
+                return {**_row(incoming[row['table_key'], row['obs_id']]), '_order_at': row['_order_at'],
+                        '_order_seq': row['_order_seq'], '_current': row['_current']}
+
+            counts = {'current': 0, 'history': 0}
+            rewrites = []
+            for path, metadata, rows, main in plans:
+                current = {_event_key(r) for r in main}
+                counts['current'] += sum(r['release_id'] == release_id for r in main)
+                counts['history'] += sum(r['release_id'] == release_id and _event_key(r) not in current for r in rows)
+                rewrites.append((path, metadata, [swap(r) for r in rows], [swap(r) for r in main]))
+            if dry_run:
+                return counts
+            for path, metadata, rows, main in rewrites:
+                old = _segment_paths(self.root, path, metadata)
+                segment = self._new_segment(path, rows)
+                try:
+                    meta = dict(pq.read_schema(path).metadata or {})
+                    meta[_SEGMENTS] = json.dumps([segment.name]).encode()
+                    table = pa.Table.from_pylist(main, schema=_HISTORY_SCHEMA)
+                    _atomic_parquet(table.replace_schema_metadata(meta), path)
+                except BaseException:
+                    self._discard_segment(segment)
+                    raise
+                for stale in old:
+                    self._discard_segment(stale)
+            if rewrites:
+                self._invalidate_describe()
+            return counts
 
 
     def _provenance(

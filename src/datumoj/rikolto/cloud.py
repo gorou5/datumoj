@@ -921,7 +921,7 @@ def project(*, work_dir: Path | None = None, write: bool = False) -> dict:
 _PROJECT_REFUSALS = frozenset({"generation_changed", "orphan_generation", "storage_conditional_unsupported",
                                "workspace_not_empty"})
 _IMPORT_REFUSALS = _PROJECT_REFUSALS | {"manifest_invalid", "file_missing", "file_mismatch",
-                                        "replace_current_release", "replace_legacy_table"}
+                                        "replace_identity_mismatch", "replace_legacy_table"}
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -995,8 +995,9 @@ def import_release(*, manifest: Path, files_dir: Path, work_dir: Path | None = N
                    replace_releases: tuple[str, ...] | list[str] = ()) -> dict:
     """Import manually downloaded historical releases; preview locally unless explicitly writing.
 
-    Only the release ids named in ``replace_releases`` are replaced when they already exist
-    (their archived history rows are dropped first); everything else already stored is skipped.
+    Only the release ids named in ``replace_releases`` are replaced when they already exist: their stored
+    rows (current and history alike) are swapped in place for the new parse, which must cover exactly the
+    same observation identities; everything else already stored is skipped.
     """
     from datumoj.rikolto.core.rawstore import FileRawStore
 
@@ -1040,8 +1041,8 @@ def import_release(*, manifest: Path, files_dir: Path, work_dir: Path | None = N
                     {"release_id": e["release_id"], "released_at": e["released_at"],
                      "status": "pending" if e in todo and e not in replacing
                      else "would_replace" if e in replacing else "skipped_existing"} for e in entries]
-                for e in replacing:  # refuse before any lease or write when a named release is still current
-                    deps.observations.delete_release(e["source"], e["release_id"], dry_run=True)
+                for e in replacing:  # refuse before any lease or write when the new parse is not the same identities
+                    wiring.check_release_replacement(deps, e["source"], e["path"], e["release_id"], e["day"])
                 estimate = sum(e["bytes"] for e in todo)
                 phase = "estimate"
                 result["current_bytes"] = _project_storage_bytes(manager.store)
@@ -1053,17 +1054,17 @@ def import_release(*, manifest: Path, files_dir: Path, work_dir: Path | None = N
                             continue
                         _import_progress("import_start", started, release_id=entry["release_id"])
                         try:
-                            if entry in replacing:
-                                report["deleted_rows"] = deps.observations.delete_release(
-                                    entry["source"], entry["release_id"])
                             done = wiring.import_observation_release(
-                                deps, entry["source"], entry["path"], entry["release_id"], entry["day"])
+                                deps, entry["source"], entry["path"], entry["release_id"], entry["day"],
+                                **({"replace": True} if entry in replacing else {}))
                         except Exception:
                             result["failed_release"] = entry["release_id"]
                             raise
                         status = ("replaced" if write else "would_replace") if entry in replacing else (
                             "imported" if write else "previewed")
                         report.update(status=status, observations=done["observations"], warnings=done["warnings"])
+                        if entry in replacing:
+                            report.update({k: done[k] for k in ("replaced_current_rows", "replaced_history_rows")})
                         _import_progress("import_end", started, release_id=entry["release_id"],
                                          observations=done["observations"])
 
