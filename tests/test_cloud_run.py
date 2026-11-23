@@ -1290,3 +1290,64 @@ def test_cloud_round_migrates_legacy_never_run_control(world, monkeypatch):
     assert {row["source_id"] for row in later["source_health"]} == {spec.id for spec in world.specs}
     assert all(row["status"] == "missing" for row in later["source_health"])
     assert not (root / "runs.jsonl").exists()
+
+
+def _only_cloud0_enabled(world, name):
+    """Seed a published generation whose control.json only switches jp-cloud0 on."""
+    _, root = invoke(world, name, "--max-minutes", "0")
+    (root / "control.json").write_text(json.dumps({"enabled": True, "sources": {"jp-cloud0": {"enabled": True}}}))
+    StateManager(remote(world), root).push()
+
+
+@pytest.fixture
+def named(world, monkeypatch):
+    monkeypatch.setattr(cloud, "load_registry", lambda _: FakeRegistry(world.specs))
+    return world
+
+
+def test_enable_opens_only_named_source_and_runs_it_first(named):
+    world = named
+    _only_cloud0_enabled(world, "seed")
+    without, _ = invoke(world, "plain")
+    assert [r["source_id"] for r in without["sources"]] == ["jp-cloud0"] and "enabled_sources" not in without
+    world.clock[0] += timedelta(hours=1)
+    result, root = invoke(world, "enabled", "--enable", "jp-cloud1", "--enable", "jp-cloud0")
+    assert result["status"] == "completed" and result["enabled_sources"] == ["jp-cloud1"]
+    assert [r["source_id"] for r in result["sources"]] == ["jp-cloud1", "jp-cloud0"]
+    control = schedule.read_control(root)
+    assert control["enabled"] is True and set(control["sources"]) == {"jp-cloud0", "jp-cloud1"}
+    assert all(row["enabled"] is True for row in control["sources"].values())
+    assert_pulled(world, root, result["generation"])  # the published control.json equals the round's
+    # Naming an already enabled source changes nothing.
+    world.clock[0] += timedelta(hours=1)
+    again, _ = invoke(world, "again", "--enable", "jp-cloud1")
+    assert again["enabled_sources"] == []
+
+
+def test_enable_unknown_source_is_rejected_before_storage(named):
+    manager = wiring.build_state(named.tmp / "unused")
+    before = manager.list()
+    result, root = invoke(named, "unknown", "--enable", "jp-cloud1", "--enable", "jp-nope")
+    assert result["reason"] == "unknown_source" and result["exit_status"] == 1
+    assert not named.tokens and not root.exists() and manager.list() == before
+
+
+def test_enable_leaves_switches_alone_when_capacity_refuses(named, monkeypatch):
+    world = named
+    _only_cloud0_enabled(world, "seed")
+    before = remote(world).list()
+    monkeypatch.setattr(cloud, "_round_capacity", lambda *a, **kw: cloud.gate(None, None, "essential"))
+    result, root = invoke(world, "refused", "--enable", "jp-cloud1")
+    assert result["status"] == "failed" and result["enabled_sources"] == []
+    assert "jp-cloud1" not in schedule.read_control(root)["sources"]
+    assert remote(world).list() == before
+
+
+def test_enable_does_not_flip_master_switch(named):
+    world = named
+    _, root = invoke(world, "seed", "--max-minutes", "0")
+    (root / "control.json").write_text(json.dumps({"enabled": False, "sources": {}}))
+    StateManager(remote(world), root).push()
+    result, root = invoke(world, "off", "--enable", "jp-cloud1")
+    assert result["enable_note"] == "control_disabled" and result["enabled_sources"] == [] and result["sources"] == []
+    assert schedule.read_control(root) == {"enabled": False, "sources": {}}

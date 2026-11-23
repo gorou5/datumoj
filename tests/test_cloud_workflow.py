@@ -178,6 +178,48 @@ def test_source_issue_step_preserves_unpublished_failure_and_writes_safe_summary
     assert not (tmp_path / "gh-called").exists()
 
 
+def _run_enable(tmp_path, enable):
+    steps = load(WORKFLOWS / "cloud-run.yml")["jobs"]["run"]["steps"]
+    step = next(s for s in steps if s.get("name") == "Run due sources and publish")
+    uv = tmp_path / "uv"
+    uv.write_text(f"#!{sys.executable}\nimport json, sys\nprint(json.dumps(sys.argv[1:]))\n")
+    uv.chmod(0o755)
+    env = {**os.environ, "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
+           "RUNNER_TEMP": str(tmp_path), **({} if enable is None else {"ENABLE": enable})}
+    return subprocess.run(["bash", "--noprofile", "--norc", "-c", step["run"]], cwd=tmp_path,
+                          env=env, capture_output=True, text=True, check=False)
+
+
+BASE = ["run", "--frozen", "rikolto", "cloud", "run", "--max-embed", "1000", "--max-minutes", "40",
+        "--reserve-minutes", "25"]
+
+
+@pytest.mark.parametrize("enable,extra", [
+    (None, []), ("", []),
+    ("intl-imf-weo,intl-oecd,intl-wdi",
+     ["--enable", "intl-imf-weo", "--enable", "intl-oecd", "--enable", "intl-wdi"]),
+])
+def test_run_enable_input_becomes_enable_options(tmp_path, enable, extra):
+    response = _run_enable(tmp_path, enable)
+    assert response.returncode == 0 and response.stderr == ""
+    assert json.loads(response.stdout) == [*BASE, *extra]
+
+
+@pytest.mark.parametrize("enable", ["intl oecd", "intl-oecd;touch injected", "$(touch injected)", "a,b c", "a,,b"])
+def test_run_enable_input_rejects_unsafe_characters(tmp_path, enable):
+    response = _run_enable(tmp_path, enable)
+    assert response.returncode != 0 and response.stdout == ""
+    assert not (tmp_path / "injected").exists()
+
+
+def test_run_enable_is_an_env_input_and_schedule_has_no_inputs():
+    workflow = load(WORKFLOWS / "cloud-run.yml")
+    inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+    assert set(inputs) == {"enable"} and inputs["enable"]["type"] == "string" and inputs["enable"]["default"] == ""
+    step = next(s for s in workflow["jobs"]["run"]["steps"] if s.get("name") == "Run due sources and publish")
+    assert step["env"]["ENABLE"] == "${{ inputs.enable }}" and "${{" not in step["run"]
+
+
 def test_cleanup_workflow_is_manual_dry_run_and_reuses_writer_protection():
     workflow = load(WORKFLOWS / "cloud-cleanup.yml")
     embed = load(WORKFLOWS / "cloud-embed.yml")

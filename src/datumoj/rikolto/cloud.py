@@ -31,7 +31,14 @@ from datumoj.rikolto.core.monitor import _ledger_first_attempts, evaluate_cloud_
 from datumoj.rikolto.core.nas_receipt import read_receipt
 from datumoj.rikolto.core.registry import load_registry
 from datumoj.rikolto.core.runner import DEFAULT_MAX_RUN_SECONDS
-from datumoj.rikolto.core.schedule import Scheduler, utcnow, workspace_lock, write_control
+from datumoj.rikolto.core.schedule import (
+    Scheduler,
+    read_control,
+    set_enabled,
+    utcnow,
+    workspace_lock,
+    write_control,
+)
 from datumoj.rikolto.core.state import StateManager, local_write
 from datumoj.rikolto.core.state_s3 import S3StateObjectStore, probe_conditional_writes
 from datumoj.rikolto.index.vector import maintain_vectors
@@ -546,9 +553,9 @@ def check() -> dict:
 
 
 def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: float = 40,
-        reserve_minutes: float = 10, no_cleanup: bool = False) -> dict:
+        reserve_minutes: float = 10, no_cleanup: bool = False, enable=()) -> dict:
     return _round(work_dir=work_dir, max_embed=max_embed, max_minutes=max_minutes,
-                  reserve_minutes=reserve_minutes, embed_only=False, no_cleanup=no_cleanup)
+                  reserve_minutes=reserve_minutes, embed_only=False, no_cleanup=no_cleanup, enable=enable)
 
 
 def embed(*, work_dir: Path | None = None, max_minutes: float,
@@ -1262,7 +1269,8 @@ def cleanup_only(*, work_dir: Path | None = None, max_minutes: float, delete: bo
     return result
 
 
-def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_cleanup=False):
+def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_cleanup=False, enable=()):
+    enable = list(dict.fromkeys(enable))
     result = {"status": "failed", "exit_status": 1, "generation": None,
               "sources": [], "source_health": [], "due": 0, "new": 0, "unchanged": 0, "parsed": 0,
               "failed_sources": [], "reason": None, "budget_exhausted": False,
@@ -1274,6 +1282,13 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                   "embedded": 0, "vector_pending": 0, "embedding_deferred": 0, "embedding_failed": 0,
                   "budget_exhausted": False, "reason": None, "publish_timings": {}, "restore_timings": {}}
     result["capacity"] = gate(None, None, "optional" if embed_only else "essential")
+    if enable:
+        # Reject unknown ids before any storage access.
+        known = {spec.id for spec in load_registry(Path(__file__).resolve().parents[3] / "sources").all()}
+        if not set(enable) <= known:
+            result.update(reason="unknown_source", phase="configuration")
+            return result
+        result["enabled_sources"] = []
     cleanup_enabled = not no_cleanup and os.environ.get("R2_CLEANUP", "on").lower() != "off"
     raw_cleanup_enabled = os.environ.get("R2_RAW_CLEANUP", "off").lower() == "on"
     orphan_raw_cleanup_enabled = os.environ.get("R2_ORPHAN_RAW_CLEANUP", "off") == "on"
@@ -1417,6 +1432,17 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                             write_control(root, {"enabled": True, "sources": {
                                 spec.id: {"enabled": True} for spec in deps.registry.all()
                             }}, now=utcnow())
+                        if enable:
+                            phase = "enable"
+                            control = read_control(root)
+                            if not control["enabled"]:
+                                result["enable_note"] = "control_disabled"  # never flip the master switch
+                            else:
+                                newly = [source_id for source_id in enable
+                                         if not control["sources"].get(source_id, {}).get("enabled")]
+                                if newly:
+                                    set_enabled(root, True, newly, now=utcnow())
+                                result["enabled_sources"] = newly
                         phase = "due"
                         scheduler = Scheduler(root, deps.registry.all(), lambda spec: None)
                         if hasattr(scheduler, "observe_enabled"):
