@@ -23,7 +23,7 @@ from datumoj.rikolto import wiring
 from datumoj.rikolto.analysis.reports import previous_week_period, weekly_report
 from datumoj.rikolto.capacity import LIMITS, WEEKLY_REPORT_RESERVE, gate
 from datumoj.rikolto.core.budget import ParseBudget
-from datumoj.rikolto.core.contracts import PreconditionFailed, StateObject
+from datumoj.rikolto.core.contracts import PreconditionFailed, RegistryError, StateObject
 from datumoj.rikolto.core.http import PoliteHttpFetcher
 from datumoj.rikolto.core.lease import LEASE_KEY, LeaseError, LeaseManager
 from datumoj.rikolto.core.models import FetchOutcome, PublishState
@@ -1284,7 +1284,11 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
     result["capacity"] = gate(None, None, "optional" if embed_only else "essential")
     if enable:
         # Reject unknown ids before any storage access.
-        known = {spec.id for spec in load_registry(Path(__file__).resolve().parents[3] / "sources").all()}
+        try:
+            known = {spec.id for spec in load_registry(Path(__file__).resolve().parents[3] / "sources").all()}
+        except RegistryError:
+            result.update(reason="registry_invalid", phase="configuration")
+            return result
         if not set(enable) <= known:
             result.update(reason="unknown_source", phase="configuration")
             return result

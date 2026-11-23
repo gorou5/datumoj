@@ -1332,6 +1332,16 @@ def test_enable_unknown_source_is_rejected_before_storage(named):
     assert not named.tokens and not root.exists() and manager.list() == before
 
 
+def test_enable_reports_invalid_registry_as_result(world, monkeypatch):
+    def broken(_):
+        raise cloud.RegistryError("bad yaml")
+
+    monkeypatch.setattr(cloud, "load_registry", broken)
+    result, root = invoke(world, "broken", "--enable", "jp-cloud1")
+    assert result["reason"] == "registry_invalid" and result["exit_status"] == 1
+    assert not world.tokens and not root.exists()
+
+
 def test_enable_leaves_switches_alone_when_capacity_refuses(named, monkeypatch):
     world = named
     _only_cloud0_enabled(world, "seed")
