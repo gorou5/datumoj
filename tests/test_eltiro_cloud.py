@@ -230,6 +230,16 @@ def test_invalid_demand_ids_fail_before_restore(cloud, data, tmp_path, monkeypat
     assert not (tmp_path / "out").exists()
 
 
+def test_non_empty_output_directory_is_refused_before_restore(cloud, data, tmp_path, monkeypatch):
+    def forbidden(root):
+        pytest.fail("the restore must not start when an old artifact could ride along")
+
+    monkeypatch.setattr(cloud, "restore_latest", forbidden)
+    (tmp_path / "out/packages/old").mkdir(parents=True)
+    result = go(cloud, data, tmp_path)
+    assert (result["exit_status"], result["error_code"]) == (1, "output_not_empty")
+
+
 def test_demand_must_be_a_file_of_the_repository_demand_directory(cloud, data, tmp_path):
     assert go(cloud, data, tmp_path, "no-such-demand")["error_code"] == "demand_not_found"
     assert go(cloud, data, tmp_path, f"{GDP},no-such-demand")["error_code"] == "demand_not_found"

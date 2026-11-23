@@ -339,6 +339,8 @@ def run(data_dir, demand_ids, bindings_path, output, *, demands_dir=DEMANDS_DIR,
             counts["demands"] = len(ids)
             sources = {demand_id: read_demand(demand_id, demands_dir) for demand_id in ids}
             bindings = load_bindings(bindings_path, bindings_dir, ids) if bindings_path else None
+            if Path(output).exists() and any(Path(output).iterdir()):
+                raise Failure("output_not_empty")  # an old packages/ would ride along in this artifact
             mark("restore")
             with _read_meter():
                 result["generation"] = generation = restore_latest(data_dir)
