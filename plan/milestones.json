@@ -1,6 +1,6 @@
 {
   "_说明": "plan/index.html 的“版本路线图”和“里程碑”两节由本文件渲染。由主对话在节点上更新，调度器派出的任务 agent 不改本文件。status 只有对应的 PR 已合并进 main 才能写 done（IVY 期间直接推送 main，pr 为 null）。规则见 CLAUDE.md 与 docs/PLAN.md 第 8.1 节。",
-  "updated": "2026-11-21",
+  "updated": "2026-11-24",
   "versions": [
     {
       "version": "0.1",
@@ -234,6 +234,17 @@
       "tag": null,
       "pr": 54,
       "summary": "Eltiro 契约（ADR 0006）与观测值按发布时间查询（ADR 0007）于 2026-10-28 人审通过（集成任务 WISTERIA-901）；2026-10-30 随检查点 m0 同步进 main（PR #54，不打 tag）。",
+      "acceptance": null
+    },
+    {
+      "version": "0.4",
+      "id": "P1",
+      "title": "计划修订：取消 311（WTO 无商品双边）",
+      "status": "done",
+      "date": "2026-11-24",
+      "tag": null,
+      "pr": 196,
+      "summary": "核实 WTO Timeseries API 的 55 个指标，商品贸易只有对 World 等汇总的数据，没有国家对。取消 311；#003 的 WTO 一侧只取各国总额，双边镜像只用 UN Comtrade。",
       "acceptance": null
     },
     {
