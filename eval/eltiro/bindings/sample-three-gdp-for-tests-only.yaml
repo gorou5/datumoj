@@ -1,0 +1,9 @@
+# 仅供 tests/test_eltiro_cloud.py 使用的样例确认名单：对应录制样本里的序列，不是对真实 R2 数据的人工确认。
+# 真实运行的名单由负责人看过候选清单后另写，放在本目录。
+# 每条：需求 ID、指标 key、来源、指标代码、固定维度（只写需要限定的维度；候选多出的维度不限）。
+bindings:
+  - {demand: three-gdp-reconciliation, indicator: gdp_usd, source_id: intl-wdi, indicator_code: NY.GDP.MKTP.CD, dimensions: {}}
+  - {demand: three-gdp-reconciliation, indicator: gdp_lcu, source_id: intl-wdi, indicator_code: NY.GDP.MKTP.CN, dimensions: {}}
+  - {demand: three-gdp-reconciliation, indicator: gdp_usd, source_id: intl-imf-weo, indicator_code: NGDPD, dimensions: {}}
+  - {demand: three-gdp-reconciliation, indicator: gdp_lcu, source_id: intl-imf-weo, indicator_code: NGDP, dimensions: {}}
+  - {demand: three-gdp-reconciliation, indicator: gdp_usd, source_id: intl-oecd, indicator_code: B1GQ, dimensions: {UNIT_MEASURE: USD_EXC}}
