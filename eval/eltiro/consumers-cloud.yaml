@@ -1,0 +1,64 @@
+# Eltiro 使用方配置：Actions 上跑试点需求（scripts/eltiro_cloud.py）。脚本把本文件原样复制成数据目录里的 eltiro/consumers.yaml。
+#
+# 本次不调用任何模型：脚本不创建模型客户端、不传 router/provider，匹配固定 vector=False、model=False，输出包的 models 为空。
+# 下面的 models 只是“授权上限”，用来让需求原文通过收件检查（需求 #002 原文写 max_tier: medium、allow_cloud: true、
+# max_calls_per_run: 200；上限比需求低就会被判 model_forbidden，见 tests/test_eltiro_cloud.py）。
+# 所以这里没有写成“只允许 none”：那样 #002 会在收件时被拒绝。上限不等于调用；各来源的 cloud_model_ok 仍都是 false。
+consumers:
+  - id: example-analysis-site
+    inbox: consumer/inbox
+    outbox: consumer/outbox
+    # 全部已注册来源（sources/*.yaml，按字典序）；tests/test_eltiro_cloud.py 核对它与注册表一致。
+    allowed_sources:
+      - eu-data-europa
+      - eu-eurostat
+      - fr-data-gouv
+      - intl-comtrade
+      - intl-imf-weo
+      - intl-oecd
+      - intl-wdi
+      - intl-wto
+      - jp-abr
+      - jp-bodik
+      - jp-census
+      - jp-egov-data
+      - jp-egov-law
+      - jp-estat-api
+      - jp-estat-files
+      - jp-gov-web
+      - jp-jma
+      - jp-ksj
+      - jp-mhlw
+      - jp-stat-dashboard
+      - us-fedreg
+    # 来源许可仍以注册表为准：no_outflow 的来源在打包时会被许可闸门拦下。
+    accept_outflow: [raw_ok, derived_only]
+    models:
+      consumer: example-analysis-site
+      authorized_sources:
+        - eu-data-europa
+        - eu-eurostat
+        - fr-data-gouv
+        - intl-comtrade
+        - intl-imf-weo
+        - intl-oecd
+        - intl-wdi
+        - intl-wto
+        - jp-abr
+        - jp-bodik
+        - jp-census
+        - jp-egov-data
+        - jp-egov-law
+        - jp-estat-api
+        - jp-estat-files
+        - jp-gov-web
+        - jp-jma
+        - jp-ksj
+        - jp-mhlw
+        - jp-stat-dashboard
+        - us-fedreg
+      max_tier: medium
+      allow_cloud: true
+      allowed_providers: [none, claude_plan]
+    max_active_demands: 10
+    max_calls_per_run: 200

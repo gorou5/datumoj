@@ -319,3 +319,94 @@ def test_qa_question_path_is_passed_literally_via_environment(tmp_path):
     assert json.loads(response.stdout) == ["run", "--frozen", "python", "scripts/cloud_qa.py",
                                            str(tmp_path / "cloud-qa-data"), path, str(tmp_path / "cloud-qa-answers")]
     assert not (tmp_path / "injected").exists()
+
+
+def _eltiro_step():
+    return next(s for s in load(WORKFLOWS / "eltiro-run.yml")["jobs"]["run"]["steps"]
+                if s.get("name", "").startswith("Run Eltiro"))
+
+
+def _run_eltiro(tmp_path, demands, bindings=None):
+    uv = tmp_path / "uv"
+    uv.write_text(f"#!{sys.executable}\nimport json, sys\nprint(json.dumps(sys.argv[1:]))\n")
+    uv.chmod(0o755)
+    env = {**os.environ, "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"], "RUNNER_TEMP": str(tmp_path),
+           "DEMANDS": demands, **({} if bindings is None else {"BINDINGS": bindings})}
+    return subprocess.run(["bash", "--noprofile", "--norc", "-c", _eltiro_step()["run"]], cwd=tmp_path,
+                          env=env, capture_output=True, text=True, check=False)
+
+
+ELTIRO = ["run", "--frozen", "python", "scripts/eltiro_cloud.py"]
+
+
+def test_eltiro_run_is_manual_read_only_and_shares_the_cloud_concurrency_group():
+    workflow = load(WORKFLOWS / "eltiro-run.yml")
+    assert set(workflow["on"]) == {"workflow_dispatch"} and "schedule" not in workflow["on"]
+    inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+    assert set(inputs) == {"demands", "bindings"}
+    assert inputs["demands"]["default"] == "three-gdp-reconciliation" and inputs["demands"]["type"] == "string"
+    assert inputs["bindings"]["default"] == "" and inputs["bindings"]["type"] == "string"
+    assert workflow["concurrency"] == load(WORKFLOWS / "cloud-run.yml")["concurrency"]
+    assert workflow["permissions"] == {"contents": "read"}
+    job = workflow["jobs"]["run"]
+    assert set(workflow["jobs"]) == {"run"} and job["if"] == "github.repository == 'gorou5/datumoj'"
+    assert job["timeout-minutes"] == 90 and "permissions" not in job and "env" not in job
+    text = (WORKFLOWS / "eltiro-run.yml").read_text()
+    assert "pull_request" not in text and "ollama" not in text.lower()
+
+
+def test_eltiro_run_secrets_are_read_r2_env_only_on_the_script_step():
+    steps = load(WORKFLOWS / "eltiro-run.yml")["jobs"]["run"]["steps"]
+    command = next(s for s in steps if s.get("name", "").startswith("Run Eltiro"))
+    for key in SECRETS - {"ESTAT_APP_ID"}:
+        assert command["env"][key] == "${{ secrets." + key + " }}"
+    assert not any("secrets." in str(s) for s in steps if s is not command)
+    assert "ESTAT_APP_ID" not in str(steps) and "vars." not in str(steps)
+    assert command["env"]["DATUMOJ_RAW_BACKEND"] == "s3" and command["env"]["DATUMOJ_VECTORS"] == "off"
+    assert command["env"]["DEMANDS"] == "${{ inputs.demands }}" and command["env"]["BINDINGS"] == "${{ inputs.bindings }}"
+    assert command["shell"] == "bash" and "set -euo pipefail" in command["run"] and "${{" not in command["run"]
+    assert "scripts/eltiro_cloud.py" in command["run"] and "uv run --frozen" in command["run"]
+    for step in steps:
+        if "uses" in step:
+            assert re.fullmatch(r"[\w-]+/[\w-]+@[a-f0-9]{40}", step["uses"])
+    assert steps[:3] == load(WORKFLOWS / "cloud-qa.yml")["jobs"]["run"]["steps"][:3]
+
+
+def test_eltiro_run_uploads_only_the_output_directory_for_seven_days():
+    upload = load(WORKFLOWS / "eltiro-run.yml")["jobs"]["run"]["steps"][-1]
+    assert upload["uses"] == "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
+    assert upload["with"]["path"] == "${{ runner.temp }}/eltiro-output"
+    assert upload["with"]["retention-days"] == 7 and upload["with"]["if-no-files-found"] == "error"
+    assert "eltiro-data" not in str(upload)
+
+
+@pytest.mark.parametrize("demands,bindings,extra", [
+    ("three-gdp-reconciliation", None, []),
+    ("three-gdp-reconciliation", "", []),
+    ("a1,b-2", "sample-list.v1.yaml", ["--bindings=eval/eltiro/bindings/sample-list.v1.yaml"]),
+])
+def test_eltiro_run_inputs_become_literal_arguments(tmp_path, demands, bindings, extra):
+    response = _run_eltiro(tmp_path, demands, bindings)
+    assert response.returncode == 0 and response.stderr == ""
+    assert json.loads(response.stdout) == [*ELTIRO, str(tmp_path / "eltiro-data"), str(tmp_path / "eltiro-output"),
+                                           f"--demands={demands}", *extra]
+
+
+@pytest.mark.parametrize("demands", [
+    "", "a b", "a;touch injected", "$(touch injected)", "a$b", "../x", "a/b", "-x", "a,,b", ",a", "a,", "A",
+    "a\nb", "a`touch injected`", "a,b c",
+])
+def test_eltiro_run_rejects_unsafe_demand_inputs(tmp_path, demands):
+    response = _run_eltiro(tmp_path, demands)
+    assert response.returncode != 0 and response.stdout == ""
+    assert not (tmp_path / "injected").exists()
+
+
+@pytest.mark.parametrize("bindings", [
+    "a b.yaml", "a;b.yaml", "$x.yaml", "../x.yaml", "a/b.yaml", "..yaml", "a..b.yaml", ".hidden.yaml", "list.yml",
+    "list.txt", "list", "list.yaml\n", "$(touch injected).yaml", "-x.yaml", "ü.yaml",
+])
+def test_eltiro_run_rejects_unsafe_bindings_inputs(tmp_path, bindings):
+    response = _run_eltiro(tmp_path, "three-gdp-reconciliation", bindings)
+    assert response.returncode != 0 and response.stdout == ""
+    assert not (tmp_path / "injected").exists()
