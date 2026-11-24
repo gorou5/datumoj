@@ -3,11 +3,13 @@
 import json
 from datetime import date
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from datumoj.eltiro.models import SeriesIdentity
 from datumoj.eltiro.profile_store import SQLiteProfileStore
-from datumoj.eltiro.profiles import generate_profiles
+from datumoj.eltiro.profiles import _profile, generate_profiles
 from datumoj.rikolto.parsers.eurostat import EurostatParser, read_structure
 from datumoj.rikolto.parsers.oecd_sdmx import OecdSdmxParser
 from datumoj.rikolto.testing.fakes import FakeCatalogStore, FakeChunkStore, FakeObservationStore, FakeRegistry
@@ -230,3 +232,138 @@ def test_profile_reads_use_the_batch_timeout_and_a_timeout_still_propagates(inpu
     assert len(ok.timeouts) == 2 and set(ok.timeouts) == {BATCH_QUERY_TIMEOUT_S}
     with pytest.raises(QueryTimeout):
         generate_profiles(2, **{**inputs, "observations": Timed(backing, BATCH_QUERY_TIMEOUT_S + 1)})
+
+
+# 324: real data over the model caps is cut to them; a unit that still fails can be skipped on request.
+def _langs(count):
+    return [f"l{chr(97 + i // 26)}{chr(97 + i % 26)}" for i in range(count)]
+
+
+def test_over_cap_texts_and_lists_are_cut_and_other_profiles_stay_verbatim(inputs):
+    langs = _langs(33)
+    concepts = [{"scheme": "x", "code": f"c{i:03d}"} for i in range(300)]
+    inputs["catalog"].upsert([
+        make_dataset("jp-stat:wide", "Wide", description="d" * 5000, extras={
+            "language": "ja", "concept_ids": concepts, "methodology": "m" * 5000, "unit": "u" * 300,
+            "title_translated": {**{lang: "n" * 300 for lang in langs}, "en": "short name"},
+            "notes_translated": {lang: "t" * 5000 for lang in langs}}),
+        make_dataset("jp-stat:plain", "Plain", description="plain text", extras={"language": "ja"}),
+    ])
+    profiles = {p.series.table_key: p for p in generate_profiles(1, **inputs)}
+    wide, plain = profiles["catalog:jp-stat:wide"], profiles["catalog:jp-stat:plain"]
+    # 33 codes + "en" + "ja" = 35 languages; kept: the first 32 codes in sorted order.
+    assert sorted(wide.names) == sorted([*langs, "en", "ja"])[:32]
+    assert all(len(v) <= 256 for v in wide.names.values()) and wide.names["en"] == "short name"
+    assert wide.names[langs[0]] == "n" * 256
+    assert len(wide.descriptions) == 32 and all(len(v) == 4096 for v in wide.descriptions.values())
+    assert wide.methodology == "m" * 4096 and wide.unit == "u" * 256
+    assert [c.code for c in wide.concept_ids] == [f"c{i:03d}" for i in range(256)]
+    assert wide.series.indicator == "Wide"
+    assert plain.names == {"ja": "Plain"} and plain.descriptions == {"ja": "plain text"}
+    assert plain.concept_ids == [] and plain.methodology is None and plain.unit is None
+
+
+def test_an_exactly_capped_text_is_unchanged_and_a_blank_one_is_dropped(inputs):
+    inputs["catalog"].upsert([make_dataset("jp-stat:edge", "Edge", description="e" * 4096, extras={
+        "language": "ja", "title_translated": {"en": "n" * 256, "fr": "   "}, "methodology": "   ", "unit": " "})])
+    (profile,) = generate_profiles(1, **inputs)
+    assert profile.names == {"en": "n" * 256, "ja": "Edge"} and profile.descriptions == {"ja": "e" * 4096}
+    assert profile.methodology is None and profile.unit is None
+
+
+def test_names_that_end_up_empty_fall_back_to_the_indicator(inputs):
+    series = SeriesIdentity(source_id="jp-stat", table_key="t", indicator="x" * 256)
+    profile = _profile(series, names={"en": "  "}, frequency="irregular", availability="catalog_only", generation=1)
+    assert profile.names == {"und": "x" * 256}
+    # Through the public entry: the translation under the dataset's own language is blank after the cut.
+    inputs["catalog"].upsert([make_dataset("jp-stat:t", "T", extras={"language": "ja", "title_translated": {
+        "ja": " " * 300}})])
+    (profile,) = generate_profiles(1, **inputs)
+    assert profile.names == {"und": "T"}
+
+
+def _conflicting(inputs):
+    inputs["observations"].write_table("jp-stat", "bad", [
+        make_observation("b1", "1", table_key="bad"), make_observation("b2", "2", table_key="bad", unit="千人")])
+    inputs["observations"].write_table("jp-stat", "good", [make_observation("g1", "1", table_key="good")])
+
+
+def test_conflicts_still_fail_by_default_and_skip_only_when_asked(inputs):
+    _conflicting(inputs)
+    with pytest.raises(ValueError, match="conflicting source units"):
+        generate_profiles(1, **inputs)
+    assert inputs["store"].list(1) == []
+    skipped = []
+    profiles = generate_profiles(1, **inputs, skipped=skipped)
+    assert [p.series.table_key for p in profiles] == ["good"]
+    assert skipped == [{"unit": json.dumps(["observations", "jp-stat", "bad"], separators=(",", ":")),
+                        "error": "conflict", "fields": ["units"]}]
+    assert [p.series.table_key for p in inputs["store"].list(1)] == ["good"]
+
+
+def test_validation_errors_are_reported_by_location_without_input(inputs):
+    inputs["catalog"].upsert([make_dataset("jp-stat:bad", "Bad", extras={"language": "ja", "frequency": "sometimes"}),
+                              make_dataset("jp-stat:fine", "Fine")])
+    with pytest.raises(ValueError):
+        generate_profiles(1, **inputs)
+    skipped = []
+    assert [p.series.indicator for p in generate_profiles(1, **inputs, skipped=skipped)] == ["Fine"]
+    (item,) = skipped
+    assert item["error"] == "ValidationError" and item["fields"] and "sometimes" not in json.dumps(item)
+
+
+def test_a_skipped_unit_is_not_cached_and_is_retried_next_generation(inputs):
+    _conflicting(inputs)
+    skipped = []
+    generate_profiles(1, **inputs, skipped=skipped)
+    assert len(skipped) == 1
+    # Same data: the good unit comes from the cache, the skipped one is attempted (and reported) again.
+    again = []
+    profiles = generate_profiles(2, **inputs, previous_generation=1, skipped=again)
+    assert again == skipped and [p.series.table_key for p in profiles] == ["good"]
+    inputs["observations"].write_table("jp-stat", "bad", [make_observation("b1", "1", table_key="bad")])
+    retry = []
+    profiles = generate_profiles(3, **inputs, previous_generation=2, skipped=retry)
+    assert retry == [] and sorted(p.series.table_key for p in profiles) == ["bad", "good"]
+
+
+def test_texts_that_are_blank_only_after_the_cut_are_dropped(inputs):
+    inputs["catalog"].upsert([make_dataset("jp-stat:cut", "Cut", description=" " * 4096 + "tail", extras={
+        "language": "ja", "title_translated": {"en": " " * 300 + "tail"}, "methodology": " " * 5000 + "tail"})])
+    (profile,) = generate_profiles(1, **inputs)
+    assert profile.descriptions == {} and profile.methodology is None and profile.names == {"ja": "Cut"}
+
+
+def test_generation_level_errors_are_never_skipped(inputs):
+    inputs["catalog"].upsert([make_dataset("jp-other:item", "Source title")])
+    with pytest.raises(ValueError, match="unregistered profile source"):
+        generate_profiles(1, **inputs, skipped=[])
+    assert inputs["store"].list(1) == []
+
+    class NoProvenance:
+        def __init__(self, backing):
+            self.backing = backing
+
+        def describe(self):
+            return self.backing.describe()
+
+        def query_readonly(self, sql, *args, **kwargs):
+            result = self.backing.query_readonly(sql, *args, **kwargs)
+            if sql.startswith("SELECT * "):
+                return SimpleNamespace(columns=result.columns, rows=result.rows, provenance=[])
+            return result
+
+    class Orphan:
+        def iter_chunks(self):
+            return [SimpleNamespace(doc_key="jp-stat:doc", snapshot_sha256="ab" * 32)]
+
+        def get_document(self, *key):
+            return None
+
+    inputs["catalog"] = FakeCatalogStore()
+    with pytest.raises(ValueError, match="chunk has no source document"):
+        generate_profiles(1, **{**inputs, "chunks": Orphan()}, skipped=[])
+    inputs["observations"].write_table("jp-stat", "t1", [make_observation("one", "1")])
+    with pytest.raises(ValueError, match="complete observation provenance"):
+        generate_profiles(1, **{**inputs, "observations": NoProvenance(inputs["observations"])}, skipped=[])
+    assert inputs["store"].list(1) == []

@@ -232,9 +232,15 @@ def execute(root, ids, sources, bindings, output, generation, mark, counts, mode
             if GenerationToken.parse(token).generation != generation:
                 raise Failure("generation_mismatch")
             summary["generation_token"] = token
+            skipped = []
             counts["profiles"] = len(generate_profiles(
                 generation, observations=views.observations, catalog=views.catalog, chunks=views.chunks,
-                registry=registry, store=profiles))
+                registry=registry, store=profiles, skipped=skipped))
+            # Unit keys and error kinds only: no input values, no source text.
+            counts["skipped_units"] = len(skipped)
+            summary["skipped_units"] = {"total": len(skipped), "units": [
+                {"unit": cap(item["unit"]), "error": item["error"], "fields": [cap(f) for f in item["fields"]]}
+                for item in skipped[:100]]}
             for demand_id, demand in active.items():
                 match_demand(demand, generation, profiles=profiles, consumer=consumers[demand.consumer],
                              observations=views.observations, catalog=views.catalog, chunks=views.chunks,
@@ -356,7 +362,7 @@ def where(exc):
 def run(data_dir, demand_ids, bindings_path, output, *, demands_dir=DEMANDS_DIR, bindings_dir=BINDINGS_DIR):
     started = monotonic()
     counts = {"demands": 0, "accepted": 0, "profiles": 0, "candidates": 0, "confirmed": 0, "runs": 0,
-              "refused": 0, "packages": 0}
+              "refused": 0, "packages": 0, "skipped_units": 0}
     result = {"phase": "arguments", "generation": None, "error_code": None, "exit_status": 1}
     with quiet() as out:
         def mark(phase, **numbers):
