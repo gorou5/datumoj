@@ -326,6 +326,8 @@ def test_restore_failures_report_only_fixed_codes(cloud, data, tmp_path, monkeyp
     captured = capfd.readouterr()
     assert (result["exit_status"], result["error_code"], result["phase"]) == (1, "restore_failed", "restore")
     assert "secret-endpoint" not in captured.out + captured.err and not (tmp_path / "out").exists()
+    assert result["error_type"] == "RuntimeError" and result["error_at"].startswith("scripts/eltiro_cloud.py:")
+    assert "secret-endpoint" not in json.dumps(result)
 
 
 def test_token_of_another_generation_is_refused(cloud, data, tmp_path, monkeypatch):

@@ -15,6 +15,7 @@ import json
 import os
 import re
 import shutil
+import traceback
 from pathlib import Path
 from time import monotonic
 
@@ -321,6 +322,21 @@ def execute(root, ids, sources, bindings, output, generation, mark, counts, mode
     (output / "summary.md").write_text(markdown(summary), encoding="utf-8")
 
 
+def where(exc):
+    """Exception class chain and the innermost repository frame: no message, no values, no absolute paths."""
+    chain, seen = [], exc
+    while seen is not None and len(chain) < 4:
+        chain.append(type(seen).__name__)
+        seen = seen.__cause__ or seen.__context__
+    frames = []
+    for frame in traceback.extract_tb(exc.__traceback__):
+        path = Path(frame.filename).resolve()
+        if any(path.is_relative_to(ROOT / part) for part in ("src", "scripts")):
+            frames.append(f"{path.relative_to(ROOT)}:{frame.lineno}")
+    at = frames[-1] if frames else None
+    return {"error_type": "<-".join(chain), "error_at": at}
+
+
 def run(data_dir, demand_ids, bindings_path, output, *, demands_dir=DEMANDS_DIR, bindings_dir=BINDINGS_DIR):
     started = monotonic()
     counts = {"demands": 0, "accepted": 0, "profiles": 0, "candidates": 0, "confirmed": 0, "runs": 0,
@@ -351,6 +367,8 @@ def run(data_dir, demand_ids, bindings_path, output, *, demands_dir=DEMANDS_DIR,
         except Exception as exc:  # noqa: BLE001 -- Only fixed phases, fixed codes and counts cross the public boundary.
             result["exit_status"] = 1
             result["error_code"] = str(exc) if isinstance(exc, Failure) else f"{result['phase']}_failed"
+            if not isinstance(exc, Failure):
+                result.update(where(exc))
     return {**result, **counts}
 
 
