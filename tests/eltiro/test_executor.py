@@ -210,6 +210,19 @@ def test_safe_gaps(tmp_path, metadata, changes, reason):
     assert reason in {g["reason"] for g in gaps}
 
 
+@pytest.mark.parametrize("scheme,expected", [("ISO3166-1-alpha3", None), (None, "unknown_area_scheme")])
+def test_series_with_more_areas_than_the_cap_needs_a_declared_scheme(tmp_path, scheme, expected):
+    rows = [observation(obs_id=f"obs-{i}", area_code=f"Z{i:04d}") for i in range(257)]
+    rows.append(observation(obs_id="obs-jpn", area_code="JPN"))
+    store, registry = seed(tmp_path, [rows], metadata={"area_code_scheme": scheme})
+    publish(store)
+    data, _, gaps = outputs(tmp_path, run(tmp_path, registry))
+    if expected is None:
+        assert [r["value"] for r in data] == [Decimal(10)] and not gaps
+    else:
+        assert expected in {g["reason"] for g in gaps}
+
+
 def test_explicit_rescale_and_source_spread_with_full_citations(tmp_path):
     store, registry = seed(tmp_path, [[observation("10")], [observation("20", source="intl-oecd")]])
     publish(store)

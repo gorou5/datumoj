@@ -47,6 +47,18 @@ def test_series_dimensions_coverage_and_source_scale(inputs):
     assert inputs["observations"].query_readonly("SELECT * FROM observations").provenance == rows
 
 
+@pytest.mark.parametrize("count,listed", [(256, True), (257, False)])
+def test_areas_over_the_cap_are_not_listed_and_other_series_are_unaffected(inputs, count, listed):
+    inputs["observations"].write_table("jp-stat", "wide", [
+        make_observation(f"w{i}", "1", table_key="wide", indicator_code="WIDE", area_code=f"A{i:04d}")
+        for i in range(count)])
+    inputs["observations"].write_table("jp-stat", "narrow", [
+        make_observation("n1", "1", table_key="narrow", indicator_code="NARROW")])
+    profiles = {p.series.table_key: p for p in generate_profiles(1, **inputs)}
+    assert profiles["wide"].areas == (sorted(f"A{i:04d}" for i in range(count)) if listed else [])
+    assert profiles["narrow"].areas == ["13000"]
+
+
 def test_parser_declared_scales_reach_profiles_and_mixed_datasets_stay_unconfirmed(inputs):
     # 317: recorded samples through the real parsers; the scale is whatever the parser declared (or nothing).
     fixtures = Path("tests/fixtures")
