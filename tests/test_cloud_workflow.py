@@ -350,7 +350,7 @@ def test_eltiro_run_is_manual_read_only_and_shares_the_cloud_concurrency_group()
     assert workflow["permissions"] == {"contents": "read"}
     job = workflow["jobs"]["run"]
     assert set(workflow["jobs"]) == {"run"} and job["if"] == "github.repository == 'gorou5/datumoj'"
-    assert job["timeout-minutes"] == 90 and "permissions" not in job and "env" not in job
+    assert job["timeout-minutes"] == 180 and "permissions" not in job and "env" not in job
     text = (WORKFLOWS / "eltiro-run.yml").read_text()
     assert "pull_request" not in text and "ollama" not in text.lower()
 
