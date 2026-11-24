@@ -1,0 +1,1268 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>DATUMOJ 阶段汇报</title>
+<link rel="stylesheet" href="assets/fonts.css">
+<style>
+/* 布局：固定的 three.js 粒子层在后，内容按章节滚动；粒子在每节换成对应的家纹或图形，内容与粒子左右错开 */
+:root {
+  color-scheme: dark;
+  --ink: #06080f;        /* 紺：底色 */
+  --ink-2: #0d1122;      /* 面板 */
+  --paper: #ece5d3;      /* 生成り：正文 */
+  --mute: #9196ad;
+  --faint: #5c6179;
+  --line: rgba(236, 229, 211, .12);
+  --line-2: rgba(236, 229, 211, .22);
+  --kin: #d9b46a;        /* 金 */
+  --tsuta: #8ad6a6;      /* 蔦 */
+  --tachi: #f2a541;      /* 橘 */
+  --kaede: #ea5a43;      /* 楓 */
+  --fuji: #a98fdc;       /* 藤 */
+  --ai: #7fb2f0;         /* 藍 */
+  --claude: #e8946b;
+  --codex: #7fb2f0;
+  --nebula: #8a96c8;
+  --acc: var(--kin);
+
+  --f-display: "Noto Serif SC", "Shippori Mincho B1", "Songti SC", "STSong", serif;
+  --f-mincho: "Shippori Mincho B1", "Noto Serif SC", "Hiragino Mincho ProN", serif;
+  --f-body: "Noto Sans SC", "PingFang SC", "Hiragino Sans", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --t-xs: 12px; --t-sm: 14px; --t-base: 16.5px; --t-md: 19px; --t-lg: 26px;
+  --t-xl: clamp(32px, 4.2vw, 54px);
+  --t-xxl: clamp(46px, 6.1vw, 104px);
+}
+body { background: var(--ink); color: var(--paper); font: 400 var(--t-base)/1.75 var(--f-body); overflow-x: hidden; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--ink); }
+::selection { background: var(--kin); color: var(--ink); }
+a { color: var(--kin); }
+:focus-visible { outline: 2px solid var(--kin); outline-offset: 3px; }
+
+#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+.no-gl #gl { display: none; }
+.no-gl body, html.no-gl { background: radial-gradient(1200px 700px at 75% 30%, rgba(217,180,106,.10), transparent 60%), var(--ink); }
+.grain { position: fixed; inset: -50%; z-index: 1; pointer-events: none; opacity: .05; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+@keyframes grain { 0%{transform:translate(0,0)} 25%{transform:translate(-3%,2%)} 50%{transform:translate(2%,-3%)} 75%{transform:translate(-2%,-1%)} 100%{transform:translate(0,0)} }
+.vignette { position: fixed; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(3,4,9,.75) 100%); }
+
+main, .topbar, .rail, .kamon-label { position: relative; z-index: 2; }
+
+/* 顶栏 */
+.topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 5;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px));
+  background: linear-gradient(to bottom, rgba(6,8,15,.85), rgba(6,8,15,0)); }
+.topbar-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 60px; }
+.mark { display: flex; align-items: center; gap: 12px; font: 800 17px/1 var(--f-mincho); letter-spacing: .22em; color: var(--paper); text-decoration: none; }
+.mark canvas { width: 26px; height: 26px; }
+.top-meta { display: flex; align-items: center; gap: 14px; font: 500 var(--t-xs)/1 var(--f-mono); color: var(--mute); letter-spacing: .06em; }
+.chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 11px; border: 1px solid var(--line-2); border-radius: 999px; white-space: nowrap; }
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--acc); transition: background .6s; }
+.progress { position: absolute; left: 0; bottom: 0; height: 1px; width: 100%; background: var(--line); }
+.progress i { display: block; height: 100%; width: 0; background: var(--acc); box-shadow: 0 0 8px var(--acc); transition: background .6s; }
+@media (max-width: 640px) { .top-meta .hide-s { display: none; } }
+
+/* 右侧导航 */
+.rail { position: fixed; right: max(22px, env(safe-area-inset-right, 0px)); top: 50%; transform: translateY(-50%); z-index: 4; display: flex; flex-direction: column; gap: 6px; }
+.rail a { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 4px 0; text-decoration: none; color: var(--faint); font: 500 var(--t-xs)/1 var(--f-body); letter-spacing: .1em; }
+.rail a span { opacity: 0; transform: translateX(6px); transition: .3s; }
+.rail a i { width: 8px; height: 8px; border: 1px solid var(--faint); transform: rotate(45deg); transition: .35s; }
+.rail a:hover span, .rail a.on span { opacity: 1; transform: none; }
+.rail a.on { color: var(--paper); }
+.rail a.on i { background: var(--acc); border-color: var(--acc); box-shadow: 0 0 12px var(--acc); }
+@media (max-width: 960px) { .rail { display: none; } }
+
+/* 左下竖排家纹名 */
+.kamon-label { position: fixed; left: max(22px, env(safe-area-inset-left, 0px)); bottom: max(28px, env(safe-area-inset-bottom, 0px)); z-index: 4;
+  writing-mode: vertical-rl; font: 600 15px/1.2 var(--f-mincho); letter-spacing: .38em; color: var(--acc); transition: color .6s; display: flex; gap: 14px; align-items: center; }
+.kamon-label small { font: 400 10px/1 var(--f-mono); letter-spacing: .3em; color: var(--mute); }
+.kamon-label::before { content: ""; width: 1px; height: 56px; background: linear-gradient(var(--acc), transparent); }
+@media (max-width: 960px) { .kamon-label { display: none; } }
+
+/* 通用 */
+.sec { position: relative; padding-block: clamp(96px, 15vh, 170px); }
+.wrap { max-width: 1280px; margin: 0 auto; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); }
+@media (max-width: 480px) { .wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); } }
+.split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(32px, 5vw, 72px); align-items: center; }
+.split > * { min-width: 0; }
+.split.flip > .content { grid-column: 2; grid-row: 1; }
+/* 内容栏占约六成，粒子栏只作陪衬 */
+@media (min-width: 901px) { .split { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); } .split.flip { grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr); } .split.flip > .content { padding-right: 28px; } }
+@media (max-width: 900px) { .split { grid-template-columns: minmax(0, 1fr); } .split.flip > .content { grid-column: 1; } .split > .ghost { display: none; } }
+
+.eyebrow { display: flex; align-items: center; gap: 12px; font: 600 var(--t-xs)/1 var(--f-mono); letter-spacing: .22em; text-transform: uppercase; color: var(--acc); transition: color .6s; }
+.eyebrow::before { content: ""; width: 28px; height: 1px; background: currentColor; }
+h2 { font: 900 var(--t-xl)/1.18 var(--f-display); letter-spacing: .01em; margin: 18px 0 20px; text-wrap: balance; }
+h3 { font: 900 var(--t-lg)/1.3 var(--f-display); margin: 0 0 12px; text-wrap: balance; }
+p { margin: 0 0 1em; max-width: 62ch; }
+.lead { font-size: var(--t-md); color: var(--paper); max-width: 34em; }
+.muted { color: var(--mute); }
+.mono { font-family: var(--f-mono); }
+.jp { font-family: var(--f-mincho); }
+.tnum { font-variant-numeric: tabular-nums; }
+.shadow-text { text-shadow: 0 2px 24px rgba(6,8,15,.9), 0 0 2px rgba(6,8,15,.8); }
+
+/* 入场 */
+.rv.armed { opacity: .12; transform: translateY(26px); filter: blur(5px); }
+.rv.armed.in { opacity: 1; transform: none; filter: none; transition: opacity 1s cubic-bezier(.2,.7,.1,1) var(--d, 0s), transform 1.1s cubic-bezier(.2,.7,.1,1) var(--d, 0s), filter 1s var(--d, 0s); }
+
+/* HERO */
+.hero { min-height: min(100vh, 980px); display: flex; align-items: center; padding-block: 120px 80px; }
+.hero .content { position: relative; }
+.hero h1 { font: 800 var(--t-xxl)/.92 var(--f-mincho); letter-spacing: .03em; margin: 26px 0 0; display: flex; align-items: flex-start; gap: .12em; white-space: nowrap; }
+.hero h1 .word { flex: none; padding-right: .04em;
+  background: linear-gradient(100deg, var(--paper) 0%, var(--paper) 45%, var(--kin) 70%, var(--paper) 100%); background-size: 240% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: sheen 18s ease-in-out infinite; text-shadow: none; }
+@keyframes sheen { 0%,100% { background-position: 100% 0 } 50% { background-position: 0 0 } }
+.hero h1 .tate { writing-mode: vertical-rl; font: 600 clamp(14px, 1.6vw, 22px)/1 var(--f-display); letter-spacing: .5em; color: var(--kin); -webkit-text-fill-color: var(--kin); margin-top: .3em; }
+.hero .esp { font: 400 var(--t-sm)/1.6 var(--f-mono); color: var(--mute); margin: 18px 0 28px; letter-spacing: .04em; }
+.hero .esp b { color: var(--paper); font-weight: 600; }
+.vers { display: flex; flex-wrap: wrap; gap: 10px; margin: 30px 0 0; padding: 0; list-style: none; }
+.vers li { display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 8px; border: 1px solid var(--line-2); border-radius: 999px; background: rgba(13,17,34,.55); backdrop-filter: blur(6px); font-size: var(--t-sm); }
+.vers canvas { width: 26px; height: 26px; }
+.vers b { font-family: var(--f-mincho); font-size: 17px; }
+.vers em { font-style: normal; font: 500 11px/1 var(--f-mono); letter-spacing: .08em; color: var(--mute); }
+.stats-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin-top: 46px; border-top: 1px solid var(--line); max-width: 640px; }
+.stats-row div { padding: 16px 16px 0 0; }
+.stats-row b { display: block; font: 600 clamp(26px, 3.2vw, 38px)/1 var(--f-mono); color: var(--paper); font-variant-numeric: tabular-nums; }
+.stats-row span { font-size: var(--t-xs); color: var(--mute); letter-spacing: .08em; }
+@media (max-width: 560px) { .stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 14px; } }
+.cue { margin-top: 54px; display: inline-flex; align-items: center; gap: 14px; font: 500 var(--t-xs)/1 var(--f-mono); color: var(--mute); letter-spacing: .14em; }
+.cue i { width: 1px; height: 44px; background: linear-gradient(var(--kin), transparent); position: relative; overflow: hidden; }
+.cue i::after { content: ""; position: absolute; left: -1px; width: 3px; height: 12px; background: var(--kin); animation: drip 2.2s ease-in infinite; }
+@keyframes drip { from { top: -12px } to { top: 44px } }
+kbd { font: 600 11px/1 var(--f-mono); padding: 3px 6px; border: 1px solid var(--line-2); border-radius: 4px; color: var(--paper); }
+
+/* WHY */
+.compare { margin-top: 44px; display: grid; gap: 0; border-top: 1px solid var(--line); }
+.cmp-head, .cmp-row { display: grid; grid-template-columns: minmax(0, 1fr) 54px minmax(0, 1fr); gap: 18px; align-items: center; }
+.cmp-head { padding: 14px 0; font: 600 var(--t-xs)/1 var(--f-mono); letter-spacing: .18em; color: var(--mute); }
+.cmp-head span:last-child { color: var(--kin); }
+.cmp-row { padding: 22px 0; border-top: 1px solid var(--line); }
+.cmp-row .old { color: var(--mute); text-decoration: line-through; text-decoration-color: rgba(234,90,67,.55); text-decoration-thickness: 1px; }
+.cmp-row .new { color: var(--paper); }
+.cmp-row .arrow { height: 1px; background: linear-gradient(90deg, transparent, var(--kin)); position: relative; }
+.cmp-row .arrow::after { content: ""; position: absolute; right: 0; top: -3px; width: 7px; height: 7px; border-top: 1px solid var(--kin); border-right: 1px solid var(--kin); transform: rotate(45deg); }
+@media (max-width: 720px) { .cmp-head { display: none; } .cmp-row { grid-template-columns: minmax(0,1fr); gap: 8px; } .cmp-row .arrow { width: 54px; } }
+.keep { margin-top: 48px; display: flex; flex-wrap: wrap; gap: 10px; }
+.keep span { padding: 8px 14px; border: 1px solid var(--line-2); border-radius: 3px; font-size: var(--t-sm); background: rgba(13,17,34,.5); }
+.keep-label { width: 100%; font: 600 var(--t-xs)/1 var(--f-mono); letter-spacing: .18em; color: var(--mute); margin-bottom: 4px; }
+
+/* ARCH */
+.pipeline { margin-top: 56px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0; position: relative; }
+.pipeline::before { content: ""; position: absolute; left: 0; right: 0; top: 23px; height: 1px; background: var(--line-2); }
+.pipeline::after { content: ""; position: absolute; left: 0; top: 22px; height: 3px; width: 18%; background: linear-gradient(90deg, transparent, var(--kin), transparent); animation: pulse-run 7s linear infinite; opacity: .6; }
+@keyframes pulse-run { from { left: -18% } to { left: 100% } }
+.stage { position: relative; padding: 0 14px 0 0; }
+.stage .n { width: 46px; height: 46px; display: grid; place-items: center; border: 1px solid var(--kin); background: var(--ink); transform: rotate(45deg); margin: 0 0 26px; position: relative; z-index: 1; transition: background .3s, box-shadow .3s; }
+.stage .n b { transform: rotate(-45deg); font: 600 15px/1 var(--f-mono); color: var(--kin); }
+.stage:hover .n { background: var(--kin); box-shadow: 0 0 22px var(--kin); }
+.stage:hover .n b { color: var(--ink); }
+.stage h4 { font: 900 var(--t-md)/1.3 var(--f-display); margin: 0 0 4px; }
+.stage .en { font: 500 11px/1 var(--f-mono); letter-spacing: .12em; color: var(--kin); text-transform: uppercase; display: block; margin-bottom: 10px; }
+.stage p { font-size: var(--t-sm); color: var(--mute); line-height: 1.65; }
+@media (max-width: 1000px) { .pipeline { grid-template-columns: minmax(0,1fr); gap: 22px; } .pipeline::before { left: 22px; right: auto; top: 0; bottom: 0; width: 1px; height: auto; } .pipeline::after { display: none; } .stage { display: grid; grid-template-columns: 46px minmax(0,1fr); gap: 22px; } .stage .n { margin: 0; } }
+.cite-box { margin-top: 64px; padding: 26px 28px; border: 1px solid var(--line-2); background: rgba(9,12,24,.72); backdrop-filter: blur(8px); border-radius: 4px; overflow-x: auto; }
+.cite-box .label { font: 600 var(--t-xs)/1 var(--f-mono); letter-spacing: .18em; color: var(--mute); margin-bottom: 14px; }
+.formula { font: 600 clamp(14px, 1.7vw, 20px)/1.6 var(--f-mono); white-space: nowrap; }
+.formula .k { color: var(--kin); }
+.formula .op { color: var(--faint); padding: 0 .35em; }
+.formula .caret { display: inline-block; width: .55em; height: 1.1em; background: var(--kin); vertical-align: -0.18em;  }
+@keyframes blink { 50% { opacity: 0 } }
+.locs { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; }
+.locs code { font: 400 var(--t-xs)/1 var(--f-mono); padding: 7px 10px; border: 1px dashed var(--line-2); border-radius: 3px; color: var(--paper); white-space: nowrap; }
+.stack { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 8px 22px; font: 400 var(--t-xs)/1.8 var(--f-mono); color: var(--mute); }
+.stack b { color: var(--paper); font-weight: 600; }
+
+/* RULES */
+.rules { list-style: none; margin: 36px 0 0; padding: 0; display: grid; gap: 0; }
+.rules li { display: grid; grid-template-columns: 108px minmax(0, 1fr); gap: 18px; padding: 18px 0; border-top: 1px solid var(--line); }
+.rules li b { font: 900 var(--t-md)/1.4 var(--f-display); color: var(--acc); transition: color .6s; }
+.rules li span { color: var(--paper); font-size: 15.5px; }
+.rules code, .card code, p code { font: 400 .9em var(--f-mono); color: var(--kin); }
+@media (max-width: 480px) { .rules li { grid-template-columns: minmax(0,1fr); gap: 4px; } }
+.card { border: 1px solid var(--line-2); background: rgba(9,12,24,.78); backdrop-filter: blur(10px); border-radius: 6px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,.45); }
+.card-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); font: 500 var(--t-xs)/1.3 var(--f-mono); color: var(--mute); }
+.card-top .lights { display: flex; gap: 6px; } .card-top .lights i { width: 9px; height: 9px; border-radius: 50%; background: var(--line-2); }
+.card-q { padding: 18px 18px 6px; font: 600 var(--t-md)/1.5 var(--f-mincho); }
+.card-q::before { content: "Q"; font: 600 var(--t-xs)/1 var(--f-mono); color: var(--kin); margin-right: 10px; vertical-align: 3px; }
+.card-call { padding: 0 18px 12px; font: 400 var(--t-xs)/1.7 var(--f-mono); color: var(--mute); }
+.card-call b { color: var(--ai); font-weight: 600; }
+.tbl-wrap { overflow-x: auto; }
+.tbl { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+.tbl th { text-align: left; font: 500 11px/1 var(--f-mono); letter-spacing: .1em; color: var(--faint); padding: 10px 18px; border-top: 1px solid var(--line); }
+.tbl td { padding: 12px 18px; border-top: 1px solid var(--line); white-space: nowrap; }
+.tbl td.num { font: 600 var(--t-sm) var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.tbl .jp { font-size: 15px; }
+.badge { display: inline-block; font: 600 10.5px/1 var(--f-mono); letter-spacing: .08em; padding: 4px 7px; border-radius: 3px; border: 1px solid currentColor; }
+.badge.proven { color: var(--tsuta); }
+.loc { font: 400 11.5px/1 var(--f-mono); color: var(--kin); }
+.card-foot { padding: 14px 18px 18px; border-top: 1px solid var(--line); font-size: var(--t-xs); color: var(--mute); line-height: 1.7; }
+.gaps { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.gaps span { padding: 5px 10px; border: 1px solid var(--line-2); border-radius: 999px; font-size: 12px; color: var(--paper); }
+.nots { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: var(--t-sm); color: var(--mute); }
+.nots span::before { content: "✕"; color: var(--kaede); margin-right: 8px; font-size: 11px; }
+
+/* JOURNEY */
+.journey-head { padding-block: clamp(96px, 14vh, 160px) 0; }
+.stepper { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 64px); z-index: 3; padding-block: 12px; }
+.stepper ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; max-width: 780px; border-top: 1px solid var(--line-2); }
+.stepper li { padding-top: 10px; position: relative; font: 500 var(--t-xs)/1.2 var(--f-mono); color: var(--faint); letter-spacing: .08em; transition: color .4s; }
+.stepper li::before { content: ""; position: absolute; left: 0; top: -1px; height: 1px; width: 0; background: var(--c); box-shadow: 0 0 8px var(--c); transition: width .7s cubic-bezier(.2,.7,.1,1); }
+.stepper li b { font: 600 15px/1 var(--f-mincho); margin-right: 8px; }
+.stepper li.on, .stepper li.done { color: var(--paper); }
+.stepper li.on::before, .stepper li.done::before { width: 100%; }
+.chapter { min-height: 100vh; display: flex; align-items: center; padding-block: 90px; position: relative; }
+.chapter .content { position: relative; }
+.chapter .kanji { position: absolute; z-index: -1; top: 50%; transform: translateY(-50%); font: 800 clamp(220px, 34vw, 520px)/1 var(--f-mincho); color: transparent; -webkit-text-stroke: 1px var(--c); opacity: .14; pointer-events: none; user-select: none; }
+.chapter.r .kanji { left: -4%; }
+.chapter.l .kanji { right: -4%; }
+.v-head { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+.v-head canvas { width: 64px; height: 64px; filter: drop-shadow(0 0 18px var(--c)); }
+.v-name { font: 600 var(--t-xs)/1.6 var(--f-mono); letter-spacing: .16em; color: var(--mute); }
+.v-name strong { display: block; font: 800 30px/1.1 var(--f-mincho); letter-spacing: .1em; color: var(--c); }
+.status { font: 600 11px/1 var(--f-mono); letter-spacing: .08em; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--c); color: var(--c); white-space: nowrap; }
+.status.wip { animation: breathe 2.4s ease-in-out infinite; }
+@keyframes breathe { 50% { box-shadow: 0 0 6px var(--c); } }
+.marks { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 0 24px; }
+.marks span { font: 500 12px/1 var(--f-mono); padding: 7px 10px; border: 1px solid var(--line-2); border-radius: 3px; color: var(--paper); background: rgba(9,12,24,.55); }
+.marks span.ok::before { content: "✓ "; color: var(--c); }
+.marks span.todo { color: var(--mute); border-style: dashed; }
+.metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--line); }
+.metrics div { padding: 14px 12px 0 0; }
+.metrics b { display: block; font: 600 clamp(20px, 2.2vw, 28px)/1.1 var(--f-mono); font-variant-numeric: tabular-nums; color: var(--paper); }
+.metrics small { display: block; font-size: 11.5px; color: var(--mute); line-height: 1.45; margin-top: 6px; }
+@media (max-width: 560px) { .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 12px; } }
+.story { margin-top: 24px; padding: 14px 16px; border-left: 2px solid var(--c); background: rgba(9,12,24,.6); font-size: var(--t-sm); color: var(--paper); max-width: 56ch; }
+.story b { color: var(--c); }
+
+/* NUMBERS */
+.tiles { margin-top: 44px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+.tile { padding: 26px 22px 22px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(6,8,15,.45); backdrop-filter: blur(4px); position: relative; overflow: hidden; }
+.tile::after { content: ""; position: absolute; left: 0; top: 0; width: 100%; height: 1px; background: linear-gradient(90deg, transparent, var(--kin), transparent); transform: translateX(-100%); transition: transform .9s; }
+.tile:hover::after { transform: translateX(100%); }
+.tile b { display: block; font: 600 clamp(30px, 4vw, 52px)/1 var(--f-mono); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.tile span { display: block; margin-top: 10px; font-size: var(--t-sm); color: var(--paper); }
+.tile small { display: block; margin-top: 4px; font: 400 11.5px/1.5 var(--f-mono); color: var(--mute); }
+@media (max-width: 860px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.charts { margin-top: 40px; display: grid; grid-template-columns: 1.25fr 1fr 1.25fr; gap: 20px; }
+.chart { border: 1px solid var(--line); background: rgba(9,12,24,.66); backdrop-filter: blur(6px); padding: 18px 18px 12px; border-radius: 4px; min-width: 0; }
+.chart h4 { margin: 0 0 2px; font: 700 var(--t-sm)/1.4 var(--f-body); }
+.chart p { margin: 0 0 8px; font-size: 12px; color: var(--mute); }
+.chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.chart .ax { font: 400 10px var(--f-mono); fill: var(--mute); }
+.chart .val { font: 600 10.5px var(--f-mono); fill: var(--paper); }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.legend { display: flex; gap: 14px; font: 400 11px/1 var(--f-mono); color: var(--mute); margin-top: 8px; }
+.legend i { display: inline-block; width: 9px; height: 9px; margin-right: 6px; vertical-align: -1px; }
+@media (max-width: 960px) { .charts { grid-template-columns: minmax(0, 1fr); } }
+
+/* WORLD */
+.src-group { margin-top: 30px; }
+.src-group h4 { font: 600 var(--t-xs)/1 var(--f-mono); letter-spacing: .18em; color: var(--mute); margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
+.src-group h4 i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); }
+.src { list-style: none; margin: 0; padding: 0; }
+.src li { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 14px; padding: 9px 0; border-top: 1px solid var(--line); font-size: var(--t-sm); }
+.src li code { font: 400 12px/1.6 var(--f-mono); color: var(--kin); }
+.src li span { color: var(--paper); }
+.src li span em { font-style: normal; color: var(--mute); }
+@media (max-width: 480px) { .src li { grid-template-columns: minmax(0,1fr); gap: 0; } }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pills span { font-size: 13px; padding: 6px 11px; border: 1px dashed var(--line-2); border-radius: 999px; color: var(--paper); background: rgba(9,12,24,.5); }
+
+/* TEAM */
+.principles { margin-top: 34px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--line); }
+.principles div { padding: 16px 18px 16px 0; border-bottom: 1px solid var(--line); }
+.principles b { display: block; font: 900 var(--t-md)/1.4 var(--f-display); color: var(--acc); transition: color .6s; }
+.principles span { font-size: var(--t-sm); color: var(--mute); }
+@media (max-width: 480px) { .principles { grid-template-columns: minmax(0,1fr); } }
+.lanes { margin-top: 30px; display: grid; gap: 7px; }
+.lane { display: grid; grid-template-columns: 96px 30px minmax(0, 1fr); gap: 12px; align-items: center; font-size: 12.5px; }
+.lane .ln { color: var(--paper); white-space: nowrap; }
+.lane .ct { font: 600 12px var(--f-mono); color: var(--kin); text-align: right; }
+.lane .dots { display: flex; flex-wrap: wrap; gap: 4px; }
+.lane .dots i { width: 9px; height: 9px; border: 1px solid var(--kin); transform: rotate(45deg) scale(.82); background: transparent; animation: task 9s ease-in-out infinite; animation-delay: var(--dl); }
+@keyframes task { 0%, 30% { background: transparent; box-shadow: none; } 45%, 70% { background: var(--kin); } 100% { background: rgba(217,180,106,.3); } }
+.flow { margin-top: 30px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 6px; font-size: 13px; }
+.flow span { padding: 6px 10px; border: 1px solid var(--line-2); border-radius: 3px; background: rgba(9,12,24,.55); }
+.flow i { color: var(--kin); font-style: normal; font-family: var(--f-mono); font-size: 12px; }
+.agents { margin-top: 26px; }
+.agents .bar { display: flex; height: 10px; border-radius: 2px; overflow: hidden; margin: 10px 0 8px; }
+.agents .bar i { display: block; height: 100%; }
+.agents .meta { display: flex; justify-content: space-between; gap: 12px; font: 400 12px var(--f-mono); color: var(--mute); }
+.agents .meta b { color: var(--paper); }
+.idfmt { margin-top: 18px; font: 600 var(--t-sm) var(--f-mono); color: var(--mute); }
+.idfmt span { color: var(--paper); }
+.idfmt em { font-style: normal; color: var(--kaede); }
+
+/* MAPLE NOW */
+.dgrid { margin-top: 30px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.d { padding: 12px 12px 12px; border: 1px solid var(--line-2); background: rgba(9,12,24,.66); border-radius: 3px; position: relative; overflow: hidden; }
+.d b { display: flex; justify-content: space-between; font: 600 12px/1 var(--f-mono); color: var(--kaede); }
+.d b em { font-style: normal; color: var(--tsuta); }
+.d span { display: block; margin-top: 8px; font-size: 12.5px; line-height: 1.45; color: var(--paper); }
+.d::before { content: ""; position: absolute; inset: 0; background: linear-gradient(120deg, transparent 30%, rgba(234,90,67,.18) 50%, transparent 70%); transform: translateX(-100%);  animation-delay: var(--dl); }
+@keyframes sweep { 0%, 70% { transform: translateX(-100%) } 100% { transform: translateX(100%) } }
+.track { margin-top: 34px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; position: relative; }
+.track div { padding-top: 22px; position: relative; padding-right: 12px; }
+.track div::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--line-2); }
+.track div.ok::before { background: var(--c, var(--kaede)); box-shadow: 0 0 10px var(--c, var(--kaede)); }
+.track div::after { content: ""; position: absolute; top: -5px; left: 0; width: 10px; height: 10px; transform: rotate(45deg); background: var(--ink); border: 1px solid var(--line-2); }
+.track div.ok::after { background: var(--c, var(--kaede)); border-color: var(--c, var(--kaede)); }
+.track div.next::after { border-color: var(--c, var(--kaede)); animation: breathe2 2s ease-in-out infinite; }
+@keyframes breathe2 { 50% { box-shadow: 0 0 14px var(--kaede); } }
+.track b { display: block; font: 600 12px/1 var(--f-mono); color: var(--c, var(--kaede)); letter-spacing: .1em; }
+.track span { display: block; margin-top: 8px; font-size: 13px; line-height: 1.5; }
+.track small { display: block; margin-top: 4px; font-size: 11.5px; color: var(--mute); }
+@media (max-width: 560px) { .track { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 22px; } }
+.hsteps { margin-top: 30px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; counter-reset: h; }
+.hsteps div { padding: 12px; border: 1px solid var(--line); border-radius: 3px; font-size: 12.5px; line-height: 1.5; background: rgba(9,12,24,.5); }
+.hsteps div b { display: block; font: 600 12px/1 var(--f-mono); color: var(--kin); margin-bottom: 6px; }
+@media (max-width: 560px) { .hsteps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.risks { margin-top: 28px; display: grid; gap: 0; }
+.risks div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 16px; padding: 11px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.risks div span:first-child { color: var(--mute); }
+@media (max-width: 480px) { .risks div { grid-template-columns: minmax(0,1fr); gap: 2px; } }
+
+/* FUTURE */
+.dirs { margin-top: 36px; display: grid; gap: 12px; }
+.dir { padding: 18px 20px; border: 1px solid var(--line-2); background: rgba(9,12,24,.66); border-radius: 4px; display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 16px; align-items: start; }
+.dir .big { font: 600 34px/1 var(--f-mono); color: var(--kin); }
+.dir .big small { display: block; font: 400 11px/1.5 var(--f-body); color: var(--mute); margin-top: 6px; }
+.dir h4 { margin: 0 0 4px; font: 900 var(--t-md)/1.4 var(--f-display); }
+.dir p { margin: 0; font-size: var(--t-sm); color: var(--mute); }
+.closing { min-height: 100vh; min-height: 100svh; display: flex; align-items: center; box-sizing: border-box; padding-block: 22vh 6vh; text-align: center; } .closing > .wrap { width: 100%; }
+.closing h2 { font-size: clamp(34px, 5.6vw, 76px); margin: 0 auto 26px; max-width: 14em; }
+.closing .three { display: flex; justify-content: center; gap: clamp(18px, 4vw, 56px); flex-wrap: wrap; font: 600 var(--t-md)/1 var(--f-display); }
+.closing .three span { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.closing .three small { font: 400 11px/1 var(--f-mono); letter-spacing: .14em; color: var(--mute); }
+footer { padding-block: 40px calc(40px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); font-size: 12px; color: var(--mute); }
+footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 30px; }
+
+/* GOAL / VERIFY / FUSION */
+.goal-tiles { margin-top: 40px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.gt { display: block; padding: 22px 22px 20px; border: 1px solid var(--line-2); background: rgba(9,12,24,.7); backdrop-filter: blur(6px); border-radius: 4px; text-decoration: none; color: var(--paper); transition: border-color .3s, transform .3s; }
+.gt:hover { border-color: var(--kin); transform: translateY(-2px); }
+.gt b { display: block; font: 600 clamp(34px, 4vw, 50px)/1 var(--f-mono); color: var(--kin); font-variant-numeric: tabular-nums; }
+.gt strong { display: block; margin-top: 10px; font: 900 var(--t-md)/1.4 var(--f-display); }
+.gt span { display: block; margin-top: 6px; font-size: var(--t-sm); color: var(--mute); line-height: 1.6; }
+.gt em { display: inline-block; margin-top: 12px; font: 500 11px/1 var(--f-mono); font-style: normal; color: var(--kin); letter-spacing: .06em; }
+@media (max-width: 560px) { .goal-tiles { grid-template-columns: minmax(0, 1fr); } }
+.path { margin-top: 30px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 6px; font-size: 13px; }
+.path span { padding: 6px 10px; border: 1px solid var(--line-2); border-radius: 3px; background: rgba(9,12,24,.55); }
+.path span.on { border-color: var(--kin); color: var(--kin); }
+.path span.goal { border-style: dashed; }
+.path i { color: var(--kin); font-style: normal; font-family: var(--f-mono); font-size: 12px; }
+.methods { margin-top: 30px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--line); }
+.methods div { padding: 14px 16px 14px 0; border-bottom: 1px solid var(--line); }
+.methods b { display: block; font: 900 var(--t-md)/1.4 var(--f-display); color: var(--acc); transition: color .6s; }
+.methods span { font-size: 13.5px; color: var(--mute); }
+@media (max-width: 480px) { .methods { grid-template-columns: minmax(0, 1fr); } }
+.cats { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 6px; }
+.cats span { font-size: 12.5px; padding: 5px 10px; border: 1px solid var(--line-2); border-radius: 999px; background: rgba(9,12,24,.5); }
+.cats span b { font: 600 11px var(--f-mono); color: var(--acc); margin-left: 6px; }
+.exs { margin-top: 26px; display: grid; gap: 10px; }
+.ex { padding: 16px 18px; border: 1px solid var(--line-2); border-left: 2px solid var(--acc); background: rgba(9,12,24,.72); border-radius: 3px; }
+.ex .id { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; font: 600 11.5px/1 var(--f-mono); color: var(--acc); letter-spacing: .06em; }
+.ex .id em { font-style: normal; color: var(--mute); font-weight: 400; }
+.ex .id .mt { margin-right: auto; margin-left: 10px; padding: 3px 8px; border: 1px solid var(--acc); border-radius: 999px; color: var(--paper); font: 500 11.5px/1 var(--f-body); letter-spacing: 0; }
+.ex .id .mt b { color: var(--acc); font-weight: 600; }
+.ex h4 { margin: 8px 0 6px; font: 900 var(--t-md)/1.4 var(--f-display); }
+.ex p { margin: 0; font-size: 13.5px; color: var(--mute); line-height: 1.65; }
+.ex .srcs { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+.ex .srcs code { font: 400 11px/1 var(--f-mono); padding: 5px 8px; border: 1px dashed var(--line-2); border-radius: 3px; color: var(--paper); }
+.ex .tie { margin-top: 10px; font-size: 13px; color: var(--paper); }
+.ex .tie::before { content: "对 DATUMOJ："; color: var(--acc); }
+.domains { margin-top: 28px; display: grid; gap: 9px; }
+.dm { display: grid; grid-template-columns: 116px minmax(0, 1fr) 28px; gap: 12px; align-items: center; font-size: 13px; }
+.dm .bar { height: 10px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.dm .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--acc), var(--kin)); }
+.dm b { font: 600 12px var(--f-mono); text-align: right; color: var(--paper); }
+.need { margin-top: 24px; }
+.need .pills span.have { border-style: solid; border-color: var(--tsuta); }
+.legend-s { margin-top: 8px; font: 400 11.5px var(--f-mono); color: var(--mute); }
+.legend-s i { display: inline-block; width: 18px; height: 10px; border: 1px solid var(--tsuta); border-radius: 999px; vertical-align: -1px; margin-right: 6px; }
+.need .pills span.plan { border-style: solid; border-color: var(--fuji); }
+.legend-s i.plan { border-color: var(--fuji); margin-left: 14px; }
+.sub-sys { margin-top: 12px; font-size: 12.5px; color: var(--mute); } .sub-sys b { color: var(--paper); font-weight: 600; }
+.now-h { margin: 14px 0 0; font: 500 12px/1.4 var(--f-mono); letter-spacing: .06em; color: var(--mute); }
+.people { margin-top: 30px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.person { padding: 16px; border: 1px solid var(--line-2); background: rgba(9,12,24,.66); border-radius: 4px; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; align-items: center; }
+.person .av { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font: 800 18px/1 var(--f-mincho); color: var(--ink); background: var(--c); }
+.person b { display: block; font: 900 15.5px/1.3 var(--f-display); }
+.person span { display: block; margin-top: 3px; font-size: 12px; color: var(--mute); line-height: 1.45; }
+.friends { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 13.5px; }
+.friends .fl { font: 600 var(--t-xs)/1 var(--f-mono); letter-spacing: .14em; color: var(--mute); }
+.friends .fr { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px 5px 5px; border: 1px solid var(--line-2); border-radius: 999px; background: rgba(9,12,24,.55); }
+.friends .fr i { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font: 800 12px/1 var(--f-mincho); font-style: normal; color: var(--ink); background: var(--c); }
+@media (max-width: 700px) { .people { grid-template-columns: minmax(0, 1fr); } }
+
+/* 一屏一节：每节至少一屏高、内容垂直居中，压缩间距 */
+:root { --t-xl: clamp(28px, 3vw, 44px); }
+.sec { min-height: 100vh; min-height: 100svh; display: flex; align-items: center; padding-block: 72px 28px; box-sizing: border-box; }
+.sec > .wrap { width: 100%; }
+.hero { padding-block: 80px 36px; }
+h2 { margin: 12px 0 14px; }
+.hero h1 { margin-top: 18px; } .hero .esp { margin: 12px 0 16px; } .vers { margin-top: 20px; } .stats-row { margin-top: 26px; } .cue { margin-top: 26px; }
+.compare { margin-top: 20px; } .cmp-head { padding: 10px 0; } .cmp-row { padding: 12px 0; } .keep { margin-top: 22px; gap: 8px; } .keep span { padding: 6px 12px; }
+.pipeline { margin-top: 30px; } .stage .n { margin-bottom: 18px; } .cite-box { margin-top: 28px; padding: 18px 22px; } .stack { margin-top: 14px; }
+.rules { margin-top: 18px; } .rules li { padding: 11px 0; } .nots { margin-top: 18px; }
+.tiles { margin-top: 22px; } .tile { padding: 16px 18px 14px; } .tile b { font-size: clamp(26px, 3vw, 40px); } .tile span { margin-top: 6px; } .charts { margin-top: 18px; } .chart { padding: 12px 14px 8px; } .chart svg { max-height: 128px; }
+.src-group { margin-top: 16px; } .src li { padding: 6px 0; }
+.goal-tiles { margin-top: 20px; gap: 10px; } .gt { padding: 14px 16px; } .gt b { font-size: clamp(28px, 3vw, 40px); } .gt strong { margin-top: 6px; } .gt span { font-size: 13px; line-height: 1.5; } .gt em { margin-top: 8px; } .path { margin-top: 18px; }
+.people { margin-top: 18px; } .principles { margin-top: 16px; } .principles div { padding: 10px 14px 10px 0; } .flow { margin-top: 18px; } .lanes { margin-top: 18px; } .agents { margin-top: 18px; }
+.dgrid { margin-top: 16px; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 6px; } .d { padding: 9px 10px; } .d span { margin-top: 5px; font-size: 12px; } .track { margin-top: 22px; }
+.hsteps { margin-top: 18px; } .risks { margin-top: 22px; }
+.methods { margin-top: 16px; } .methods div { padding: 10px 14px 10px 0; } .cats { margin-top: 16px; }
+.exs { margin-top: 16px; gap: 10px; } .ex { padding: 11px 15px; } .ex p { font-size: 13px; line-height: 1.6; } .ex h4 { margin: 6px 0 4px; }
+.domains { margin-top: 16px; } .need { margin-top: 22px; }
+.lead { font-size: 17.5px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .rv.armed { opacity: 1; transform: none; filter: none; }
+}
+</style>
+
+<canvas id="gl" aria-hidden="true"></canvas>
+<div class="vignette" aria-hidden="true"></div>
+
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="mark" href="#hero" aria-label="DATUMOJ 回到开头"><canvas data-crest="gate" data-color="--kin" aria-hidden="true"></canvas>DATUMOJ</a>
+    <div class="top-meta">
+      <span class="hide-s">阶段汇报 · 2026-10-24</span>
+      <span class="chip"><i class="dot"></i><span id="scene-name">丸に鳥居</span></span>
+    </div>
+  </div>
+  <div class="progress"><i id="prog"></i></div>
+</header>
+
+<nav class="rail" aria-label="章节">
+  <a href="#hero" data-for="hero"><span>开篇</span><i></i></a>
+  <a href="#team" data-for="team"><span>协作</span><i></i></a>
+  <a href="#goal" data-for="goal"><span>目标</span><i></i></a>
+  <a href="#why" data-for="why"><span>为什么</span><i></i></a>
+  <a href="#arch" data-for="arch"><span>架构</span><i></i></a>
+  <a href="#rules" data-for="rules"><span>规矩</span><i></i></a>
+  <a href="#journey" data-for="journey"><span>四个版本</span><i></i></a>
+  <a href="#numbers" data-for="numbers"><span>数字</span><i></i></a>
+  <a href="#world" data-for="world"><span>来源</span><i></i></a>
+  <a href="#now" data-for="now"><span>项目现状</span><i></i></a>
+  <a href="#verify" data-for="verify"><span>失真验证</span><i></i></a>
+  <a href="#fusion" data-for="fusion"><span>多源融合</span><i></i></a>
+</nav>
+
+<div class="kamon-label" aria-hidden="true"><span id="kamon-jp">丸に鳥居</span><small id="kamon-en">DATUMOJ</small></div>
+
+<main>
+
+<!-- HERO -->
+<section class="hero" id="hero" data-scene="gate" data-side="right" data-stop data-nav="hero" data-kamon="丸に鳥居|DATUMOJ" data-acc="--kin">
+  <div class="wrap" style="width:100%">
+    <div class="split">
+      <div class="content shadow-text">
+        <div class="eyebrow">阶段汇报 · 0.1 → 0.4</div>
+        <h1><span class="word">DATUMOJ</span><span class="tate">数据之门</span></h1>
+        <p class="esp"><b>datumoj</b>：世界语里的“数据”（复数）</p>
+        <p class="lead">把日本政府（其次是欧美）的公开数据先抓下来，存成带出处的资料库，再让 AI 在上面检索、问答和分析。每个结论都能追溯到某一次抓取的原始文件。</p>
+        <ul class="vers">
+          <li><canvas data-crest="ivy" data-color="--tsuta" aria-hidden="true"></canvas><b>蔦</b><span>0.1 IVY</span><em>已完成</em></li>
+          <li><canvas data-crest="tachibana" data-color="--tachi" aria-hidden="true"></canvas><b>橘</b><span>0.2 TACHIBANA</span><em>开发完成</em></li>
+          <li><canvas data-crest="maple" data-color="--kaede" aria-hidden="true"></canvas><b>楓</b><span>0.3 MAPLE</span><em>进行中</em></li>
+          <li><canvas data-crest="fuji" data-color="--fuji" aria-hidden="true"></canvas><b>藤</b><span>0.4 WISTERIA</span><em>计划中</em></li>
+        </ul>
+        <div class="stats-row">
+          <div><b class="count" data-to="99">99</b><span>个任务完成</span></div>
+          <div><b class="count" data-to="315">315</b><span>次提交</span></div>
+          <div><b class="count" data-to="2774">2,774</b><span>项测试</span></div>
+          <div><b class="count" data-to="7">7</b><span>个日本来源在库</span></div>
+        </div>
+        <div class="cue"><i></i>向下滚动，或按 <kbd>↓</kbd> <kbd>↑</kbd> 翻页</div>
+      </div>
+      <div class="ghost"></div>
+    </div>
+  </div>
+</section>
+
+<!-- TEAM -->
+<section class="sec" id="team" data-scene="orbits" data-side="left" data-stop data-nav="team" data-kamon="协作|LANES" data-acc="--claude">
+  <div class="wrap">
+    <div class="split flip">
+      <div class="content shadow-text">
+        <div class="eyebrow rv">协作 · 团队</div>
+        <h2 class="rv">三个人，<br>七条线，两家 agent</h2>
+        <div class="people rv">
+          <div class="person" style="--c: var(--kin)"><div class="av">A</div><div><b>Aaron Jin</b><span>AI · 开发</span></div></div>
+          <div class="person" style="--c: var(--tachi)"><div class="av">境</div><div><b>境五郎</b><span>日本政府采购</span></div></div>
+          <div class="person" style="--c: var(--tsuta)"><div class="av">李</div><div><b>李賢志</b><span>日本商业</span></div></div>
+        </div>
+        <div class="friends rv"><span class="fl">热心参与的朋友</span><span class="fr"><i style="--c: var(--ai)">皮</i>皮神 Astra</span><span class="fr"><i style="--c: var(--claude)">尚</i>不思議な尚さん</span></div>
+        <div class="eyebrow rv" style="margin:18px 0 8px">七条开发线 · 完成的任务</div>
+        <div class="lanes rv" id="lanes" aria-label="各开发线完成的任务数"></div>
+        <div class="eyebrow rv" style="margin:16px 0 0">两家 agent · 执行的任务</div>
+        <div class="agents rv">
+          <div class="bar"><i style="width:61.6%;background:var(--claude)"></i><i style="width:38.4%;background:var(--codex)"></i></div>
+          <div class="meta"><span><b>Claude 61</b> 个任务</span><span>审查交给另一家</span><span><b>Codex 38</b> 个任务</span></div>
+        </div>
+      </div>
+      <div class="ghost"></div>
+    </div>
+  </div>
+</section>
+<section class="sec" id="team2" data-scene="merge" data-side="left" data-stop data-nav="team" data-kamon="分工|LANES" data-acc="--claude">
+  <div class="wrap">
+    <div class="split flip">
+      <div class="content shadow-text">
+        <div class="eyebrow rv">协作 · 分工</div>
+        <h2 class="rv">契约先行，异源审查</h2>
+        <div class="principles rv">
+          <div><b>契约先行</b><span>数据模型和接口协议先定，由人审查</span></div>
+          <div><b>假实现解耦</b><span>各线只依赖契约，不 import 别的线</span></div>
+          <div><b>插件自动发现</b><span>新增来源只是新建一个文件</span></div>
+          <div><b>集成单独做</b><span>每个检查点一个集成任务，跑评测门槛</span></div>
+        </div>
+        <div class="flow rv"><span>计划 PR</span><i>→</i><span>任务 PR</span><i>→</i><span>调度器派发</span><i>→</i><span>agent 在独立 worktree 里做</span><i>→</i><span>异源审查</span><i>→</i><span>合并</span><i>→</i><span>集成检查点</span><i>→</i><span>真实抓取验收</span><i>→</i><span>打 tag</span></div>
+        <div class="idfmt rv">任务编号 <span>DATUMOJ-<em>MAPLE</em>-901</span>：项目 · 家纹代号 · 开发线与序号</div>
+      </div>
+      <div class="ghost"></div>
+    </div>
+  </div>
+</section>
+
+<!-- GOAL -->
+<section class="sec" id="goal" data-scene="layers" data-side="right" data-stop data-nav="goal" data-kamon="目标|GOALS" data-acc="--kin">
+  <div class="wrap">
+    <div class="split">
+      <div class="content shadow-text">
+        <div class="eyebrow rv">目标</div>
+        <h2 class="rv">一个指标，<br>三个以上的来源</h2>
+        <p class="lead rv">资料库和证据规则，是为两类分析准备的：用三个以上独立来源核对一个数，或把多个来源叠起来回答一个问题。</p>
+        <div class="goal-tiles">
+          <a class="gt rv" href="https://datumoj.com/plan/verify/" target="_blank" rel="noopener"><b>30</b><strong>单源失真验证</strong><span>假设某国某项数据可能失真，用 3 个以上独立来源交叉核对。13 例有公开实证，17 例是假设设计</span></a>
+          <a class="gt rv" href="https://datumoj.com/plan/cases/" target="_blank" rel="noopener" style="--d:.06s"><b>100</b><strong>多源融合分析</strong><span>每例至少引用 3 个官方数据源，把统计、贸易、遥感、金融拼起来</span></a>
+          <a class="gt rv" href="https://datumoj.com/plan/" target="_blank" rel="noopener" style="--d:.12s"><b>471</b><strong>官方数据资源地址</strong><span>orbisdata 资源目录，按 50 个预设分析场景组织</span></a>
+          <a class="gt rv" href="https://datumoj.com/plan/" target="_blank" rel="noopener" style="--d:.18s"><b>389</b><strong>HF government 数据集调查</strong><span>注册表和带逐条出处的垂直登记库，两个方向都还是空白；HF 上日本政府数据为零</span></a>
+        </div>
+        <div class="path rv"><span class="on">IVY 打通链路</span><i>→</i><span class="on">TACHIBANA 持续运营</span><i>→</i><span class="on">MAPLE 上云 · Eurostat · WDI</span><i>→</i><span class="goal">WISTERIA 国际组织 · 按需提取</span><i>→</i><span class="goal">验证与融合</span></div>
+      </div>
+      <div class="ghost"></div>
+    </div>
+  </div>
+</section>
+
+<!-- WHY -->
+<section class="sec" id="why" data-scene="nebula" data-side="center" data-stop data-nav="why" data-kamon="旧路线|LIVE CALLS" data-acc="--nebula">
+  <div class="wrap shadow-text">
+    <div class="eyebrow rv">为什么换路线</div>
+    <h2 class="rv">从“每问一次，实时调接口”<br>到“先抓下来，再回答”</h2>
+    <p class="muted rv">旧项目 Digital Assets 0.9.1 是一个本地 MCP 插件，用户每问一次就实时去调政府 API。交接包里记下的问题，新路线逐条对应：</p>
+    <div class="compare">
+      <div class="cmp-head"><span>旧路线</span><span></span><span>DATUMOJ</span></div>
+      <div class="cmp-row rv"><span class="old">每次提问都实时调接口，受超时、配额和站点故障影响，同一个问题两次答案可能不同</span><i class="arrow"></i><span class="new">抓取和问答分开。问答只读本地快照，结果可复现，并注明数据截止时间</span></div>
+      <div class="cmp-row rv"><span class="old">只能回答接好的“命名路径”，目录里查到不等于能读到内容</span><i class="arrow"></i><span class="new">目录元数据和资源正文批量抓下、解析入库，能查的范围由入库内容决定</span></div>
+      <div class="cmp-row rv"><span class="old">意图匹配靠工具和选择器规则，换个说法就容易配错</span><i class="arrow"></i><span class="new">先检索（RAG）找到数据集、条文和公告，再让模型基于检索结果作答</span></div>
+      <div class="cmp-row rv"><span class="old">很难跨来源、跨时间分析，比如法令修订和统计变化放在一起看</span><i class="arrow"></i><span class="new">所有来源进同一个库，统一地区代码、时间和出处，可以一起分析</span></div>
+    </div>
+    <div class="keep rv">
+      <div class="keep-label">保留旧项目验证过的原则</div>
+      <span>不编数据，查不到就说有缺口</span>
+      <span>“目录查到”“正文已读到”“数值已核对”分开记</span>
+      <span>保留失败记录、口径、单位和空值</span>
+      <span>用户指定的来源不偷偷换</span>
+      <span>来源内容一律当数据，不执行其中的指令</span>
+    </div>
+  </div>
+</section>
+
+<!-- ARCH -->
+<section class="sec" id="arch" data-scene="pipe" data-side="center" data-stop data-nav="arch" data-kamon="流水线|PIPELINE" data-acc="--kin">
+  <div class="wrap shadow-text">
+    <div class="eyebrow rv">总体架构</div>
+    <h2 class="rv">从官方来源到带出处的回答，一共七步</h2>
+    <p class="muted rv">来源注册表 <code>sources/*.yaml</code> 规定每个来源的范围白名单、许可、频率和抓取策略。派生数据都能从 raw 重新生成，所以只备份 raw 和 manifest。</p>
+    <div class="pipeline">
+      <div class="stage rv" style="--d:.0s"><div class="n"><b>1</b></div><div><span class="en">crawl</span><h4>抓取</h4><p>httpx，默认 1 请求/秒；ETag / If-Modified-Since 条件请求；遵守 robots.txt</p></div></div>
+      <div class="stage rv" style="--d:.06s"><div class="n"><b>2</b></div><div><span class="en">raw</span><h4>原始库</h4><p>按 sha256 存放、不可变；manifest 记下每次抓取，失败的也记</p></div></div>
+      <div class="stage rv" style="--d:.12s"><div class="n"><b>3</b></div><div><span class="en">parse</span><h4>解析</h4><p>法令和气象厅 XML、PDF、cp932 表格、和历转西历</p></div></div>
+      <div class="stage rv" style="--d:.18s"><div class="n"><b>4</b></div><div><span class="en">tracks</span><h4>两条轨道</h4><p>统计进 Parquet + DuckDB；文本按条、页、节切块，带定位</p></div></div>
+      <div class="stage rv" style="--d:.24s"><div class="n"><b>5</b></div><div><span class="en">index</span><h4>索引</h4><p>FTS5 trigram 关键词 + LanceDB 向量（bge-m3），RRF 融合</p></div></div>
+      <div class="stage rv" style="--d:.30s"><div class="n"><b>6</b></div><div><span class="en">mcp</span><h4>分析入口</h4><p><code>search_catalog</code> <code>search_docs</code> <code>query_sql</code> <code>cite</code></p></div></div>
+      <div class="stage rv" style="--d:.36s"><div class="n"><b>7</b></div><div><span class="en">eval</span><h4>评测</h4><p>离线题库：检索召回、出处正确、数值精确</p></div></div>
+    </div>
+    <div class="cite-box rv">
+      <div class="label">每条出处都由这五样拼成</div>
+      <div class="formula" id="formula" aria-label="Citation = source_id + resource_url + snapshot_sha256 + fetched_at + locator">Citation = source_id + resource_url + snapshot_sha256 + fetched_at + locator</div>
+      <div class="locs">
+        <code>第 27 条</code><code>page=22</code><code>総人口 (2015年～2020年)!J24</code><code>section=… &gt; 5.関連リンク</code><code>CSV 行号</code>
+      </div>
+    </div>
+    <div class="stack rv"><span><b>Python 3.12</b> + uv</span><span><b>DuckDB</b> + Parquet</span><span><b>SQLite</b> manifest / FTS5</span><span><b>LanceDB</b> + bge-m3（本机 Ollama）</span><span><b>lxml</b> · pdfplumber · pypdfium2</span><span>代码里<b>不调用任何 LLM</b>，由宿主模型通过 MCP 调工具</span></div>
+  </div>
+</section>
+
+<!-- RULES -->
+<section class="sec" id="rules" data-scene="lattice" data-side="right" data-stop data-nav="rules" data-kamon="证据|EVIDENCE" data-acc="--ai">
+  <div class="wrap">
+    <div class="split">
+      <div class="content shadow-text">
+        <div class="eyebrow rv">回答的规矩</div>
+        <h2 class="rv">每个数字都有来处，<br>每个缺口都说清楚</h2>
+        <ul class="rules">
+          <li class="rv"><b>数值走 SQL</b><span><code>query_sql</code> 只读，有超时和行数上限。不让模型估数，也不从文本块里“检索出一个数”</span></li>
+          <li class="rv"><b>出处能还原</b><span>每条引用都能用 <code>cite</code> 还原到快照里的原文片段</span></li>
+          <li class="rv"><b>时间分清楚</b><span>统计期间、发布日、施行日、抓取日各是各的。来源不给日期就写“无数据日期”，不拿抓取日顶替</span></li>
+          <li class="rv"><b>缺口分四种</b><span>检索零命中、来源没有入库、抓取失败、超出范围。旧项目把它们混在一起，用户分不清</span></li>
+          <li class="rv"><b>断言分三级</b><span><code>proven</code> 原文直接证明 · <code>inferred</code> 多条证据推导 · <code>unverified</code> 待验证</span></li>
+        </ul>
+        <div class="nots rv"><span>不做实时查询</span><span>不做全站镜像</span><span>不对数值做 RAG</span><span>不采集个人信息</span></div>
+      </div>
+      <div class="rv" style="--d:.15s">
+        <div class="card">
+          <div class="card-top"><span class="lights"><i></i><i></i><i></i></span><span>MCP · IVY 验收的真实核对 · 2026-10-21</span></div>
+          <div class="card-q">東京都と大阪府の人口推移を比較して</div>
+          <div class="card-call"><b>query_sql</b> → 观测值 + 逐行出处 → <b>cite</b> 还原到原表单元格</div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th>地区</th><th>2020 年総人口</th><th>断言</th><th>locator</th></tr></thead>
+              <tbody>
+                <tr><td class="jp">東京都</td><td class="num">14,048 千人</td><td><span class="badge proven">proven</span></td><td class="loc">!J24</td></tr>
+                <tr><td class="jp">大阪府</td><td class="num">8,838 千人</td><td><span class="badge proven">proven</span></td><td class="loc">!J38</td></tr>
+                <tr><td class="jp">沖縄県</td><td class="num">1,467 千人</td><td><span class="badge proven">proven</span></td><td class="loc">!J58</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card-foot">来源 <code>jp-estat-files</code>（人口推計 XLSX，工作表 <span class="jp">総人口 (2015年～2020年)</span>）。<code>datumoj sql</code> 的结果和直接读原表单元格逐格一致。
+            <div class="gaps"><span>检索零命中</span><span>来源没有入库</span><span>抓取失败</span><span>超出范围</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- JOURNEY -->
+<section id="journey" data-nav="journey">
+  <div class="journey-head">
+    <div class="wrap shadow-text">
+      <div class="eyebrow rv">版本与代号</div>
+      <h2 class="rv">四枚家纹，四个版本</h2>
+      <p class="muted rv">每个版本取一个家纹作代号，任务编号跟着版本走：<code>DATUMOJ-&lt;代号&gt;-&lt;序号&gt;</code>。序号按开发线分号段，契约 001–009，A–G 线 1xx–7xx，集成 9xx。</p>
+    </div>
+  </div>
+  <div class="stepper">
+    <div class="wrap">
+      <ol>
+        <li data-step="ivy" style="--c: var(--tsuta)"><b>蔦</b>0.1 IVY</li>
+        <li data-step="tachibana" style="--c: var(--tachi)"><b>橘</b>0.2 TACHIBANA</li>
+        <li data-step="maple" style="--c: var(--kaede)"><b>楓</b>0.3 MAPLE</li>
+        <li data-step="fuji" style="--c: var(--fuji)"><b>藤</b>0.4 WISTERIA</li>
+      </ol>
+    </div>
+  </div>
+
+  <article class="chapter r" data-scene="ivy" data-side="right" data-stop data-kamon="丸に蔦|IVY · TSUTA" data-acc="--tsuta" style="--c: var(--tsuta)">
+    <div class="wrap" style="width:100%">
+      <div class="split">
+        <div class="content shadow-text">
+          <div class="kanji" aria-hidden="true">蔦</div>
+          <div class="v-head rv">
+            <canvas data-crest="ivy" data-color="--tsuta" aria-hidden="true"></canvas>
+            <div class="v-name">0.1 · tsuta<strong>IVY 蔦</strong></div>
+            <span class="status">已完成 · v0.1.0-ivy · 10-21</span>
+          </div>
+          <h3 class="rv">第一阶段：先打通一条完整的链路</h3>
+          <p class="rv">契约 → 法令链路 → 目录与统计 → AI 分析入口。日本 4 类来源入库并能增量更新；在 Claude 里通过 MCP 提问，拿到带出处的回答，不支持的问题会说清缺口。</p>
+          <div class="marks rv"><span class="ok">M0 契约与地基</span><span class="ok">M1 法令链路</span><span class="ok">M2 目录与统计</span><span class="ok">M3 AI 分析入口</span></div>
+          <div class="metrics rv">
+            <div><b>0.962</b><small>Recall@10<br>门槛 0.85</small></div>
+            <div><b>1.000</b><small>数值精确率<br>门槛 1.0</small></div>
+            <div><b>1.000</b><small>引用可还原率<br>门槛 0.95</small></div>
+            <div><b>1.000</b><small>缺口正确率<br>门槛 1.0</small></div>
+          </div>
+          <div class="story rv"><b>48 个任务</b>：计划内 32 个，验收中发现问题补开的修复 14 个，人决定新增 2 个（抓取开关、抓取管理页面）。e-Gov 目录真实抓取 <b>2,130</b> 个快照、约 880MB。</div>
+        </div>
+        <div class="ghost"></div>
+      </div>
+    </div>
+  </article>
+
+  <article class="chapter l" data-scene="tachibana" data-side="left" data-stop data-kamon="丸に橘|TACHIBANA" data-acc="--tachi" style="--c: var(--tachi)">
+    <div class="wrap" style="width:100%">
+      <div class="split flip">
+        <div class="content shadow-text">
+          <div class="kanji" aria-hidden="true">橘</div>
+          <div class="v-head rv">
+            <canvas data-crest="tachibana" data-color="--tachi" aria-hidden="true"></canvas>
+            <div class="v-name">0.2 · tachibana<strong>TACHIBANA 橘</strong></div>
+            <span class="status">开发完成 · 已合并 main · m1 tag</span>
+          </div>
+          <h3 class="rv">日本扩面，开始持续运营</h3>
+          <p class="rv">省厅和自治体的政策网页与 PDF、BODIK、抓取监控、每周变化报告、存储适配层（为网络存储做准备）、注册层描述导出，并补上 IVY 遗留的检索缺口。</p>
+          <div class="marks rv"><span class="ok">M1 政策网页 + PDF</span><span class="ok">开发合并（#15）</span><span class="todo">H4 真实问答验收待做</span></div>
+          <div class="metrics rv">
+            <div><b>24</b><small>个任务</small></div>
+            <div><b>554</b><small>个快照<br>约 359MB</small></div>
+            <div><b>307</b><small>个当前文档<br>网页 208 · PDF 99</small></div>
+            <div><b>2,708</b><small>个检索块</small></div>
+          </div>
+          <div class="story rv">真实抓取找出的问题：大阪市页面用 <code>&lt;base href&gt;</code> 指定链接基准，采集器没认，<b>15 个 PDF 全部 404</b>。修复后第 3 次抓取新增 17，<b>失败 0</b>。种子：内阁府 · 总务省 · 大阪市。</div>
+        </div>
+        <div class="ghost"></div>
+      </div>
+    </div>
+  </article>
+
+  <article class="chapter r" data-scene="maple" data-side="right" data-stop data-kamon="丸に楓|MAPLE · KAEDE" data-acc="--kaede" style="--c: var(--kaede)">
+    <div class="wrap" style="width:100%">
+      <div class="split">
+        <div class="content shadow-text">
+          <div class="kanji" aria-hidden="true">楓</div>
+          <div class="v-head rv">
+            <canvas data-crest="maple" data-color="--kaede" aria-hidden="true"></canvas>
+            <div class="v-name">0.3 · kaede<strong>MAPLE 楓</strong></div>
+            <span class="status wip">进行中 · feature/0.3</span>
+          </div>
+          <h3 class="rv">先把证据做对，再让资料库自己更新</h3>
+          <p class="rv">修好审核找出的 13 项证据正确性问题；GitHub Actions 按来源定时抓取，raw 和索引放到 R2，本机用 <code>datumoj pull</code> 拉下来；再接入欧美和日本新来源。</p>
+          <div class="marks rv"><span class="ok">m0 证据正确性</span><span class="ok">m1 云端运行</span><span class="todo">m2 日本新来源</span><span class="todo">m3 欧美 + 多语言</span></div>
+          <div class="metrics rv">
+            <div><b>27</b><small>个任务完成</small></div>
+            <div><b>13</b><small>项证据问题<br>有回归测试</small></div>
+            <div><b>2,774</b><small>项测试</small></div>
+            <div><b>5</b><small>份 ADR</small></div>
+          </div>
+          <div class="story rv">ADR 0004 证据身份与单调发布 · ADR 0005 状态代次、条件发布与写入租约：同一时间只有一个写入者，中途失败不会留下半截状态。</div>
+        </div>
+        <div class="ghost"></div>
+      </div>
+    </div>
+  </article>
+  <article class="chapter l" data-scene="fuji" data-side="left" data-stop data-kamon="下り藤|WISTERIA · FUJI" data-acc="--fuji" style="--c: var(--fuji)">
+    <div class="wrap" style="width:100%">
+      <div class="split flip">
+        <div class="content shadow-text">
+          <div class="kanji" aria-hidden="true">藤</div>
+          <div class="v-head rv">
+            <canvas data-crest="fuji" data-color="--fuji" aria-hidden="true"></canvas>
+            <div class="v-name">0.4 · fuji<strong>WISTERIA 藤</strong></div>
+            <span class="status wip">计划草案 · 待审查</span>
+          </div>
+          <h3 class="rv">新子系统 Eltiro：按需求从资料库取数</h3>
+          <p class="rv">外部项目注入一份声明式需求（指标、国家、时间、运算），Eltiro 把它匹配到资料库里的序列，按固定的数据代次取数、对齐、计算，交出逐行带出处的结果；资料库增长后，自动把新数据匹配到已有需求上。</p>
+          <div class="sub-sys rv"><b>DATUMOJ</b> = <b>Rikolto</b> 采集与存储（0.1–0.3 的全部，本版本改名）+ <b>Eltiro</b> 提取（新建）+ Purigo 清理（以后）</div>
+          <div class="marks rv"><span class="todo">m0 改名 Rikolto + 契约</span><span class="todo">m1 不用模型端到端</span><span class="todo">m2 模型档位 · 增量重匹配</span><span class="todo">m3 4 个试点全量</span></div>
+          <div class="metrics rv">
+            <div><b>~27</b><small>个任务草稿<br>新增 Eltiro 线 8xx</small></div>
+            <div><b>4</b><small>个试点<br>V13 · #002 · V07 · #003</small></div>
+            <div><b>5</b><small>个国际来源<br>IMF OECD ILO COMTRADE WTO</small></div>
+            <div><b>3</b><small>档许可<br>原值 · 只派生 · 不流出</small></div>
+          </div>
+          <div class="story rv">读完 130 个案例：几乎都是“某国 × 某指标 × 某段时间”的结构化序列，来源以国际组织为主，日本数据只出现在 3 例。所以第一次匹配多半得到“缺什么”，<b>缺口报告</b>本身就是产出。受限数据只输出整理后的数值，原文和 raw 不流出；送进云端模型也算流出。</div>
+        </div>
+        <div class="ghost"></div>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- NUMBERS -->
+<section class="sec" id="numbers" data-scene="galaxy" data-side="center" data-stop data-nav="numbers" data-kamon="数字|NUMBERS" data-acc="--kin">
+  <div class="wrap shadow-text">
+    <div class="eyebrow rv">一周的数字</div>
+    <h2 class="rv">10 月 17 日到 23 日</h2>
+    <p class="muted rv">计划、拆任务、派发、审查、合并、验收都走同一套流程。下面的数字来自 git 历史、调度器的任务记录和验收文档。</p>
+    <div class="tiles">
+      <div class="tile rv"><b class="count" data-to="99">99</b><span>个任务完成</span><small>IVY 48 · TACHIBANA 24 · MAPLE 27</small></div>
+      <div class="tile rv" style="--d:.05s"><b class="count" data-to="315">315</b><span>次提交</span><small>其中合并 122 次</small></div>
+      <div class="tile rv" style="--d:.1s"><b class="count" data-to="2774">2,774</b><span>项测试</span><small>全部离线，用录制样本</small></div>
+      <div class="tile rv" style="--d:.15s"><b class="count" data-to="20751">20,751</b><span>行 Python</span><small>src/datumoj</small></div>
+      <div class="tile rv"><b class="count" data-to="85">85</b><span>道评测题</span><small>法令 · 目录 · 统计 · 网页 · 变化</small></div>
+      <div class="tile rv" style="--d:.05s"><b class="count" data-to="7">7</b><span>个来源在库</span><small>MAPLE 再加 13 个</small></div>
+      <div class="tile rv" style="--d:.1s"><b class="count" data-to="5">5</b><span>份 ADR</span><small>嵌入 · 存储 · 门槛 · 身份 · 代次</small></div>
+      <div class="tile rv" style="--d:.15s"><b class="count" data-to="3">3</b><span>个任务同时跑</span><small>调度器并发上限，每个预留 2GB</small></div>
+    </div>
+    <div class="charts">
+      <div class="chart rv"><h4>每天的提交</h4><p>10 月，单位：次</p><svg id="ch-commits" viewBox="0 0 360 190" role="img" aria-label="每天提交数：17 日 1，18 日 0，19 日 0，20 日 38，21 日 105，22 日 91，23 日 80"></svg></div>
+      <div class="chart rv" style="--d:.08s"><h4>测试数随版本增长</h4><p>版本完成时的全量测试</p><svg id="ch-tests" viewBox="0 0 300 190" role="img" aria-label="测试数：IVY 1408，TACHIBANA 2015，MAPLE 进行中 2774"></svg></div>
+      <div class="chart rv" style="--d:.16s"><h4>各版本任务与执行 agent</h4><p>审查默认交给另一家的模型</p><svg id="ch-agents" viewBox="0 0 360 190" role="img" aria-label="IVY Claude 35 Codex 13；TACHIBANA Claude 14 Codex 10；MAPLE Claude 12 Codex 15"></svg>
+        <div class="legend"><span><i style="background:var(--claude)"></i>Claude</span><span><i style="background:var(--codex)"></i>Codex</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- WORLD -->
+<section class="sec" id="world" data-scene="globe" data-side="right" data-stop data-nav="world" data-kamon="来源|SOURCES" data-acc="--ai">
+  <div class="wrap">
+    <div class="split">
+      <div class="content shadow-text">
+        <div class="eyebrow rv">来源</div>
+        <h2 class="rv">日本起步，走向国际</h2>
+        <p class="muted rv">每个来源一个 YAML，本机单独开关；许可核对前一律 <code>internal_only</code>。</p>
+        <div class="src-group rv" style="--c: var(--tsuta)">
+          <h4><i></i>已入库 · 日本 7 个</h4>
+          <ul class="src">
+            <li><code>jp-egov-law</code><span>e-Gov 法令 API v2 <em>· 约 9,000 部法令，按条切块</em></span></li>
+            <li><code>jp-egov-data</code><span>e-Gov データポータル <em>· CKAN 目录与资源</em></span></li>
+            <li><code>jp-stat-dashboard</code><span>统计 Dashboard API <em>· 精选指标全地区时间序列</em></span></li>
+            <li><code>jp-estat-files</code><span>e-Stat 统计表文件 <em>· CSV / XLSX，多为 cp932</em></span></li>
+            <li><code>jp-jma</code><span>气象厅防灾 XML <em>· 每小时轮询，feed 只留约 7 天</em></span></li>
+            <li><code>jp-gov-web</code><span>省厅与自治体政策网页、PDF <em>· 内阁府、总务省、大阪市</em></span></li>
+            <li><code>jp-bodik</code><span>BODIK ODCS <em>· 复用 CKAN 采集器</em></span></li>
+          </ul>
+        </div>
+        <div class="src-group rv" style="--c: var(--kaede)">
+          <h4><i></i>MAPLE 计划 · 欧美 8 个 + 日本新增 5 个</h4>
+          <div class="pills"><span>data.europa.eu</span><span>Eurostat</span><span>data.gov.uk</span><span>GovData</span><span>data.gouv.fr</span><span>data.overheid.nl</span><span>Federal Register</span><span>世界银行 WDI</span><span>e-Stat API</span><span>国土数值信息</span><span>2024 经济普查</span><span>医疗开放数据</span><span>ABR 地址</span></div>
+        </div>
+        <div class="src-group rv" style="--c: var(--fuji)">
+          <h4><i></i>WISTERIA 计划 · 国际组织 5 个</h4>
+          <div class="pills"><span>IMF</span><span>OECD</span><span>ILO</span><span>UN COMTRADE</span><span>WTO</span></div>
+        </div>
+      </div>
+      <div class="ghost"></div>
+    </div>
+  </div>
+</section>
+
+<!-- PROJECT NOW -->
+<section class="sec" id="now" data-scene="track" data-side="left" data-stop data-nav="now" data-kamon="项目现状|STATUS" data-acc="--kin">
+  <div class="wrap">
+    <div class="split flip">
+      <div class="content shadow-text">
+        <div class="eyebrow rv">项目现在在哪</div>
+        <h2 class="rv">两个版本落地，<br>一个在做，一个在计划</h2>
+        <p class="muted rv">IVY 已打 tag，TACHIBANA 等真实问答验收，MAPLE 过了两个检查点，WISTERIA 的计划在等审查。</p>
+        <div class="track rv">
+          <div class="ok" style="--c: var(--tsuta)"><b>0.1 IVY</b><span>已完成</span><small>v0.1.0-ivy · 48 个任务</small></div>
+          <div class="ok" style="--c: var(--tachi)"><b>0.2 TACHIBANA</b><span>开发完成</span><small>已合并 main；H4 验收待做</small></div>
+          <div class="next" style="--c: var(--kaede)"><b>0.3 MAPLE</b><span>进行中</span><small>m0 证据、m1 云端已过；下一步 m2 日本新来源</small></div>
+          <div style="--c: var(--fuji)"><b>0.4 WISTERIA</b><span>计划草案</span><small>Eltiro 提取服务；计划 PR 审查中</small></div>
+        </div>
+        <div class="now-h rv">10 月 23 日代码审核找出的 13 个证据问题：全部写成回归测试并修好</div>
+        <div class="dgrid rv" id="dgrid" style="margin-top:10px"></div>
+      </div>
+      <div class="ghost"></div>
+    </div>
+  </div>
+</section>
+<section class="sec" id="now2" data-scene="stairs" data-side="left" data-stop data-nav="now" data-kamon="项目现状|NEXT" data-acc="--kin">
+  <div class="wrap">
+    <div class="split flip">
+      <div class="content shadow-text">
+        <div class="eyebrow rv">项目 · 接下来</div>
+        <h2 class="rv">接下来的事与主要风险</h2>
+        <div class="hsteps rv">
+          <div><b>0.2 · H4</b>TACHIBANA 真实问答验收，打 tag</div>
+          <div><b>0.3 · m2</b>日本新来源：e-Stat API 等，含真实抓取</div>
+          <div><b>0.3 · m3</b>欧美来源 + 多语言，Actions 连续跑一周</div>
+          <div><b>部署</b>状态放 R2 还是 NAS，协商中</div>
+          <div><b>0.4 · 计划</b>审查 WISTERIA 计划，拆成任务</div>
+          <div><b>0.4 · H2</b>国际来源的许可、配额逐个核验</div>
+        </div>
+        <div class="risks rv">
+          <div><span>日本站点拒绝 Actions 的海外 IP</span><span>先手动跑一次；不行的来源退回本机或自托管 runner</span></div>
+          <div><span>两个写入者同时写</span><span>写入租约 + 条件发布，代次清单记录写入者</span></div>
+          <div><span>受限数据经输出或云端模型流出</span><span>许可闸门按数据血缘检查；能否送云端缺省为否</span></div>
+          <div><span>把口径不同的序列当成同一个</span><span>口径、单位不同只作候选；人工确认；标准答案评测</span></div>
+        </div>
+      </div>
+      <div class="ghost"></div>
+    </div>
+  </div>
+</section>
+
+<!-- VERIFY -->
+<section class="sec" id="verify" data-scene="triad" data-side="right" data-stop data-nav="verify" data-kamon="失真验证|VERIFY" data-acc="--kaede">
+  <div class="wrap">
+    <div class="split">
+      <div class="content shadow-text">
+        <div class="eyebrow rv">目标一 · 单源失真验证 · 30 例</div>
+        <h2 class="rv">一个来源可能失真，<br>就找三个独立来源核对</h2>
+        <p class="muted rv">自报的总量可以修饰，但别人的账本、实物消耗、卫星和统计分布很难陪着一起改。案例页列了五种交叉核对的办法：</p>
+        <div class="methods rv">
+          <div><b>镜像法</b><span>贸易双边对账：你改的数字，对方账上留着原件</span></div>
+          <div><b>实物量锚点</b><span>用电、货运、药品消耗、疫苗供应量</span></div>
+          <div><b>卫星复核</b><span>夜光、气溶胶、植被、建成区</span></div>
+          <div><b>超额与存量反推</b><span>流量可以修饰，存量不行：债务存量、总死亡数</span></div>
+          <div><b>统计指纹</b><span>分布形状、末位数字、擦改率</span></div>
+        </div>
+        <div class="cats rv"><span>总量注水<b>3</b></span><span>物价操纵<b>3</b></span><span>财政粉饰<b>3</b></span><span>人口失真<b>3</b></span><span>就业粉饰<b>3</b></span><span>贸易造假<b>3</b></span><span>卫生数据<b>2</b></span><span>环境数据<b>3</b></span><span>教育数据<b>2</b></span><span>金融数据<b>2</b></span><span>选举与犯罪<b>3</b></span></div>
+      </div>
+      <div class="ghost"></div>
+    </div>
+  </div>
+</section>
+<section class="sec" id="verify2" data-scene="diverge" data-side="right" data-stop data-nav="verify" data-kamon="失真验证|CASES" data-acc="--kaede">
+  <div class="wrap">
+    <div class="split">
+      <div class="content shadow-text">
+        <div class="eyebrow rv">目标一 · 有公开记录的案例</div>
+        <h2 class="rv">三个案例，三种核对</h2>
+        <div class="exs">
+          <div class="ex rv"><div class="id">V13<span class="mt"><b>镜像法</b> · 社保和税务的账</span><em>历史实证</em></div><h4>日本 · 每月勤劳统计调查（2018 年曝光）</h4><p>大企业样本长期没有按规定抽样，工资增速被扭曲十余年。用社保缴纳和税务口径的工资总额作独立标尺对账，重算后的修订幅度就是失真幅度。</p><div class="srcs"><code>stat.go.jp</code><code>ILO</code><code>OECD</code></div><div class="tie">日本官方统计正是现在入库的主体，修订前后的版本都要留住</div></div>
+          <div class="ex rv"><div class="id">V07<span class="mt"><b>存量反推</b> · 修订链考古</span><em>历史实证</em></div><h4>希腊 · 政府赤字率（2009）</h4><p>赤字率从 3.7% 一路上修到 15.4%。逐年比对每次发布的版本，用债务存量变化反推真实流量。</p><div class="srcs"><code>Eurostat</code><code>IMF</code><code>statistics.gr</code></div><div class="tie">raw 不可变、每次抓取留快照，就是为这种“修订链考古”准备的</div></div>
+          <div class="ex rv"><div class="id">V03<span class="mt"><b>实物量锚点</b> · 用电、货运、信贷</span><em>历史实证</em></div><h4>中国 · 工业增加值增速（2008 年后）</h4><p>官方工业增速和用电、货运走势背离。用电量、铁路货运量、信贷投放合成对照指数（“克强指数”），和官方增速比周期同步性。</p><div class="srcs"><code>stats.gov.cn</code><code>IEA</code><code>World Bank</code></div><div class="tie">不直接抓的国家，数据从国际组织取，锚点照样能对</div></div>
+        </div>
+      </div>
+      <div class="ghost"></div>
+    </div>
+  </div>
+</section>
+
+<!-- FUSION -->
+<section class="sec" id="fusion" data-scene="mesh" data-side="left" data-stop data-nav="fusion" data-kamon="多源融合|FUSION" data-acc="--tsuta">
+  <div class="wrap">
+    <div class="split flip">
+      <div class="content shadow-text">
+        <div class="eyebrow rv">目标二 · 多源融合分析 · 100 例</div>
+        <h2 class="rv">把多个来源叠起来，<br>看见单个来源看不见的</h2>
+        <p class="muted rv">每个案例至少引用 3 个官方数据源。100 例分在六个领域：</p>
+        <div class="domains rv" aria-label="各领域案例数">
+          <div class="dm"><span>国家与区域综合</span><div class="bar"><i style="width:100%"></i></div><b>22</b></div>
+          <div class="dm"><span>农业、资源与环境</span><div class="bar"><i style="width:90.9%"></i></div><b>20</b></div>
+          <div class="dm"><span>宏观经济与金融</span><div class="bar"><i style="width:81.8%"></i></div><b>18</b></div>
+          <div class="dm"><span>人口与社会</span><div class="bar"><i style="width:81.8%"></i></div><b>18</b></div>
+          <div class="dm"><span>健康、教育与科技</span><div class="bar"><i style="width:63.6%"></i></div><b>14</b></div>
+          <div class="dm"><span>基础设施与产业</span><div class="bar"><i style="width:36.4%"></i></div><b>8</b></div>
+        </div>
+        <div class="need rv">
+          <div class="eyebrow" style="margin-bottom:12px">案例里反复用到的来源</div>
+          <div class="pills"><span class="have">Eurostat</span><span class="have">世界银行 WDI</span><span class="plan">IMF</span><span class="plan">OECD</span><span class="plan">UN COMTRADE</span><span class="plan">WTO</span><span class="plan">ILO</span><span>UNdata</span><span>WHO</span><span>FAO</span><span>BIS</span><span>UNESCO / UNICEF</span><span>Copernicus / ESA</span><span>各国统计局</span></div>
+          <div class="legend-s"><i></i>MAPLE 已计划接入<i class="plan"></i>WISTERIA 计划接入</div>
+        </div>
+      </div>
+      <div class="ghost"></div>
+    </div>
+  </div>
+</section>
+<section class="sec" id="fusion2" data-scene="braid" data-side="left" data-stop data-nav="fusion" data-kamon="多源融合|CASES" data-acc="--tsuta">
+  <div class="wrap">
+    <div class="split flip">
+      <div class="content shadow-text">
+        <div class="eyebrow rv">目标二 · 案例</div>
+        <h2 class="rv">三个融合案例</h2>
+        <div class="exs">
+          <div class="ex rv"><div class="id">#079<span class="mt"><b>逐站追踪</b> · 3 源：日本统计局 → UNdata → 世界银行</span><em>国家综合统计</em></div><h4>一个数字的旅行变形记</h4><p>同一个指标从日本统计局出发，经联合国到世界银行，逐站比对原始值、转载值和加工值，找出插值补缺和口径拼接发生在哪一站。</p><div class="srcs"><code>stat.go.jp</code><code>UNdata</code><code>WDI</code></div><div class="tie">出处要写到原始发布方和快照，而不是三手加工品</div></div>
+          <div class="ex rv"><div class="id">#051<span class="mt"><b>传导链</b> · 3 源：WMO 气象 → FAO 产量 → FAO 粮价预警</span><em>农业与粮食安全</em></div><h4>从云层到粮价：干旱的传导链</h4><p>干旱指数 → 产量 → 库存 → 价格，四环逐环测时滞，全链走完 6 到 12 个月。</p><div class="srcs"><code>WMO</code><code>FAOSTAT</code><code>FAO GIEWS</code></div><div class="tie">时间口径要分清统计期间、发布日和抓取日</div></div>
+          <div class="ex rv"><div class="id">#003<span class="mt"><b>镜像比对</b> · 3 源：UN COMTRADE · WTO · WCO</span><em>国际贸易与海关</em></div><h4>贸易镜像黑洞：出口 100，进口只剩 60</h4><p>双边镜像逐商品编码比对，扣除运费保险和转口后，剩余差额集中在少数商品上。</p><div class="srcs"><code>UN COMTRADE</code><code>WTO</code><code>WCO</code></div><div class="tie">数值只从 SQL 取，差额每一行都能回到出处</div></div>
+        </div>
+      </div>
+      <div class="ghost"></div>
+    </div>
+  </div>
+</section>
+
+<section class="closing" data-scene="gate" data-side="center" data-stop data-nav="fusion" data-kamon="丸に鳥居|DATUMOJ" data-acc="--kin">
+  <div class="wrap shadow-text">
+    <h2 class="rv">连接数据，而不是占有数据</h2>
+    <div class="three rv">
+      <span>描述<small>让模块能被发现</small></span>
+      <span>调用<small>让模块能组合</small></span>
+      <span>证据<small>让数据可追溯</small></span>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>数据来自 docs/PLAN.md、docs/plans/、docs/acceptance/、调度器任务记录与 git 历史；统计截至 2026-10-24（feature/0.3 @ 825e502）。</span>
+    <span>翻页：<kbd>↓</kbd> <kbd>↑</kbd> / <kbd>J</kbd> <kbd>K</kbd></span>
+  </div>
+</footer>
+
+<script>
+/* 家纹：在 1000×1000、以中心为原点的坐标里画；同一套函数既画小图标，也给粒子取样 */
+(function () {
+  var TAU = Math.PI * 2;
+  function ang(a, b) { return Math.atan2(Math.sin(a - b), Math.cos(a - b)); }
+  function lobes(t, L) { var m = 0; for (var i = 0; i < L.length; i++) { var v = L[i][1] * Math.exp(-Math.abs(ang(t, L[i][0])) / L[i][2]); if (v > m) m = v; } return m; }
+  function sym(list) { var o = []; list.forEach(function (l) { o.push(l); if (l[0] !== 0) o.push([-l[0], l[1], l[2]]); }); return o; }
+  function polar(c, f, cx, cy) { c.beginPath(); for (var i = 0; i <= 900; i++) { var t = i / 900 * TAU, r = f(t), x = cx + r * Math.sin(t), y = cy - r * Math.cos(t); i ? c.lineTo(x, y) : c.moveTo(x, y); } c.closePath(); c.fill(); }
+  function ring(c, r1, r2) { c.beginPath(); c.arc(0, 0, r2, 0, TAU); c.arc(0, 0, r1, 0, TAU, true); c.fill(); }
+  function circle(c, x, y, r) { c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill(); }
+  function cut(c, fn) { c.save(); c.globalCompositeOperation = 'destination-out'; fn(); c.restore(); }
+  function line(c, pts, w) { c.lineWidth = w; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath(); pts.forEach(function (p, i) { i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]); }); c.stroke(); }
+  function curve(c, p0, p1, p2, w) { c.lineWidth = w; c.lineCap = 'round'; c.beginPath(); c.moveTo(p0[0], p0[1]); c.quadraticCurveTo(p1[0], p1[1], p2[0], p2[1]); c.stroke(); }
+  function leaf(c, x, y, a, len, wid) { c.save(); c.translate(x, y); c.rotate(a); c.beginPath(); c.moveTo(0, 0); c.bezierCurveTo(wid, -len * .22, wid * .85, -len * .72, 0, -len); c.bezierCurveTo(-wid * .85, -len * .72, -wid, -len * .22, 0, 0); c.fill(); c.restore(); }
+  function rib(c, x, y, a, len, w) { cut(c, function () { c.save(); c.translate(x, y); c.rotate(a); line(c, [[0, -len * .12], [0, -len * .86]], w); c.restore(); }); }
+  function heart(c, x, y, a, s) { c.save(); c.translate(x, y); c.rotate(a); c.beginPath(); for (var i = 0; i <= 240; i++) { var t = i / 240 * TAU, hx = 16 * Math.pow(Math.sin(t), 3), hy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)); i ? c.lineTo(hx * s, hy * s) : c.moveTo(hx * s, hy * s); } c.closePath(); c.fill(); c.restore(); }
+  function dir(a, r) { return [r * Math.sin(a), -r * Math.cos(a)]; }
+
+  var S = {
+    gate: function (c) {
+      ring(c, 452, 482); ring(c, 404, 418);
+      for (var i = 0; i < 12; i++) { var p = dir(i / 12 * TAU, 436); circle(c, p[0], p[1], 8); }
+      c.beginPath(); c.moveTo(-352, -276); c.quadraticCurveTo(0, -214, 352, -276); c.lineTo(322, -214); c.quadraticCurveTo(0, -168, -322, -214); c.closePath(); c.fill();
+      c.fillRect(-292, -196, 584, 30);
+      c.fillRect(-268, -112, 536, 44);
+      c.fillRect(-22, -170, 44, 64);
+      c.beginPath(); c.moveTo(-198, -168); c.lineTo(-150, -168); c.lineTo(-138, 326); c.lineTo(-208, 326); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(198, -168); c.lineTo(150, -168); c.lineTo(138, 326); c.lineTo(208, 326); c.closePath(); c.fill();
+      c.fillRect(-250, 342, 116, 22); c.fillRect(134, 342, 116, 22);
+      cut(c, function () { line(c, [[-52, 330], [52, 330]], 6); });
+    },
+    ivy: function (c) {
+      ring(c, 440, 480);
+      var L = sym([[0, 1, .5], [1.2, .84, .44], [2.25, .6, .36]]);
+      var f = function (t) { var m = 0; L.forEach(function (l) { var d = ang(t, l[0]) / l[2]; m = Math.max(m, l[1] * Math.exp(-d * d) * (1 + .12 * Math.exp(-Math.abs(d) * 6))); }); return 305 * (.42 + .58 * m); };
+      polar(c, f, 0, -40);
+      cut(c, function () { L.forEach(function (l) { var r = f(l[0]) * .8, p = dir(l[0], r); line(c, [[0, 66], [p[0], p[1] - 40]], 17); }); });
+      curve(c, [0, 60], [70, 210], [-14, 392], 30);
+    },
+    tachibana: function (c) {
+      ring(c, 440, 480);
+      [[0, 340, 118], [-1.05, 292, 102], [1.05, 292, 102]].forEach(function (l) { leaf(c, 0, -62, l[0], l[1], l[2]); rib(c, 0, -62, l[0], l[1], 14); });
+      cut(c, function () { circle(c, 0, 172, 206); });
+      circle(c, 0, 172, 184);
+      cut(c, function () { for (var i = 0; i < 5; i++) { var p = dir(i / 5 * TAU, 34); circle(c, p[0], 60 + p[1], 15); } circle(c, 0, 60, 9); });
+    },
+    maple: function (c) {
+      ring(c, 440, 480);
+      var L = sym([[0, 1, .34], [1.0, .95, .33], [1.95, .7, .3]]);
+      var f = function (t) { var tri = 1 - Math.abs(((t * 22 / TAU) % 1) * 2 - 1); return 360 * (.3 + .7 * lobes(t, L)) * (1 + .018 * tri); };
+      polar(c, f, 0, -12);
+      cut(c, function () { L.forEach(function (l) { var p = dir(l[0], f(l[0]) * .8); line(c, [[0, 40], [p[0], p[1] - 12]], 14); }); });
+      curve(c, [0, 50], [26, 250], [-6, 420], 22);
+    },
+    katabami: function (c) {
+      ring(c, 440, 480);
+      [0, 2.094, -2.094].forEach(function (a) { var p = dir(a, 208); heart(c, p[0], p[1], a, 9.4); });
+      [Math.PI / 3, Math.PI, -Math.PI / 3].forEach(function (a) { var p = dir(a, 330); line(c, [[0, 0], p], 20); });
+      circle(c, 0, 0, 28);
+    },
+    kikyo: function (c) {
+      var L = []; for (var k = 0; k < 5; k++) L.push([k / 5 * TAU, 1, .38]);
+      polar(c, function (t) { return 470 * (.42 + .58 * lobes(t, L)); }, 0, 0);
+      cut(c, function () { for (var k = 0; k < 5; k++) { var p = dir((k + .5) / 5 * TAU, 300); line(c, [[0, 0], p], 16); } circle(c, 0, 0, 82); });
+      circle(c, 0, 0, 52);
+    },
+    kiku: function (c) {
+      var k;
+      for (k = 0; k < 16; k++) { c.save(); c.rotate(k / 16 * TAU); c.beginPath(); c.ellipse(0, -292, 66, 184, 0, 0, TAU); c.fill(); c.restore(); }
+      cut(c, function () { for (k = 0; k < 16; k++) { c.save(); c.rotate(k / 16 * TAU); c.lineWidth = 10; c.beginPath(); c.ellipse(0, -292, 66, 184, 0, 0, TAU); c.stroke(); c.restore(); } circle(c, 0, 0, 136); });
+      circle(c, 0, 0, 112);
+    },
+    aoi: function (c) {
+      ring(c, 440, 480);
+      [0, 2.094, -2.094].forEach(function (a) {
+        var p = dir(a, 196); heart(c, p[0], p[1], a + Math.PI, 8.6);
+        cut(c, function () { line(c, [dir(a, 70), dir(a, 330)], 11); line(c, [dir(a, 150), dir(a + .3, 300)], 8); line(c, [dir(a, 150), dir(a - .3, 300)], 8); });
+      });
+      cut(c, function () { circle(c, 0, 0, 40); }); circle(c, 0, 0, 22);
+    },
+    kashiwa: function (c) {
+      [0, 2.094, -2.094].forEach(function (a) {
+        c.save(); c.rotate(a); c.beginPath(); var len = 430, wid = 128, i, s, w, pts = [];
+        for (i = 0; i <= 60; i++) { s = i / 60; w = wid * Math.pow(Math.sin(Math.PI * s), .75) * (1 + .22 * Math.sin(s * Math.PI * 9)); pts.push([w, -36 - s * len]); }
+        pts.forEach(function (p, j) { j ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]); });
+        for (i = pts.length - 1; i >= 0; i--) c.lineTo(-pts[i][0], pts[i][1]);
+        c.closePath(); c.fill();
+        cut(c, function () { line(c, [[0, -60], [0, -420]], 13); });
+        c.restore();
+      });
+      circle(c, 0, 0, 30);
+    },
+    kiri: function (c) {
+      [[Math.PI, 300, 125], [Math.PI - 1.15, 280, 110], [Math.PI + 1.15, 280, 110]].forEach(function (l) { leaf(c, 0, 120, l[0], l[1], l[2]); rib(c, 0, 120, l[0], l[1], 13); });
+      [[-205, 5, 10], [0, 7, 40], [205, 5, 10]].forEach(function (col) {
+        var x = col[0], n = col[1], y0 = col[2], i;
+        line(c, [[x, 80], [x, y0 - (n - 1) * 58]], 10);
+        for (i = 0; i < n; i++) { var y = y0 - i * 58, r = 30 - i * 1.6; circle(c, x + (i % 2 ? 22 : -22), y, r); }
+      });
+    },
+    // 下り藤：两串花穗从顶上的叶子垂下，向外鼓、尖端向内收
+    fuji: function (c) {
+      ring(c, 440, 480);
+      [-1, 1].forEach(function (s) {
+        var P = [[s * 36, -292], [s * 400, -330], [s * 420, 170], [s * 80, 322]];
+        function bz(t, k) { var u = 1 - t; return u * u * u * P[0][k] + 3 * u * u * t * P[1][k] + 3 * u * t * t * P[2][k] + t * t * t * P[3][k]; }
+        function dz(t, k) { var u = 1 - t; return 3 * u * u * (P[1][k] - P[0][k]) + 6 * u * t * (P[2][k] - P[1][k]) + 3 * t * t * (P[3][k] - P[2][k]); }
+        var stem = []; for (var j = 0; j <= 40; j++) stem.push([bz(j / 40, 0), bz(j / 40, 1)]);
+        line(c, stem, 12);
+        for (var i = 0; i <= 20; i++) {
+          var t = .07 + i / 20 * .93, x = bz(t, 0), y = bz(t, 1), dx = dz(t, 0), dy = dz(t, 1), L = Math.hypot(dx, dy), nx = -dy / L, ny = dx / L, k = 1 - .64 * t, a = Math.atan2(dy, dx);
+          [-1, 1].forEach(function (q) { c.save(); c.translate(x + nx * q * 34 * k, y + ny * q * 34 * k); c.rotate(a + q * .55); c.beginPath(); c.ellipse(0, 0, 34 * k, 24 * k, 0, 0, TAU); c.fill(); c.restore(); });
+          circle(c, x, y, 20 * k);
+        }
+        [.2, .95].forEach(function (a) { var len = a < .5 ? 150 : 130; leaf(c, s * 22, -296, s * a, len, 54); rib(c, s * 22, -296, s * a, len, 9); });
+      });
+      circle(c, 0, -296, 24);
+    }
+  };
+
+  function drawTo(ctx, key, size) {
+    ctx.save(); ctx.translate(size / 2, size / 2); ctx.scale(size / 1000, size / 1000);
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#fff'; S[key](ctx); ctx.restore();
+  }
+  function tokenColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#d9b46a'; }
+  function paint(cv) {
+    var key = cv.getAttribute('data-crest'); if (!S[key]) return;
+    var css = cv.getBoundingClientRect().width || 64, dpr = Math.min(window.devicePixelRatio || 1, 2), px = Math.round(css * dpr * 1.5);
+    cv.width = px; cv.height = px;
+    var ctx = cv.getContext('2d'); drawTo(ctx, key, px);
+    ctx.globalCompositeOperation = 'source-in'; ctx.fillStyle = tokenColor(cv.getAttribute('data-color') || '--kin'); ctx.fillRect(0, 0, px, px);
+  }
+  function sample(key, n, R) {
+    var size = 640, cv = document.createElement('canvas'); cv.width = cv.height = size;
+    var ctx = cv.getContext('2d', { willReadFrequently: true }); drawTo(ctx, key, size);
+    var d = ctx.getImageData(0, 0, size, size).data, idx = [];
+    for (var i = 0; i < size * size; i++) if (d[i * 4 + 3] > 128) idx.push(i);
+    var out = new Float32Array(n * 3);
+    for (var j = 0; j < n; j++) {
+      var p = idx[(Math.random() * idx.length) | 0], px = p % size, py = (p / size) | 0;
+      out[j * 3] = ((px + Math.random()) / size - .5) * 2 * R;
+      out[j * 3 + 1] = -((py + Math.random()) / size - .5) * 2 * R;
+      out[j * 3 + 2] = (Math.random() - .5) * .07;
+    }
+    return out;
+  }
+  window.Crest = { sample: sample, paint: paint, keys: Object.keys(S) };
+  function paintAll() { document.querySelectorAll('canvas[data-crest]').forEach(paint); }
+  paintAll();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(paintAll);
+})();
+
+/* 页面交互：入场、计数、图表、导航、键盘翻页 */
+(function () {
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var root = document.documentElement;
+
+  // 图表（同一刻度画柱、刻度和标签）
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs, text) { var e = document.createElementNS(NS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; }
+  function vbars(svg, data, max, ticks, color, W) {
+    var x0 = 30, x1 = W - 6, y0 = 160, y1 = 18, h = y0 - y1, slot = (x1 - x0) / data.length, bw = Math.min(34, slot * .58);
+    ticks.forEach(function (t) { var y = y0 - t / max * h; svg.appendChild(el('line', { x1: x0, x2: x1, y1: y, y2: y, class: 'grid' })); svg.appendChild(el('text', { x: x0 - 6, y: y + 3, 'text-anchor': 'end', class: 'ax' }, t.toLocaleString('en-US'))); });
+    data.forEach(function (d, i) {
+      var bh = d[1] / max * h, x = x0 + slot * i + (slot - bw) / 2;
+      var r = el('rect', { x: x, y: y0 - bh, width: bw, height: Math.max(bh, d[1] ? 1 : 0), fill: d[2] || color, rx: 1.5 });
+      r.style.transformOrigin = (x + bw / 2) + 'px ' + y0 + 'px'; r.setAttribute('class', 'bar');
+      svg.appendChild(r);
+      svg.appendChild(el('text', { x: x + bw / 2, y: y0 - bh - 5, 'text-anchor': 'middle', class: 'val' }, d[1].toLocaleString('en-US')));
+      svg.appendChild(el('text', { x: x + bw / 2, y: y0 + 15, 'text-anchor': 'middle', class: 'ax' }, d[0]));
+    });
+  }
+  var kin = getComputedStyle(root).getPropertyValue('--kin').trim();
+  var tsuta = getComputedStyle(root).getPropertyValue('--tsuta').trim(), tachi = getComputedStyle(root).getPropertyValue('--tachi').trim(), kaede = getComputedStyle(root).getPropertyValue('--kaede').trim();
+  vbars(document.getElementById('ch-commits'), [['17', 1], ['18', 0], ['19', 0], ['20', 38], ['21', 105], ['22', 91], ['23', 80]], 120, [0, 40, 80, 120], kin, 360);
+  vbars(document.getElementById('ch-tests'), [['IVY', 1408, tsuta], ['TACHIBANA', 2015, tachi], ['MAPLE*', 2774, kaede]], 3000, [0, 1000, 2000, 3000], kin, 300);
+  (function () {
+    var svg = document.getElementById('ch-agents'), claude = getComputedStyle(root).getPropertyValue('--claude').trim(), codex = getComputedStyle(root).getPropertyValue('--codex').trim();
+    var rows = [['IVY', 35, 13], ['TACHIBANA', 14, 10], ['MAPLE', 12, 15]], max = 50, x0 = 86, x1 = 350, w = x1 - x0;
+    [0, 10, 20, 30, 40, 50].forEach(function (t) { var x = x0 + t / max * w; svg.appendChild(el('line', { x1: x, x2: x, y1: 14, y2: 160, class: 'grid' })); svg.appendChild(el('text', { x: x, y: 176, 'text-anchor': 'middle', class: 'ax' }, t)); });
+    rows.forEach(function (r, i) {
+      var y = 28 + i * 46, a = r[1] / max * w, b = r[2] / max * w;
+      svg.appendChild(el('text', { x: x0 - 8, y: y + 15, 'text-anchor': 'end', class: 'ax' }, r[0]));
+      svg.appendChild(el('rect', { x: x0, y: y, width: a, height: 22, fill: claude, class: 'hbar' }));
+      svg.appendChild(el('rect', { x: x0 + a + 1, y: y, width: b - 1, height: 22, fill: codex, class: 'hbar' }));
+      svg.appendChild(el('text', { x: x0 + a / 2, y: y + 15, 'text-anchor': 'middle', class: 'val', style: 'fill:#06080f' }, r[1]));
+      svg.appendChild(el('text', { x: x0 + a + b / 2, y: y + 15, 'text-anchor': 'middle', class: 'val', style: 'fill:#06080f' }, r[2]));
+      svg.appendChild(el('text', { x: x0 + a + b + 6, y: y + 15, class: 'val' }, r[1] + r[2]));
+    });
+  })();
+
+  // 开发线
+  var lanes = [['契约', 6], ['A 抓取基础', 22], ['B 文档', 14], ['C 统计', 10], ['D 目录', 7], ['E 检索', 8], ['F 入口', 14], ['G 评测', 10], ['集成', 8]];
+  var lh = document.getElementById('lanes');
+  lanes.forEach(function (l) {
+    var row = document.createElement('div'); row.className = 'lane';
+    var dots = ''; for (var i = 0; i < l[1]; i++) dots += '<i style="--dl:' + (Math.random() * 4.8).toFixed(2) + 's"></i>';
+    row.innerHTML = '<span class="ln">' + l[0] + '</span><span class="ct">' + l[1] + '</span><span class="dots">' + dots + '</span>';
+    lh.appendChild(row);
+  });
+
+  // 13 项证据问题
+  var D = ['同字节的另一个资源被跳过', '旧失败重试让当前版本倒退', '同 SHA 的引用指到别的 URL', 'obs_id 跨表重名串了出处', '聚合查询没有证据状态', 'PDF 日期没传到检索块', '先截 top-k 再过滤，误报零命中', '运行中断没有记录', '改坏的 raw 仍能解析成功', '每次查询都附全库 describe', '向量重建先清空再逐批加', '解析没有页数和时长预算', '没建索引也判成零命中'];
+  var dg = document.getElementById('dgrid');
+  D.forEach(function (t, i) { var d = document.createElement('div'); d.className = 'd'; d.style.setProperty('--dl', (i * .35).toFixed(2) + 's'); d.innerHTML = '<b>D-' + String(i + 1).padStart(2, '0') + '<em>✓</em></b><span>' + t + '</span>'; dg.appendChild(d); });
+
+  // 出处公式：逐字打出来
+  var fm = document.getElementById('formula');
+  var parts = [['k', 'Citation'], ['op', '='], ['', 'source_id'], ['op', '+'], ['', 'resource_url'], ['op', '+'], ['', 'snapshot_sha256'], ['op', '+'], ['', 'fetched_at'], ['op', '+'], ['k', 'locator']];
+  function renderFormula(n) {
+    var html = '', left = n;
+    parts.forEach(function (p) { if (left <= 0) return; var s = p[1].slice(0, left); left -= p[1].length; html += '<span class="' + p[0] + '">' + s + '</span>'; });
+    fm.innerHTML = html + '<span class="caret"></span>';
+  }
+  var total = parts.reduce(function (a, p) { return a + p[1].length; }, 0);
+  renderFormula(total);
+
+  // 入场与计数：只给首屏以下的元素加入场效果，首屏和不支持的环境保持原样可见
+  function countUp(b) {
+    var to = +b.getAttribute('data-to'), t0 = performance.now(), dur = 1400;
+    function step(t) { var k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3); b.textContent = Math.round(to * e).toLocaleString('en-US'); if (k < 1) requestAnimationFrame(step); }
+    requestAnimationFrame(step);
+  }
+  if ('IntersectionObserver' in window && !reduce) {
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        var t = e.target; io.unobserve(t);
+        if (t.classList.contains('rv')) t.classList.add('in');
+        if (t.classList.contains('count')) countUp(t);
+        if (t === fm) { var n = 0; (function tick() { n += 2; renderFormula(Math.min(n, total)); if (n < total) setTimeout(tick, 28); })(); }
+      });
+    }, { rootMargin: '0px 0px -8% 0px' });
+    var vh = innerHeight;
+    document.querySelectorAll('.rv, .count').forEach(function (n) { if (n.getBoundingClientRect().top > vh * .92) { if (n.classList.contains('rv')) n.classList.add('armed'); io.observe(n); } });
+    if (fm.getBoundingClientRect().top > vh) { renderFormula(0); io.observe(fm); }
+    setTimeout(function () { document.querySelectorAll('.rv.armed:not(.in)').forEach(function (n) { if (n.getBoundingClientRect().top < innerHeight) n.classList.add('in'); }); }, 4000);
+  }
+
+  // 当前章节：家纹名、强调色、导航、步进条、进度
+  var scenes = [].slice.call(document.querySelectorAll('[data-scene]'));
+  var navs = [].slice.call(document.querySelectorAll('.rail a'));
+  var steps = [].slice.call(document.querySelectorAll('.stepper li'));
+  var jp = document.getElementById('kamon-jp'), en = document.getElementById('kamon-en'), chipName = document.getElementById('scene-name'), prog = document.getElementById('prog');
+  var current = null, ticking = false;
+  function update() {
+    ticking = false;
+    var mid = innerHeight / 2, best = null, bd = 1e9;
+    scenes.forEach(function (s) { var r = s.getBoundingClientRect(), c = Math.min(Math.max(mid, r.top), r.bottom), d = Math.abs(c - mid) + (r.top <= mid && r.bottom >= mid ? 0 : 1); if (d < bd) { bd = d; best = s; } });
+    var max = document.documentElement.scrollHeight - innerHeight;
+    prog.style.width = (max > 0 ? scrollY / max * 100 : 0) + '%';
+    if (!best || best === current) return;
+    current = best;
+    var k = (best.getAttribute('data-kamon') || '').split('|');
+    jp.textContent = k[0] || ''; en.textContent = k[1] || ''; chipName.textContent = k[0] || '';
+    root.style.setProperty('--acc', 'var(' + (best.getAttribute('data-acc') || '--kin') + ')');
+    var nav = best.getAttribute('data-nav') || (best.closest('[data-nav]') && best.closest('[data-nav]').getAttribute('data-nav'));
+    navs.forEach(function (a) { a.classList.toggle('on', a.getAttribute('data-for') === nav); });
+    var sc = best.getAttribute('data-scene'), order = ['ivy', 'tachibana', 'maple', 'fuji'], idx = best.closest('#journey') ? order.indexOf(sc) : -1;
+    steps.forEach(function (li, i) { li.classList.toggle('on', i === idx); li.classList.toggle('done', idx > -1 && i < idx); });
+  }
+  addEventListener('scroll', function () { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
+  addEventListener('resize', update);
+  update();
+
+  // 键盘翻页（汇报时用）
+  var stops = [].slice.call(document.querySelectorAll('[data-stop]'));
+  function topOf(n) { return n.getBoundingClientRect().top + scrollY; }
+  addEventListener('keydown', function (e) {
+    if (e.target.closest && e.target.closest('input, textarea, select')) return;
+    var down = ['ArrowDown', 'PageDown', 'j', 'J'].indexOf(e.key) > -1, up = ['ArrowUp', 'PageUp', 'k', 'K'].indexOf(e.key) > -1;
+    if (!down && !up) return;
+    e.preventDefault();
+    var y = scrollY, target = null;
+    if (down) { for (var i = 0; i < stops.length; i++) if (topOf(stops[i]) > y + 8) { target = stops[i]; break; } }
+    else { for (var j = stops.length - 1; j >= 0; j--) if (topOf(stops[j]) < y - 8) { target = stops[j]; break; } }
+    if (target) scrollTo({ top: Math.max(0, topOf(target)), behavior: reduce ? 'auto' : 'smooth' });
+    else if (down) scrollTo({ top: document.documentElement.scrollHeight, behavior: reduce ? 'auto' : 'smooth' });
+  });
+})();
+</script>
+
+<script src="assets/scene.js"></script>
+
+</body>
+</html>
