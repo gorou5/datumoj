@@ -344,7 +344,7 @@ def test_command_line_writes_only_phases_counts_and_codes(cloud, data, tmp_path,
     *phase_lines, last = captured.out.splitlines()
     final = json.loads(last)
     assert set(final) == {"phase", "generation", "error_code", "exit_status", "demands", "accepted", "profiles",
-                          "candidates", "confirmed", "runs", "refused", "packages"}
+                          "candidates", "confirmed", "runs", "refused", "packages", "skipped_units"}
     assert [json.loads(line)["phase"] for line in phase_lines] == ["restore", "intake", "matching", "run", "gaps",
                                                                    "artifacts"]
     for line in phase_lines:
@@ -431,6 +431,38 @@ def test_script_never_writes_the_remote_store():
     assert "restore_latest" in text and "wiring.build" not in text
     assert not [word for word in ("StateManager", ".push(", ".put(", "lease", "delete_object", "publish(")
                 if word in text]
+
+
+def test_a_unit_that_cannot_be_profiled_is_skipped_and_reported_without_its_text(cloud, data, tmp_path, monkeypatch, capfd):
+    from datumoj.eltiro import profiles as module
+
+    real, calls = module._observation_profiles, []
+
+    def flaky(generation, rows, datasets):
+        calls.append(rows[0].table_key)
+        if len(calls) == 1:
+            raise ValueError("secret-value-123")
+        return real(generation, rows, datasets)
+
+    monkeypatch.setattr(module, "_observation_profiles", flaky)
+    assert cloud.main([str(data), str(tmp_path / "out"), f"--demands={GDP}"]) == 0
+    captured = capfd.readouterr()
+    result = json.loads(captured.out.splitlines()[-1])
+    assert result["exit_status"] == 0 and result["skipped_units"] == 1 and result["profiles"] > 0
+    summary = load(tmp_path)
+    (item,) = summary["skipped_units"]["units"]
+    assert summary["skipped_units"]["total"] == 1
+    assert set(item) == {"unit", "error", "fields"} and item["error"] == "ValueError" and item["fields"] == []
+    kind, _source, table_key = json.loads(item["unit"])
+    assert kind == "observations" and table_key == calls[0]
+    text = json.dumps(summary, ensure_ascii=False) + (tmp_path / "out/summary.md").read_text(encoding="utf-8")
+    assert "skipped_units" in text and "secret-value-123" not in text + captured.out + captured.err
+    assert_public(text + captured.out, data, tmp_path, runs_with_values=False)
+
+
+def test_without_skips_the_summary_lists_none(cloud, data, tmp_path):
+    result = go(cloud, data, tmp_path)
+    assert result["skipped_units"] == 0 and load(tmp_path)["skipped_units"] == {"total": 0, "units": []}
 
 
 def test_validation_failure_reports_fields_and_unit_without_input(cloud, data, tmp_path, monkeypatch):

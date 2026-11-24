@@ -3,8 +3,8 @@
 generate_profiles receives a published generation number and caller-frozen read views
 for that generation (describe/catalog/chunks cannot themselves pin a generation).
 It scans readable content to fingerprint every unit, rebuilding only cache misses.
-Unknown language is ``und``; invalid/oversized or contradictory metadata fails
-instead of silently discarding source information. No translation, unit
+Unknown language is ``und``; over-long texts and lists are cut to the model caps, while invalid or
+contradictory metadata fails (or, if the caller asks, skips just that unit and reports it). No translation, unit
 conversion, or scale inference is performed.
 """
 
@@ -17,6 +17,10 @@ from pydantic import TypeAdapter
 from datumoj.eltiro.contracts import BATCH_QUERY_TIMEOUT_S
 from datumoj.eltiro.models import (
     MAX_ENTITIES,
+    MAX_ITEMS,
+    MAX_LABEL_LENGTH,
+    MAX_LANGUAGES,
+    MAX_TEXT_LENGTH,
     SERIES_IDENTITY_RULE,
     ConceptId,
     Frequency,
@@ -39,11 +43,45 @@ def _fingerprint(parts) -> str:
     return sha256(_json(sorted(_json(part) for part in parts)).encode()).hexdigest()
 
 
+class _Conflict(ValueError):
+    """Source metadata that disagrees with itself; ``field`` names what, never the values."""
+
+    def __init__(self, field):
+        super().__init__(f"conflicting source {field}")
+        self.field = field
+
+
 def _one(values, field):
     values = set(values)
     if len(values) > 1:
-        raise ValueError(f"conflicting source {field}")
+        raise _Conflict(field)
     return next(iter(values), None)
+
+
+def _clip(text, limit):
+    """Cut an over-limit text to the model cap; None when nothing but blanks is left."""
+    if not isinstance(text, str):
+        return text  # not text at all: let the model reject it
+    text = text[:limit]
+    return text if text.strip() else None
+
+
+def _clip_texts(texts, limit):
+    """Per-language texts: clip, drop emptied values, keep the first MAX_LANGUAGES codes in sorted order."""
+    clipped = {lang: _clip(text, limit) for lang, text in texts.items()}
+    clipped = {lang: text for lang, text in clipped.items() if text is not None}
+    if len(clipped) > MAX_LANGUAGES:
+        clipped = {lang: clipped[lang] for lang in sorted(clipped)[:MAX_LANGUAGES]}
+    return clipped
+
+
+def _profile(series, *, names, descriptions=None, concept_ids=(), methodology=None, survey=None, unit=None, **rest):
+    """The one place SeriesProfile is built: texts and lists are cut to the model caps, identity is not."""
+    names = _clip_texts(names, MAX_LABEL_LENGTH) or {"und": _clip(series.indicator, MAX_LABEL_LENGTH)}
+    return SeriesProfile(
+        series=series, names=names, descriptions=_clip_texts(descriptions or {}, MAX_TEXT_LENGTH),
+        concept_ids=list(concept_ids)[:MAX_ITEMS], methodology=_clip(methodology, MAX_TEXT_LENGTH),
+        survey=_clip(survey, MAX_LABEL_LENGTH), unit=_clip(unit, MAX_LABEL_LENGTH), **rest)
 
 
 def _texts(dataset: Dataset):
@@ -65,7 +103,7 @@ def _source_metadata(datasets):
         _, texts = _texts(dataset)
         for lang, text in texts.items():
             if lang in descriptions and descriptions[lang] != text:
-                raise ValueError("conflicting source descriptions")
+                raise _Conflict("descriptions")
             descriptions[lang] = text
         for value in dataset.extras.get("concept_ids", []):
             concept = ConceptId.model_validate(value)
@@ -81,7 +119,7 @@ def _source_metadata(datasets):
     scale = Scale()
     if scales:
         if any(item != scales[0] for item in scales):
-            raise ValueError("conflicting source scales")
+            raise _Conflict("scales")
         scale = scales[0]
     return descriptions, [concepts[key] for key in sorted(concepts)], scale
 
@@ -113,7 +151,7 @@ def _observation_profiles(generation, rows: list[Observation], datasets):
             if dataset.title == row.indicator:
                 for lang, text in _texts(dataset)[0].items():
                     if lang in names and names[lang] != text:
-                        raise ValueError("conflicting source names")
+                        raise _Conflict("names")
                     names[lang] = text
         # Source codelist names (parsers' code_labels) name the indicator code; never overrides another name.
         for dataset in metadata:
@@ -134,10 +172,9 @@ def _observation_profiles(generation, rows: list[Observation], datasets):
         # Over the cap, list nothing: a truncated list could make detect_scheme misjudge a subset as ISO.
         if len(areas) > MAX_ENTITIES:
             areas = []
-        profiles.append(SeriesProfile(
-            series=SeriesIdentity(source_id=row.source_id, table_key=row.table_key, indicator=row.indicator,
-                                  indicator_code=row.indicator_code,
-                                  fixed_dimensions=series_dims[key]),
+        profiles.append(_profile(
+            SeriesIdentity(source_id=row.source_id, table_key=row.table_key, indicator=row.indicator,
+                           indicator_code=row.indicator_code, fixed_dimensions=series_dims[key]),
             names=names, descriptions=descriptions, concept_ids=concepts,
             survey=_one([item.survey for item in items], "surveys"), unit=unit, scale=scale,
             methodology=_one([d.extras["methodology"] for d in metadata if d.extras.get("methodology")],
@@ -153,9 +190,9 @@ def _observation_profiles(generation, rows: list[Observation], datasets):
 def _catalog_profile(generation, dataset):
     names, descriptions = _texts(dataset)
     _, concepts, scale = _source_metadata([dataset])
-    return SeriesProfile(
-        series=SeriesIdentity(source_id=dataset.source_id, table_key=f"catalog:{dataset.dataset_key}",
-                              indicator=dataset.title),
+    return _profile(
+        SeriesIdentity(source_id=dataset.source_id, table_key=f"catalog:{dataset.dataset_key}",
+                       indicator=dataset.title),
         names=names, descriptions=descriptions, concept_ids=concepts, scale=scale,
         unit=dataset.extras.get("unit"), methodology=dataset.extras.get("methodology"),
         frequency=TypeAdapter(Frequency).validate_python(dataset.extras.get("frequency", "irregular")),
@@ -171,8 +208,8 @@ def _document_profile(generation, source, kind, documents: list[Document]):
         names.setdefault(document.lang, document.title)
         if document.metadata.get("description"):
             descriptions.setdefault(document.lang, document.metadata["description"])
-    return SeriesProfile(
-        series=SeriesIdentity(source_id=source, table_key=f"document:{kind}", indicator=kind),
+    return _profile(
+        SeriesIdentity(source_id=source, table_key=f"document:{kind}", indicator=kind),
         names=names, descriptions=descriptions, frequency="irregular",
         availability="document_only", generation=generation,
     )
@@ -181,7 +218,7 @@ def _document_profile(generation, source, kind, documents: list[Document]):
 def generate_profiles(
     generation: int, *, observations: ObservationStore, catalog: CatalogStore,
     chunks: ChunkStore, registry: Registry, store: SQLiteProfileStore,
-    previous_generation: int | None = None,
+    previous_generation: int | None = None, skipped: list | None = None,
 ) -> list[SeriesProfile]:
     """Replace one Eltiro generation atomically; return detached, deterministic profiles.
 
@@ -189,6 +226,11 @@ def generate_profiles(
     Incremental reads still scan fingerprints; only changed units materialize profiles.
     Missing previous-generation cache entries safely trigger a full rebuild of that unit.
     Exceptions propagate without replacing the destination generation.
+
+    Texts and lists over the model caps are cut (see _profile). With ``skipped`` a list, a unit whose
+    profile cannot be built (ValueError) is left out, neither written nor cached, and reported there as
+    ``{"unit", "error", "fields"}`` (key and error kind only, no input). Generation-level integrity
+    errors (unregistered source, chunk without document, incomplete provenance) are never skipped.
     """
     TypeAdapter(Generation).validate_python(generation)
     if previous_generation is not None:
@@ -210,6 +252,23 @@ def generate_profiles(
         if previous is None:
             return None
         return [SeriesProfile.model_validate({**p.model_dump(), "generation": generation}) for p in previous]
+
+    def build(key, make, *args):
+        """The unit's profiles, or None when it is skipped (only if the caller asked for that)."""
+        try:
+            return make(*args)
+        except ValueError as exc:
+            if skipped is None:
+                raise
+            fields = []
+            if callable(getattr(exc, "errors", None)):
+                fields = [".".join(map(str, e["loc"])) + ":" + e["type"]
+                          for e in exc.errors(include_input=False, include_url=False)][:10]
+            elif isinstance(exc, _Conflict):
+                fields = [exc.field]
+            error = "conflict" if isinstance(exc, _Conflict) else type(exc).__name__
+            skipped.append({"unit": key, "error": error, "fields": fields})
+            return None
 
     observation_catalog = observations.describe()
     columns = ", ".join(sorted(Observation.model_fields.keys() & observation_catalog.columns.keys()))
@@ -235,8 +294,9 @@ def generate_profiles(
                                                  max_rows=max(1, table.rows), timeout_s=BATCH_QUERY_TIMEOUT_S)
             if len(detail.provenance) != len(detail.rows):
                 raise ValueError("cannot prove complete observation provenance")
-            profiles = _observation_profiles(generation, detail.provenance, datasets)
-        units[key] = fingerprint, profiles
+            profiles = build(key, _observation_profiles, generation, detail.provenance, datasets)
+        if profiles is not None:
+            units[key] = fingerprint, profiles
 
     for key in sorted(datasets):
         dataset = datasets[key]
@@ -246,7 +306,10 @@ def generate_profiles(
         fingerprint = _fingerprint([dataset.model_dump(mode="json")])
         unit_key = _json(["catalog", key])
         profiles = cached(unit_key, fingerprint)
-        units[unit_key] = fingerprint, profiles if profiles is not None else [_catalog_profile(generation, dataset)]
+        if profiles is None:
+            profiles = build(unit_key, lambda *a: [_catalog_profile(*a)], generation, dataset)
+        if profiles is not None:
+            units[unit_key] = fingerprint, profiles
 
     documents, blocks = {}, defaultdict(list)
     for chunk in chunks.iter_chunks():
@@ -267,8 +330,10 @@ def generate_profiles(
         fingerprint = _fingerprint([d.model_dump(mode="json") for d in items] + blocks[(source, kind)])
         key = _json(["documents", source, kind])
         profiles = cached(key, fingerprint)
-        units[key] = fingerprint, (profiles if profiles is not None
-                                   else [_document_profile(generation, source, kind, items)])
+        if profiles is None:
+            profiles = build(key, lambda *a: [_document_profile(*a)], generation, source, kind, items)
+        if profiles is not None:
+            units[key] = fingerprint, profiles
 
     for source in sorted(sources):
         if registry.get(source) is None:
