@@ -291,3 +291,33 @@ def test_generation_mismatch_fails_instead_of_using_latest_evidence(matching):
     matching.observations.query_readonly = lambda *args, **kwargs: wrong_generation
     with pytest.raises(ValueError, match="generation mismatch"):
         matching(profiles=[profile])
+
+
+def test_evidence_reads_use_the_batch_timeout_and_a_timeout_still_propagates(matching):
+    from datumoj.eltiro.contracts import BATCH_QUERY_TIMEOUT_S
+    from datumoj.rikolto.core.contracts import QueryTimeout
+
+    class Timed:
+        """Reads taking `seconds` fail like the real store when timeout_s is shorter."""
+
+        def __init__(self, backing, seconds):
+            self.backing, self.seconds, self.timeouts = backing, seconds, []
+
+        def describe(self):
+            return self.backing.describe()
+
+        def query_readonly(self, sql, max_rows=1000, timeout_s=10, **kwargs):
+            self.timeouts.append(timeout_s)
+            if self.seconds > timeout_s:
+                raise QueryTimeout("timeout")
+            return self.backing.query_readonly(sql, max_rows, timeout_s, **kwargs)
+
+    profile = make_profile(unit=" usd ")
+    matching.seed([profile])
+    slow_but_ok = Timed(matching.observations, BATCH_QUERY_TIMEOUT_S - 1)
+    matching(demand("Nominal GDP"), [profile], observations=slow_but_ok)
+    assert slow_but_ok.timeouts and set(slow_but_ok.timeouts) == {BATCH_QUERY_TIMEOUT_S}
+    too_slow = Timed(matching.observations, BATCH_QUERY_TIMEOUT_S + 1)
+    with pytest.raises(QueryTimeout):
+        matching(demand("Nominal GDP"), [profile.model_copy(update={"generation": 2})],
+                 observations=too_slow, generation=2)

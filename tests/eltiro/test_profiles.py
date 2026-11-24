@@ -191,3 +191,30 @@ def test_profiles_cached_under_an_older_identity_rule_are_rebuilt(inputs, monkey
     # Same table bytes, incremental run: the old split identities must not be reused.
     profiles = generate_profiles(2, **inputs, previous_generation=1)
     assert [p.series.fixed_dimensions for p in profiles] == [{}]
+
+
+def test_profile_reads_use_the_batch_timeout_and_a_timeout_still_propagates(inputs):
+    from datumoj.eltiro.contracts import BATCH_QUERY_TIMEOUT_S
+    from datumoj.rikolto.core.contracts import QueryTimeout
+
+    class Timed:
+        def __init__(self, backing, seconds):
+            self.backing, self.seconds, self.timeouts = backing, seconds, []
+
+        def describe(self):
+            return self.backing.describe()
+
+        def query_readonly(self, sql, max_rows=1000, timeout_s=10, **kwargs):
+            self.timeouts.append(timeout_s)
+            if self.seconds > timeout_s:
+                raise QueryTimeout("timeout")
+            return self.backing.query_readonly(sql, max_rows, timeout_s, **kwargs)
+
+    inputs["catalog"].upsert([make_dataset("jp-stat:pop", "人口")])
+    inputs["observations"].write_table("jp-stat", "t1", [make_observation("one", "1", indicator_code="POP")])
+    backing = inputs["observations"]
+    ok = Timed(backing, BATCH_QUERY_TIMEOUT_S - 1)
+    generate_profiles(1, **{**inputs, "observations": ok})
+    assert len(ok.timeouts) == 2 and set(ok.timeouts) == {BATCH_QUERY_TIMEOUT_S}
+    with pytest.raises(QueryTimeout):
+        generate_profiles(2, **{**inputs, "observations": Timed(backing, BATCH_QUERY_TIMEOUT_S + 1)})

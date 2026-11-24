@@ -28,6 +28,9 @@ from datumoj.eltiro.models import (
 )
 from datumoj.rikolto.core.models import GenerationToken, LicenseInfo
 
+# Whole-table/series reads in Eltiro batch work; interactive queries keep their own 10 s default.
+BATCH_QUERY_TIMEOUT_S = 900
+
 
 class RouteInvalid(ValueError):
     """Frozen route/context changed, authorization revoked, or current license forbids use."""

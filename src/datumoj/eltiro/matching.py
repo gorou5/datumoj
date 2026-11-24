@@ -17,7 +17,7 @@ from pathlib import Path
 from pydantic import TypeAdapter
 
 from datumoj.eltiro.concept_notes import list_concept_notes
-from datumoj.eltiro.contracts import ProfileStore
+from datumoj.eltiro.contracts import BATCH_QUERY_TIMEOUT_S, ProfileStore
 from datumoj.eltiro.match_store import MatchResult, SQLiteMatchStore, series_key
 from datumoj.eltiro.model_match import _context, _model_config, _run_inputs, judge_candidates
 from datumoj.eltiro.models import (
@@ -91,7 +91,8 @@ class _EvidenceReader:
                     where = " AND ".join(f"{k} = '{v.replace(chr(39), chr(39) * 2)}'"
                                          for k, v in zip(("source_id", "table_key"), key))
                     result = self.observations.query_readonly(
-                        f"SELECT * FROM observations WHERE {where}", max_rows=max(1, summary.rows))
+                        f"SELECT * FROM observations WHERE {where}", max_rows=max(1, summary.rows),
+                        timeout_s=BATCH_QUERY_TIMEOUT_S)
                     if (result.generation_token is not None
                             and GenerationToken.parse(result.generation_token).generation != self.generation):
                         raise ValueError("evidence generation mismatch")
