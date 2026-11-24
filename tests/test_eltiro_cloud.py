@@ -431,3 +431,22 @@ def test_script_never_writes_the_remote_store():
     assert "restore_latest" in text and "wiring.build" not in text
     assert not [word for word in ("StateManager", ".push(", ".put(", "lease", "delete_object", "publish(")
                 if word in text]
+
+
+def test_validation_failure_reports_fields_and_unit_without_input(cloud, data, tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from pydantic import BaseModel
+
+    class Strict(BaseModel):
+        unit: int
+
+    def invalid(root):
+        row = SimpleNamespace(source_id="intl-oecd", table_key="gdp", value="secret-value-123")  # noqa: F841
+        Strict(unit="secret-value-123")
+
+    monkeypatch.setattr(cloud, "restore_latest", invalid)
+    result = go(cloud, data, tmp_path)
+    assert (result["error_code"], result["error_type"]) == ("restore_failed", "ValidationError")
+    assert result["error_fields"] == ["unit:int_parsing"] and result["error_unit"] == "intl-oecd/gdp"
+    assert "secret-value-123" not in json.dumps(result)

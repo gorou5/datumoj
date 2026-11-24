@@ -334,7 +334,23 @@ def where(exc):
         if any(path.is_relative_to(ROOT / part) for part in ("src", "scripts")):
             frames.append(f"{path.relative_to(ROOT)}:{frame.lineno}")
     at = frames[-1] if frames else None
-    return {"error_type": "<-".join(chain), "error_at": at}
+    found = {"error_type": "<-".join(chain), "error_at": at}
+    if callable(getattr(exc, "errors", None)):
+        # pydantic: field locations and error kinds only; the offending input is left out.
+        try:
+            found["error_fields"] = [cap(".".join(map(str, e["loc"])) + ":" + e["type"])
+                                     for e in exc.errors(include_input=False, include_url=False)][:10]
+        except Exception:  # noqa: BLE001 -- diagnostics must never replace the real failure.
+            pass
+    tb, unit = exc.__traceback__, None
+    while tb is not None:
+        row = tb.tb_frame.f_locals.get("row")
+        if isinstance(getattr(row, "source_id", None), str) and isinstance(getattr(row, "table_key", None), str):
+            unit = cap(f"{row.source_id}/{row.table_key}")  # registry id and table key: metadata, not values
+        tb = tb.tb_next
+    if unit is not None:
+        found["error_unit"] = unit
+    return found
 
 
 def run(data_dir, demand_ids, bindings_path, output, *, demands_dir=DEMANDS_DIR, bindings_dir=BINDINGS_DIR):
