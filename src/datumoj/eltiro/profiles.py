@@ -16,6 +16,7 @@ from pydantic import TypeAdapter
 
 from datumoj.eltiro.contracts import BATCH_QUERY_TIMEOUT_S
 from datumoj.eltiro.models import (
+    MAX_ENTITIES,
     SERIES_IDENTITY_RULE,
     ConceptId,
     Frequency,
@@ -129,6 +130,10 @@ def _observation_profiles(generation, rows: list[Observation], datasets):
             unit = _one([d.extras["unit"] for d in metadata if d.extras.get("unit") is not None], "units")
         kinds = {frequencies.get(item.granularity, "irregular") for item in items}
         frequency = next(iter(kinds)) if len(kinds) == 1 else "irregular"
+        areas = sorted({item.area_code or item.area_label for item in items if item.area_code or item.area_label})
+        # Over the cap, list nothing: a truncated list could make detect_scheme misjudge a subset as ISO.
+        if len(areas) > MAX_ENTITIES:
+            areas = []
         profiles.append(SeriesProfile(
             series=SeriesIdentity(source_id=row.source_id, table_key=row.table_key, indicator=row.indicator,
                                   indicator_code=row.indicator_code,
@@ -137,7 +142,7 @@ def _observation_profiles(generation, rows: list[Observation], datasets):
             survey=_one([item.survey for item in items], "surveys"), unit=unit, scale=scale,
             methodology=_one([d.extras["methodology"] for d in metadata if d.extras.get("methodology")],
                              "methodology"),
-            areas=sorted({item.area_code or item.area_label for item in items if item.area_code or item.area_label}),
+            areas=areas,
             time_start=min((item.time_start for item in items if item.time_start), default=None),
             time_end=max((item.time_end for item in items if item.time_end), default=None),
             frequency=frequency, availability="observations", generation=generation,
