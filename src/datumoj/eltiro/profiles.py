@@ -14,6 +14,7 @@ from hashlib import sha256
 
 from pydantic import TypeAdapter
 
+from datumoj.eltiro.contracts import BATCH_QUERY_TIMEOUT_S
 from datumoj.eltiro.models import (
     SERIES_IDENTITY_RULE,
     ConceptId,
@@ -216,7 +217,7 @@ def generate_profiles(
         # Named columns avoid relying on provenance for fingerprints, including duplicate
         # obs_ids across tables. Hash row contents too: same-snapshot reparsing can change metadata.
         result = observations.query_readonly(f"SELECT {columns} FROM observations WHERE {where}",
-                                             max_rows=max(1, table.rows))
+                                             max_rows=max(1, table.rows), timeout_s=BATCH_QUERY_TIMEOUT_S)
         used = {row[result.columns.index("dataset_key")] for row in result.rows}
         used_datasets.update(used)
         metadata = [datasets[k].model_dump(mode="json") for k in sorted(used) if k in datasets]
@@ -226,7 +227,7 @@ def generate_profiles(
         profiles = cached(key, fingerprint)
         if profiles is None:
             detail = observations.query_readonly(f"SELECT * FROM observations WHERE {where}",
-                                                 max_rows=max(1, table.rows))
+                                                 max_rows=max(1, table.rows), timeout_s=BATCH_QUERY_TIMEOUT_S)
             if len(detail.provenance) != len(detail.rows):
                 raise ValueError("cannot prove complete observation provenance")
             profiles = _observation_profiles(generation, detail.provenance, datasets)

@@ -384,3 +384,41 @@ def test_large_window_fails_without_dropping_required_citations(tmp_path):
     with pytest.raises(ExecutionError):
         run(tmp_path, registry, demand)
     assert not (tmp_path / "eltiro/runs").exists()
+
+
+def test_checked_reads_and_run_sequence_use_the_batch_timeout_and_a_timeout_still_propagates(tmp_path, monkeypatch):
+    from datumoj.eltiro.contracts import BATCH_QUERY_TIMEOUT_S
+    from datumoj.rikolto.core.contracts import QueryTimeout
+
+    store, registry = seed(tmp_path, [[observation("5")]])
+    publish(store)
+    real_open, timeouts, statements = executor.open_generation_views, [], []
+    seconds = [BATCH_QUERY_TIMEOUT_S - 1]
+
+    @contextmanager
+    def opened(root, fixed):
+        with real_open(root, fixed) as views:
+            query = views.observations.query_readonly
+
+            def tracked(sql, max_rows=1000, timeout_s=10, **kwargs):
+                timeouts.append(timeout_s)
+                statements.append(sql)
+                if seconds[0] > timeout_s:
+                    raise QueryTimeout("timeout")
+                return query(sql, max_rows, timeout_s, **kwargs)
+
+            monkeypatch.setattr(views.observations, "query_readonly", tracked)
+            yield views
+
+    monkeypatch.setattr(executor, "open_generation_views", opened)
+    run(tmp_path, registry)  # no profiles yet: validate, profiles, matching, describe and series reads
+    assert set(timeouts) == {BATCH_QUERY_TIMEOUT_S}
+    assert any("ORDER BY time_start,area_code,obs_id" in s for s in statements)  # series read
+    assert any("GROUP BY source_id,table_key" in s for s in statements)  # describe
+    assert any("WHERE false" in s for s in statements)  # validate
+    assert executor.CheckedObservations.query_readonly.__defaults__[1] == BATCH_QUERY_TIMEOUT_S
+    before = len(timeouts)
+    seconds[0] = BATCH_QUERY_TIMEOUT_S + 1
+    with pytest.raises(ExecutionError):  # the public boundary maps the timeout to its fixed error
+        run(tmp_path, registry)
+    assert len(timeouts) == before + 1 and timeouts[-1] == BATCH_QUERY_TIMEOUT_S  # validate hit the timeout

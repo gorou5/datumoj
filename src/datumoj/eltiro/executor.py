@@ -15,6 +15,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from datumoj.eltiro.areas import BY_SCHEME, country, detect_scheme
+from datumoj.eltiro.contracts import BATCH_QUERY_TIMEOUT_S
 from datumoj.eltiro.intake import load_consumers
 from datumoj.eltiro.match_store import SQLiteMatchStore, series_key
 from datumoj.eltiro.matching import match_demand
@@ -46,7 +47,7 @@ class CheckedObservations:
     def __init__(self, observations, token):
         self.observations, self.token = observations, token
 
-    def query_readonly(self, sql, max_rows=1000, timeout_s=10, *, generation_token=None, as_of_release=None):
+    def query_readonly(self, sql, max_rows=1000, timeout_s=BATCH_QUERY_TIMEOUT_S, *, generation_token=None, as_of_release=None):
         if generation_token is not None and generation_token != self.token:
             raise ExecutionError("generation token mismatch")
         result = self.observations.query_readonly(sql, max_rows, timeout_s,
@@ -63,14 +64,15 @@ class CheckedObservations:
         result = self.query_readonly(
             "SELECT source_id,table_key,list(DISTINCT dataset_key),list(DISTINCT survey),"
             "list(DISTINCT indicator),count(DISTINCT area_code),min(time_start),max(time_end),count(*) "
-            "FROM observations GROUP BY source_id,table_key ORDER BY source_id,table_key", max_rows=2**63 - 2)
+            "FROM observations GROUP BY source_id,table_key ORDER BY source_id,table_key",
+            max_rows=2**63 - 2, timeout_s=BATCH_QUERY_TIMEOUT_S)
         return ObservationCatalog(columns=dict(OBSERVATION_RELEASE_COLUMNS), tables=[
             TableSummary(source_id=sid, table_key=table, dataset_keys=sorted(dks), surveys=sorted(surveys),
                          indicators=sorted(inds), area_count=areas, time_start=start, time_end=end, rows=n)
             for sid, table, dks, surveys, inds, areas, start, end, n in result.rows])
 
     def validate(self):
-        self.query_readonly("SELECT 1 WHERE false")
+        self.query_readonly("SELECT 1 WHERE false", timeout_s=BATCH_QUERY_TIMEOUT_S)
 
 
 @dataclass(frozen=True)
@@ -195,7 +197,8 @@ def _fetch(demand, record, profile, reader, catalog, registry, tables, gaps):
     output, last = [], {}
     generation = GenerationToken.parse(reader.token).generation
     for position, release in enumerate(releases):
-        result = reader.query_readonly(sql, max_rows=2**63 - 2, as_of_release=release)
+        result = reader.query_readonly(sql, max_rows=2**63 - 2, timeout_s=BATCH_QUERY_TIMEOUT_S,
+                                       as_of_release=release)
         if len(result.row_evidence) != len(result.rows):
             raise ExecutionError("observation identity unavailable")
         unique, points = set(), set()
