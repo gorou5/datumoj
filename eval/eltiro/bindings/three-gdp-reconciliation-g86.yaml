@@ -1,0 +1,9 @@
+# #002 three-gdp-reconciliation 的人工确认名单，依据 R2 第 86 代的候选清单（eltiro-run 运行 45504763776，2026-11-25）。
+# 命中的候选确认，同一需求其余候选拒绝。
+# 没有列的：IMF WEO 在第 86 代里没有 NGDPD/NGDP（只有 2009–2010 存档的其他指标，API 因 robots.txt 502 没抓到）；
+# OECD 本币序列（UNIT_MEASURE=XDC）在本次匹配里没进 gdp_lcu 的候选，名单不能列候选以外的条目。
+bindings:
+  - {demand: three-gdp-reconciliation, indicator: gdp_usd, source_id: intl-wdi, indicator_code: NY.GDP.MKTP.CD, dimensions: {}}
+  # OECD 表 1 支出法 GDP，当年价、未变换、按汇率折美元；每个国家一条序列，五国都命中。
+  - {demand: three-gdp-reconciliation, indicator: gdp_usd, source_id: intl-oecd, indicator_code: B1GQ, dimensions: {UNIT_MEASURE: USD_EXC, PRICE_BASE: V, TRANSFORMATION: N}}
+  - {demand: three-gdp-reconciliation, indicator: gdp_lcu, source_id: intl-wdi, indicator_code: NY.GDP.MKTP.CN, dimensions: {}}
