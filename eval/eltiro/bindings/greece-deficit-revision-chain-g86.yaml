@@ -1,0 +1,7 @@
+# V07 greece-deficit-revision-chain 的人工确认名单，依据 R2 第 86 代的候选清单（eltiro-run 运行 45624186668，2026-11-25）。
+# 命中的候选确认，同一需求其余候选拒绝。
+# 只有 IMF WEO 的希腊一般政府净借贷可确认：GGXCNL_NGDP（现行代码）和 GGB_NGDP（2009 年存档里的旧代码，同一概念）。
+# 没有列的：eu-eurostat 在第 86 代里没进任何指标的候选；debt_eur、deficit_eur 的候选全是日本目录条目，不相干。
+bindings:
+  - {demand: greece-deficit-revision-chain, indicator: deficit_pct_gdp, source_id: intl-imf-weo, indicator_code: GGXCNL_NGDP, dimensions: {COUNTRY: GRC}}
+  - {demand: greece-deficit-revision-chain, indicator: deficit_pct_gdp, source_id: intl-imf-weo, indicator_code: GGB_NGDP, dimensions: {COUNTRY: GRC}}
