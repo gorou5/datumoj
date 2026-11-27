@@ -131,6 +131,10 @@ def test_first_trigger_lists_candidates_and_runs_unconfirmed(cloud, data, tmp_pa
         ("gdp_usd", "pending_confirmation"), ("gdp_usd", "unbound_indicator")}
     assert "pending_confirmation" in indicators["gdp_usd"]["gap_report"]["gaps"]
     assert indicators["gdp_usd"]["gap_report"]["bound_sources"] == []
+    preferred = demand["preferred_sources"]
+    assert set(preferred) == {"intl-imf-weo", "intl-oecd", "intl-wdi"}
+    assert preferred["intl-wdi"]["profiles"].get("observations", 0) > 0
+    assert all(set(v) == {"profiles", "missing_evidence", "missing_evidence_tables"} for v in preferred.values())
     text = json.dumps(summary, ensure_ascii=False) + (tmp_path / "out/summary.md").read_text(encoding="utf-8")
     assert_public(text + captured.out, data, tmp_path, runs_with_values=False)
 

@@ -116,6 +116,21 @@ def candidate_view(record, profile):
     }
 
 
+def preferred_view(demand, profiles, missing):
+    """Per preferred source: profile counts by availability and series left out for lack of evidence (metadata only)."""
+    wanted = sorted({source for indicator in demand.indicators for source in indicator.preferred_sources})
+    view = {}
+    for source in wanted:
+        kinds = {}
+        for profile in profiles:
+            if profile.series.source_id == source:
+                kinds[profile.availability] = kinds.get(profile.availability, 0) + 1
+        dropped = sorted({cap(s.table_key) for s in missing if s.source_id == source})
+        view[source] = {"profiles": kinds, "missing_evidence": sum(s.source_id == source for s in missing),
+                        "missing_evidence_tables": dropped[:20]}
+    return view
+
+
 def run_view(root, record, demand):
     """Row counts per (symbol, source) and gap codes of one run; the values themselves are never read out."""
     import pyarrow.parquet as pq
@@ -242,9 +257,11 @@ def execute(root, ids, sources, bindings, output, generation, mark, counts, mode
                 {"unit": cap(item["unit"]), "error": item["error"], "fields": [cap(f) for f in item["fields"]]}
                 for item in skipped[:100]]}
             for demand_id, demand in active.items():
-                match_demand(demand, generation, profiles=profiles, consumer=consumers[demand.consumer],
-                             observations=views.observations, catalog=views.catalog, chunks=views.chunks,
-                             store=matches, vector=False, model=False)
+                result = match_demand(demand, generation, profiles=profiles, consumer=consumers[demand.consumer],
+                                      observations=views.observations, catalog=views.catalog, chunks=views.chunks,
+                                      store=matches, vector=False, model=False)
+                accepted[demand_id]["preferred_sources"] = preferred_view(
+                    demand, profiles.list(generation), result.missing_evidence)
             # Every list entry must name an existing candidate before anything runs or is decided.
             entries = {demand_id: [e for e in bindings or [] if e["demand"] == demand_id] for demand_id in active}
             for demand_id, demand in active.items():
