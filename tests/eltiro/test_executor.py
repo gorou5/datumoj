@@ -303,6 +303,21 @@ def test_declared_iso_schemes_align_to_demand_alpha3(tmp_path, code, scheme):
     assert len(rows) == 1 and rows[0]["country"] == "JPN" and not gaps
 
 
+@pytest.mark.parametrize("code,expected", [("EL", "GRC"), ("GR", None)])
+def test_source_declared_eurostat_geo_maps_el_to_grc_and_not_gr(tmp_path, code, expected):
+    # The declaration is on the source (scope), the dataset declares nothing.
+    store, _ = seed(tmp_path, [[observation(area_code=code)]], metadata={"area_code_scheme": None})
+    publish(store)
+    registry = FakeRegistry([make_spec("intl-wdi", scope={"area_code_scheme": "Eurostat-geo"})])
+    demand = make_demand(entities={"countries": ["GRC"]},
+                         indicators=[{"key": "gdp", "concept": "NY.GDP.MKTP.CD", "unit": "USD"}])
+    rows, _, gaps = outputs(tmp_path, run(tmp_path, registry, demand))
+    if expected:
+        assert [(r["country"], r["value"]) for r in rows] == [(expected, Decimal(10))] and not gaps
+    else:
+        assert not rows and "no_matching_observations" in {g["reason"] for g in gaps}
+
+
 def test_model_suggested_scale_is_not_source_confirmation(tmp_path):
     store, registry = seed(tmp_path, [[observation()]])
     publish(store)

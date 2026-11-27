@@ -260,6 +260,11 @@ ZW ZWE 716
 ROWS = tuple(tuple(line.split()) for line in _CODES.strip().splitlines())
 SCHEMES = ("ISO3166-1-alpha2", "ISO3166-1-alpha3", "ISO3166-1-numeric")
 BY_SCHEME = {scheme: {row[n]: row[1] for row in ROWS} for n, scheme in enumerate(SCHEMES)}
+# Eurostat "geo": ISO alpha-2 except Greece (EL) and the United Kingdom (UK). Declared only, never auto-detected, and
+# aggregates (EU27_2020, EA20, ...) are not mapped.
+EUROSTAT_GEO = "Eurostat-geo"
+BY_SCHEME[EUROSTAT_GEO] = {
+    {"GR": "EL", "GB": "UK"}.get(alpha2, alpha2): alpha3 for alpha2, alpha3 in BY_SCHEME["ISO3166-1-alpha2"].items()}
 
 
 def country(code: str, scheme: str | None) -> str | None:
@@ -278,5 +283,5 @@ def detect_scheme(areas: list[str], declared: list[str]) -> str | None:
         return next(iter(schemes))
     if schemes or not areas:
         return None
-    matches = [scheme for scheme, codes in BY_SCHEME.items() if all(a in codes for a in areas)]
+    matches = [scheme for scheme in SCHEMES if all(a in BY_SCHEME[scheme] for a in areas)]
     return matches[0] if len(matches) == 1 else None
