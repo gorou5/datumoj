@@ -19,8 +19,9 @@ What m1 CAN show:
   offending row's, see summary F4); an IMF-only run (the m1 gate control) is delivered with only IMF values.
 
 What m1 can NOT show (details and the findings behind each are in results/DATUMOJ-WISTERIA-902/summary.md):
-- V07 has no Eurostat binding without a model (B9 is never proposed for the deficit ratio, debt_eur and deficit_eur
-  have no candidate), so V07's lineage is IMF only and the real gate lets it out; the plan expects it to be refused.
+- V07's Eurostat series are now proposed and confirmed (325: English positive examples in the demand), but the executor
+  reads no Eurostat row (geo "EL" is no ISO code and eu-eurostat declares no area_code_scheme: `unknown_area_scheme`).
+  V07's lineage is IMF only, so the real gate lets it out; the plan expects it to be refused.
 - #002's local-currency indicator has no OECD candidate, and its USD ``source_spread`` is empty because the recorded WDI
   metadata covers only NY.GDP.MKTP.CN (the local-currency spread is hand-checked for IMF and WDI, Japan only).
 - No model and no vector recall (that is 903); every candidate is decided by a simulated person.
@@ -104,9 +105,9 @@ GDP_BINDINGS = (
     ("gdp_lcu", "intl-oecd", "B1GQ", {"UNIT_MEASURE": "XDC"}))
 V07_BINDINGS = (
     ("deficit_pct_gdp", IMF, "GGXCNL_NGDP", {}), ("deficit_pct_gdp", IMF, "GGB_NGDP", {}),
-    ("deficit_pct_gdp", "eu-eurostat", "B9", {"unit": "PC_GDP"}),
-    ("debt_eur", "eu-eurostat", "GD", {"unit": "MIO_EUR"}),
-    ("deficit_eur", "eu-eurostat", "B9", {"unit": "MIO_EUR"}))
+    ("deficit_pct_gdp", "eu-eurostat", "B9", {"unit": "PC_GDP", "geo": "EL", "sector": "S13"}),
+    ("debt_eur", "eu-eurostat", "GD", {"unit": "MIO_EUR", "geo": "EL", "sector": "S13"}),
+    ("deficit_eur", "eu-eurostat", "B9", {"unit": "MIO_EUR", "geo": "EL", "sector": "S13"}))
 CONTROL_BINDINGS = (("gdp_usd", IMF, "NGDPD", {}),)
 
 
@@ -548,15 +549,17 @@ def test_matching_findings_for_the_greek_indicators_are_visible(pilot):
     imf = sorted((r for r in by_indicator["deficit_pct_gdp"] if r.series.source_id == IMF), key=lambda r: -r.confidence)
     assert imf[0].series.indicator_code == "GGXCNL_NGDP"
     assert {r.series.indicator_code for r in imf} >= {"GGXCNL_NGDP", "GGB_NGDP"}
-    # Finding (matching, 903 / demand wording): V07's concept texts are Chinese and only deficit_pct_gdp has an English
-    # example ("Government deficit/surplus ... (gov_10dd_edpt1)"). The Eurostat codelist name of B9 ("Net lending
-    # (+)/net borrowing (-)") shares no word with it, so B9 is not proposed for deficit_pct_gdp (GD, "Government
-    # consolidated gross debt", is, through the word "government"), and debt_eur / deficit_eur have no candidate at all.
-    # `eltiro matches confirm` only decides existing candidates, so V07 gets no correct Eurostat binding without 903.
-    eurostat = {(r.series.indicator_code, r.series.fixed_dimensions["unit"]) for r in by_indicator["deficit_pct_gdp"]
-                if r.series.source_id == "eu-eurostat"}
-    assert eurostat == {("GD", "MIO_EUR"), ("GD", "PC_GDP")}
-    assert set(by_indicator) == {"deficit_pct_gdp"}
+    # V07's concept texts are Chinese, so the keyword tier only sees the English positive examples. They now spell the
+    # Eurostat codelist names ("Net lending (+)/net borrowing (-)", "Government consolidated gross debt") without any
+    # code, so the right Eurostat series are candidates (never auto-bound; a person confirms them). Other candidates
+    # that share a keyword come along and a person rejects them, so only the right ones are asserted.
+    eurostat = {key: {(r.series.indicator_code, r.series.fixed_dimensions["unit"]) for r in by_indicator[key]
+                      if r.series.source_id == "eu-eurostat"}
+                for key in ("deficit_pct_gdp", "debt_eur", "deficit_eur")}
+    assert eurostat["deficit_pct_gdp"] >= {("B9", "PC_GDP"), ("B9", "MIO_EUR")}
+    assert eurostat["deficit_eur"] >= {("B9", "PC_GDP"), ("B9", "MIO_EUR")}
+    assert eurostat["debt_eur"] >= {("GD", "PC_GDP"), ("GD", "MIO_EUR")}
+    assert not any(r.auto_bind for r in greece.records if r.series.source_id == "eu-eurostat")
 
 
 def test_eurostat_series_identity_does_not_split_by_period(pilot):
@@ -767,18 +770,23 @@ def test_greek_run_orders_releases_by_release_time_and_marks_the_code_correspond
                 IMF, row["release_id"], digest[row["release_id"]])
 
 
-def test_greek_run_has_no_eurostat_input_and_lists_what_is_missing(v07_run):
+def test_greek_run_binds_eurostat_but_reads_none_of_it_and_lists_what_is_missing(v07_run):
     _, rows, citations, gaps = v07_run
-    # Finding (matching, 903): see test_matching_findings_for_the_greek_indicators_are_visible. Without a Eurostat
-    # binding the output has IMF rows only, so none of the plan's Eurostat values (B9/GD, 2009-2010 EDP notifications)
-    # is reached; the sample holds Eurostat 2000-2015 for EL and the gaps below list exactly what V07 lacks.
+    # Finding (Eltiro executor, area codes): the three Eurostat series are confirmed (the demand wording now gets them
+    # proposed), but the executor cannot read them. The recorded Eurostat series carry geo "EL", which is not an ISO 3166
+    # code, and `eu-eurostat` declares no `area_code_scheme`, so `detect_scheme` returns None and every Eurostat
+    # indicator gets `unknown_area_scheme` (executor `_fetch`). The output therefore has IMF rows only, none of the
+    # plan's Eurostat values (B9/GD) is reached, and debt_change / stock_flow_adjustment have no input. The fix is
+    # outside this test (src / sources: a Eurostat geo scheme with EL -> GRC); when it lands this test must change to
+    # Eurostat rows equal to the recorded sample bytes.
     assert {r["source"] for r in rows} == {IMF}
     assert {i["source_id"] for c in citations for i in c["citation"]["inputs"]} == {IMF}
+    assert {r["symbol"] for r in rows} == {"deficit_pct_gdp", "revision_delta"}
     assert {(g["symbol"], g["reason"]) for g in gaps} == {
+        ("deficit_pct_gdp", "unknown_area_scheme"), ("debt_eur", "unknown_area_scheme"),
+        ("deficit_eur", "unknown_area_scheme"),
         ("deficit_pct_gdp", "insufficient_sources"),  # 2 sources wanted, IMF only
-        ("debt_eur", "unbound_indicator"), ("deficit_eur", "unbound_indicator"),
         ("debt_eur", "entity_unavailable"), ("deficit_eur", "entity_unavailable"),
-        ("debt_eur", "insufficient_sources"), ("deficit_eur", "insufficient_sources"),
         ("debt_change", "no_aligned_inputs"), ("stock_flow_adjustment", "no_aligned_inputs")}
     assert {(g["symbol"], g["entity"]) for g in gaps if g["reason"] == "entity_unavailable"} == {
         ("debt_eur", "GRC"), ("deficit_eur", "GRC")}
@@ -836,9 +844,12 @@ def test_license_gate_names_each_no_outflow_source_of_the_gdp_lineage(pilot, gdp
             assert (error.value.code, error.value.sources) == ("no_outflow", (source,))
 
 
-def test_greek_run_is_deliverable_only_because_eurostat_is_not_bound(pilot, v07_run):
-    # Finding (matching, 903): the plan expects V07 to be refused as a whole once Eurostat (no_outflow) is in its
-    # lineage. With the deterministic tier alone V07's lineage is IMF (raw_ok) only, so the real gate lets it out.
+def test_greek_run_is_deliverable_only_because_no_eurostat_row_is_read(pilot, v07_run):
+    # Finding (Eltiro executor, area codes): the plan expects V07 to be refused as a whole once Eurostat (no_outflow) is
+    # in its lineage. Eurostat is bound now, but the executor reads no Eurostat row (`unknown_area_scheme`, see
+    # test_greek_run_binds_eurostat_but_reads_none_of_it_and_lists_what_is_missing), so the lineage is IMF (raw_ok)
+    # only and the real gate lets the package out. When the executor reads Eurostat, this must become a refusal naming
+    # eu-eurostat (no_outflow).
     root = pilot["root"]
     assert _lineage(v07_run) == {IMF}
     delivery = _package(pilot, v07_run, pilot["real_registry"])
@@ -920,10 +931,9 @@ def test_gap_reports_and_scorer_state(pilot, gdp_run, v07_run):
                for g in i["gaps"])
     # #002: three sources are bound for gdp_usd, IMF + WDI for gdp_lcu (min 2): no indicator-level gap.
     assert kinds["three-gdp-reconciliation"] == {"gdp_usd": set(), "gdp_lcu": set()}
-    # V07: only IMF is bound for the deficit ratio (2 sources wanted); debt and deficit in EUR have no candidate at all.
-    assert kinds["greece-deficit-revision-chain"] == {
-        "deficit_pct_gdp": {"below_min_sources"}, "debt_eur": {"missing", "below_min_sources"},
-        "deficit_eur": {"missing", "below_min_sources"}}
+    # V07: IMF and Eurostat are confirmed for the deficit ratio, Eurostat for debt and deficit in EUR, so the report has no
+    # binding-level gap. It does not see that the executor reads no Eurostat row (`unknown_area_scheme`, only in the run).
+    assert kinds["greece-deficit-revision-chain"] == {"deficit_pct_gdp": set(), "debt_eur": set(), "deficit_eur": set()}
     gold = [load_gold(GOLD / f"{name}.yaml") for name in reports]
     scored = score_matches(gold, records, load_thresholds(ROOT / "eval/eltiro/thresholds.yaml"))
     # All gold is pending_h2: nothing is evaluated, and the checkpoint cannot claim a pass.

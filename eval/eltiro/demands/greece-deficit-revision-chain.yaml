@@ -32,6 +32,7 @@ indicators:
     examples:
       positive:
         - "Eurostat: Government deficit/surplus, % of GDP (gov_10dd_edpt1)"
+        - "Eurostat: Net lending (+)/net borrowing (-), general government, % of GDP"
       negative:
         - "中央政府赤字（不是一般政府）"
         - "基本赤字（扣除利息）"
@@ -42,12 +43,18 @@ indicators:
     preferred_sources: [eu-eurostat]
     min_sources: 1
     keep_separate_by: [source, release]
+    examples:
+      positive:
+        - "Eurostat: Government consolidated gross debt, general government, million euro"
   - key: deficit_eur
     concept: 一般政府净借贷，以欧元计
     unit: EUR
     preferred_sources: [eu-eurostat]
     min_sources: 1
     keep_separate_by: [source, release]
+    examples:
+      positive:
+        - "Eurostat: Net lending (+)/net borrowing (-), general government, million euro"
 
 align:
   keys: [country, year, release]
