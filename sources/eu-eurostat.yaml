@@ -20,6 +20,7 @@ license:
   notes: 统计数据再利用须署名；修改须说明。范围仅含 EU 成员国 EL、DE、FR、NL；逐数据集特别条件尚待核对。
 scope:
   raw_retention_days: 2
+  area_code_scheme: Eurostat-geo
   datasets:
     - id: nama_10_gdp
       query: A.CP_MEUR.B1GQ.DE+FR+NL

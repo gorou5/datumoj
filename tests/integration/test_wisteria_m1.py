@@ -17,11 +17,11 @@ What m1 CAN show:
 - The gate uses the real license levels: WDI, OECD and Eurostat are no_outflow, IMF WEO is raw_ok. #002's lineage
   (IMF, OECD, WDI) is refused as a whole and nothing is written; the refusal names a no_outflow source (only the first
   offending row's, see summary F4); an IMF-only run (the m1 gate control) is delivered with only IMF values.
+- V07's Eurostat series (confirmed, 325) are read: `eu-eurostat` declares the code scheme `Eurostat-geo` (EL -> GRC,
+  326), so the output has the recorded Eurostat values and V07's lineage includes Eurostat (no_outflow): the real gate
+  refuses V07 as a whole, naming eu-eurostat, as the plan expects.
 
 What m1 can NOT show (details and the findings behind each are in results/DATUMOJ-WISTERIA-902/summary.md):
-- V07's Eurostat series are now proposed and confirmed (325: English positive examples in the demand), but the executor
-  reads no Eurostat row (geo "EL" is no ISO code and eu-eurostat declares no area_code_scheme: `unknown_area_scheme`).
-  V07's lineage is IMF only, so the real gate lets it out; the plan expects it to be refused.
 - #002's local-currency indicator has no OECD candidate, and its USD ``source_spread`` is empty because the recorded WDI
   metadata covers only NY.GDP.MKTP.CN (the local-currency spread is hand-checked for IMF and WDI, Japan only).
 - No model and no vector recall (that is 903); every candidate is decided by a simulated person.
@@ -40,6 +40,7 @@ import io
 import json
 import os
 import tempfile
+import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -727,7 +728,8 @@ def test_four_historical_releases_and_the_current_ones_are_readable_by_release_t
 
 def _deficit_2009(rows):
     return {(r["release_id"], r["released_at"].isoformat()): (r["value"], r["note"]) for r in rows
-            if r["symbol"] == "deficit_pct_gdp" and r["country"] == "GRC" and r["period"].year == 2009}
+            if r["symbol"] == "deficit_pct_gdp" and r["source"] == IMF and r["country"] == "GRC"
+            and r["period"].year == 2009}
 
 
 def test_greek_run_orders_releases_by_release_time_and_marks_the_code_correspondence(v07_run):
@@ -751,45 +753,69 @@ def test_greek_run_orders_releases_by_release_time_and_marks_the_code_correspond
     # GGB_NGDP: -6.398 - (-4.509) = -1.889; GGXCNL_NGDP: -13.584 - (-12.866) = -0.718, -15.424 - (-12.866) = -2.558, ...
     # Finding (Eltiro, design): an indicator cannot bind two series as one revision chain, so revision_delta does not
     # run from 2009-04 across the code change. The correspondence is only written on the rows (note), not used.
-    delta = {r["release_id"]: r["value"] for r in rows if r["symbol"] == "revision_delta" and r["period"].year == 2009}
+    delta = {r["release_id"]: r["value"] for r in rows if r["symbol"] == "revision_delta" and r["source"] == IMF
+             and r["period"].year == 2009}
     assert delta == {
         "WEO-2009-APR": Decimal(0), "WEO-2009-OCT": Decimal("-6.398") - Decimal("-4.509"),
         "WEO-2010-APR": Decimal(0), "WEO-2010-OCT": Decimal("-13.584") - Decimal("-12.866"),
         "WEO-2025-OCT": Decimal("-15.424") - Decimal("-12.866"),
         "WEO-2026-APR": Decimal("-15.423608") - Decimal("-12.866"),
         "WEO-2026-OCT": Decimal("-15.423608") - Decimal("-12.866")}
+    # Eurostat has one release only (no release date, release_id is the snapshot digest), so its delta is 0.
+    eurostat_sha = sha((FIX / "eurostat" / "gov_10dd_edpt1_EL_2000-2015.xml").read_bytes())
+    eurostat = {r["symbol"]: r for r in rows if r["source"] == "eu-eurostat" and r["period"].year == 2009
+                and r["symbol"] in ("deficit_pct_gdp", "revision_delta")}
+    assert {s: (r["release_id"], r["released_at"]) for s, r in eurostat.items()} == {
+        "deficit_pct_gdp": (eurostat_sha, None), "revision_delta": (eurostat_sha, None)}
+    assert eurostat["revision_delta"]["value"] == 0
     by_id = {c["citation_id"]: c["citation"] for c in citations}
     digest = {release: sha((ARCHIVE / name).read_bytes()) for name, release, *_ in ARCHIVE_RELEASES} | {
         "WEO-2025-OCT": sha((FIX / "imf_weo" / "weo_2025_oct_GRC_GGXCNL_NGDP_2000-2015.csv").read_bytes()),
         "WEO-2026-APR": sha((FIX / "imf_weo" / "weo_2026_apr_GRC_GGXCNL_NGDP_2000-2015.csv").read_bytes()),
         "WEO-2026-OCT": sha((FIX / "imf_weo" / GRC_CURRENT).read_bytes())}
     for row in rows:
-        if row["symbol"] == "deficit_pct_gdp" and row["period"].year == 2009:
+        if row["symbol"] == "deficit_pct_gdp" and row["source"] == IMF and row["period"].year == 2009:
             (item,) = by_id[row["citation_id"]]["inputs"]
             assert (item["source_id"], item["release_id"], item["snapshot_sha256"]) == (
                 IMF, row["release_id"], digest[row["release_id"]])
 
 
-def test_greek_run_binds_eurostat_but_reads_none_of_it_and_lists_what_is_missing(v07_run):
+def _eurostat_values(item, unit):
+    """Recorded Eurostat values of Greece (geo EL, sector S13) per year, read straight from the XML bytes."""
+    ns = {"g": "http://www.sdmx.org/resources/sdmxml/schemas/v2_1/data/generic"}
+    tree = ET.fromstring((FIX / "eurostat" / "gov_10dd_edpt1_EL_2000-2015.xml").read_bytes())
+    for series in tree.iterfind(".//g:Series", ns):
+        key = {v.get("id"): v.get("value") for v in series.iterfind("g:SeriesKey/g:Value", ns)}
+        if (key["geo"], key["sector"], key["na_item"], key["unit"]) == ("EL", "S13", item, unit):
+            return {int(o.find("g:ObsDimension", ns).get("value")): Decimal(o.find("g:ObsValue", ns).get("value"))
+                    for o in series.iterfind("g:Obs", ns)}
+    raise AssertionError(f"no recorded Eurostat series {item}/{unit}")
+
+
+def test_greek_run_reads_eurostat_el_as_grc_and_lists_what_is_missing(v07_run):
     _, rows, citations, gaps = v07_run
-    # Finding (Eltiro executor, area codes): the three Eurostat series are confirmed (the demand wording now gets them
-    # proposed), but the executor cannot read them. The recorded Eurostat series carry geo "EL", which is not an ISO 3166
-    # code, and `eu-eurostat` declares no `area_code_scheme`, so `detect_scheme` returns None and every Eurostat
-    # indicator gets `unknown_area_scheme` (executor `_fetch`). The output therefore has IMF rows only, none of the
-    # plan's Eurostat values (B9/GD) is reached, and debt_change / stock_flow_adjustment have no input. The fix is
-    # outside this test (src / sources: a Eurostat geo scheme with EL -> GRC); when it lands this test must change to
-    # Eurostat rows equal to the recorded sample bytes.
-    assert {r["source"] for r in rows} == {IMF}
-    assert {i["source_id"] for c in citations for i in c["citation"]["inputs"]} == {IMF}
-    assert {r["symbol"] for r in rows} == {"deficit_pct_gdp", "revision_delta"}
-    assert {(g["symbol"], g["reason"]) for g in gaps} == {
-        ("deficit_pct_gdp", "unknown_area_scheme"), ("debt_eur", "unknown_area_scheme"),
-        ("deficit_eur", "unknown_area_scheme"),
-        ("deficit_pct_gdp", "insufficient_sources"),  # 2 sources wanted, IMF only
-        ("debt_eur", "entity_unavailable"), ("deficit_eur", "entity_unavailable"),
-        ("debt_change", "no_aligned_inputs"), ("stock_flow_adjustment", "no_aligned_inputs")}
-    assert {(g["symbol"], g["entity"]) for g in gaps if g["reason"] == "entity_unavailable"} == {
-        ("debt_eur", "GRC"), ("deficit_eur", "GRC")}
+    # `eu-eurostat` declares `area_code_scheme: Eurostat-geo` (EL -> GRC), so the executor reads the Eurostat series.
+    # The values are the recorded sample bytes (hand-read from the XML, not from the parser), 2000-2015.
+    eurostat = {"deficit_pct_gdp": ("B9", "PC_GDP"), "debt_eur": ("GD", "MIO_EUR"), "deficit_eur": ("B9", "MIO_EUR")}
+    for symbol, (item, unit) in eurostat.items():
+        mine = [r for r in rows if r["symbol"] == symbol and r["source"] == "eu-eurostat"]
+        assert {r["country"] for r in mine} == {"GRC"}
+        assert len(mine) == 16 and {r["period"].year: r["value"] for r in mine} == _eurostat_values(item, unit)
+    assert {r["source"] for r in rows if r["symbol"] in ("debt_eur", "deficit_eur")} == {"eu-eurostat"}
+    assert {r["source"] for r in rows} == {IMF, "eu-eurostat"}
+    assert {i["source_id"] for c in citations for i in c["citation"]["inputs"]} == {IMF, "eu-eurostat"}
+    assert {r["symbol"] for r in rows} == {"deficit_pct_gdp", "revision_delta", "debt_eur", "deficit_eur", "debt_change",
+                                           "stock_flow_adjustment"}
+    # debt_change = debt(t) - debt(t-1); stock_flow_adjustment = debt_change + deficit (deficit is negative).
+    debt, deficit = _eurostat_values("GD", "MIO_EUR"), _eurostat_values("B9", "MIO_EUR")
+    change = {r["period"].year: r["value"] for r in rows if r["symbol"] == "debt_change"}
+    adjustment = {r["period"].year: r["value"] for r in rows if r["symbol"] == "stock_flow_adjustment"}
+    for year in range(2001, 2016):
+        assert change[year] == debt[year] - debt[year - 1]
+        assert adjustment[year] == debt[year] - debt[year - 1] + deficit[year]
+    # The only gaps left: 2000 has no previous year, so no debt change and no adjustment (never filled with zero).
+    assert {(g["symbol"], g["reason"], g["period"]) for g in gaps} == {
+        ("debt_change", "incomplete_window", "2000-01-01"), ("stock_flow_adjustment", "missing_input", "2000-01-01")}
 
 
 # ---------------------------------------------------------------- license gate (real levels)
@@ -844,24 +870,16 @@ def test_license_gate_names_each_no_outflow_source_of_the_gdp_lineage(pilot, gdp
             assert (error.value.code, error.value.sources) == ("no_outflow", (source,))
 
 
-def test_greek_run_is_deliverable_only_because_no_eurostat_row_is_read(pilot, v07_run):
-    # Finding (Eltiro executor, area codes): the plan expects V07 to be refused as a whole once Eurostat (no_outflow) is
-    # in its lineage. Eurostat is bound now, but the executor reads no Eurostat row (`unknown_area_scheme`, see
-    # test_greek_run_binds_eurostat_but_reads_none_of_it_and_lists_what_is_missing), so the lineage is IMF (raw_ok)
-    # only and the real gate lets the package out. When the executor reads Eurostat, this must become a refusal naming
-    # eu-eurostat (no_outflow).
+def test_greek_run_is_refused_as_a_whole_naming_eurostat(pilot, v07_run):
+    # The plan expects V07 to be refused as a whole: Eurostat (no_outflow) is in its lineage now that the executor reads it.
     root = pilot["root"]
-    assert _lineage(v07_run) == {IMF}
-    delivery = _package(pilot, v07_run, pilot["real_registry"])
-    path = Path(delivery["path"])
-    assert path.is_relative_to(root / "consumer" / "outbox")
-    manifest = OutputManifest.model_validate_json((path / "manifest.json").read_bytes())
-    assert manifest.models == []
-    assert manifest.license_summary.by_source == {IMF: Outflow.raw_ok}
-    assert {f.name for f in manifest.files} == {"data.parquet"}  # V07 asks for parquet only
-    assert {i.source_id for c in manifest.citation_index.values() for i in c.inputs} == {IMF}
-    provenance = json.loads((path / "provenance.json").read_bytes())
-    assert len(provenance) == delivery["row_count"] > 0 and {p["source"] for p in provenance} == {IMF}
+    before = sorted((root / "consumer" / "outbox").rglob("*"))
+    assert _lineage(v07_run) == {IMF, "eu-eurostat"}
+    with pytest.raises(LicenseGateError) as error:
+        _package(pilot, v07_run, pilot["real_registry"])
+    assert (error.value.code, error.value.sources) == ("no_outflow", ("eu-eurostat",))
+    # Nothing was written: no data file and no partial bundle.
+    assert sorted((root / "consumer" / "outbox").rglob("*")) == before
 
 
 def test_imf_only_control_is_delivered_with_only_imf_values_and_provenance(pilot, control_run):
@@ -932,7 +950,7 @@ def test_gap_reports_and_scorer_state(pilot, gdp_run, v07_run):
     # #002: three sources are bound for gdp_usd, IMF + WDI for gdp_lcu (min 2): no indicator-level gap.
     assert kinds["three-gdp-reconciliation"] == {"gdp_usd": set(), "gdp_lcu": set()}
     # V07: IMF and Eurostat are confirmed for the deficit ratio, Eurostat for debt and deficit in EUR, so the report has no
-    # binding-level gap. It does not see that the executor reads no Eurostat row (`unknown_area_scheme`, only in the run).
+    # binding-level gap (the point-level gaps of the run are only in its gaps.json).
     assert kinds["greece-deficit-revision-chain"] == {"deficit_pct_gdp": set(), "debt_eur": set(), "deficit_eur": set()}
     gold = [load_gold(GOLD / f"{name}.yaml") for name in reports]
     scored = score_matches(gold, records, load_thresholds(ROOT / "eval/eltiro/thresholds.yaml"))
