@@ -70,7 +70,7 @@ def _text(data: bytes) -> str:
 
 class ImfSdmxParser(Parser):
     name = "imf_sdmx"
-    version = "1"
+    version = "2"
     source_kind = "imf_sdmx"
     content_type = "*"
 

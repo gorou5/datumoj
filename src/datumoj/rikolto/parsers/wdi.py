@@ -16,7 +16,7 @@ _LICENSE = "CC BY 4.0 + World Bank 数据集附加条款"
 
 class WDIParser(Parser):
     name = "worldbank_wdi"
-    version = "1"
+    version = "2"
     source_kind = "worldbank_wdi"
     content_type = "*"
 
