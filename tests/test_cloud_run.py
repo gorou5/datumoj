@@ -1324,6 +1324,35 @@ def test_enable_opens_only_named_source_and_runs_it_first(named):
     assert again["enabled_sources"] == []
 
 
+def test_run_now_runs_named_enabled_source_first_even_if_not_due(named):
+    world = named
+    first, _ = invoke(world, "first")
+    assert {r["source_id"] for r in first["sources"]} == {"jp-cloud0", "jp-cloud1", "jp-cloud2"}
+    world.clock[0] += timedelta(hours=1)
+    plain, _ = invoke(world, "plain")  # jp-cloud1 is daily, so not due an hour later
+    assert "jp-cloud1" not in {r["source_id"] for r in plain["sources"]} and "run_now" not in plain
+    world.clock[0] += timedelta(hours=1)
+    result, _ = invoke(world, "now", "--run-now", "jp-cloud1", "--run-now", "jp-cloud1")
+    assert result["status"] == "completed" and result["run_now"] == ["jp-cloud1"]
+    assert result["run_now_skipped"] == [] and "enabled_sources" not in result
+    assert result["sources"][0]["source_id"] == "jp-cloud1" and result["due"] == 3
+
+
+def test_run_now_does_not_run_a_switched_off_source(named):
+    world = named
+    _only_cloud0_enabled(world, "seed")
+    result, root = invoke(world, "now", "--run-now", "jp-cloud1")
+    assert result["run_now"] == [] and result["run_now_skipped"] == ["jp-cloud1"]
+    assert [r["source_id"] for r in result["sources"]] == ["jp-cloud0"]
+    assert set(schedule.read_control(root)["sources"]) == {"jp-cloud0"}
+
+
+def test_run_now_unknown_source_is_rejected_before_storage(named):
+    result, root = invoke(named, "unknown", "--run-now", "jp-nope")
+    assert result["reason"] == "unknown_source" and result["exit_status"] == 1
+    assert not named.tokens and not root.exists()
+
+
 def test_enable_unknown_source_is_rejected_before_storage(named):
     manager = wiring.build_state(named.tmp / "unused")
     before = manager.list()

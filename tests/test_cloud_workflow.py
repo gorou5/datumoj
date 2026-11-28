@@ -178,14 +178,15 @@ def test_source_issue_step_preserves_unpublished_failure_and_writes_safe_summary
     assert not (tmp_path / "gh-called").exists()
 
 
-def _run_enable(tmp_path, enable):
+def _run_enable(tmp_path, enable, run_now=None):
     steps = load(WORKFLOWS / "cloud-run.yml")["jobs"]["run"]["steps"]
     step = next(s for s in steps if s.get("name") == "Run due sources and publish")
     uv = tmp_path / "uv"
     uv.write_text(f"#!{sys.executable}\nimport json, sys\nprint(json.dumps(sys.argv[1:]))\n")
     uv.chmod(0o755)
     env = {**os.environ, "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
-           "RUNNER_TEMP": str(tmp_path), **({} if enable is None else {"ENABLE": enable})}
+           "RUNNER_TEMP": str(tmp_path), **({} if enable is None else {"ENABLE": enable}),
+           **({} if run_now is None else {"RUN_NOW": run_now})}
     return subprocess.run(["bash", "--noprofile", "--norc", "-c", step["run"]], cwd=tmp_path,
                           env=env, capture_output=True, text=True, check=False)
 
@@ -212,12 +213,31 @@ def test_run_enable_input_rejects_unsafe_characters(tmp_path, enable):
     assert not (tmp_path / "injected").exists()
 
 
+@pytest.mark.parametrize("enable,run_now,extra", [
+    ("", "intl-wdi,intl-imf-weo", ["--run-now", "intl-wdi", "--run-now", "intl-imf-weo"]),
+    ("intl-oecd", "intl-wdi", ["--enable", "intl-oecd", "--run-now", "intl-wdi"]),
+])
+def test_run_now_input_becomes_run_now_options(tmp_path, enable, run_now, extra):
+    response = _run_enable(tmp_path, enable, run_now)
+    assert response.returncode == 0 and response.stderr == ""
+    assert json.loads(response.stdout) == [*BASE, *extra]
+
+
+@pytest.mark.parametrize("run_now", ["intl wdi", "intl-wdi;touch injected", "$(touch injected)", "a,,b"])
+def test_run_now_input_rejects_unsafe_characters(tmp_path, run_now):
+    response = _run_enable(tmp_path, "", run_now)
+    assert response.returncode != 0 and response.stdout == ""
+    assert not (tmp_path / "injected").exists()
+
+
 def test_run_enable_is_an_env_input_and_schedule_has_no_inputs():
     workflow = load(WORKFLOWS / "cloud-run.yml")
     inputs = workflow["on"]["workflow_dispatch"]["inputs"]
-    assert set(inputs) == {"enable"} and inputs["enable"]["type"] == "string" and inputs["enable"]["default"] == ""
+    assert set(inputs) == {"enable", "run_now"}
+    assert all(inputs[name]["type"] == "string" and inputs[name]["default"] == "" for name in inputs)
     step = next(s for s in workflow["jobs"]["run"]["steps"] if s.get("name") == "Run due sources and publish")
-    assert step["env"]["ENABLE"] == "${{ inputs.enable }}" and "${{" not in step["run"]
+    assert step["env"]["ENABLE"] == "${{ inputs.enable }}" and step["env"]["RUN_NOW"] == "${{ inputs.run_now }}"
+    assert "${{" not in step["run"]
 
 
 def test_cleanup_workflow_is_manual_dry_run_and_reuses_writer_protection():

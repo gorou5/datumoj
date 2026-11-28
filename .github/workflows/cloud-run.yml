@@ -7,6 +7,10 @@ name: Cloud run
         description: 'Comma-separated source ids to switch on before this round; empty changes nothing'
         type: string
         default: ''
+      run_now:
+        description: 'Comma-separated enabled source ids to run first this round even if not due; empty changes nothing'
+        type: string
+        default: ''
   schedule:
     # 每 3 小时；避开整点。JMA 稳定用量摸清前不加密。
     - cron: '17 */3 * * *'
@@ -74,23 +78,28 @@ jobs:
           R2_RAW_CLEANUP: ${{ vars['R2_RAW_CLEANUP'] }}
           R2_ORPHAN_RAW_CLEANUP: ${{ vars['R2_ORPHAN_RAW_CLEANUP'] }}
           ENABLE: ${{ inputs.enable }}
+          RUN_NOW: ${{ inputs.run_now }}
         shell: bash
         run: |
           set -euo pipefail
-          enable_args=()
-          if [[ -n "${ENABLE:-}" ]]; then
-            if [[ ! "$ENABLE" =~ ^[A-Za-z0-9_,-]+$ ]]; then
+          source_args=()
+          add_ids() {
+            local option=$1 value=$2 id ids
+            [[ -n "$value" ]] || return 0
+            if [[ ! "$value" =~ ^[A-Za-z0-9_,-]+$ ]]; then
               exit 1
             fi
-            IFS=, read -r -a ids <<< "$ENABLE"
+            IFS=, read -r -a ids <<< "$value"
             for id in "${ids[@]}"; do
               if [[ ! "$id" =~ ^[A-Za-z0-9_-]+$ ]]; then
                 exit 1
               fi
-              enable_args+=(--enable "$id")
+              source_args+=("$option" "$id")
             done
-          fi
-          uv run --frozen rikolto cloud run --max-embed 1000 --max-minutes 40 --reserve-minutes 25 ${enable_args[@]+"${enable_args[@]}"} | tee "$RUNNER_TEMP/cloud-result.json"
+          }
+          add_ids --enable "${ENABLE:-}"
+          add_ids --run-now "${RUN_NOW:-}"
+          uv run --frozen rikolto cloud run --max-embed 1000 --max-minutes 40 --reserve-minutes 25 ${source_args[@]+"${source_args[@]}"} | tee "$RUNNER_TEMP/cloud-result.json"
       - name: Sync source health issues
         if: always()
         # Keep sync nonblocking. Failure is visible in its outcome and the

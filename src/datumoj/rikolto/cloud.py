@@ -553,9 +553,10 @@ def check() -> dict:
 
 
 def run(*, work_dir: Path | None = None, max_embed: int = 1000, max_minutes: float = 40,
-        reserve_minutes: float = 10, no_cleanup: bool = False, enable=()) -> dict:
+        reserve_minutes: float = 10, no_cleanup: bool = False, enable=(), run_now=()) -> dict:
     return _round(work_dir=work_dir, max_embed=max_embed, max_minutes=max_minutes,
-                  reserve_minutes=reserve_minutes, embed_only=False, no_cleanup=no_cleanup, enable=enable)
+                  reserve_minutes=reserve_minutes, embed_only=False, no_cleanup=no_cleanup, enable=enable,
+                  run_now=run_now)
 
 
 def embed(*, work_dir: Path | None = None, max_minutes: float,
@@ -1269,8 +1270,10 @@ def cleanup_only(*, work_dir: Path | None = None, max_minutes: float, delete: bo
     return result
 
 
-def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_cleanup=False, enable=()):
+def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_cleanup=False, enable=(),
+           run_now=()):
     enable = list(dict.fromkeys(enable))
+    run_now = list(dict.fromkeys(run_now))
     result = {"status": "failed", "exit_status": 1, "generation": None,
               "sources": [], "source_health": [], "due": 0, "new": 0, "unchanged": 0, "parsed": 0,
               "failed_sources": [], "reason": None, "budget_exhausted": False,
@@ -1282,17 +1285,18 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                   "embedded": 0, "vector_pending": 0, "embedding_deferred": 0, "embedding_failed": 0,
                   "budget_exhausted": False, "reason": None, "publish_timings": {}, "restore_timings": {}}
     result["capacity"] = gate(None, None, "optional" if embed_only else "essential")
-    if enable:
+    if enable or run_now:
         # Reject unknown ids before any storage access.
         try:
             known = {spec.id for spec in load_registry(Path(__file__).resolve().parents[3] / "sources").all()}
         except RegistryError:
             result.update(reason="registry_invalid", phase="configuration")
             return result
-        if not set(enable) <= known:
+        if not set(enable) | set(run_now) <= known:
             result.update(reason="unknown_source", phase="configuration")
             return result
-        result["enabled_sources"] = []
+        if enable:
+            result["enabled_sources"] = []
     cleanup_enabled = not no_cleanup and os.environ.get("R2_CLEANUP", "on").lower() != "off"
     raw_cleanup_enabled = os.environ.get("R2_RAW_CLEANUP", "off").lower() == "on"
     orphan_raw_cleanup_enabled = os.environ.get("R2_ORPHAN_RAW_CLEANUP", "off") == "on"
@@ -1452,6 +1456,14 @@ def _round(*, work_dir, max_embed, max_minutes, reserve_minutes, embed_only, no_
                         if hasattr(scheduler, "observe_enabled"):
                             scheduler.observe_enabled()
                         due = _due(scheduler, root)
+                        if run_now:
+                            # Named sources skip their interval and go first; switched-off ones stay off.
+                            enabled = {row["source_id"] for row in scheduler.status()["sources"]
+                                       if row["effective_enabled"]}
+                            first = [source_id for source_id in run_now if source_id in enabled]
+                            due = first + [source_id for source_id in due if source_id not in first]
+                            result["run_now"] = first
+                            result["run_now_skipped"] = [s for s in run_now if s not in enabled]
                         result["due"] = len(due)
                         remaining = max_embed
                         pipeline = getattr(deps, "pipeline_deps", None)

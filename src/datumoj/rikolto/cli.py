@@ -184,12 +184,13 @@ def cloud_run(
     max_minutes: float = typer.Option(40, "--max-minutes", min=0, help="从本轮开始到发布前的工作预算（分钟）"),
     reserve_minutes: float = typer.Option(10, "--reserve-minutes", min=0, help="另留给发布和收尾的余量（分钟）"),
     enable: list[str] = typer.Option([], "--enable", help="本轮先开启的来源 ID，可重复；只开启点名的来源"),
+    run_now: list[str] = typer.Option([], "--run-now", help="本轮不论是否到期都先跑的来源 ID，可重复；未开启的不跑"),
 ) -> None:
     from datumoj.rikolto.cloud import run
 
     result = run(work_dir=work_dir, max_embed=max_embed, max_minutes=max_minutes,
                  reserve_minutes=reserve_minutes, **({"no_cleanup": True} if no_cleanup else {}),
-                 **({"enable": enable} if enable else {}))
+                 **({"enable": enable} if enable else {}), **({"run_now": run_now} if run_now else {}))
     typer.echo(_json(result))
     raise typer.Exit(result["exit_status"])
 
