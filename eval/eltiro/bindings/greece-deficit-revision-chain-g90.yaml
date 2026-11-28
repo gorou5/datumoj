@@ -1,0 +1,11 @@
+# V07 greece-deficit-revision-chain 的人工确认名单，依据 R2 第 90 代的候选清单（eltiro-run 运行 46135670912，2026-11-28）。
+# 命中的候选确认，同一需求其余候选拒绝。
+# IMF WEO：希腊一般政府净借贷占 GDP，GGXCNL_NGDP（现行代码）和 GGB_NGDP（2009 年存档里的旧代码，同一概念），同第 86 代名单。
+# Eurostat gov_10dd_edpt1（EDP 通报表，希腊 geo=EL，一般政府 S13）：B9 净借贷按 % of GDP 和百万欧元各一条，GD 总债务按百万欧元。
+# 没有列的：GD PC_GDP（债务率，需求里没有这项）；nama_10_gdp 的德法荷 GDP 和其余关键词带进来的候选，不相干。
+bindings:
+  - {demand: greece-deficit-revision-chain, indicator: deficit_pct_gdp, source_id: intl-imf-weo, indicator_code: GGXCNL_NGDP, dimensions: {COUNTRY: GRC}}
+  - {demand: greece-deficit-revision-chain, indicator: deficit_pct_gdp, source_id: intl-imf-weo, indicator_code: GGB_NGDP, dimensions: {COUNTRY: GRC}}
+  - {demand: greece-deficit-revision-chain, indicator: deficit_pct_gdp, source_id: eu-eurostat, indicator_code: B9, dimensions: {unit: PC_GDP, geo: EL, sector: S13}}
+  - {demand: greece-deficit-revision-chain, indicator: debt_eur, source_id: eu-eurostat, indicator_code: GD, dimensions: {unit: MIO_EUR, geo: EL, sector: S13}}
+  - {demand: greece-deficit-revision-chain, indicator: deficit_eur, source_id: eu-eurostat, indicator_code: B9, dimensions: {unit: MIO_EUR, geo: EL, sector: S13}}
