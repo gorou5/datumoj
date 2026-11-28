@@ -138,7 +138,7 @@ def _dataset(snapshot: Snapshot, structure: dict, used: set[str] = frozenset(),
 
 class EurostatParser(Parser):
     name = "eurostat"
-    version = "1"
+    version = "2"
     source_kind = "eurostat_sdmx"
     content_type = "*"
 
